@@ -68,12 +68,15 @@ function setLien(id, champ, toId, slot) {
 }
 
 function manchesDefaut(rounds) {
-  const n = rounds.length;
   const map = {};
-  rounds.forEach((r, i) => {
-    map[r.key] = i === n - 1 ? 7 : i === n - 2 ? 5 : 3;
-  });
+  for (const r of rounds) map[r.key] = 3;
   return map;
+}
+
+function tailleAuto(nbPayes, tailleMax) {
+  let taille = 2;
+  while (taille < nbPayes) taille <<= 1;
+  return Math.min(taille, tailleMax);
 }
 
 function listeRounds(taille, format, dkoTours) {
@@ -244,6 +247,7 @@ module.exports = {
   listeRounds,
   labelRound,
   manchesDefaut,
+  tailleAuto,
   genererBracket,
   appariementPremierTour,
 };

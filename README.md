@@ -7,6 +7,7 @@ Design **« Eight Ball Pink City »** : thème sombre noir profond avec accents 
 ## Fonctionnalités
 
 - Tournois de **16 / 32 / 64 / 128** joueurs, byes automatiques si moins d'inscrits
+- **Droit d'inscription** : les joueurs s'inscrivent eux-mêmes (statut « en attente »), la table de marque valide le paiement (« 💰 payé ») ; **seuls les joueurs payés entrent dans le tirage**
 - **Élimination directe** ou **double KO partiel** (N = 1/2/3 tours) : les perdants des N premiers tours passent en loser bracket, puis **tableau final à élimination directe** entre tous les survivants, finale en 1 match
 - **Distances paramétrables par round** : 3, 5 ou 7 manches gagnantes (défaut : 3 / 5 / 7 vers la fin)
 - **Tirage aléatoire** ou avec **têtes de série**

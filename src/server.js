@@ -113,16 +113,16 @@ function majEtBroadcast() {
 }
 
 app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
-  const { nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables } = req.body;
+  const { nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto } = req.body;
   if (tournoiActuel()) return res.status(409).json({ error: 'Un tournoi existe déjà. Supprimez-le d\'abord.' });
   if (!['blackball', 'ultimate'].includes(regle)) return res.status(400).json({ error: 'Règle invalide' });
-  if (![16, 32, 64, 128].includes(Number(taille))) return res.status(400).json({ error: 'Taille invalide' });
+  if (![16, 32, 64, 128].includes(Number(taille))) return res.status(400).json({ error: 'Taille invalide (max)'});
   if (!['simple', 'double'].includes(format)) return res.status(400).json({ error: 'Format invalide' });
   const k = format === 'double' ? Math.min(3, Math.max(1, Number(dko_tours) || 1)) : 0;
   const info = db.prepare(`
-    INSERT INTO tournoi (id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, statut)
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, 'inscription')
-  `).run(nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 4));
+    INSERT INTO tournoi (id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, statut)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
+  `).run(nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 4), ajustement_auto === false ? 0 : 1);
   const t = tournoiActuel();
   for (let i = 1; i <= t.nb_tables; i++) {
     db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
@@ -155,9 +155,9 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
   const t = tournoiActuel();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi déjà lancé, config verrouillée' });
-  const { nom, tetes_de_serie, nb_tables } = req.body;
-  db.prepare('UPDATE tournoi SET nom = ?, tetes_de_serie = ?, nb_tables = ? WHERE id = 1')
-    .run(nom || t.nom, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || t.nb_tables));
+  const { nom, tetes_de_serie, nb_tables, ajustement_auto } = req.body;
+  db.prepare('UPDATE tournoi SET nom = ?, tetes_de_serie = ?, nb_tables = ?, ajustement_auto = ? WHERE id = 1')
+    .run(nom || t.nom, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || t.nb_tables), ajustement_auto === false ? 0 : 1);
   const t2 = tournoiActuel();
   const existantes = db.prepare('SELECT numero FROM table_billard WHERE tournoi_id = 1').all().map(r => r.numero);
   for (let i = 1; i <= t2.nb_tables; i++) {
@@ -257,6 +257,19 @@ app.post('/api/admin/tirage', requireAdmin, (req, res) => {
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tirage déjà effectué' });
   const joueurs = db.prepare(`SELECT * FROM joueur WHERE tournoi_id = 1 AND statut = 'paye' ORDER BY id`).all();
   if (joueurs.length < 2) return res.status(400).json({ error: `Au moins 2 joueurs payés requis (actuellement ${joueurs.length})` });
+  if (t.ajustement_auto) {
+    const tailleEff = bracket.tailleAuto(joueurs.length, t.taille);
+    if (tailleEff !== t.taille) {
+      db.prepare('UPDATE tournoi SET taille = ? WHERE id = 1').run(tailleEff);
+      db.prepare('DELETE FROM distance_round WHERE tournoi_id = 1').run();
+      const rounds = bracket.listeRounds(tailleEff, t.format, t.dko_tours);
+      const def = bracket.manchesDefaut(rounds);
+      const ins = db.prepare('INSERT INTO distance_round (tournoi_id, round, manches) VALUES (1, ?, ?)');
+      for (const rr of rounds) ins.run(rr.key, def[rr.key]);
+      logAudit('ajustement_taille', 'tournoi 1', { taille_max: t.taille }, { taille_effective: tailleEff, nb_payes: joueurs.length });
+      Object.assign(t, { taille: tailleEff });
+    }
+  }
   const manchesMap = distancesMap(1);
   bracket.genererBracket(t, joueurs, manchesMap);
   db.prepare(`UPDATE tournoi SET statut = 'en_cours' WHERE id = 1`).run();

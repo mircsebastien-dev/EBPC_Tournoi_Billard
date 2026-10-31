@@ -119,6 +119,28 @@ async function main() {
   check('simple KO 16: 8/4/2/1 matchs', JSON.stringify(tours) === '[8,4,2,1]', tours);
   check('aucun LB en simple', ts.matchs.every(m => m.bracket === 'WB'));
 
+  console.log('== 8b. Ajustement auto : 5 payés sur max 128 -> tableau de 8 ==');
+  await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Auto', regle: 'blackball', taille: 128, format: 'simple', nb_tables: 2, ajustement_auto: true } });
+  for (let i = 1; i <= 5; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `A${i}` } });
+  for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+    await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
+  }
+  r = await api('/api/admin/tirage', { method: 'POST', body: {} });
+  check('tirage 200', r.status === 200, r.data);
+  check('taille ajustée à 8', r.data.tournoi.tournoi.taille === 8, r.data.tournoi.tournoi.taille);
+  const wb1b = r.data.tournoi.matchs.filter(m => m.tour === 1);
+  check('WB tour1 = 4 matchs (8 joueurs)', wb1b.length === 4, wb1b.length);
+  check('tous les matchs en race to 3 par défaut', r.data.tournoi.matchs.every(m => m.manches === 3));
+  await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Fixe', regle: 'blackball', taille: 32, format: 'simple', nb_tables: 2, ajustement_auto: false } });
+  for (let i = 1; i <= 5; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `B${i}` } });
+  for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+    await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
+  }
+  r = await api('/api/admin/tirage', { method: 'POST', body: {} });
+  check('sans ajustement auto, taille reste 32 (byes)', r.data.tournoi.tournoi.taille === 32, r.data.tournoi.tournoi.taille);
+
   console.log('== 9. SSE accessible ==');
   const ctrl = new AbortController();
   const res = await fetch(BASE + '/api/events', { signal: ctrl.signal });

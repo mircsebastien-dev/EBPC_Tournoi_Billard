@@ -59,7 +59,9 @@ function renderCreerTournoi() {
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
       el('div', {}, el('label', {}, 'Règle'), el('select', { id: 'regle' }, el('option', { value: 'blackball' }, 'Blackball'), el('option', { value: 'ultimate' }, 'Ultimate'))),
-      el('div', {}, el('label', {}, 'Taille'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n }, `${n} joueurs`))))),
+      el('div', {}, el('label', {}, 'Taille max'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n }, `${n} joueurs`))))),
+    el('div', { class: 'row' },
+      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', style: 'width:auto', checked: '' }), 'Ajuster automatiquement la taille du tableau au nombre de joueurs payés'))),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Format'), el('select', { id: 'format' }, el('option', { value: 'simple' }, 'Élimination directe'), el('option', { value: 'double' }, 'Double KO + tableau final'))),
       el('div', {}, el('label', {}, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n }, `${n} tour${n > 1 ? 's' : ''}` })))),
@@ -73,6 +75,7 @@ function renderCreerTournoi() {
         nom: val('nom'), regle: val('regle'), taille: Number(val('taille')),
         format: val('format'), dko_tours: Number(val('dko')),
         tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
+        ajustement_auto: document.getElementById('auto').checked,
       })});
     } catch (e) { alert(e.message); }
   }
@@ -82,7 +85,7 @@ function renderInscriptions(t) {
   const tn = t.tournoi;
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, tn.nom),
-    el('p', { class: 'hero-sub' }, `${tn.taille} joueurs max · ${t.joueurs.length} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés · ${t.tables.length} tables`),
+    el('p', { class: 'hero-sub' }, `${tn.ajustement_auto ? `jusqu'à ${tn.taille}` : tn.taille} joueurs · ${t.joueurs.length} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés · ${t.tables.length} tables${tn.ajustement_auto ? ' · taille ajustée automatiquement au tirage' : ''}`),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'pseudo', maxlength: 40, placeholder: 'Nouveau joueur', autocomplete: 'off' })),
       tn.tetes_de_serie ? el('div', { style: 'flex:0 0 90px' }, el('label', {}, 'N° série'), el('input', { id: 'tds', type: 'number', min: 1 })) : null,
