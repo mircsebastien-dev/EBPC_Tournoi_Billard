@@ -61,10 +61,10 @@ function render() {
   }
   for (const k in byKey) byKey[k].sort((a, b) => a.position - b.position);
 
-  // Ordre des colonnes : WB (tour 1, 2, ...) à gauche -> LB au milieu -> tableau final F à droite
+  // Ordre des colonnes (gauche -> droite) : loser bracket -> tours WB (1, 2, ...) -> tableau final F
   const ordered = [
-    ...rounds.filter(r => r.bracket === 'WB'),
     ...rounds.filter(r => r.bracket === 'LB'),
+    ...rounds.filter(r => r.bracket === 'WB'),
     ...rounds.filter(r => r.bracket === 'F'),
   ];
   const groups = ordered.map(r => ({ round: r, matchs: byKey[r.bracket + r.tour] || [] })).filter(g => g.matchs.length > 0);
@@ -73,8 +73,8 @@ function render() {
     el('div', { class: 'hero-title' }, `🗺 Tableau — ${t.tournoi.nom}`),
     el('p', { class: 'hero-sub' }, `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? 'double KO ' + t.tournoi.dko_tours + ' tours + tableau final' : 'élimination directe'}`),
     el('div', { class: 'legend' },
-      el('span', { class: 'chip' }, '➡ Tours (gagnants avancent à droite)'),
-      el('span', { class: 'chip' }, '⬅ Loser bracket (perdants)'),
+      el('span', { class: 'chip' }, '⬅ Loser bracket (perdants) à gauche'),
+      el('span', { class: 'chip' }, 'Tours 1, 2… (WB) au centre'),
       el('span', { class: 'chip' }, '🏁 Tableau final à droite'),
       el('span', { class: 'chip' }, 'Rose = en cours'),
       el('span', { class: 'chip' }, 'Vert = joué'),
