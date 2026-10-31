@@ -27,17 +27,35 @@ async function main() {
   r = await api('/api/admin/joueur', { method: 'POST', pin: '9999', body: { pseudo: 'X' } });
   check('mauvais PIN -> 401', r.status === 401);
 
-  console.log('== 3. Inscriptions (9 joueurs -> 1 bye) ==');
-  for (let i = 1; i <= 9; i++) {
+  console.log('== 3. Inscriptions (10 joueurs, 9 seront payés -> 1 bye) ==');
+  for (let i = 1; i <= 10; i++) {
     r = await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `J${i}` } });
     check(`inscription J${i}`, r.status === 200, r.data);
   }
   r = await api('/api/etat');
-  check('9 joueurs inscrits', r.data.tournoi.joueurs.length === 9);
+  check('10 joueurs inscrits', r.data.tournoi.joueurs.length === 10);
+  check('tous en_attente par défaut', r.data.tournoi.joueurs.every(j => j.statut === 'en_attente'));
 
-  console.log('== 4. Tirage ==');
+  console.log('== 3b. Paiement : tirage refusé sans joueurs payés ==');
+  r = await api('/api/admin/tirage', { method: 'POST', body: {} });
+  check('tirage refusé (0 payé)', r.status === 400, r.data);
+  const ids = (await api('/api/etat')).data.tournoi.joueurs.map(j => j.id);
+  for (let i = 0; i < 9; i++) {
+    r = await api(`/api/admin/joueur/${ids[i]}/paiement`, { method: 'POST', body: { statut: 'paye' } });
+    check(`paiement joueur ${ids[i]}`, r.status === 200, r.data);
+  }
+  r = await api('/api/admin/joueur/9999/paiement', { method: 'POST', body: { statut: 'paye' } });
+  check('paiement joueur inexistant -> 404', r.status === 404);
+  r = await api('/api/etat');
+  check('9 payés / 1 en attente', r.data.tournoi.joueurs.filter(j => j.statut === 'paye').length === 9);
+
+  console.log('== 4. Tirage (9 payés -> 9 joueurs dans le tableau, J10 exclu) ==');
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
   check('tirage 200', r.status === 200, r.data);
+  const nonPaye = (await api('/api/etat')).data.tournoi.joueurs.find(j => j.statut !== 'paye');
+  check('un seul joueur non payé', !!nonPaye);
+  const dansTableau = r.data.tournoi.matchs.some(m => (m.joueur1 && m.joueur1.id === nonPaye.id) || (m.joueur2 && m.joueur2.id === nonPaye.id));
+  check(`joueur non payé (${nonPaye && nonPaye.pseudo}) exclu du tirage`, !dansTableau);
   const t = r.data.tournoi;
   check('statut en_cours', t.tournoi.statut === 'en_cours');
   const wb1 = t.matchs.filter(m => m.bracket === 'WB' && m.tour === 1);
@@ -50,7 +68,7 @@ async function main() {
   check('LB tour2 = 4 matchs', lb2.length === 4);
   check('F tour1 = 4 matchs (8 finalistes: 4 WB + 4 LB)', f1.length === 4, f1.length);
   const withBoth = wb1.filter(m => m.joueur1 && m.joueur2);
-  check('4 matchs WB1 complets (9 joueurs)', withBoth.length === 4, withBoth.length);
+  check('4 matchs WB1 complets (9 joueurs payés)', withBoth.length === 4, withBoth.length);
   const byes = wb1.filter(m => (m.joueur1 && !m.joueur2) || (!m.joueur1 && m.joueur2));
   check('1 bye au tour 1', byes.length === 1, byes.length);
   check('bye terminé automatiquement + gagnant propagé', byes.length === 1 && byes[0].etat === 'termine' && byes[0].gagnant_id != null, byes);
@@ -92,6 +110,9 @@ async function main() {
   check('suppression', r.status === 200);
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Simple', regle: 'ultimate', taille: 16, format: 'simple', nb_tables: 2 } });
   for (let i = 1; i <= 16; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `P${i}` } });
+  for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+    await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
+  }
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
   const ts = r.data.tournoi;
   const tours = [1, 2, 3, 4].map(tn => ts.matchs.filter(m => m.tour === tn).length);

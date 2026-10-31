@@ -49,12 +49,14 @@ function render() {
       el('div', { class: 'row' },
         el('div', {}, input),
         el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: inscrire }, "S'inscrire"))),
-      el('p', { class: 'muted small', style: 'margin:10px 0 0' }, `${t.joueurs.length}/${t.tournoi.taille} inscrits`)));
+      el('p', { class: 'muted small', style: 'margin:10px 0 0' }, `${t.joueurs.length}/${t.tournoi.taille} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés (le tirage ne retiendra que les joueurs payés)`)));
     main.append(el('div', { class: 'panel' },
       el('h2', {}, 'Inscrits'),
       t.joueurs.length === 0
         ? el('p', { class: 'muted' }, 'Personne pour l\'instant…')
-        : el('div', { class: 'liste-joueurs' }, t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo}`)))));
+        : el('div', { class: 'liste-joueurs' }, t.joueurs.map(j => el('span', { class: 'chip' },
+            `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo}`,
+            el('span', { class: `badge ${j.statut === 'paye' ? 'termine' : 'pret'}` }, j.statut === 'paye' ? '✅ payé' : '⏳ en attente')))))));
   } else {
     const enCours = t.matchs.filter(m => m.etat === 'en_cours');
     if (enCours.length > 0) {

@@ -71,7 +71,7 @@ function vueMatch(m) {
 function vueTournoiComplet() {
   const t = tournoiActuel();
   if (!t) return null;
-  const joueurs = db.prepare('SELECT id, pseudo, tete_de_serie FROM joueur WHERE tournoi_id = ? ORDER BY pseudo').all(t.id);
+  const joueurs = db.prepare('SELECT id, pseudo, tete_de_serie, statut FROM joueur WHERE tournoi_id = ? ORDER BY pseudo').all(t.id);
   const matchs = db.prepare('SELECT * FROM match WHERE tournoi_id = ? ORDER BY CASE bracket WHEN \'WB\' THEN 1 WHEN \'LB\' THEN 2 ELSE 3 END, tour, position').all(t.id);
   const rounds = bracket.listeRounds(t.taille, t.format, t.dko_tours).map(r => ({
     ...r,
@@ -238,12 +238,25 @@ app.delete('/api/admin/joueur/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/admin/joueur/:id/paiement', requireAdmin, (req, res) => {
+  const t = tournoiActuel();
+  if (!t) return res.status(404).json({ error: 'Aucun tournoi' });
+  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé' });
+  const j = M.joueurById(Number(req.params.id));
+  if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
+  const nouveau = req.body.statut === 'paye' ? 'paye' : 'en_attente';
+  db.prepare('UPDATE joueur SET statut = ? WHERE id = ?').run(nouveau, j.id);
+  logAudit('paiement', `joueur ${j.id}`, { statut: j.statut }, { statut: nouveau, pseudo: j.pseudo });
+  majEtBroadcast();
+  res.json({ ok: true });
+});
+
 app.post('/api/admin/tirage', requireAdmin, (req, res) => {
   const t = tournoiActuel();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tirage déjà effectué' });
-  const joueurs = db.prepare('SELECT * FROM joueur WHERE tournoi_id = 1 ORDER BY id').all();
-  if (joueurs.length < 2) return res.status(400).json({ error: 'Au moins 2 joueurs requis' });
+  const joueurs = db.prepare(`SELECT * FROM joueur WHERE tournoi_id = 1 AND statut = 'paye' ORDER BY id`).all();
+  if (joueurs.length < 2) return res.status(400).json({ error: `Au moins 2 joueurs payés requis (actuellement ${joueurs.length})` });
   const manchesMap = distancesMap(1);
   bracket.genererBracket(t, joueurs, manchesMap);
   db.prepare(`UPDATE tournoi SET statut = 'en_cours' WHERE id = 1`).run();

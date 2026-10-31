@@ -30,6 +30,9 @@ async function main() {
     let r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: `T${taille}${format}${k}`, regle: 'blackball', taille, format, dko_tours: k, nb_tables: 4 } });
     check('création', r.status === 200, r.data);
     for (let i = 1; i <= taille; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `P${i}` } });
+    for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+      await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
+    }
     r = await api('/api/admin/tirage', { method: 'POST', body: {} });
     check('tirage', r.status === 200);
 

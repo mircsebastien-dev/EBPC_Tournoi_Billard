@@ -82,7 +82,7 @@ function renderInscriptions(t) {
   const tn = t.tournoi;
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, tn.nom),
-    el('p', { class: 'hero-sub' }, `${tn.taille} joueurs max · ${t.joueurs.length} inscrits · ${t.tables.length} tables`),
+    el('p', { class: 'hero-sub' }, `${tn.taille} joueurs max · ${t.joueurs.length} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés · ${t.tables.length} tables`),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'pseudo', maxlength: 40, placeholder: 'Nouveau joueur', autocomplete: 'off' })),
       tn.tetes_de_serie ? el('div', { style: 'flex:0 0 90px' }, el('label', {}, 'N° série'), el('input', { id: 'tds', type: 'number', min: 1 })) : null,
@@ -100,8 +100,15 @@ function renderInscriptions(t) {
   main.append(el('div', { class: 'panel' },
     el('h2', {}, 'Inscrits'),
     el('div', { class: 'liste-joueurs' },
-      t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo} `,
+      t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo}`,
+        j.statut === 'paye'
+          ? el('button', { class: 'secondary', onclick: () => paiement(j, 'en_attente') }, '✅ payé → annuler')
+          : el('button', { onclick: () => paiement(j, 'paye') }, '💰 marquer payé'),
         el('button', { class: 'danger', onclick: async () => { if (confirmer(`Retirer ${j.pseudo} ?`)) { try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); } } } }, '✕'))))));
+  async function paiement(j, statut) {
+    try { await adminApi(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: JSON.stringify({ statut }) }); }
+    catch (e) { alert(e.message); }
+  }
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, 'Distances (manches gagnantes)'),
@@ -118,7 +125,7 @@ function renderInscriptions(t) {
   }
 
   main.append(el('div', { class: 'panel' },
-    el('button', { onclick: tirage, disabled: t.joueurs.length < 2 ? '' : null, style: 'width:100%' }, `🎲 Lancer le tirage (${t.joueurs.length} inscrits)`),
+    el('button', { onclick: tirage, disabled: t.joueurs.filter(j => j.statut === 'paye').length < 2 ? '' : null, style: 'width:100%' }, `🎲 Lancer le tirage (${t.joueurs.filter(j => j.statut === 'paye').length} joueurs payés)`),
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'danger', style: 'width:100%', onclick: supprimer }, 'Supprimer le tournoi'))));
 
   async function tirage() {

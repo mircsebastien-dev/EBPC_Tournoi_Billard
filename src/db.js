@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS joueur (
   tournoi_id INTEGER NOT NULL REFERENCES tournoi(id),
   pseudo TEXT NOT NULL,
   tete_de_serie INTEGER,
+  statut TEXT NOT NULL DEFAULT 'en_attente' CHECK (statut IN ('en_attente', 'paye')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (tournoi_id, pseudo)
 );
@@ -93,6 +94,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `);
+
+const joueurCols = db.prepare('PRAGMA table_info(joueur)').all().map(c => c.name);
+if (!joueurCols.includes('statut')) {
+  db.exec("ALTER TABLE joueur ADD COLUMN statut TEXT NOT NULL DEFAULT 'en_attente'");
+}
 
 function setSetting(key, value) {
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
