@@ -481,7 +481,7 @@ app.use((err, req, res, next) => {
 
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`EBPC Tournoi Billard démarré sur http://0.0.0.0:${PORT}`);
+    console.log(`EBPC Tournoi Billard démarré sur le port ${PORT}`);
     console.log(`PIN admin par défaut: ${ADMIN_PIN} (à changer via ADMIN_PIN)`);
   });
 }

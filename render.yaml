@@ -1,3 +1,7 @@
+# ATTENTION : le plan gratuit Render n'autorise PAS les disques persistants.
+# Sans disque, tournoi.db (SQLite) est perdu à chaque redéploiement.
+# -> Utiliser plûtôt Fly.io (fly.toml, volume 3 Go gratuit) ou Railway (voir README).
+# Ce blueprint reste utile pour un test rapide sans persistance.
 services:
   - type: web
     name: ebpc-tournoi-billard
@@ -8,11 +12,5 @@ services:
     startCommand: node src/server.js
     healthCheckPath: /
     envVars:
-      - key: DB_PATH
-        value: /data/tournoi.db
       - key: ADMIN_PIN
         sync: false
-    disk:
-      name: tournoi-data
-      mountPath: /data
-      sizeGB: 1

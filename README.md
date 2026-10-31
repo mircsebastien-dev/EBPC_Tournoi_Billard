@@ -105,9 +105,22 @@ mkdir -p /srv/tournoi/backups
 
 Mise à jour : `cd /srv/tournoi && git pull && npm install --omit=dev && sudo systemctl restart tournoi`
 
-## Déploiement sans serveur (PaaS)
+## Déploiement sur Render (gratuit, recommandé)
 
-Railway / Render / Fly.io : pousser ce dépôt, définir `ADMIN_PIN` et `PORT` (fourni par la plateforme). SQLite fonctionne en local sur le disque éphémère — pour la persistance, monter un volume sur `DB_PATH` (Fly.io/Railway) ou exporter régulièrement `tournoi.db`.
+Le dépôt contient un **blueprint** `render.yaml` (service web Node, plan gratuit, disque persistant 1 Go monté sur `/data` pour que `tournoi.db` survive aux redéploys) :
+
+1. Va sur [dashboard.render.com](https://dashboard.render.com) → **New +** → **Blueprint** → connecte ton compte GitHub et choisis `mircsebastien-dev/EBPC_Tournoi_Billard` (branche `main`)
+2. Render détecte `render.yaml` → clique **Apply**
+3. Dans les **Environment** du service, renseigne **`ADMIN_PIN`** (obligatoire en production — laisse vide pour le laisser vide, ou mets ta valeur ; sans valeur définie, le PIN par défaut reste `0000`)
+4. Attends le build (~1 min) → ton site est en ligne sur `https://ebpc-tournoi-billard.onrender.com`
+
+Notes Render gratuit : le service **s'endort après 15 min d'inactivité** et redémarre en ~30 s à la première requête (les données sont conservées grâce au disque `/data`). Pour un tournoi en live, fais simplement une requête sur `/` 1–2 min avant le début pour le « réveiller ».
+
+## Autres PaaS gratuits
+
+- **Railway** : New Project → Deploy from GitHub → variables `ADMIN_PIN` + `DB_PATH=/data/tournoi.db` + volume 1 Go sur `/data`. Gratuit avec crédits mensuels (500 h/mois).
+- **Fly.io** : `fly launch` (détecte Node), puis `fly volumes create tournoi_data --size 1` monté sur `/data` et `DB_PATH=/data/tournoi.db`. Gratuit avec limites generous (3 VMs gratuites).
+- Dans tous les cas : `PORT` est fourni automatiquement par la plateforme, ne le fixe pas.
 
 ## Architecture
 
