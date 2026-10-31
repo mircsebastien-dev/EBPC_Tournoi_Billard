@@ -21,7 +21,7 @@ async function main() {
   console.log('== 1. Création tournoi (double KO 2 tours, 16 joueurs) ==');
   let r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Test Cup', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 4 } });
   check('création 200', r.status === 200, r.data);
-  check('statut inscription', r.data.tournoi.tournoi.statut === 'inscription');
+  check('statut inscription', r.data.actif.tournoi.statut === 'inscription');
 
   console.log('== 2. PIN requis ==');
   r = await api('/api/admin/joueur', { method: 'POST', pin: '9999', body: { pseudo: 'X' } });
@@ -33,13 +33,13 @@ async function main() {
     check(`inscription J${i}`, r.status === 200, r.data);
   }
   r = await api('/api/etat');
-  check('10 joueurs inscrits', r.data.tournoi.joueurs.length === 10);
-  check('tous en_attente par défaut', r.data.tournoi.joueurs.every(j => j.statut === 'en_attente'));
+  check('10 joueurs inscrits', r.data.actif.joueurs.length === 10);
+  check('tous en_attente par défaut', r.data.actif.joueurs.every(j => j.statut === 'en_attente'));
 
   console.log('== 3b. Paiement : tirage refusé sans joueurs payés ==');
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
   check('tirage refusé (0 payé)', r.status === 400, r.data);
-  const ids = (await api('/api/etat')).data.tournoi.joueurs.map(j => j.id);
+  const ids = (await api('/api/etat')).data.actif.joueurs.map(j => j.id);
   for (let i = 0; i < 9; i++) {
     r = await api(`/api/admin/joueur/${ids[i]}/paiement`, { method: 'POST', body: { statut: 'paye' } });
     check(`paiement joueur ${ids[i]}`, r.status === 200, r.data);
@@ -47,16 +47,16 @@ async function main() {
   r = await api('/api/admin/joueur/9999/paiement', { method: 'POST', body: { statut: 'paye' } });
   check('paiement joueur inexistant -> 404', r.status === 404);
   r = await api('/api/etat');
-  check('9 payés / 1 en attente', r.data.tournoi.joueurs.filter(j => j.statut === 'paye').length === 9);
+  check('9 payés / 1 en attente', r.data.actif.joueurs.filter(j => j.statut === 'paye').length === 9);
 
   console.log('== 4. Tirage (9 payés -> 9 joueurs dans le tableau, J10 exclu) ==');
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
   check('tirage 200', r.status === 200, r.data);
-  const nonPaye = (await api('/api/etat')).data.tournoi.joueurs.find(j => j.statut !== 'paye');
+  const nonPaye = (await api('/api/etat')).data.actif.joueurs.find(j => j.statut !== 'paye');
   check('un seul joueur non payé', !!nonPaye);
-  const dansTableau = r.data.tournoi.matchs.some(m => (m.joueur1 && m.joueur1.id === nonPaye.id) || (m.joueur2 && m.joueur2.id === nonPaye.id));
+  const dansTableau = r.data.actif.matchs.some(m => (m.joueur1 && m.joueur1.id === nonPaye.id) || (m.joueur2 && m.joueur2.id === nonPaye.id));
   check(`joueur non payé (${nonPaye && nonPaye.pseudo}) exclu du tirage`, !dansTableau);
-  const t = r.data.tournoi;
+  const t = r.data.actif;
   check('statut en_cours', t.tournoi.statut === 'en_cours');
   const wb1 = t.matchs.filter(m => m.bracket === 'WB' && m.tour === 1);
   const lb1 = t.matchs.filter(m => m.bracket === 'LB' && m.tour === 1);
@@ -85,17 +85,17 @@ async function main() {
   check('joueur externe -> 403', r.status === 403, r.data);
   for (let i = 0; i < 2; i++) await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: j1 } });
   r = await api('/api/etat');
-  const m2 = r.data.tournoi.matchs.find(mm => mm.id === m.id);
+  const m2 = r.data.actif.matchs.find(mm => mm.id === m.id);
   check('match terminé 3-0, gagnant J1', m2.etat === 'termine' && m2.score1 === 3 && m2.gagnant_id === j1, m2);
   check('started_at renseigné au lancement', !!m2.started_at, m2.started_at);
   check('ended_at + durée renseignés à la fin', !!m2.ended_at && typeof m2.duree_s === 'number' && m2.duree_s >= 0, { ended: m2.ended_at, duree: m2.duree_s });
-  const st = r.data.tournoi.stats;
+  const st = r.data.actif.stats;
   check('stats présentes avec classement', !!st && Array.isArray(st.classement) && st.resume.joues >= 1);
   const j1stats = st.classement.find(p => p.id === j1);
   check('stats J1 : 1 joué 1 gagné', j1stats && j1stats.joues === 1 && j1stats.gagnes === 1 && j1stats.pct === 100, j1stats);
-  const suivant = r.data.tournoi.matchs.find(mm => mm.id === m2.suivant_id);
+  const suivant = r.data.actif.matchs.find(mm => mm.id === m2.suivant_id);
   check('gagnant propagé au match suivant', suivant && (suivant.joueur1?.id === j1 || suivant.joueur2?.id === j1), suivant);
-  const lbMatch = r.data.tournoi.matchs.find(mm => mm.id === m2.perdant_id);
+  const lbMatch = r.data.actif.matchs.find(mm => mm.id === m2.perdant_id);
   check('perdant envoyé en LB', lbMatch && (lbMatch.joueur1?.id === j2 || lbMatch.joueur2?.id === j2), lbMatch);
 
   console.log('== 6. Correction admin ==');
@@ -104,7 +104,7 @@ async function main() {
   check('score corrigé 1-3', r.data.match.score1 === 1 && r.data.match.score2 === 3, r.data.match);
 
   console.log('== 7. Forfait ==');
-  const pret = (await api('/api/etat')).data.tournoi.matchs.find(mm => mm.etat === 'pret' && mm.joueur1 && mm.joueur2);
+  const pret = (await api('/api/etat')).data.actif.matchs.find(mm => mm.etat === 'pret' && mm.joueur1 && mm.joueur2);
   if (pret) {
     r = await api(`/api/admin/match/${pret.id}/forfait`, { method: 'POST', body: { joueur_id: pret.joueur1.id } });
     check('forfait 200', r.status === 200, r.data);
@@ -116,11 +116,11 @@ async function main() {
   check('suppression', r.status === 200);
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Simple', regle: 'ultimate', taille: 16, format: 'simple', nb_tables: 2 } });
   for (let i = 1; i <= 16; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `P${i}` } });
-  for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+  for (const j of (await api('/api/etat')).data.actif.joueurs) {
     await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
   }
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
-  const ts = r.data.tournoi;
+  const ts = r.data.actif;
   const tours = [1, 2, 3, 4].map(tn => ts.matchs.filter(m => m.tour === tn).length);
   check('simple KO 16: 8/4/2/1 matchs', JSON.stringify(tours) === '[8,4,2,1]', tours);
   check('aucun LB en simple', ts.matchs.every(m => m.bracket === 'WB'));
@@ -129,48 +129,80 @@ async function main() {
   await api('/api/admin/tournoi', { method: 'DELETE' });
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Auto', regle: 'blackball', taille: 128, format: 'simple', nb_tables: 2, ajustement_auto: true } });
   for (let i = 1; i <= 5; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `A${i}` } });
-  for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+  for (const j of (await api('/api/etat')).data.actif.joueurs) {
     await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
   }
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
   check('tirage 200', r.status === 200, r.data);
-  check('taille ajustée à 8', r.data.tournoi.tournoi.taille === 8, r.data.tournoi.tournoi.taille);
-  const wb1b = r.data.tournoi.matchs.filter(m => m.tour === 1);
+  check('taille ajustée à 8', r.data.actif.tournoi.taille === 8, r.data.actif.tournoi.taille);
+  const wb1b = r.data.actif.matchs.filter(m => m.tour === 1);
   check('WB tour1 = 4 matchs (8 joueurs)', wb1b.length === 4, wb1b.length);
-  check('tous les matchs en race to 3 par défaut', r.data.tournoi.matchs.every(m => m.manches === 3));
+  check('tous les matchs en race to 3 par défaut', r.data.actif.matchs.every(m => m.manches === 3));
   await api('/api/admin/tournoi', { method: 'DELETE' });
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Fixe', regle: 'blackball', taille: 32, format: 'simple', nb_tables: 2, ajustement_auto: false } });
   for (let i = 1; i <= 5; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `B${i}` } });
-  for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+  for (const j of (await api('/api/etat')).data.actif.joueurs) {
     await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
   }
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
-  check('sans ajustement auto, taille reste 32 (byes)', r.data.tournoi.tournoi.taille === 32, r.data.tournoi.tournoi.taille);
+  check('sans ajustement auto, taille reste 32 (byes)', r.data.actif.tournoi.taille === 32, r.data.actif.tournoi.taille);
 
   console.log('== 9a. Seuil de distance (demis -> 5) + maj à chaud + terminer manuellement ==');
   await api('/api/admin/tournoi', { method: 'DELETE' });
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Seuils', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, seuil_distance: 'demis', distance_speciale: 5 } });
   for (let i = 1; i <= 16; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `S${i}` } });
-  for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+  for (const j of (await api('/api/etat')).data.actif.joueurs) {
     await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
   }
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
   const manByTour = {};
-  for (const m of r.data.tournoi.matchs) manByTour[m.tour] = m.manches;
+  for (const m of r.data.actif.matchs) manByTour[m.tour] = m.manches;
   check('tours 1-2 en race to 3', manByTour[1] === 3 && manByTour[2] === 3, manByTour);
   check('demis+finale en race to 5', manByTour[3] === 5 && manByTour[4] === 5, manByTour);
   r = await api('/api/admin/distances', { method: 'PUT', body: { distances: { wb1: 7 } } });
   check('maj distance à chaud 200', r.status === 200, r.data);
-  const t9 = (await api('/api/etat')).data.tournoi;
+  const t9 = (await api('/api/etat')).data.actif;
   check('wb1 passé à 7 (matchs non joués)', t9.matchs.filter(m => m.tour === 1).every(m => m.manches === 7));
   check('autres tours inchangés', t9.matchs.filter(m => m.tour === 3).every(m => m.manches === 5));
   const champId = t9.joueurs[0].id;
   r = await api('/api/admin/terminer', { method: 'POST', body: { champion_id: champId } });
   check('terminer manuellement 200', r.status === 200, r.data);
-  check('statut termine + champion choisi', r.data.tournoi.tournoi.statut === 'termine' && r.data.tournoi.champion && r.data.tournoi.champion.id === champId);
+  const histA = r.data.historique.find(h => h.statut === 'termine');
+  check('tournoi archivé avec champion choisi', !!histA && histA.champion_id === champId, histA);
+  r = await api(`/api/tournois/${histA.id}`);
   check('matchs non joués clôturés', r.data.tournoi.matchs.every(m => m.etat === 'termine' || m.etat === 'forfait'));
   const apres = await api('/api/etat');
-  check('tableau toujours en ligne après fin', !!apres.data.tournoi && apres.data.tournoi.tournoi.statut === 'termine');
+  check('tableau archivé dans l\'historique', !!apres.data.historique && apres.data.historique.length === 1 && apres.data.historique[0].statut === 'termine');
+
+  console.log('== 9b. Historique multi-tournois + stats all-time + suppression ==');
+  let hist = (await api('/api/etat')).data.historique;
+  check('1 tournoi dans l\'historique après clôture', hist.length === 1, hist.length);
+  const histId = hist[0].id;
+  r = await api(`/api/tournois/${histId}`);
+  check('consultation d\'un tournoi archivé', r.status === 200 && r.data.tournoi.matchs.length > 0);
+  r = await api('/api/stats-joueurs');
+  check('stats all-time présentes', r.status === 200 && r.data.joueurs.length > 0, r.data.joueurs && r.data.joueurs.length);
+  const avecMatchs = r.data.joueurs.find(j => j.joues > 0);
+  check('joueur avec matchs a gagnes+perdus cohérents', avecMatchs && avecMatchs.gagnes + avecMatchs.perdus === avecMatchs.joues, avecMatchs);
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Deuxième', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2 } });
+  check('nouveau tournoi créé après clôture (200)', r.status === 200, r.data);
+  for (let i = 1; i <= 4; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `D${i}` } });
+  for (const j of (await api('/api/etat')).data.actif.joueurs) {
+    await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
+  }
+  await api('/api/admin/tirage', { method: 'POST', body: {} });
+  await api('/api/admin/terminer', { method: 'POST', body: {} });
+  hist = (await api('/api/etat')).data.historique;
+  check('2 tournois dans l\'historique', hist.length === 2, hist.length);
+  r = await api('/api/stats-joueurs');
+  const d1 = r.data.joueurs.find(j => j.pseudo === 'D1');
+  check('stats all-time agrègent les 2 tournois', !!d1 && d1.tournois >= 1, d1);
+  r = await api(`/api/admin/tournoi/${histId}`, { method: 'DELETE' });
+  check('suppression d\'un tournoi de l\'historique', r.status === 200, r.data);
+  hist = (await api('/api/etat')).data.historique;
+  check('historique passé à 1', hist.length === 1, hist.length);
+  r = await api(`/api/tournois/${histId}`);
+  check('tournoi supprimé -> 404', r.status === 404);
 
   console.log('== 9. SSE accessible ==');
   const ctrl = new AbortController();

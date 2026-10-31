@@ -136,8 +136,8 @@ function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
   const M = { WB: {}, LB: {}, F: {} };
   const get = (b, t, p) => M[b][`${t}:${p}`];
 
+  db.prepare('DELETE FROM match_event WHERE match_id IN (SELECT id FROM match WHERE tournoi_id = ?)').run(tournoiId);
   db.prepare('DELETE FROM match WHERE tournoi_id = ?').run(tournoiId);
-  db.prepare('DELETE FROM match_event WHERE match_id NOT IN (SELECT id FROM match)').run();
 
   const tx = db.transaction(() => {
     if (format === 'simple') {

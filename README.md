@@ -11,6 +11,7 @@ Design **« Eight Ball Pink City »** : thème sombre noir profond avec accents 
   - régler une **distance spéciale (3/5/7) à partir d'un seuil** (quarts / demis / finale) dans les paramètres,
   - **modifier les distances à tout moment**, même en cours de tournoi (appliqué aux matchs non joués)
 - **Clôture manuelle** : la table de marque peut terminer le tournoi à tout moment (champion = dernier gagnant ou choix manuel) ; **les tableaux restent en ligne** jusqu'au prochain tournoi
+- **Statistiques live** : heure de début/fin et durée de chaque match (affichées sur les cartes), panneau stats (matchs joués/restants, durée moyenne, match le plus rapide/long, dernier vainqueur) et **classement des joueurs** (joués, gagnés, perdus, % victoires, série en cours) sur l'accueil et la TV
 - **Droit d'inscription** : les joueurs s'inscrivent eux-mêmes (statut « en attente »), la table de marque valide le paiement (« 💰 payé ») ; **seuls les joueurs payés entrent dans le tirage**
 - **Élimination directe** ou **double KO partiel** (N = 1/2/3 tours) : les perdants des N premiers tours passent en loser bracket, puis **tableau final à élimination directe** entre tous les survivants, finale en 1 match
 - **Distances paramétrables par round** : 3, 5 ou 7 manches gagnantes (défaut : 3 / 5 / 7 vers la fin)
@@ -44,11 +45,14 @@ Pages :
 
 | URL | Rôle |
 |---|---|
-| `/` | Accueil public + inscription + tableau live |
-| `/tv.html` | Écran TV (plein écran, auto-refresh) |
+| `/` | Accueil public + inscription + tableau live + stats |
+| `/tv.html` | Écran TV (plein écran, auto-refresh, stats) |
 | `/suivi.html` | Suivi joueur (sélection du pseudo, ses matchs) |
 | `/match.html?id=<id>&joueur=<id>` | Écran de saisie live d'un match |
-| `/admin.html` | Table de marque (PIN requis) |
+| `/historique.html` | Liste des tournois terminés (consultation + suppression admin) |
+| `/tournoi.html?id=<id>` | Détail d'un tournoi archivé (tableau, stats, classement) |
+| `/stats.html` | Statistiques joueurs all-time (tous tournois) |
+| `/admin.html` | Table de marque (PIN requis) + gestion de l'historique |
 
 ## Déploiement sur un VPS (recommandé, ~5 €/mois)
 

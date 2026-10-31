@@ -26,27 +26,28 @@ async function jouerMatchComplet(m) {
 async function main() {
   for (const [taille, format, k] of [[16, 'double', 2], [16, 'simple', 0], [32, 'double', 1], [32, 'double', 3]]) {
     console.log(`== Tournoi ${taille} joueurs, format=${format}${format === 'double' ? ` k=${k}` : ''} ==`);
-    await api('/api/admin/tournoi', { method: 'DELETE' });
+    if ((await api('/api/etat')).data.actif) await api('/api/admin/tournoi', { method: 'DELETE' });
     let r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: `T${taille}${format}${k}`, regle: 'blackball', taille, format, dko_tours: k, nb_tables: 4 } });
     check('création', r.status === 200, r.data);
     for (let i = 1; i <= taille; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `P${i}` } });
-    for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+    for (const j of (await api('/api/etat')).data.actif.joueurs) {
       await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
     }
     r = await api('/api/admin/tirage', { method: 'POST', body: {} });
     check('tirage', r.status === 200);
 
-    let guard = 0;
-    while (guard++ < 500) {
+    const idCree = r.data.actif.tournoi.id;
+    let guard = 0, done = false;
+    while (guard++ < 500 && !done) {
       const etat = await api('/api/etat');
-      const t = etat.data.tournoi;
-      if (t.tournoi.statut === 'termine') break;
+      const t = etat.data.actif;
+      if (!t || t.tournoi.id !== idCree) { done = true; break; }
       const aJouer = t.matchs.filter(m => (m.etat === 'pret' || m.etat === 'prevu') && m.joueur1 && m.joueur2);
       if (aJouer.length === 0) { await new Promise(r2 => setTimeout(r2, 50)); continue; }
       await jouerMatchComplet(aJouer[0]);
     }
-    const final = await api('/api/etat');
-    const t = final.data.tournoi;
+    const detail = await api(`/api/tournois/${idCree}`);
+    const t = detail.data.tournoi;
     check(`tournoi terminé avec champion (${t.champion ? t.champion.pseudo : 'personne'})`, t.tournoi.statut === 'termine' && t.champion != null, { statut: t.tournoi.statut });
     const total = t.matchs.length;
     const joues = t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length;

@@ -9,7 +9,7 @@
 <body>
 <header class="top">
   <h1>🎱 Match en direct</h1>
-  <nav><a href="/suivi.html">← Mes matchs</a><a href="/tv.html">📺 TV</a></nav>
+  <nav><a href="/suivi.html">← Mes matchs</a><a href="/tv.html">📺 TV</a><a href="/stats.html">📊 Stats</a><a href="/historique.html">🗂 Historique</a></nav>
 </header>
 <main id="main"></main>
 <script src="/common.js"></script>
@@ -21,8 +21,9 @@ let state = null;
 const main = document.getElementById('main');
 
 function monMatch() {
-  if (!state || !state.tournoi) return null;
-  return state.tournoi.matchs.find(m => m.id === matchId) || null;
+  const t = state && state.actif;
+  if (!t) return null;
+  return t.matchs.find(m => m.id === matchId) || null;
 }
 
 function render() {
@@ -64,9 +65,9 @@ async function envoyerManche() {
 }
 
 async function init() {
-  state = (await api('/api/etat')).tournoi;
+  state = await api('/api/etat');
   render();
-  connecterSSE((s) => { state = s.tournoi; render(); });
+  connecterSSE((s) => { state = s; render(); });
 }
 init();
 </script>

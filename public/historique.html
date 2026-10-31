@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Historique — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Pink City Billard</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+const main = document.getElementById('main');
+document.getElementById('nav').append(nav('hist'));
+let state = null;
+let pin = localStorage.getItem('ebpc_admin_pin') || '';
+
+function render() {
+  main.innerHTML = '';
+  const hist = (state && state.historique) || [];
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, `🗂 Historique des tournois (${hist.length})`),
+    el('p', { class: 'muted' }, 'Tous les tournois terminés restent consultables ici.')));
+  if (hist.length === 0) {
+    main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', { class: 'muted' }, 'Aucun tournoi terminé pour le moment.')));
+    return;
+  }
+  for (const h of hist) {
+    const card = el('div', { class: 'panel match-admin', style: 'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px' },
+      el('div', {},
+        el('div', { style: 'font-weight:800;font-size:18px' }, h.nom),
+        el('div', { class: 'muted small' },
+          `${h.created_at.slice(0, 10)} · ${h.regle} · ${h.nb_joueurs} joueurs · ${h.nb_matchs} matchs · ${h.format === 'double' ? `DKO ${h.dko_tours}` : 'élim. directe'}${h.champion ? ` · 🏆 ${h.champion}` : ''}`)),
+      el('div', { class: 'actions', style: 'display:flex;gap:8px' },
+        el('a', { href: `/tournoi.html?id=${h.id}` }, el('button', { class: 'secondary' }, '👁 Voir le tableau')),
+        pin ? el('button', { class: 'danger', onclick: async () => {
+          if (!confirmer(`Supprimer définitivement « ${h.nom} » de l'historique ?`)) return;
+          try {
+            const r = await fetch(`/api/admin/tournoi/${h.id}`, { method: 'DELETE', headers: { 'X-Admin-Pin': pin } });
+            if (r.status === 401) { pin = ''; localStorage.removeItem('ebpc_admin_pin'); }
+            if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Erreur'); }
+            state = await api('/api/etat'); render();
+          } catch (e) { alert(e.message); }
+        } }, '🗑 Supprimer') : null));
+    main.append(card);
+  }
+}
+
+async function init() {
+  state = await api('/api/etat');
+  render();
+  connecterSSE((s) => { state = s; render(); });
+}
+init();
+</script>
+</body>
+</html>

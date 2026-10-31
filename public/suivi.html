@@ -9,27 +9,23 @@
 <body>
 <header class="top">
   <h1>🎱 Pink City Billard</h1>
-  <nav>
-    <a href="/">Tournoi</a>
-    <a href="/tv.html">📺 TV</a>
-    <a href="/suivi.html" class="active">Joueur</a>
-    <a href="/admin.html">Table de marque</a>
-  </nav>
+  <div id="nav"></div>
 </header>
 <main id="main"></main>
 <script src="/common.js"></script>
 <script>
 const main = document.getElementById('main');
+document.getElementById('nav').append(nav('joueur'));
 let state = null;
 let joueurId = Number(localStorage.getItem('ebpc_joueur_id') || 0);
 
 function renderSelecteur() {
   main.innerHTML = '';
-  if (!state || !state.tournoi) {
+  if (!state || !state.actif) {
     main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', { class: 'muted' }, 'Aucun tournoi en cours.')));
     return;
   }
-  const t = state.tournoi;
+  const t = state.actif;
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, 'Qui es-tu ?'),
     el('p', { class: 'muted', style: 'margin-bottom:14px' }, 'Touche ton pseudo ci-dessous.'),
@@ -42,7 +38,7 @@ function renderSelecteur() {
 
 function renderMatchs() {
   main.innerHTML = '';
-  const t = state.tournoi;
+  const t = state.actif;
   const moi = t.joueurs.find(j => j.id === joueurId);
   if (!moi) { renderSelecteur(); return; }
   const mesMatchs = t.matchs.filter(m => (m.joueur1 && m.joueur1.id === joueurId) || (m.joueur2 && m.joueur2.id === joueurId));
@@ -69,12 +65,12 @@ function renderMatchs() {
   }
 }
 
-function render() { if (joueurId && state && state.tournoi) renderMatchs(); else renderSelecteur(); }
+function render() { if (joueurId && state && state.actif) renderMatchs(); else renderSelecteur(); }
 
 async function init() {
-  state = (await api('/api/etat')).tournoi;
+  state = await api('/api/etat');
   render();
-  connecterSSE((s) => { state = s.tournoi; render(); });
+  connecterSSE((s) => { state = s; render(); });
 }
 init();
 </script>

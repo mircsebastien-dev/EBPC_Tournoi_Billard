@@ -167,14 +167,16 @@ function declarerForfait(matchId, forfaitJoueurId) {
 }
 
 function rafraichirPrets() {
+  const actif = db.prepare(`SELECT id FROM tournoi WHERE statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1`).get();
+  if (!actif) return;
   const complets = db.prepare(`
     SELECT id FROM match
-    WHERE etat = 'prevu' AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL
-  `).all();
+    WHERE tournoi_id = ? AND etat = 'prevu' AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL
+  `).all(actif.id);
   for (const r of complets) {
     db.prepare(`UPDATE match SET etat = 'pret', updated_at = datetime('now') WHERE id = ?`).run(r.id);
   }
-  for (const r of db.prepare(`SELECT id FROM match WHERE etat = 'prevu'`).all()) appliquerBye(r.id);
+  for (const r of db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'prevu'`).all(actif.id)) appliquerBye(r.id);
 }
 
 module.exports = {

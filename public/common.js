@@ -35,6 +35,16 @@ function fmtDuree(s) {
   return m > 0 ? `${m} min ${String(sec).padStart(2, '0')} s` : `${sec} s`;
 }
 
+function nav(active) {
+  return el('nav', {},
+    el('a', { href: '/', class: active === 'home' ? 'active' : null }, 'Tournoi'),
+    el('a', { href: '/tv.html', class: active === 'tv' ? 'active' : null }, '📺 TV'),
+    el('a', { href: '/suivi.html', class: active === 'joueur' ? 'active' : null }, 'Joueur'),
+    el('a', { href: '/stats.html', class: active === 'stats' ? 'active' : null }, '📊 Stats'),
+    el('a', { href: '/historique.html', class: active === 'hist' ? 'active' : null }, '🗂 Historique'),
+    el('a', { href: '/admin.html', class: active === 'admin' ? 'active' : null }, 'Table de marque'));
+}
+
 function matchCard(m, opts = {}) {
   const j1g = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
   const j2g = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
@@ -77,3 +87,32 @@ function connecterSSE(onUpdate) {
 }
 
 function confirmer(msg) { return window.confirm(msg); }
+
+function renderStatsPanel(stats, titre = '📊 Statistiques', topN = 10) {
+  if (!stats) return null;
+  const r = stats.resume;
+  const panels = [];
+  panels.push(el('div', { class: 'panel' },
+    el('h2', {}, titre),
+    el('div', { class: 'row' },
+      el('span', { class: 'chip' }, `${r.joues}/${r.total} matchs joués`),
+      r.restants > 0 ? el('span', { class: 'chip' }, `${r.restants} restants`) : null,
+      r.duree_moyenne_s != null ? el('span', { class: 'chip' }, `⏱ durée moyenne ${fmtDuree(r.duree_moyenne_s)}`) : null,
+      r.plus_rapide ? el('span', { class: 'chip' }, `⚡ plus rapide ${fmtDuree(r.plus_rapide.d)} (${r.plus_rapide.gagnant})`) : null,
+      r.plus_long ? el('span', { class: 'chip' }, `🐢 plus long ${fmtDuree(r.plus_long.d)} (${r.plus_long.gagnant})`) : null,
+      r.dernier_gagnant ? el('span', { class: 'chip' }, `🔥 dernier vainqueur : ${r.dernier_gagnant}`) : null)));
+  const top = stats.classement.filter(p => p.joues > 0).slice(0, topN);
+  if (top.length > 0) {
+    panels.push(el('div', { class: 'panel' },
+      el('h2', {}, '🏅 Classement'),
+      el('table', { class: 'audit' },
+        el('tr', {}, el('th', {}, '#'), el('th', {}, 'Joueur'), el('th', {}, 'Joués'), el('th', {}, 'Gagnés'), el('th', {}, 'Perdus'), el('th', {}, '%'), el('th', {}, 'Série')),
+        ...top.map((p, i) => el('tr', {},
+          el('td', {}, String(i + 1)),
+          el('td', { style: 'font-weight:700' }, p.pseudo),
+          el('td', {}, String(p.joues)), el('td', {}, String(p.gagnes)), el('td', {}, String(p.perdus)),
+          el('td', {}, `${p.pct} %`),
+          el('td', {}, p.serie > 0 ? `🔥 ${p.serie}V` : p.serie < 0 ? `${-p.serie}D` : '—'))))));
+  }
+  return panels;
+}

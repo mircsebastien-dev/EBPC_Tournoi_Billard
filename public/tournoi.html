@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tournoi archivé — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Pink City Billard</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+const main = document.getElementById('main');
+document.getElementById('nav').append(nav('hist'));
+const tournoiId = Number(new URLSearchParams(location.search).get('id'));
+
+async function init() {
+  main.innerHTML = '';
+  try {
+    const data = await api(`/api/tournois/${tournoiId}`);
+    const t = data.tournoi;
+    main.append(el('div', { class: 'panel' },
+      el('div', { class: 'hero-title' }, `🗂 ${t.tournoi.nom}`),
+      el('p', { class: 'hero-sub' },
+        `${t.tournoi.created_at.slice(0, 10)} · ${t.tournoi.regle} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? `DKO ${t.tournoi.dko_tours}` : 'élim. directe'}`),
+      t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, `🏆 Champion : ${t.champion.pseudo}`) : null));
+    for (const g of grouperParRound(t.matchs, t.rounds)) {
+      main.append(el('div', { class: 'round' },
+        el('h3', {}, `${g.round.label} · race to ${g.round.manches}`),
+        el('div', { class: 'matchs-grid' }, g.matchs.map(m => matchCard(m)))));
+    }
+    for (const p of renderStatsPanel(t.stats, '📊 Statistiques du tournoi', 50) || []) main.append(p);
+  } catch (e) {
+    main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', {}, e.message)));
+  }
+}
+init();
+</script>
+</body>
+</html>

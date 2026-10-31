@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 CREATE TABLE IF NOT EXISTS tournoi (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   nom TEXT NOT NULL,
   regle TEXT NOT NULL CHECK (regle IN ('blackball', 'ultimate')),
   taille INTEGER NOT NULL CHECK (taille IN (4, 8, 16, 32, 64, 128)),
@@ -103,14 +103,16 @@ if (!joueurCols.includes('statut')) {
   db.exec("ALTER TABLE joueur ADD COLUMN statut TEXT NOT NULL DEFAULT 'en_attente'");
 }
 const tournoiCols = db.prepare('PRAGMA table_info(tournoi)').all().map(c => c.name);
+const tournoiPkCheck = db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tournoi'`).get();
+const idFixe = tournoiPkCheck && /CHECK\s*\(\s*id\s*=\s*1\s*\)/i.test(tournoiPkCheck.sql || '');
 const manquantes = ['tetes_de_serie', 'nb_tables', 'ajustement_auto', 'seuil_distance', 'distance_speciale', 'champion_id']
   .filter(c => !tournoiCols.includes(c));
-if (tournoiCols.length > 0 && manquantes.length > 0) {
+if (tournoiCols.length > 0 && (manquantes.length > 0 || idFixe)) {
   db.pragma('foreign_keys = OFF');
   db.exec('BEGIN');
   db.exec([
     "CREATE TABLE tournoi_mig (",
-    "  id INTEGER PRIMARY KEY CHECK (id = 1),",
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT",
     "  nom TEXT NOT NULL,",
     "  regle TEXT NOT NULL CHECK (regle IN ('blackball', 'ultimate')),",
     "  taille INTEGER NOT NULL CHECK (taille IN (4, 8, 16, 32, 64, 128)),",

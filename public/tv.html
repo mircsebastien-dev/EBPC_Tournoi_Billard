@@ -18,6 +18,7 @@
 </main>
 <script src="/common.js"></script>
 <script>
+document.getElementById('nav').append(nav('tv'));
 let state = null;
 
 function render() {
@@ -27,12 +28,13 @@ function render() {
   const live = document.getElementById('live');
   const tableau = document.getElementById('tableau');
   champion.innerHTML = ''; live.innerHTML = ''; tableau.innerHTML = '';
-  if (!state || !state.tournoi) {
+  const t0 = state && state.actif;
+  if (!t0) {
     titre.textContent = 'Pink City Billard';
     statut.textContent = 'En attente';
     return;
   }
-  const t = state.tournoi;
+  const t = t0;
   titre.textContent = t.tournoi.nom;
   statut.textContent = t.tournoi.statut === 'en_cours' ? '🔴 EN DIRECT' : t.tournoi.statut === 'termine' ? '🏁 TERMINÉ' : 'Inscriptions';
   statut.className = `badge ${t.tournoi.statut}`;
@@ -75,9 +77,9 @@ function render() {
 }
 
 async function init() {
-  state = (await api('/api/etat')).tournoi;
+  state = await api('/api/etat');
   render();
-  connecterSSE((s) => { state = s.tournoi; render(); });
+  connecterSSE((s) => { state = s; render(); });
 }
 init();
 </script>
