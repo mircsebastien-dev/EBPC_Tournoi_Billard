@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivi joueur — Tournoi de billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Suivi joueur</h1>
+  <nav>
+    <a href="/">Accueil</a>
+    <a href="/tv.html">📺 TV</a>
+    <a href="/suivi.html" class="active">Suivi joueur</a>
+    <a href="/admin.html">Table de marque</a>
+  </nav>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+const main = document.getElementById('main');
+let state = null;
+let joueurId = Number(localStorage.getItem('ebpc_joueur_id') || 0);
+
+function renderSelecteur() {
+  main.innerHTML = '';
+  if (!state || !state.tournoi) {
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, 'Aucun tournoi en cours.')));
+    return;
+  }
+  const t = state.tournoi;
+  const panel = el('div', { class: 'panel' },
+    el('h2', {}, 'Qui êtes-vous ?'),
+    el('p', { class: 'muted small' }, 'Sélectionnez votre pseudo dans la liste (aucune protection : la table de marque peut corriger en cas d\'erreur).'),
+    el('div', { class: 'liste-joueurs', style: 'margin-top:10px' },
+      t.joueurs.map(j => el('button', {
+        class: 'secondary',
+        onclick: () => { joueurId = j.id; localStorage.setItem('ebpc_joueur_id', String(j.id)); renderMatchs(); }
+      }, j.pseudo))));
+  main.append(panel);
+}
+
+function renderMatchs() {
+  main.innerHTML = '';
+  const t = state.tournoi;
+  const moi = t.joueurs.find(j => j.id === joueurId);
+  if (!moi) { renderSelecteur(); return; }
+  const mesMatchs = t.matchs.filter(m => (m.joueur1 && m.joueur1.id === joueurId) || (m.joueur2 && m.joueur2.id === joueurId));
+  const head = el('div', { class: 'panel' },
+    el('h2', {}, `Bonjour ${moi.pseudo}`),
+    el('button', { class: 'secondary', onclick: () => { joueurId = 0; localStorage.removeItem('ebpc_joueur_id'); renderSelecteur(); } }, 'Changer de joueur'));
+  main.append(head);
+  if (mesMatchs.length === 0) {
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, 'Aucun match pour le moment.')));
+    return;
+  }
+  const enCours = mesMatchs.filter(m => m.etat === 'en_cours' || m.etat === 'pret');
+  const autres = mesMatchs.filter(m => !enCours.includes(m));
+  if (enCours.length > 0) {
+    main.append(el('div', { class: 'panel' },
+      el('h2', {}, '🔴 Vos matchs à jouer'),
+      el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { onClick: () => location.href = `/match.html?id=${m.id}&joueur=${joueurId}` })))));
+  }
+  if (autres.length > 0) {
+    main.append(el('div', { class: 'panel' },
+      el('h2', {}, 'Vos autres matchs'),
+      el('div', { class: 'matchs-grid' }, autres.map(m => matchCard(m)))));
+  }
+}
+
+function render() {
+  if (joueurId) renderMatchs(); else renderSelecteur();
+}
+
+async function init() {
+  const data = await api('/api/etat');
+  state = data.tournoi;
+  render();
+  connecterSSE((s) => { state = s.tournoi; render(); });
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tournoi de billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Tournoi de billard</h1>
+  <nav>
+    <a href="/" class="active">Accueil</a>
+    <a href="/tv.html">📺 TV</a>
+    <a href="/suivi.html">Suivi joueur</a>
+    <a href="/admin.html">Table de marque</a>
+  </nav>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+const main = document.getElementById('main');
+let state = null;
+
+function render() {
+  main.innerHTML = '';
+  if (!state || !state.tournoi) {
+    main.append(el('div', { class: 'panel' },
+      el('h2', {}, 'Aucun tournoi en cours'),
+      el('p', { class: 'muted' }, 'Inscrivez-vous ou attendez le lancement du prochain tournoi. La table de marque configure le tournoi depuis son espace.')));
+    return;
+  }
+  const t = state.tournoi;
+  const info = el('div', { class: 'panel' },
+    el('h2', {}, t.tournoi.nom),
+    el('div', { class: 'row' },
+      el('span', { class: 'chip' }, `Règle : ${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'}`),
+      el('span', { class: 'chip' }, `Tableau : ${t.tournoi.taille}`),
+      el('span', { class: 'chip' }, t.tournoi.format === 'double' ? `Double KO (${t.tournoi.dko_tours} tour${t.tournoi.dko_tours > 1 ? 's' : ''}) + tableau final` : 'Élimination directe'),
+      el('span', { class: `badge ${t.tournoi.statut}` }, t.tournoi.statut === 'inscription' ? 'Inscriptions ouvertes' : t.tournoi.statut === 'en_cours' ? 'En cours' : 'Terminé')));
+
+  if (t.champion) {
+    info.append(el('p', { style: 'font-size:20px;color:var(--accent2);font-weight:700' }, `🏆 Champion : ${t.champion.pseudo}`));
+  }
+
+  if (t.tournoi.statut === 'inscription') {
+    const form = el('div', { class: 'panel' },
+      el('h2', {}, 'Inscription'),
+      el('div', { class: 'row' },
+        el('div', {}, el('label', {}, 'Votre pseudo'), (() => { const i = el('input', { id: 'pseudo', placeholder: 'Ex: Marco', maxlength: 40 }); return i; })()),
+        el('div', {}, el('button', { onclick: inscrire }, 'S\'inscrire'))));
+    main.append(info, form);
+    const liste = el('div', { class: 'panel' },
+      el('h2', {}, `Inscrits (${t.joueurs.length}/${t.tournoi.taille})`),
+      el('div', { class: 'liste-joueurs' }, t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo}`))));
+    main.append(liste);
+  } else {
+    const enCours = t.matchs.filter(m => m.etat === 'en_cours');
+    if (enCours.length > 0) {
+      const p = el('div', { class: 'panel' },
+        el('h2', {}, `🔴 Matchs en cours (${enCours.length})`),
+        el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { onClick: () => location.href = `/match.html?id=${m.id}` }))));
+      main.append(p);
+    }
+    for (const g of grouperParRound(t.matchs, t.rounds)) {
+      const r = el('div', { class: 'round' },
+        el('h3', {}, `${g.round.label} — race to ${g.round.manches}`),
+        el('div', { class: 'matchs-grid' }, g.matchs.map(m => matchCard(m))));
+      main.append(r);
+    }
+  }
+  main.append(info);
+}
+
+async function inscrire() {
+  const pseudo = document.getElementById('pseudo').value.trim();
+  if (!pseudo) return;
+  try {
+    await api('/api/joueur', { method: 'POST', body: JSON.stringify({ pseudo }) });
+  } catch (e) { alert(e.message); }
+}
+
+async function init() {
+  const data = await api('/api/etat');
+  state = data.tournoi;
+  render();
+  connecterSSE((s) => { state = s.tournoi; render(); });
+}
+init();
+</script>
+</body>
+</html>

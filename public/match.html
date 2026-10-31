@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Match en cours — Tournoi de billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Match en direct</h1>
+  <nav><a href="/suivi.html">← Mes matchs</a><a href="/tv.html">📺 TV</a></nav>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const matchId = Number(params.get('id'));
+const joueurId = Number(params.get('joueur')) || Number(localStorage.getItem('ebpc_joueur_id') || 0);
+let state = null;
+const main = document.getElementById('main');
+
+function monMatch() {
+  if (!state || !state.tournoi) return null;
+  return state.tournoi.matchs.find(m => m.id === matchId) || null;
+}
+
+function render() {
+  main.innerHTML = '';
+  const m = monMatch();
+  if (!m) { main.append(el('div', { class: 'panel' }, el('p', {}, 'Match introuvable.'))); return; }
+  const moi = m.joueur1 && m.joueur1.id === joueurId ? m.joueur1 : (m.joueur2 && m.joueur2.id === joueurId ? m.joueur2 : null);
+  const adv = m.joueur1 && m.joueur1.id === joueurId ? m.joueur2 : m.joueur1;
+  const panel = el('div', { class: 'panel' },
+    el('div', { style: 'display:flex;justify-content:space-between;align-items:center' },
+      el('h2', {}, `${m.bracket === 'WB' ? 'Tour' : m.bracket === 'LB' ? 'Loser bracket tour' : 'Tableau final tour'} ${m.tour} — match #${m.position}`),
+      badgeEtat(m.etat)),
+    m.table != null ? el('p', { class: 'table-info' }, `📍 Table n° ${m.table}`) : el('p', { class: 'muted' }, 'Table non assignée — attendez la table de marque'),
+    el('div', { class: 'scoreboard' },
+      el('div', {}, el('div', { class: 'p' }, m.joueur1 ? m.joueur1.pseudo : '—'), el('div', { class: 's', id: 's1' }, String(m.score1))),
+      el('div', { class: 'muted' }, `race to ${m.manches}`),
+      el('div', {}, el('div', { class: 'p' }, m.joueur2 ? m.joueur2.pseudo : '—'), el('div', { class: 's', id: 's2' }, String(m.score2)))),
+    m.etat === 'en_cours' && moi
+      ? el('button', { class: 'btn-manche', onclick: envoyerManche }, `✅ Manche gagnée par ${moi.pseudo}`)
+      : null,
+    m.etat === 'termine' || m.etat === 'forfait'
+      ? el('p', { style: 'text-align:center;font-size:20px;color:var(--accent2);font-weight:700' }, `🏁 Vainqueur : ${m.gagnant || '—'}`)
+      : null,
+    m.etat === 'pret' ? el('p', { class: 'muted', style: 'text-align:center' }, 'En attente du lancement par la table de marque…') : null,
+    !moi ? el('p', { class: 'muted small', style: 'text-align:center' }, 'Vous n\'êtes pas joueur de ce match : consultation seule.') : null);
+  main.append(panel);
+}
+
+async function envoyerManche() {
+  try {
+    await api(`/api/match/${matchId}/manche`, { method: 'POST', body: JSON.stringify({ joueur_id: joueurId }) });
+  } catch (e) { alert(e.message); }
+}
+
+async function init() {
+  const data = await api('/api/etat');
+  state = data.tournoi;
+  render();
+  connecterSSE((s) => { state = s.tournoi; render(); });
+}
+init();
+</script>
+</body>
+</html>

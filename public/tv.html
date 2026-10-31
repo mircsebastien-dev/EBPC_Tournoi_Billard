@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TV — Tournoi de billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="tv">
+<header class="top">
+  <h1>🎱 <span id="titre">Tournoi de billard</span></h1>
+  <span id="statut" class="badge">—</span>
+</header>
+<main>
+  <div id="champion"></div>
+  <div id="live"></div>
+  <div id="tableau"></div>
+</main>
+<script src="/common.js"></script>
+<script>
+let state = null;
+
+function render() {
+  const titre = document.getElementById('titre');
+  const statut = document.getElementById('statut');
+  const champion = document.getElementById('champion');
+  const live = document.getElementById('live');
+  const tableau = document.getElementById('tableau');
+  champion.innerHTML = ''; live.innerHTML = ''; tableau.innerHTML = '';
+  if (!state || !state.tournoi) {
+    titre.textContent = 'Tournoi de billard';
+    statut.textContent = 'En attente';
+    return;
+  }
+  const t = state.tournoi;
+  titre.textContent = t.tournoi.nom;
+  statut.textContent = t.tournoi.statut === 'en_cours' ? 'EN COURS' : t.tournoi.statut === 'termine' ? 'TERMINÉ' : 'Inscriptions';
+  statut.className = `badge ${t.tournoi.statut}`;
+  if (t.champion) {
+    champion.append(el('div', { class: 'panel', style: 'text-align:center' },
+      el('div', { style: 'font-size:42px;font-weight:800;color:var(--accent)' }, `🏆 ${t.champion.pseudo}`),
+      el('div', { class: 'muted' }, 'Champion du tournoi')));
+  }
+  const enCours = t.matchs.filter(m => m.etat === 'en_cours');
+  if (enCours.length > 0) {
+    live.append(el('div', { class: 'panel' },
+      el('h2', { style: 'font-size:22px' }, `🔴 EN DIRECT (${enCours.length})`),
+      el('div', { class: 'matchs-grid' }, enCours.map(m => {
+        const card = matchCard(m);
+        card.querySelectorAll('.score').forEach(s => s.classList.add('big-score'));
+        return card;
+      }))));
+  }
+  const groups = grouperParRound(t.matchs.filter(m => t.tournoi.statut !== 'inscription'), t.rounds);
+  tableau.append(el('div', { class: 'tv-grid' },
+    ...groups.map(g => el('div', { class: 'round' },
+      el('h3', {}, `${g.round.label} — race to ${g.round.manches}`),
+      el('div', { class: 'matchs-grid', style: 'grid-template-columns:1fr' }, g.matchs.map(matchCard))))));
+}
+
+async function init() {
+  const data = await api('/api/etat');
+  state = data.tournoi;
+  render();
+  connecterSSE((s) => { state = s.tournoi; render(); });
+}
+init();
+</script>
+</body>
+</html>
