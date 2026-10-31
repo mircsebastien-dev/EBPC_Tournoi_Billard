@@ -99,8 +99,9 @@ function renderBracket(container, t, opts = {}) {
     (byKey[k] = byKey[k] || []).push(m);
   }
   for (const k in byKey) byKey[k].sort((a, b) => a.position - b.position);
+  // Loser bracket en miroir : le tour 1 est collé au WB (lecture du LB de droite à gauche)
   const ordered = [
-    ...rounds.filter(r => r.bracket === 'LB'),
+    ...rounds.filter(r => r.bracket === 'LB').reverse(),
     ...rounds.filter(r => r.bracket === 'WB'),
     ...rounds.filter(r => r.bracket === 'F'),
   ];

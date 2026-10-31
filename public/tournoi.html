@@ -48,7 +48,7 @@ async function init() {
         `${t.tournoi.created_at.slice(0, 10)} · ${t.tournoi.regle} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? 'DKO ' + t.tournoi.dko_tours : 'élim. directe'} · ${t.matchs.length} matchs`),
       t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, `🏆 Champion : ${t.champion.pseudo}`) : null,
       el('div', { class: 'legend' },
-        el('span', { class: 'chip' }, '⬅ Loser bracket'),
+        el('span', { class: 'chip' }, '⬅ Loser bracket en miroir (tour 1 collé au WB)'),
         el('span', { class: 'chip' }, 'Tours WB au centre'),
         el('span', { class: 'chip' }, '🏁 Tableau final à droite'),
         el('span', { class: 'chip' }, 'Vert = joué'))));

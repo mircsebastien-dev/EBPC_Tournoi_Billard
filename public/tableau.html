@@ -56,7 +56,7 @@ function render() {
     el('div', { class: 'hero-title' }, `🗺 Tableau — ${t.tournoi.nom}`),
     el('p', { class: 'hero-sub' }, `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? 'double KO ' + t.tournoi.dko_tours + ' tours + tableau final' : 'élimination directe'}`),
     el('div', { class: 'legend' },
-      el('span', { class: 'chip' }, '⬅ Loser bracket (perdants) à gauche'),
+      el('span', { class: 'chip' }, '⬅ Loser bracket en miroir (tour 1 collé au WB, lecture droite→gauche)'),
       el('span', { class: 'chip' }, 'Tours 1, 2… (WB) au centre'),
       el('span', { class: 'chip' }, '🏁 Tableau final à droite'),
       el('span', { class: 'chip' }, 'Rose = en cours'),
