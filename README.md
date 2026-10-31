@@ -109,6 +109,8 @@ Mise à jour : `cd /srv/tournoi && git pull && npm install --omit=dev && sudo sy
 
 Fly.io est le meilleur choix gratuit **avec persistance** de la base SQLite : le dépôt contient `fly.toml` (app `ebpc-tournoi-billard`, région Paris `cdg`, volume `tournoi_data` monté sur `/data`, `DB_PATH=/data/tournoi.db`, machines jamais éteintes `auto_stop_machines = "off"`).
 
+### Sous Linux / macOS
+
 ```bash
 # 1. Installer flyctl et se connecter
 curl -L https://fly.io/install.sh | sh
@@ -128,6 +130,30 @@ fly deploy
 # URL publique :
 fly open          # -> https://ebpc-tournoi-billard.fly.dev
 ```
+
+### Sous Windows (PowerShell)
+
+```powershell
+# 1. Installer flyctl (au choix) :
+#    - avec winget :  winget install Fly-io.flyctl
+#    - ou PowerShell admin :  iwr https://fly.io/install.ps1 -useb | iex
+fly auth login
+
+# 2. Cloner le dépôt et se placer dedans
+git clone https://github.com/mircsebastien-dev/EBPC_Tournoi_Billard.git
+cd EBPC_Tournoi_Billard
+fly launch --no-deploy
+
+# 3. Volume persistant (3 Go gratuits) + PIN
+fly volumes create tournoi_data --region cdg --size 3
+fly secrets set ADMIN_PIN=ton-code-pin
+
+# 4. Déployer et ouvrir
+fly deploy
+fly open          # -> https://ebpc-tournoi-billard.fly.dev
+```
+
+Si `git` n'est pas installé : **winget install Git.Git**, ou télécharge depuis git-scm.com. Si `winget` n'existe pas (vieille version de Windows) : télécharge flyctl directement sur [fly.io/docs/hands-on/install-flyctl](https://fly.io/docs/hands-on/install-flyctl/) (section Windows).
 
 Le plan gratuit Fly.io inclut 3 VM shared-cpu-1x + 3 Go de volume : largement suffisant pour 128 joueurs. **Avantage clé** : pas de cold start (machine toujours allumée), données persistantes.
 

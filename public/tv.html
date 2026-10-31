@@ -10,6 +10,7 @@
 <header class="top">
   <h1>🎱 <span id="titre">Pink City Billard</span></h1>
   <span id="statut" class="badge">—</span>
+  <div id="nav"></div>
 </header>
 <main>
   <div id="champion"></div>
@@ -72,7 +73,7 @@ function render() {
         ...top.map((p, i) => el('tr', {},
           el('td', {}, String(i + 1)), el('td', { style: 'font-weight:700' }, p.pseudo),
           el('td', {}, String(p.gagnes)), el('td', {}, String(p.perdus)), el('td', {}, `${p.pct}%`),
-          el('td', {}, p.serie > 0 ? `🔥${p.serie}V` : p.serie < 0 ? `${-p.serie}D` : '—'))))));
+          el('td', {}, p.serie > 0 ? `🔥${p.serie}V` : p.serie < 0 ? `${-p.serie}D` : '—')))));
   }
 }
 

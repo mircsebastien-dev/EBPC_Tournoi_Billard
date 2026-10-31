@@ -59,7 +59,7 @@ function render() {
         ? el('p', { class: 'muted' }, 'Personne pour l\'instant…')
         : el('div', { class: 'liste-joueurs' }, t.joueurs.map(j => el('span', { class: 'chip' },
             `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo}`,
-            el('span', { class: `badge ${j.statut === 'paye' ? 'termine' : 'pret'}` }, j.statut === 'paye' ? '✅ payé' : '⏳ en attente')))))));
+            el('span', { class: `badge ${j.statut === 'paye' ? 'termine' : 'pret'}` }, j.statut === 'paye' ? '✅ payé' : '⏳ en attente'))))));
   } else {
     const enCours = t.matchs.filter(m => m.etat === 'en_cours');
     if (enCours.length > 0) {
