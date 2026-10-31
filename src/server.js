@@ -317,8 +317,8 @@ app.put('/api/admin/distances', requireAdmin, (req, res) => {
 
 app.post('/api/admin/joueur', requireAdmin, (req, res) => {
   const t = tournoiActif();
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
-  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes' });
+  if (!t) return res.status(404).json({ error: 'Aucun tournoi ouvert aux inscriptions (le précédent doit être terminé et le prochain créé)' });
+  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
   const pseudo = String(req.body.pseudo || '').trim().slice(0, 40);
   if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
   const count = db.prepare('SELECT COUNT(*) c FROM joueur WHERE tournoi_id = ?').get(t.id).c;
@@ -340,8 +340,8 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
 
 app.post('/api/joueur', (req, res) => {
   const t = tournoiActif();
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
-  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes' });
+  if (!t) return res.status(404).json({ error: 'Aucun tournoi ouvert aux inscriptions — attendez que le tournoi en cours soit terminé et que le prochain soit créé' });
+  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
   const pseudo = String(req.body.pseudo || '').trim().slice(0, 40);
   if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
   const count = db.prepare('SELECT COUNT(*) c FROM joueur WHERE tournoi_id = ?').get(t.id).c;

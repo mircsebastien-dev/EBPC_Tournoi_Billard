@@ -10,7 +10,9 @@ Design **« Eight Ball Pink City »** : thème sombre noir profond avec accents 
 - **3 manches gagnantes par défaut pour tous les matchs** (race to 3). La table de marque peut :
   - régler une **distance spéciale (3/5/7) à partir d'un seuil** (quarts / demis / finale) dans les paramètres,
   - **modifier les distances à tout moment**, même en cours de tournoi (appliqué aux matchs non joués)
-- **Clôture manuelle** : la table de marque peut terminer le tournoi à tout moment (champion = dernier gagnant ou choix manuel) ; **les tableaux restent en ligne** jusqu'au prochain tournoi
+- **Clôture manuelle** : la table de marque peut terminer le tournoi à tout moment (champion = dernier gagnant ou choix manuel)
+- **Historique multi-tournois** : chaque tournoi terminé est archivé automatiquement et reste consultable (tableau complet, stats, classement) via `/historique.html` et `/tournoi.html?id=…` ; la table de marque peut **supprimer des tournois de l'historique** (bouton 🗑, `DELETE /api/admin/tournoi/:id`)
+- **Stats joueurs all-time** (`/stats.html`, `GET /api/stats-joueurs`) : par pseudo sur tous les tournois — matchs joués/gagnés/perdus, % victoires, nombre de tournois, 🏆 titres
 - **Statistiques live** : heure de début/fin et durée de chaque match (affichées sur les cartes), panneau stats (matchs joués/restants, durée moyenne, match le plus rapide/long, dernier vainqueur) et **classement des joueurs** (joués, gagnés, perdus, % victoires, série en cours) sur l'accueil et la TV
 - **Droit d'inscription** : les joueurs s'inscrivent eux-mêmes (statut « en attente »), la table de marque valide le paiement (« 💰 payé ») ; **seuls les joueurs payés entrent dans le tirage**
 - **Élimination directe** ou **double KO partiel** (N = 1/2/3 tours) : les perdants des N premiers tours passent en loser bracket, puis **tableau final à élimination directe** entre tous les survivants, finale en 1 match

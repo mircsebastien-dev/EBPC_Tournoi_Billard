@@ -204,6 +204,36 @@ async function main() {
   r = await api(`/api/tournois/${histId}`);
   check('tournoi supprimé -> 404', r.status === 404);
 
+  console.log('== 9c. Inscriptions liées à un seul tournoi (cycle terminé -> nouveau) ==');
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Cycle A', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2 } });
+  const idA = r.data.actif.tournoi.id;
+  r = await api('/api/joueur', { method: 'POST', pin: null, body: { pseudo: 'CycleA1' } });
+  check('inscription ouverte en phase inscription', r.status === 200, r.data);
+  for (const j of (await api('/api/etat')).data.actif.joueurs) {
+    await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
+  }
+  await api('/api/admin/joueur', { method: 'POST', body: { pseudo: 'CycleA2' } });
+  await api(`/api/admin/joueur/${(await api('/api/etat')).data.actif.joueurs.find(j => j.pseudo === 'CycleA2').id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
+  await api('/api/admin/tirage', { method: 'POST', body: {} });
+  r = await api('/api/joueur', { method: 'POST', pin: null, body: { pseudo: 'TropTard' } });
+  check('inscription refusée (409) tant que le tournoi est en cours', r.status === 409, r.data);
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Trop tot', regle: 'blackball', taille: 16, format: 'simple' } });
+  check('création d\'un nouveau tournoi refusée (409) tant que A est en cours', r.status === 409, r.data);
+  await api('/api/admin/terminer', { method: 'POST', body: {} });
+  r = await api('/api/joueur', { method: 'POST', pin: null, body: { pseudo: 'TropTard2' } });
+  check('inscription refusée (404) après fin tant qu\'aucun nouveau tournoi', r.status === 404, r.data);
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Cycle B', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2 } });
+  check('nouveau tournoi créé une fois A terminé', r.status === 200, r.data);
+  const idB = r.data.actif.tournoi.id;
+  check('nouveau tournoi = id différent', idB !== idA, { idA, idB });
+  r = await api('/api/joueur', { method: 'POST', pin: null, body: { pseudo: 'CycleB1' } });
+  check('inscription ouverte sur le nouveau tournoi', r.status === 200, r.data);
+  const etat = await api('/api/etat');
+  const jb = etat.data.actif.joueurs.find(j => j.pseudo === 'CycleB1');
+  const ja = (await api(`/api/tournois/${idA}`)).data.tournoi.joueurs.map(j => j.pseudo);
+  check('inscrit rattaché au tournoi B', !!jb);
+  check('les inscrits du tournoi A ne sont pas dans B', !ja.includes('CycleB1') && !etat.data.actif.joueurs.some(j => j.pseudo === 'CycleA1'), { ja });
+
   console.log('== 9. SSE accessible ==');
   const ctrl = new AbortController();
   const res = await fetch(BASE + '/api/events', { signal: ctrl.signal });

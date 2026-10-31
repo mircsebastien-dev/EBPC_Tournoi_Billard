@@ -78,7 +78,7 @@ function manchesDefaut(rounds, seuil = 'jamais', distanceSpeciale = 3) {
 }
 
 function tailleAuto(nbPayes, tailleMax) {
-  let taille = 2;
+  let taille = 4;
   while (taille < nbPayes) taille <<= 1;
   return Math.min(taille, tailleMax);
 }
