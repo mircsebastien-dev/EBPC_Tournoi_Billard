@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: ebpc-tournoi-billard
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /
+    envVars:
+      - key: DB_PATH
+        value: /data/tournoi.db
+      - key: ADMIN_PIN
+        sync: false
+    disk:
+      name: tournoi-data
+      mountPath: /data
+      sizeGB: 1
