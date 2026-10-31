@@ -113,22 +113,24 @@ function majEtBroadcast() {
 }
 
 app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
-  const { nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto } = req.body;
+  const { nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale } = req.body;
   if (tournoiActuel()) return res.status(409).json({ error: 'Un tournoi existe déjà. Supprimez-le d\'abord.' });
   if (!['blackball', 'ultimate'].includes(regle)) return res.status(400).json({ error: 'Règle invalide' });
   if (![16, 32, 64, 128].includes(Number(taille))) return res.status(400).json({ error: 'Taille invalide (max)'});
   if (!['simple', 'double'].includes(format)) return res.status(400).json({ error: 'Format invalide' });
   const k = format === 'double' ? Math.min(3, Math.max(1, Number(dko_tours) || 1)) : 0;
+  const seuil = ['jamais', 'quarts', 'demis', 'finale'].includes(seuil_distance) ? seuil_distance : 'jamais';
+  const distSpe = [3, 5, 7].includes(Number(distance_speciale)) ? Number(distance_speciale) : 3;
   const info = db.prepare(`
-    INSERT INTO tournoi (id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, statut)
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
-  `).run(nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 4), ajustement_auto === false ? 0 : 1);
+    INSERT INTO tournoi (id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, statut)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
+  `).run(nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 4), ajustement_auto === false ? 0 : 1, seuil, distSpe);
   const t = tournoiActuel();
   for (let i = 1; i <= t.nb_tables; i++) {
     db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
   }
   const rounds = bracket.listeRounds(t.taille, t.format, t.dko_tours);
-  const def = bracket.manchesDefaut(rounds);
+  const def = bracket.manchesDefaut(rounds, t.seuil_distance, t.distance_speciale);
   const ins = db.prepare('INSERT INTO distance_round (tournoi_id, round, manches) VALUES (?, ?, ?)');
   for (const r of rounds) ins.run(t.id, r.key, def[r.key]);
   logAudit('creation_tournoi', 'tournoi 1', null, req.body);
@@ -171,7 +173,6 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
 app.put('/api/admin/distances', requireAdmin, (req, res) => {
   const t = tournoiActuel();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi' });
-  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Distances verrouillées après le tirage' });
   const { distances } = req.body;
   if (!distances || typeof distances !== 'object') return res.status(400).json({ error: 'distances requis' });
   const ins = db.prepare(`INSERT INTO distance_round (tournoi_id, round, manches) VALUES (1, ?, ?)
@@ -180,9 +181,32 @@ app.put('/api/admin/distances', requireAdmin, (req, res) => {
     if (![3, 5, 7].includes(Number(manches))) return res.status(400).json({ error: `Distance invalide pour ${round}` });
     ins.run(round, Number(manches));
   }
-  logAudit('maj_distances', 'tournoi 1', null, distances);
+  if (t.statut === 'en_cours') {
+    const upd = db.prepare(`UPDATE match SET manches = ? WHERE tournoi_id = 1 AND etat NOT IN ('termine', 'forfait') AND (bracket || tour) = ?`);
+    for (const [round, manches] of Object.entries(distances)) upd.run(Number(manches), round);
+  }
+  logAudit('maj_distances', 'tournoi 1', { statut: t.statut }, distances);
   majEtBroadcast();
   res.json({ ok: true });
+});
+
+app.post('/api/admin/terminer', requireAdmin, (req, res) => {
+  const t = tournoiActuel();
+  if (!t) return res.status(404).json({ error: 'Aucun tournoi' });
+  if (t.statut === 'termine') return res.status(409).json({ error: 'Tournoi déjà terminé' });
+  let championId = req.body.champion_id ? Number(req.body.champion_id) : null;
+  if (!championId) {
+    const dernierJoue = db.prepare(`
+      SELECT gagnant_id FROM match WHERE tournoi_id = 1 AND gagnant_id IS NOT NULL
+      ORDER BY CASE bracket WHEN 'F' THEN 2 WHEN 'WB' THEN 1 ELSE 0 END DESC, tour DESC LIMIT 1
+    `).get();
+    championId = dernierJoue ? dernierJoue.gagnant_id : null;
+  }
+  db.prepare(`UPDATE tournoi SET statut = 'termine', champion_id = ? WHERE id = 1`).run(championId);
+  db.prepare(`UPDATE match SET etat = 'termine', updated_at = datetime('now') WHERE tournoi_id = 1 AND etat IN ('prevu', 'pret', 'en_cours')`).run();
+  logAudit('tournoi_termine_manuellement', 'tournoi 1', { statut: t.statut }, { champion_id: championId });
+  majEtBroadcast();
+  res.json({ ok: true, tournoi: vueTournoiComplet() });
 });
 
 app.post('/api/admin/joueur', requireAdmin, (req, res) => {
@@ -263,7 +287,7 @@ app.post('/api/admin/tirage', requireAdmin, (req, res) => {
       db.prepare('UPDATE tournoi SET taille = ? WHERE id = 1').run(tailleEff);
       db.prepare('DELETE FROM distance_round WHERE tournoi_id = 1').run();
       const rounds = bracket.listeRounds(tailleEff, t.format, t.dko_tours);
-      const def = bracket.manchesDefaut(rounds);
+      const def = bracket.manchesDefaut(rounds, t.seuil_distance, t.distance_speciale);
       const ins = db.prepare('INSERT INTO distance_round (tournoi_id, round, manches) VALUES (1, ?, ?)');
       for (const rr of rounds) ins.run(rr.key, def[rr.key]);
       logAudit('ajustement_taille', 'tournoi 1', { taille_max: t.taille }, { taille_effective: tailleEff, nb_payes: joueurs.length });

@@ -6,7 +6,8 @@ Design **« Eight Ball Pink City »** : thème sombre noir profond avec accents 
 
 ## Fonctionnalités
 
-- Tournois de **16 / 32 / 64 / 128** joueurs, byes automatiques si moins d'inscrits
+- Tournois jusqu'à **16 / 32 / 64 / 128** joueurs ; par défaut la **taille du tableau s'ajuste automatiquement au nombre de joueurs payés** au moment du tirage (ex. 5 payés → tableau de 8), désactivable pour forcer la taille max avec byes
+- **3 manches gagnantes par défaut pour tous les matchs** (race to 3), distances 3/5/7 toujours réglables par round avant le tirage
 - **Droit d'inscription** : les joueurs s'inscrivent eux-mêmes (statut « en attente »), la table de marque valide le paiement (« 💰 payé ») ; **seuls les joueurs payés entrent dans le tirage**
 - **Élimination directe** ou **double KO partiel** (N = 1/2/3 tours) : les perdants des N premiers tours passent en loser bracket, puis **tableau final à élimination directe** entre tous les survivants, finale en 1 match
 - **Distances paramétrables par round** : 3, 5 ou 7 manches gagnantes (défaut : 3 / 5 / 7 vers la fin)

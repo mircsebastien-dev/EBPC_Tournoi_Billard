@@ -67,9 +67,13 @@ function setLien(id, champ, toId, slot) {
   db.prepare(`UPDATE match SET ${champ}_id = ?, ${champ}_slot = ? WHERE id = ?`).run(toId, slot, id);
 }
 
-function manchesDefaut(rounds) {
+function manchesDefaut(rounds, seuil = 'jamais', distanceSpeciale = 3) {
   const map = {};
-  for (const r of rounds) map[r.key] = 3;
+  const n = rounds.length;
+  const nbDepuisFin = seuil === 'finale' ? 1 : seuil === 'demis' ? 2 : seuil === 'quarts' ? 3 : 0;
+  rounds.forEach((r, i) => {
+    map[r.key] = (nbDepuisFin > 0 && i >= n - nbDepuisFin) ? distanceSpeciale : 3;
+  });
   return map;
 }
 
