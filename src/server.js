@@ -182,7 +182,7 @@ app.put('/api/admin/distances', requireAdmin, (req, res) => {
     ins.run(round, Number(manches));
   }
   if (t.statut === 'en_cours') {
-    const upd = db.prepare(`UPDATE match SET manches = ? WHERE tournoi_id = 1 AND etat NOT IN ('termine', 'forfait') AND (bracket || tour) = ?`);
+    const upd = db.prepare(`UPDATE match SET manches = ? WHERE tournoi_id = 1 AND etat NOT IN ('termine', 'forfait') AND LOWER(bracket) || tour = ?`);
     for (const [round, manches] of Object.entries(distances)) upd.run(Number(manches), round);
   }
   logAudit('maj_distances', 'tournoi 1', { statut: t.statut }, distances);

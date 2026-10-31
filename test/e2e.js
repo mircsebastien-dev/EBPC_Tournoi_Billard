@@ -141,6 +141,31 @@ async function main() {
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
   check('sans ajustement auto, taille reste 32 (byes)', r.data.tournoi.tournoi.taille === 32, r.data.tournoi.tournoi.taille);
 
+  console.log('== 9a. Seuil de distance (demis -> 5) + maj à chaud + terminer manuellement ==');
+  await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Seuils', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, seuil_distance: 'demis', distance_speciale: 5 } });
+  for (let i = 1; i <= 16; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `S${i}` } });
+  for (const j of (await api('/api/etat')).data.tournoi.joueurs) {
+    await api(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
+  }
+  r = await api('/api/admin/tirage', { method: 'POST', body: {} });
+  const manByTour = {};
+  for (const m of r.data.tournoi.matchs) manByTour[m.tour] = m.manches;
+  check('tours 1-2 en race to 3', manByTour[1] === 3 && manByTour[2] === 3, manByTour);
+  check('demis+finale en race to 5', manByTour[3] === 5 && manByTour[4] === 5, manByTour);
+  r = await api('/api/admin/distances', { method: 'PUT', body: { distances: { wb1: 7 } } });
+  check('maj distance à chaud 200', r.status === 200, r.data);
+  const t9 = (await api('/api/etat')).data.tournoi;
+  check('wb1 passé à 7 (matchs non joués)', t9.matchs.filter(m => m.tour === 1).every(m => m.manches === 7));
+  check('autres tours inchangés', t9.matchs.filter(m => m.tour === 3).every(m => m.manches === 5));
+  const champId = t9.joueurs[0].id;
+  r = await api('/api/admin/terminer', { method: 'POST', body: { champion_id: champId } });
+  check('terminer manuellement 200', r.status === 200, r.data);
+  check('statut termine + champion choisi', r.data.tournoi.tournoi.statut === 'termine' && r.data.tournoi.champion && r.data.tournoi.champion.id === champId);
+  check('matchs non joués clôturés', r.data.tournoi.matchs.every(m => m.etat === 'termine' || m.etat === 'forfait'));
+  const apres = await api('/api/etat');
+  check('tableau toujours en ligne après fin', !!apres.data.tournoi && apres.data.tournoi.tournoi.statut === 'termine');
+
   console.log('== 9. SSE accessible ==');
   const ctrl = new AbortController();
   const res = await fetch(BASE + '/api/events', { signal: ctrl.signal });

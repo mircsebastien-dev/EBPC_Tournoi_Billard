@@ -61,7 +61,14 @@ function renderCreerTournoi() {
       el('div', {}, el('label', {}, 'Règle'), el('select', { id: 'regle' }, el('option', { value: 'blackball' }, 'Blackball'), el('option', { value: 'ultimate' }, 'Ultimate'))),
       el('div', {}, el('label', {}, 'Taille max'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n }, `${n} joueurs`))))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', style: 'width:auto', checked: '' }), 'Ajuster automatiquement la taille du tableau au nombre de joueurs payés'))),
+      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', style: 'width:auto', checked: '' }), 'Ajuster automatiquement la taille au nombre de payés'))),
+    el('div', { class: 'row' },
+      el('div', {}, el('label', {}, 'Distance spéciale à partir de'), el('select', { id: 'seuil' },
+        el('option', { value: 'jamais' }, 'Jamais (3 partout)'),
+        el('option', { value: 'quarts' }, 'Quarts de finale'),
+        el('option', { value: 'demis' }, 'Demi-finales'),
+        el('option', { value: 'finale' }, 'Finale seule'))),
+      el('div', { style: 'flex:0 0 130px' }, el('label', {}, 'Distance spéciale'), el('select', { id: 'distspe' }, [3, 5, 7].map(n => el('option', { value: n }, `${n} manches`))))),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Format'), el('select', { id: 'format' }, el('option', { value: 'simple' }, 'Élimination directe'), el('option', { value: 'double' }, 'Double KO + tableau final'))),
       el('div', {}, el('label', {}, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n }, `${n} tour${n > 1 ? 's' : ''}` })))),
@@ -76,6 +83,7 @@ function renderCreerTournoi() {
         format: val('format'), dko_tours: Number(val('dko')),
         tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
         ajustement_auto: document.getElementById('auto').checked,
+        seuil_distance: val('seuil'), distance_speciale: Number(val('distspe')),
       })});
     } catch (e) { alert(e.message); }
   }
@@ -129,6 +137,7 @@ function renderInscriptions(t) {
 
   main.append(el('div', { class: 'panel' },
     el('button', { onclick: tirage, disabled: t.joueurs.filter(j => j.statut === 'paye').length < 2 ? '' : null, style: 'width:100%' }, `🎲 Lancer le tirage (${t.joueurs.filter(j => j.statut === 'paye').length} joueurs payés)`),
+    el('p', { class: 'muted small' }, 'Les distances ci-dessus peuvent être changées à tout moment, même en cours de tournoi (elles s\'appliquent aux matchs non joués).'),
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'danger', style: 'width:100%', onclick: supprimer }, 'Supprimer le tournoi'))));
 
   async function tirage() {
@@ -152,6 +161,21 @@ function renderTournoi(t) {
       el('span', { class: 'chip' }, `${t.joueurs.length} joueurs`),
       el('span', { class: 'chip' }, `${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués`)),
     t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, `🏆 Champion : ${t.champion.pseudo}`) : null));
+
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, '📏 Distances (modifiables à tout moment)'),
+    el('p', { class: 'muted small' }, 'S\'appliquent aux matchs non encore joués.'),
+    el('div', { class: 'row' }, t.rounds.map(r =>
+      el('div', { style: 'flex:1 1 120px' }, el('label', {}, r.label), el('select', { id: `dist-${r.key}`, 'data-round': r.key },
+        [3, 5, 7].map(n => el('option', { value: n, ...(n === r.manches ? { selected: '' } : {}) }, `${n} manches`)))))),
+    el('div', { style: 'margin-top:12px' }, el('button', { class: 'secondary', onclick: sauverDistances2 }, 'Enregistrer'))));
+
+  async function sauverDistances2() {
+    const distances = {};
+    document.querySelectorAll('select[data-round]').forEach(s => { distances[s.dataset.round] = Number(s.value); });
+    try { await adminApi('/api/admin/distances', { method: 'PUT', body: JSON.stringify({ distances }) }); }
+    catch (e) { alert(e.message); }
+  }
 
   const prets = t.matchs.filter(m => m.etat === 'pret');
   const enCours = t.matchs.filter(m => m.etat === 'en_cours');
@@ -189,6 +213,20 @@ function renderTournoi(t) {
       el('div', { class: 'matchs-grid' }, g.matchs.map(m =>
         el('div', {}, matchCard(m),
           (m.etat === 'termine' || m.etat === 'forfait') ? el('div', { style: 'margin-top:8px' }, el('button', { class: 'secondary', onclick: () => corriger(m) }, '✏️ Corriger')) : null)))));
+  }
+
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, '⚠️ Clôturer le tournoi'),
+    el('p', { class: 'muted small' }, 'Termine le tournoi immédiatement, même si la finale n\'a pas été jouée. Les tableaux restent en ligne jusqu\'au prochain tournoi.'),
+    el('div', { class: 'row' },
+      el('div', {}, el('label', {}, 'Champion (optionnel)'), el('select', { id: 'champion' }, el('option', { value: '' }, 'Dernier gagnant (auto)'), t.joueurs.map(j => el('option', { value: j.id, ...(t.champion && t.champion.id === j.id ? { selected: '' } : {}) }, j.pseudo)))),
+      el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'danger', onclick: terminer }, '🏁 Terminer le tournoi maintenant')))));
+
+  async function terminer() {
+    if (!confirmer('Terminer le tournoi maintenant ? Les matchs non joués seront clôturés.')) return;
+    const cid = val('champion');
+    try { await adminApi('/api/admin/terminer', { method: 'POST', body: JSON.stringify({ champion_id: cid ? Number(cid) : null }) }); }
+    catch (e) { alert(e.message); }
   }
 
   main.append(el('div', { class: 'panel' }, el('h2', {}, '📜 Journal'), el('div', { id: 'audit' })));
