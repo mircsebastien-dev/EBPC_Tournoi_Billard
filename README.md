@@ -105,22 +105,46 @@ mkdir -p /srv/tournoi/backups
 
 Mise à jour : `cd /srv/tournoi && git pull && npm install --omit=dev && sudo systemctl restart tournoi`
 
-## Déploiement sur Render (gratuit, recommandé)
+## Déploiement gratuit recommandé : Fly.io (volume persistant inclus)
 
-Le dépôt contient un **blueprint** `render.yaml` (service web Node, plan gratuit, disque persistant 1 Go monté sur `/data` pour que `tournoi.db` survive aux redéploys) :
+Fly.io est le meilleur choix gratuit **avec persistance** de la base SQLite : le dépôt contient `fly.toml` (app `ebpc-tournoi-billard`, région Paris `cdg`, volume `tournoi_data` monté sur `/data`, `DB_PATH=/data/tournoi.db`, machines jamais éteintes `auto_stop_machines = "off"`).
 
-1. Va sur [dashboard.render.com](https://dashboard.render.com) → **New +** → **Blueprint** → connecte ton compte GitHub et choisis `mircsebastien-dev/EBPC_Tournoi_Billard` (branche `main`)
-2. Render détecte `render.yaml` → clique **Apply**
-3. Dans les **Environment** du service, renseigne **`ADMIN_PIN`** (obligatoire en production — laisse vide pour le laisser vide, ou mets ta valeur ; sans valeur définie, le PIN par défaut reste `0000`)
-4. Attends le build (~1 min) → ton site est en ligne sur `https://ebpc-tournoi-billard.onrender.com`
+```bash
+# 1. Installer flyctl et se connecter
+curl -L https://fly.io/install.sh | sh
+fly auth login
 
-Notes Render gratuit : le service **s'endort après 15 min d'inactivité** et redémarre en ~30 s à la première requête (les données sont conservées grâce au disque `/data`). Pour un tournoi en live, fais simplement une requête sur `/` 1–2 min avant le début pour le « réveiller ».
+# 2. Créer l'app depuis le dépôt cloné (le fly.toml est détecté)
+cd EBPC_Tournoi_Billard
+fly launch --no-deploy          # valide la config, ne déploie pas encore
 
-## Autres PaaS gratuits
+# 3. Créer le volume persistant (3 Go gratuits) et poser le PIN
+fly volumes create tournoi_data --region cdg --size 3
+fly secrets set ADMIN_PIN=ton-code-pin
 
-- **Railway** : New Project → Deploy from GitHub → variables `ADMIN_PIN` + `DB_PATH=/data/tournoi.db` + volume 1 Go sur `/data`. Gratuit avec crédits mensuels (500 h/mois).
-- **Fly.io** : `fly launch` (détecte Node), puis `fly volumes create tournoi_data --size 1` monté sur `/data` et `DB_PATH=/data/tournoi.db`. Gratuit avec limites generous (3 VMs gratuites).
-- Dans tous les cas : `PORT` est fourni automatiquement par la plateforme, ne le fixe pas.
+# 4. Déployer
+fly deploy
+
+# URL publique :
+fly open          # -> https://ebpc-tournoi-billard.fly.dev
+```
+
+Le plan gratuit Fly.io inclut 3 VM shared-cpu-1x + 3 Go de volume : largement suffisant pour 128 joueurs. **Avantage clé** : pas de cold start (machine toujours allumée), données persistantes.
+
+## Alternative : Railway (volume payant mais crédits gratuits)
+
+```bash
+# Railway : New Project → Deploy from GitHub → dépôt + branche main
+# Variables : ADMIN_PIN=..., DB_PATH=/data/tournoi.db
+# Puis : Add Volume (1 Go) monté sur /data
+```
+Le dépôt contient `railway.json` (build/start). ~500 h/mois de crédit gratuit ; au-delà, le volume devient payant.
+
+## Render (gratuit mais SANS persistance)
+
+⚠️ Le plan gratuit Render **n'autorise pas les disques** : `tournoi.db` serait perdu à chaque redéploiement/sleep. Le `render.yaml` du dépôt reste présent pour un **test rapide** (ajoute juste `ADMIN_PIN` dans les variables d'env). Pour de la production gratuite, préfère Fly.io.
+
+Dans tous les cas : `PORT` est fourni automatiquement par la plateforme, ne le fixe pas.
 
 ## Architecture
 
