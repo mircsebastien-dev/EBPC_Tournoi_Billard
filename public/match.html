@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Match en cours — Tournoi de billard</title>
+<title>Match — Pink City Billard</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -28,27 +28,30 @@ function monMatch() {
 function render() {
   main.innerHTML = '';
   const m = monMatch();
-  if (!m) { main.append(el('div', { class: 'panel' }, el('p', {}, 'Match introuvable.'))); return; }
+  if (!m) { main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', {}, 'Match introuvable.'))); return; }
   const moi = m.joueur1 && m.joueur1.id === joueurId ? m.joueur1 : (m.joueur2 && m.joueur2.id === joueurId ? m.joueur2 : null);
-  const adv = m.joueur1 && m.joueur1.id === joueurId ? m.joueur2 : m.joueur1;
-  const panel = el('div', { class: 'panel' },
+  const peutJouer = m.etat === 'en_cours' && moi;
+
+  const carte = el('div', { class: 'panel' },
     el('div', { style: 'display:flex;justify-content:space-between;align-items:center' },
-      el('h2', {}, `${m.bracket === 'WB' ? 'Tour' : m.bracket === 'LB' ? 'Loser bracket tour' : 'Tableau final tour'} ${m.tour} — match #${m.position}`),
+      el('h2', {}, `Match #${m.position}`),
       badgeEtat(m.etat)),
-    m.table != null ? el('p', { class: 'table-info' }, `📍 Table n° ${m.table}`) : el('p', { class: 'muted' }, 'Table non assignée — attendez la table de marque'),
+    m.table != null
+      ? el('div', { class: 'table-info' }, `📍 Va à la table n° ${m.table}`)
+      : el('p', { class: 'muted', style: 'text-align:center' }, 'En attente de la table…'),
     el('div', { class: 'scoreboard' },
-      el('div', {}, el('div', { class: 'p' }, m.joueur1 ? m.joueur1.pseudo : '—'), el('div', { class: 's', id: 's1' }, String(m.score1))),
-      el('div', { class: 'muted' }, `race to ${m.manches}`),
-      el('div', {}, el('div', { class: 'p' }, m.joueur2 ? m.joueur2.pseudo : '—'), el('div', { class: 's', id: 's2' }, String(m.score2)))),
-    m.etat === 'en_cours' && moi
-      ? el('button', { class: 'btn-manche', onclick: envoyerManche }, `✅ Manche gagnée par ${moi.pseudo}`)
+      el('div', {}, el('div', { class: 'p' }, m.joueur1 ? m.joueur1.pseudo : '—'), el('div', { class: 's' }, String(m.score1))),
+      el('div', { class: 'mid' }, `race<br>to ${m.manches}`),
+      el('div', {}, el('div', { class: 'p' }, m.joueur2 ? m.joueur2.pseudo : '—'), el('div', { class: 's' }, String(m.score2)))),
+    peutJouer
+      ? el('button', { class: 'btn-manche', onclick: envoyerManche }, `✅ J'ai gagné la manche${moi.pseudo ? ` (${moi.pseudo})` : ''}`)
       : null,
-    m.etat === 'termine' || m.etat === 'forfait'
-      ? el('p', { style: 'text-align:center;font-size:20px;color:var(--accent2);font-weight:700' }, `🏁 Vainqueur : ${m.gagnant || '—'}`)
+    (m.etat === 'termine' || m.etat === 'forfait')
+      ? el('p', { style: 'text-align:center;font-size:24px;font-weight:800;color:var(--green)' }, `🏁 ${m.gagnant || '—'} remporte le match`)
       : null,
-    m.etat === 'pret' ? el('p', { class: 'muted', style: 'text-align:center' }, 'En attente du lancement par la table de marque…') : null,
-    !moi ? el('p', { class: 'muted small', style: 'text-align:center' }, 'Vous n\'êtes pas joueur de ce match : consultation seule.') : null);
-  main.append(panel);
+    m.etat === 'pret' ? el('p', { class: 'muted', style: 'text-align:center' }, 'La table de marque va lancer le match…') : null,
+    !moi && m.etat !== 'termine' ? el('p', { class: 'muted small', style: 'text-align:center' }, 'Consultation seule — tu ne joues pas ce match.') : null);
+  main.append(carte);
 }
 
 async function envoyerManche() {
@@ -58,8 +61,7 @@ async function envoyerManche() {
 }
 
 async function init() {
-  const data = await api('/api/etat');
-  state = data.tournoi;
+  state = (await api('/api/etat')).tournoi;
   render();
   connecterSSE((s) => { state = s.tournoi; render(); });
 }

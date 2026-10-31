@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tournoi de billard</title>
+<title>Eight Ball Pink City — Tournoi</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header class="top">
-  <h1>🎱 Tournoi de billard</h1>
+  <h1>🎱 Pink City Billard</h1>
   <nav>
-    <a href="/" class="active">Accueil</a>
+    <a href="/" class="active">Tournoi</a>
     <a href="/tv.html">📺 TV</a>
-    <a href="/suivi.html">Suivi joueur</a>
+    <a href="/suivi.html">Joueur</a>
     <a href="/admin.html">Table de marque</a>
   </nav>
 </header>
@@ -25,51 +25,49 @@ let state = null;
 function render() {
   main.innerHTML = '';
   if (!state || !state.tournoi) {
-    main.append(el('div', { class: 'panel' },
-      el('h2', {}, 'Aucun tournoi en cours'),
-      el('p', { class: 'muted' }, 'Inscrivez-vous ou attendez le lancement du prochain tournoi. La table de marque configure le tournoi depuis son espace.')));
+    main.append(el('div', { class: 'panel', style: 'text-align:center;padding:40px 20px' },
+      el('div', { class: 'hero-title' }, '🎱 Aucun tournoi pour le moment'),
+      el('p', { class: 'muted' }, 'Revenez quand la table de marque aura lancé le prochain tournoi.')));
     return;
   }
   const t = state.tournoi;
-  const info = el('div', { class: 'panel' },
-    el('h2', {}, t.tournoi.nom),
-    el('div', { class: 'row' },
-      el('span', { class: 'chip' }, `Règle : ${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'}`),
-      el('span', { class: 'chip' }, `Tableau : ${t.tournoi.taille}`),
-      el('span', { class: 'chip' }, t.tournoi.format === 'double' ? `Double KO (${t.tournoi.dko_tours} tour${t.tournoi.dko_tours > 1 ? 's' : ''}) + tableau final` : 'Élimination directe'),
-      el('span', { class: `badge ${t.tournoi.statut}` }, t.tournoi.statut === 'inscription' ? 'Inscriptions ouvertes' : t.tournoi.statut === 'en_cours' ? 'En cours' : 'Terminé')));
 
-  if (t.champion) {
-    info.append(el('p', { style: 'font-size:20px;color:var(--accent2);font-weight:700' }, `🏆 Champion : ${t.champion.pseudo}`));
-  }
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, t.tournoi.nom),
+    el('p', { class: 'hero-sub' },
+      `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · tableau ${t.tournoi.taille} · ` +
+      (t.tournoi.format === 'double' ? `double KO ${t.tournoi.dko_tours} tour${t.tournoi.dko_tours > 1 ? 's' : ''}` : 'élimination directe')),
+    el('div', { class: 'row' },
+      el('span', { class: `badge ${t.tournoi.statut}` }, t.tournoi.statut === 'inscription' ? 'Inscriptions ouvertes' : t.tournoi.statut === 'en_cours' ? '🔴 En cours' : '🏁 Terminé')),
+    t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--green);margin:10px 0 0' }, `🏆 Champion : ${t.champion.pseudo}`) : null));
 
   if (t.tournoi.statut === 'inscription') {
-    const form = el('div', { class: 'panel' },
+    const input = el('input', { id: 'pseudo', placeholder: 'Ton pseudo', maxlength: 40, autocomplete: 'off' });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') inscrire(); });
+    main.append(el('div', { class: 'panel' },
       el('h2', {}, 'Inscription'),
       el('div', { class: 'row' },
-        el('div', {}, el('label', {}, 'Votre pseudo'), (() => { const i = el('input', { id: 'pseudo', placeholder: 'Ex: Marco', maxlength: 40 }); return i; })()),
-        el('div', {}, el('button', { onclick: inscrire }, 'S\'inscrire'))));
-    main.append(info, form);
-    const liste = el('div', { class: 'panel' },
-      el('h2', {}, `Inscrits (${t.joueurs.length}/${t.tournoi.taille})`),
-      el('div', { class: 'liste-joueurs' }, t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo}`))));
-    main.append(liste);
+        el('div', {}, input),
+        el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: inscrire }, "S'inscrire"))),
+      el('p', { class: 'muted small', style: 'margin:10px 0 0' }, `${t.joueurs.length}/${t.tournoi.taille} inscrits`)));
+    main.append(el('div', { class: 'panel' },
+      el('h2', {}, 'Inscrits'),
+      t.joueurs.length === 0
+        ? el('p', { class: 'muted' }, 'Personne pour l\'instant…')
+        : el('div', { class: 'liste-joueurs' }, t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo}`)))));
   } else {
     const enCours = t.matchs.filter(m => m.etat === 'en_cours');
     if (enCours.length > 0) {
-      const p = el('div', { class: 'panel' },
-        el('h2', {}, `🔴 Matchs en cours (${enCours.length})`),
-        el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { onClick: () => location.href = `/match.html?id=${m.id}` }))));
-      main.append(p);
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, `🔴 En direct (${enCours.length})`),
+        el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { onClick: () => location.href = `/match.html?id=${m.id}` })))));
     }
     for (const g of grouperParRound(t.matchs, t.rounds)) {
-      const r = el('div', { class: 'round' },
-        el('h3', {}, `${g.round.label} — race to ${g.round.manches}`),
-        el('div', { class: 'matchs-grid' }, g.matchs.map(m => matchCard(m))));
-      main.append(r);
+      main.append(el('div', { class: 'round' },
+        el('h3', {}, `${g.round.label} · race to ${g.round.manches}`),
+        el('div', { class: 'matchs-grid' }, g.matchs.map(m => matchCard(m)))));
     }
   }
-  main.append(info);
 }
 
 async function inscrire() {
@@ -81,8 +79,7 @@ async function inscrire() {
 }
 
 async function init() {
-  const data = await api('/api/etat');
-  state = data.tournoi;
+  state = (await api('/api/etat')).tournoi;
   render();
   connecterSSE((s) => { state = s.tournoi; render(); });
 }

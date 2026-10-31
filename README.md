@@ -1,6 +1,8 @@
-# EBPC — Tournoi de billard
+# EBPC — Tournoi de billard « Eight Ball Pink City »
 
 Gestionnaire de tournois de billard (règles **blackball** ou **ultimate**) : inscription, tirage au sort, tableaux en **élimination directe** ou **double KO partiel** (paramètre 1/2/3 tours) puis tableau final, matchs en direct avec saisie des scores par les joueurs, gestion des tables, écran TV castable. 100 % open source (MIT), stack Node.js + Express + SQLite + SSE.
+
+Design **« Eight Ball Pink City »** : thème sombre noir profond avec accents néon rose, gros boutons tactiles, parcours simplifiés (mobile-first).
 
 ## Fonctionnalités
 

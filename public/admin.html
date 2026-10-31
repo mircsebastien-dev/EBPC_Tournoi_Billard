@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Table de marque — Tournoi de billard</title>
+<title>Table de marque — Pink City Billard</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header class="top">
   <h1>🎱 Table de marque</h1>
   <nav>
-    <a href="/">Accueil</a>
+    <a href="/">Tournoi</a>
     <a href="/tv.html">📺 TV</a>
-    <a href="/suivi.html">Suivi joueur</a>
+    <a href="/suivi.html">Joueur</a>
     <a href="/admin.html" class="active">Table de marque</a>
   </nav>
 </header>
@@ -23,154 +23,139 @@ const main = document.getElementById('main');
 let pin = localStorage.getItem('ebpc_admin_pin') || '';
 let state = null;
 
-function h(headers = {}) { return { ...headers, ...(pin ? { 'X-Admin-Pin': pin } : {}) }; }
-
+const H = () => ({ 'Content-Type': 'application/json', ...(pin ? { 'X-Admin-Pin': pin } : {}) });
 async function adminApi(path, opts = {}) {
-  const res = await fetch(path, { headers: h({ 'Content-Type': 'application/json' }), ...opts });
+  const res = await fetch(path, { headers: H(), ...opts });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) { pin = ''; localStorage.removeItem('ebpc_admin_pin'); renderLogin(); throw new Error('PIN invalide'); }
   if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
   return data;
 }
+const val = (id) => document.getElementById(id).value;
 
 function renderLogin() {
   main.innerHTML = '';
   const input = el('input', { type: 'password', id: 'pin', placeholder: 'Code PIN', inputmode: 'numeric', maxlength: 8 });
-  main.append(el('div', { class: 'panel', style: 'max-width:360px;margin:60px auto' },
-    el('h2', {}, 'Connexion table de marque'),
-    el('label', {}, 'Code PIN'),
-    input,
-    el('div', { style: 'margin-top:12px' }, el('button', { onclick: () => {
-      pin = input.value.trim();
-      localStorage.setItem('ebpc_admin_pin', pin);
-      init();
-    } }, 'Se connecter'))));
+  const entrer = () => { pin = input.value.trim(); if (pin) { localStorage.setItem('ebpc_admin_pin', pin); init(); } };
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') entrer(); });
+  main.append(el('div', { class: 'panel', style: 'max-width:380px;margin:60px auto' },
+    el('div', { class: 'hero-title', style: 'text-align:center' }, '🔐 Table de marque'),
+    el('label', {}, 'Code PIN'), input,
+    el('div', { style: 'margin-top:14px' }, el('button', { onclick: entrer, style: 'width:100%' }, 'Se connecter'))));
   input.focus();
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { pin = input.value.trim(); localStorage.setItem('ebpc_admin_pin', pin); init(); } });
 }
 
 function render() {
   if (!pin) { renderLogin(); return; }
   main.innerHTML = '';
-  if (!state || !state.tournoi) { renderCreerTournoi(); return; }
-  const t = state.tournoi;
-  if (t.tournoi.statut === 'inscription') renderGestionInscriptions(t);
-  else renderGestionTournoi(t);
+  if (!state || !state.tournoi) renderCreerTournoi();
+  else if (state.tournoi.tournoi.statut === 'inscription') renderInscriptions(state.tournoi);
+  else renderTournoi(state.tournoi);
 }
 
 function renderCreerTournoi() {
   main.append(el('div', { class: 'panel' },
-    el('h2', {}, 'Nouveau tournoi'),
+    el('div', { class: 'hero-title' }, '🎱 Nouveau tournoi'),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Nom'), el('input', { id: 'nom', value: 'Tournoi EBPC' })),
+      el('div', {}, el('label', {}, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
       el('div', {}, el('label', {}, 'Règle'), el('select', { id: 'regle' }, el('option', { value: 'blackball' }, 'Blackball'), el('option', { value: 'ultimate' }, 'Ultimate'))),
-      el('div', {}, el('label', {}, 'Taille du tableau'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n }, `${n} joueurs`))))),
+      el('div', {}, el('label', {}, 'Taille'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n }, `${n} joueurs`))))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Format'), el('select', { id: 'format' }, el('option', { value: 'simple' }, 'Élimination directe'), el('option', { value: 'double' }, 'Double KO partiel + tableau final'))),
-      el('div', {}, el('label', {}, 'Double KO sur (tours)'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n }, `${n} tour${n > 1 ? 's' : ''}`))))),
+      el('div', {}, el('label', {}, 'Format'), el('select', { id: 'format' }, el('option', { value: 'simple' }, 'Élimination directe'), el('option', { value: 'double' }, 'Double KO + tableau final'))),
+      el('div', {}, el('label', {}, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n }, `${n} tour${n > 1 ? 's' : ''}` })))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Tables de billard'), el('input', { id: 'nbtables', type: 'number', value: 4, min: 1, max: 20 })),
-      el('div', {}, el('label', {}, 'Têtes de série'), el('label', { style: 'display:flex;gap:6px;align-items:center;margin-top:14px' }, el('input', { id: 'tds', type: 'checkbox', style: 'width:auto' }), 'Activer')))),
-    el('div', { style: 'margin-top:14px' }, el('button', { onclick: creerTournoi }, 'Créer le tournoi'))));
+      el('div', {}, el('label', {}, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 4, min: 1, max: 20 })),
+      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'tds', type: 'checkbox', style: 'width:auto' }), 'Têtes de série'))),
+    el('div', { style: 'margin-top:16px' }, el('button', { onclick: creer, style: 'width:100%' }, 'Créer le tournoi'))));
+  async function creer() {
+    try {
+      await adminApi('/api/admin/tournoi', { method: 'POST', body: JSON.stringify({
+        nom: val('nom'), regle: val('regle'), taille: Number(val('taille')),
+        format: val('format'), dko_tours: Number(val('dko')),
+        tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
+      })});
+    } catch (e) { alert(e.message); }
+  }
 }
 
-async function creerTournoi() {
-  try {
-    await adminApi('/api/admin/tournoi', { method: 'POST', body: JSON.stringify({
-      nom: val('nom'), regle: val('regle'), taille: Number(val('taille')),
-      format: val('format'), dko_tours: Number(val('dko')),
-      tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
-    })});
-  } catch (e) { alert(e.message); }
-}
-
-function val(id) { return document.getElementById(id).value; }
-
-function renderGestionInscriptions(t) {
-  const form = el('div', { class: 'panel' },
-    el('h2', {}, `Configuration — ${t.tournoi.nom}`),
+function renderInscriptions(t) {
+  const tn = t.tournoi;
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, tn.nom),
+    el('p', { class: 'hero-sub' }, `${tn.taille} joueurs max · ${t.joueurs.length} inscrits · ${t.tables.length} tables`),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Nom'), el('input', { id: 'nom2', value: t.tournoi.nom })),
-      el('div', {}, el('label', {}, 'Tables'), el('input', { id: 'nbtables2', type: 'number', value: t.tournoi.nb_tables, min: 1, max: 20 })),
-      el('div', {}, el('button', { class: 'secondary', onclick: majTournoi }, 'Enregistrer'))),
-  main.append(form);
-
-  const distances = el('div', { class: 'panel' },
-    el('h2', {}, 'Distances par round (manches gagnantes)'),
-    el('div', { class: 'row' }, t.rounds.map(r =>
-      el('div', {}, el('label', {}, r.label), el('select', { id: `dist-${r.key}`, 'data-round': r.key },
-        [3, 5, 7].map(n => el('option', { value: n, selected: n === r.manches ? '' : null }, `${n} manches`)))))),
-    el('div', { style: 'margin-top:10px' }, el('button', { onclick: sauverDistances }, 'Enregistrer les distances')));
-  main.append(distances);
-
-  const insc = el('div', { class: 'panel' },
-    el('h2', {}, `Insets (${t.joueurs.length}/${t.tournoi.taille})`),
-    el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'pseudo', maxlength: 40, placeholder: 'Nouveau joueur' })),
-      t.tournoi.tetes_de_serie ? el('div', {}, el('label', {}, 'Tête de série n°'), el('input', { id: 'tds', type: 'number', min: 1, style: 'width:90px' })) : null,
-      el('div', {}, el('button', { onclick: ajouterJoueur }, 'Inscrire'))),
-    el('div', { class: 'liste-joueurs', style: 'margin-top:10px' },
-      t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo} `,
-        el('button', { onclick: async () => { if (confirmer(`Retirer ${j.pseudo} ?`)) { try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); } } } }, '✕')))));
-  main.append(insc);
+      el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'pseudo', maxlength: 40, placeholder: 'Nouveau joueur', autocomplete: 'off' })),
+      tn.tetes_de_serie ? el('div', { style: 'flex:0 0 90px' }, el('label', {}, 'N° série'), el('input', { id: 'tds', type: 'number', min: 1 })) : null,
+      el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: ajouter }, 'Inscrire')))));
+  async function ajouter() {
+    const pseudo = val('pseudo').trim();
+    if (!pseudo) return;
+    const body = { pseudo };
+    const tds = document.getElementById('tds');
+    if (tds && tds.value) body.tete_de_serie = Number(tds.value);
+    try { await adminApi('/api/admin/joueur', { method: 'POST', body: JSON.stringify(body) }); }
+    catch (e) { alert(e.message); }
+  }
 
   main.append(el('div', { class: 'panel' },
-    el('button', { onclick: lancerTirage, disabled: t.joueurs.length < 2 ? '' : null }, `🎲 Effectuer le tirage au sort (${t.joueurs.length} inscrits)`),
-    el('div', { style: 'margin-top:12px' }, el('button', { class: 'danger', onclick: supprimerTournoi }, 'Supprimer le tournoi'))));
+    el('h2', {}, 'Inscrits'),
+    el('div', { class: 'liste-joueurs' },
+      t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo} `,
+        el('button', { class: 'danger', onclick: async () => { if (confirmer(`Retirer ${j.pseudo} ?`)) { try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); } } } }, '✕'))))));
+
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, 'Distances (manches gagnantes)'),
+    el('div', { class: 'row' }, t.rounds.map(r =>
+      el('div', { style: 'flex:1 1 120px' }, el('label', {}, r.label), el('select', { id: `dist-${r.key}`, 'data-round': r.key },
+        [3, 5, 7].map(n => el('option', { value: n, ...(n === r.manches ? { selected: '' } : {}) }, `${n} manches`)))))),
+    el('div', { style: 'margin-top:12px' }, el('button', { class: 'secondary', onclick: sauverDistances }, 'Enregistrer'))));
+
+  async function sauverDistances() {
+    const distances = {};
+    document.querySelectorAll('select[data-round]').forEach(s => { distances[s.dataset.round] = Number(s.value); });
+    try { await adminApi('/api/admin/distances', { method: 'PUT', body: JSON.stringify({ distances }) }); }
+    catch (e) { alert(e.message); }
+  }
+
+  main.append(el('div', { class: 'panel' },
+    el('button', { onclick: tirage, disabled: t.joueurs.length < 2 ? '' : null, style: 'width:100%' }, `🎲 Lancer le tirage (${t.joueurs.length} inscrits)`),
+    el('div', { style: 'margin-top:12px' }, el('button', { class: 'danger', style: 'width:100%', onclick: supprimer }, 'Supprimer le tournoi'))));
+
+  async function tirage() {
+    if (!confirmer('Lancer le tirage ? Les inscriptions seront closes.')) return;
+    try { await adminApi('/api/admin/tirage', { method: 'POST', body: '{}' }); }
+    catch (e) { alert(e.message); }
+  }
+  async function supprimer() {
+    if (!confirmer('Supprimer le tournoi et TOUT son contenu ?')) return;
+    try { await adminApi('/api/admin/tournoi', { method: 'DELETE' }); }
+    catch (e) { alert(e.message); }
+  }
 }
 
-async function majTournoi() {
-  try { await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify({ nom: val('nom2'), nb_tables: Number(val('nbtables2')) }) }); }
-  catch (e) { alert(e.message); }
-}
-async function sauverDistances() {
-  const distances = {};
-  document.querySelectorAll('select[data-round]').forEach(s => { distances[s.dataset.round] = Number(s.value); });
-  try { await adminApi('/api/admin/distances', { method: 'PUT', body: JSON.stringify({ distances }) }); }
-  catch (e) { alert(e.message); }
-}
-async function ajouterJoueur() {
-  const pseudo = val('pseudo').trim();
-  if (!pseudo) return;
-  const body = { pseudo };
-  const tds = document.getElementById('tds');
-  if (tds && tds.value) body.tete_de_serie = Number(tds.value);
-  try { await adminApi('/api/admin/joueur', { method: 'POST', body: JSON.stringify(body) }); }
-  catch (e) { alert(e.message); }
-}
-async function lancerTirage() {
-  if (!confirmer('Lancer le tirage au sort ? Les inscriptions seront closes.')) return;
-  try { await adminApi('/api/admin/tirage', { method: 'POST', body: '{}' }); }
-  catch (e) { alert(e.message); }
-}
-async function supprimerTournoi() {
-  if (!confirmer('Supprimer définitivement le tournoi, les joueurs et tous les matchs ?')) return;
-  try { await adminApi('/api/admin/tournoi', { method: 'DELETE' }); }
-  catch (e) { alert(e.message); }
-}
-
-function renderGestionTournoi(t) {
-  const header = el('div', { class: 'panel' },
-    el('h2', {}, `${t.tournoi.nom} — ${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} — tableau ${t.tournoi.taille} — ${t.tournoi.format === 'double' ? `DKO ${t.tournoi.dko_tours} tours` : 'élimination directe'}`),
-    t.champion ? el('p', { style: 'font-size:20px;color:var(--accent2);font-weight:700' }, `🏆 Champion : ${t.champion.pseudo}`) : null,
+function renderTournoi(t) {
+  const tn = t.tournoi;
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, tn.nom),
+    el('p', { class: 'hero-sub' }, `${tn.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${tn.taille} joueurs · ${tn.format === 'double' ? `DKO ${tn.dko_tours} tours` : 'élimination directe'} · ${t.tables.length} tables`),
     el('div', { class: 'row' },
       el('span', { class: 'chip' }, `${t.joueurs.length} joueurs`),
-      el('span', { class: 'chip' }, `${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués`),
-      el('span', { class: 'chip' }, `${t.tables.length} tables`)));
-  main.append(header);
+      el('span', { class: 'chip' }, `${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués`)),
+    t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, `🏆 Champion : ${t.champion.pseudo}`) : null));
 
   const prets = t.matchs.filter(m => m.etat === 'pret');
   const enCours = t.matchs.filter(m => m.etat === 'en_cours');
-  const termines = t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait');
 
   if (prets.length > 0) {
     const p = el('div', { class: 'panel' }, el('h2', {}, `⏳ Prêts à lancer (${prets.length})`));
     for (const m of prets) {
       const libres = t.tables.filter(tb => !t.matchs.some(mm => mm.etat === 'en_cours' && mm.table === tb.numero));
-      const sel = el('select', { id: `table-${m.id}` }, el('option', { value: '' }, 'Table libre (auto)'), libres.map(tb => el('option', { value: tb.id }, `Table ${tb.numero}`)));
-      p.append(el('div', { class: 'match-card', style: 'display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap' },
-        el('div', {}, el('div', {}, `${m.joueur1 ? m.joueur1.pseudo : '—'} vs ${m.joueur2 ? m.joueur2.pseudo : '—'}`), el('div', { class: 'muted small' }, `${m.bracket === 'WB' ? 'Tour' : m.bracket === 'LB' ? 'LB tour' : 'Final tour'} ${m.tour} · race to ${m.manches}`)),
-        el('div', { class: 'row', style: 'align-items:center' }, sel, el('button', { onclick: () => lancerMatch(m.id, sel.value ? Number(sel.value) : null) }, 'Lancer'))));
+      const sel = el('select', { id: `table-${m.id}`, style: 'width:auto' },
+        el('option', { value: '' }, 'Table auto'), libres.map(tb => el('option', { value: tb.id }, `Table ${tb.numero}`)));
+      p.append(el('div', { class: 'match-admin' },
+        el('div', { style: 'font-weight:700;font-size:16px' }, `${m.joueur1 ? m.joueur1.pseudo : '—'}  vs  ${m.joueur2 ? m.joueur2.pseudo : '—'}`),
+        el('div', { class: 'muted small' }, `${m.bracket === 'WB' ? 'Tour' : m.bracket === 'LB' ? 'Loser bracket' : 'Tableau final'} ${m.tour} · race to ${m.manches}`),
+        el('div', { class: 'actions' }, sel, el('button', { onclick: () => lancer(m.id, sel.value ? Number(sel.value) : null) }, '▶ Lancer'))));
     }
     main.append(p);
   }
@@ -178,50 +163,48 @@ function renderGestionTournoi(t) {
   if (enCours.length > 0) {
     const p = el('div', { class: 'panel' }, el('h2', {}, `🔴 En cours (${enCours.length})`));
     for (const m of enCours) {
-      p.append(el('div', { class: 'match-card', style: 'margin-bottom:8px' },
+      p.append(el('div', { class: 'match-admin' },
         matchCard(m),
-        el('div', { class: 'row', style: 'margin-top:8px' },
-          el('button', { class: 'secondary', onclick: () => ouvrirCorrection(m) }, 'Corriger le score'),
+        el('div', { class: 'actions' },
+          el('button', { class: 'secondary', onclick: () => corriger(m) }, '✏️ Corriger'),
           el('button', { class: 'danger', onclick: () => forfait(m, m.joueur1.id) }, `${m.joueur1 ? m.joueur1.pseudo : ''} forfait`),
           el('button', { class: 'danger', onclick: () => forfait(m, m.joueur2.id) }, `${m.joueur2 ? m.joueur2.pseudo : ''} forfait`))));
     }
     main.append(p);
   }
 
-  const g = grouperParRound(t.matchs, t.rounds);
-  for (const gr of g) {
+  for (const g of grouperParRound(t.matchs, t.rounds)) {
     main.append(el('div', { class: 'round' },
-      el('h3', {}, `${gr.round.label} — race to ${gr.round.manches}`),
-      el('div', { class: 'matchs-grid' }, gr.matchs.map(m =>
-        el('div', {}, matchCard(m), (m.etat === 'termine' || m.etat === 'forfait') ? el('div', { style: 'margin-top:6px' }, el('button', { class: 'secondary', onclick: () => ouvrirCorrection(m) }, 'Corriger')) : null)))));
+      el('h3', {}, `${g.round.label} · race to ${g.round.manches}`),
+      el('div', { class: 'matchs-grid' }, g.matchs.map(m =>
+        el('div', {}, matchCard(m),
+          (m.etat === 'termine' || m.etat === 'forfait') ? el('div', { style: 'margin-top:8px' }, el('button', { class: 'secondary', onclick: () => corriger(m) }, '✏️ Corriger')) : null)))));
   }
 
-  main.append(el('div', { class: 'panel' },
-    el('h2', {}, 'Journal d\'audit'),
-    el('div', { id: 'audit' })));
+  main.append(el('div', { class: 'panel' }, el('h2', {}, '📜 Journal'), el('div', { id: 'audit' })));
   chargerAudit();
-}
 
-async function lancerMatch(id, tableId) {
-  try { await adminApi(`/api/admin/match/${id}/lancer`, { method: 'POST', body: JSON.stringify({ table_id: tableId }) }); }
-  catch (e) { alert(e.message); }
-}
-async function forfait(m, joueurId) {
-  if (!confirmer(`Confirmer le forfait de ${joueurId === m.joueur1.id ? m.joueur1.pseudo : m.joueur2.pseudo} ?`)) return;
-  try { await adminApi(`/api/admin/match/${m.id}/forfait`, { method: 'POST', body: JSON.stringify({ joueur_id: joueurId }) }); }
-  catch (e) { alert(e.message); }
-}
-
-function ouvrirCorrection(m) {
-  const s1 = prompt(`Score de ${m.joueur1 ? m.joueur1.pseudo : 'J1'} (0-${m.manches}) :`, String(m.score1));
-  if (s1 == null) return;
-  const s2 = prompt(`Score de ${m.joueur2 ? m.joueur2.pseudo : 'J2'} (0-${m.manches}) :`, String(m.score2));
-  if (s2 == null) return;
-  const man = prompt('Distance (manches gagnantes, 3/5/7) :', String(m.manches));
-  if (man == null) return;
-  const motif = prompt('Motif de la correction :', 'erreur de saisie');
-  adminApi(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: JSON.stringify({ score1: Number(s1), score2: Number(s2), manches: Number(man), motif: motif || '' }) })
-    .catch(e => alert(e.message));
+  async function lancer(id, tableId) {
+    try { await adminApi(`/api/admin/match/${id}/lancer`, { method: 'POST', body: JSON.stringify({ table_id: tableId }) }); }
+    catch (e) { alert(e.message); }
+  }
+  async function forfait(m, joueurId) {
+    const qui = joueurId === m.joueur1.id ? m.joueur1.pseudo : m.joueur2.pseudo;
+    if (!confirmer(`Forfait de ${qui} ?`)) return;
+    try { await adminApi(`/api/admin/match/${m.id}/forfait`, { method: 'POST', body: JSON.stringify({ joueur_id: joueurId }) }); }
+    catch (e) { alert(e.message); }
+  }
+  function corriger(m) {
+    const s1 = prompt(`Score de ${m.joueur1 ? m.joueur1.pseudo : 'J1'} (0-${m.manches}) :`, String(m.score1));
+    if (s1 == null) return;
+    const s2 = prompt(`Score de ${m.joueur2 ? m.joueur2.pseudo : 'J2'} (0-${m.manches}) :`, String(m.score2));
+    if (s2 == null) return;
+    const man = prompt('Distance (3/5/7) :', String(m.manches));
+    if (man == null) return;
+    const motif = prompt('Motif :', 'correction table de marque');
+    adminApi(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: JSON.stringify({ score1: Number(s1), score2: Number(s2), manches: Number(man), motif: motif || '' }) })
+      .catch(e => alert(e.message));
+  }
 }
 
 async function chargerAudit() {
@@ -232,21 +215,18 @@ async function chargerAudit() {
     box.innerHTML = '';
     box.append(el('table', { class: 'audit' },
       el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Action'), el('th', {}, 'Cible'), el('th', {}, 'Détails')),
-      ...audit.map(a => el('tr', {},
+      ...audit.slice(0, 100).map(a => el('tr', {},
         el('td', {}, a.created_at), el('td', {}, a.action), el('td', {}, a.cible || ''),
-        el('td', {}, `${a.avant || ''} → ${a.apres || ''}`)))));
+        el('td', { class: 'small muted' }, `${a.avant || ''} → ${a.apres || ''}`)))));
   } catch {}
 }
 
 async function init() {
   try {
-    const data = await api('/api/etat');
-    state = data.tournoi;
+    state = (await api('/api/etat')).tournoi;
     render();
     connecterSSE((s) => { state = s.tournoi; render(); });
-  } catch (e) {
-    if (String(e.message).includes('401') || !pin) renderLogin();
-  }
+  } catch { if (!pin) renderLogin(); }
 }
 init();
 </script>

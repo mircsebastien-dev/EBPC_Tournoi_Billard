@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Suivi joueur — Tournoi de billard</title>
+<title>Joueur — Pink City Billard</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header class="top">
-  <h1>🎱 Suivi joueur</h1>
+  <h1>🎱 Pink City Billard</h1>
   <nav>
-    <a href="/">Accueil</a>
+    <a href="/">Tournoi</a>
     <a href="/tv.html">📺 TV</a>
-    <a href="/suivi.html" class="active">Suivi joueur</a>
+    <a href="/suivi.html" class="active">Joueur</a>
     <a href="/admin.html">Table de marque</a>
   </nav>
 </header>
@@ -26,19 +26,18 @@ let joueurId = Number(localStorage.getItem('ebpc_joueur_id') || 0);
 function renderSelecteur() {
   main.innerHTML = '';
   if (!state || !state.tournoi) {
-    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, 'Aucun tournoi en cours.')));
+    main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', { class: 'muted' }, 'Aucun tournoi en cours.')));
     return;
   }
   const t = state.tournoi;
-  const panel = el('div', { class: 'panel' },
-    el('h2', {}, 'Qui êtes-vous ?'),
-    el('p', { class: 'muted small' }, 'Sélectionnez votre pseudo dans la liste (aucune protection : la table de marque peut corriger en cas d\'erreur).'),
-    el('div', { class: 'liste-joueurs', style: 'margin-top:10px' },
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, 'Qui es-tu ?'),
+    el('p', { class: 'muted', style: 'margin-bottom:14px' }, 'Touche ton pseudo ci-dessous.'),
+    el('div', { class: 'liste-joueurs' },
       t.joueurs.map(j => el('button', {
-        class: 'secondary',
+        class: 'joueur-btn secondary',
         onclick: () => { joueurId = j.id; localStorage.setItem('ebpc_joueur_id', String(j.id)); renderMatchs(); }
-      }, j.pseudo))));
-  main.append(panel);
+      }, j.pseudo)))));
 }
 
 function renderMatchs() {
@@ -47,35 +46,33 @@ function renderMatchs() {
   const moi = t.joueurs.find(j => j.id === joueurId);
   if (!moi) { renderSelecteur(); return; }
   const mesMatchs = t.matchs.filter(m => (m.joueur1 && m.joueur1.id === joueurId) || (m.joueur2 && m.joueur2.id === joueurId));
-  const head = el('div', { class: 'panel' },
-    el('h2', {}, `Bonjour ${moi.pseudo}`),
-    el('button', { class: 'secondary', onclick: () => { joueurId = 0; localStorage.removeItem('ebpc_joueur_id'); renderSelecteur(); } }, 'Changer de joueur'));
-  main.append(head);
+
+  main.append(el('div', { class: 'panel', style: 'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px' },
+    el('div', { class: 'hero-title' }, `👋 ${moi.pseudo}`),
+    el('button', { class: 'secondary', onclick: () => { joueurId = 0; localStorage.removeItem('ebpc_joueur_id'); renderSelecteur(); } }, 'Changer')));
+
   if (mesMatchs.length === 0) {
-    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, 'Aucun match pour le moment.')));
+    main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', { class: 'muted' }, 'Aucun match pour le moment. Le tirage arrive bientôt ! 🎱')));
     return;
   }
-  const enCours = mesMatchs.filter(m => m.etat === 'en_cours' || m.etat === 'pret');
-  const autres = mesMatchs.filter(m => !enCours.includes(m));
-  if (enCours.length > 0) {
+  const aJouer = mesMatchs.filter(m => m.etat === 'en_cours' || m.etat === 'pret');
+  const autres = mesMatchs.filter(m => !aJouer.includes(m));
+  if (aJouer.length > 0) {
     main.append(el('div', { class: 'panel' },
-      el('h2', {}, '🔴 Vos matchs à jouer'),
-      el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { onClick: () => location.href = `/match.html?id=${m.id}&joueur=${joueurId}` })))));
+      el('h2', {}, '🔴 À toi de jouer'),
+      el('div', { class: 'matchs-grid' }, aJouer.map(m => matchCard(m, { onClick: () => location.href = `/match.html?id=${m.id}&joueur=${joueurId}` })))));
   }
   if (autres.length > 0) {
     main.append(el('div', { class: 'panel' },
-      el('h2', {}, 'Vos autres matchs'),
+      el('h2', {}, 'Tes matchs'),
       el('div', { class: 'matchs-grid' }, autres.map(m => matchCard(m)))));
   }
 }
 
-function render() {
-  if (joueurId) renderMatchs(); else renderSelecteur();
-}
+function render() { if (joueurId && state && state.tournoi) renderMatchs(); else renderSelecteur(); }
 
 async function init() {
-  const data = await api('/api/etat');
-  state = data.tournoi;
+  state = (await api('/api/etat')).tournoi;
   render();
   connecterSSE((s) => { state = s.tournoi; render(); });
 }
