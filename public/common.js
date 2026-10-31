@@ -90,6 +90,87 @@ function connecterSSE(onUpdate) {
 
 function confirmer(msg) { return window.confirm(msg); }
 
+/* ===== Bracket visuel partagé (tableau.html actif + tournoi.html archivé) ===== */
+function renderBracket(container, t, opts = {}) {
+  const rounds = t.rounds;
+  const byKey = {};
+  for (const m of t.matchs) {
+    const k = m.bracket + m.tour;
+    (byKey[k] = byKey[k] || []).push(m);
+  }
+  for (const k in byKey) byKey[k].sort((a, b) => a.position - b.position);
+  const ordered = [
+    ...rounds.filter(r => r.bracket === 'LB'),
+    ...rounds.filter(r => r.bracket === 'WB'),
+    ...rounds.filter(r => r.bracket === 'F'),
+  ];
+  const groups = ordered.map(r => ({ round: r, matchs: byKey[r.bracket + r.tour] || [] })).filter(g => g.matchs.length > 0);
+
+  const wrap = el('div', { class: 'bracket-scroll' });
+  const bracket = el('div', { class: 'bracket', id: 'bracket' });
+  const svg = el('svg', { id: 'bracket-svg' });
+  bracket.append(svg);
+  for (const g of groups) {
+    const colCls = g.round.bracket === 'LB' ? 'lb' : g.round.bracket === 'F' ? 'finale' : 'wb';
+    const col = el('div', { class: `bracket-col ${colCls}` }, el('h3', {}, g.round.label + ' · race to ' + g.round.manches));
+    for (const m of g.matchs) {
+      const win1 = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
+      const win2 = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
+      const enAttente = m.etat === 'prevu';
+      const node = el('div', {
+        class: 'node' + (m.etat === 'en_cours' ? ' live' : '') + ((m.etat === 'termine' || m.etat === 'forfait') ? ' done' : '') + (enAttente ? ' attente' : ''),
+        'data-id': m.id,
+      },
+        el('div', { class: 'nj' + (win1 ? ' win' : '') + (!m.joueur1 ? ' attente-j' : '') },
+          el('span', {}, m.joueur1 ? m.joueur1.pseudo : '…'), el('span', { class: 'sc' }, String(m.score1))),
+        el('div', { class: 'nj' + (win2 ? ' win' : '') + (!m.joueur2 ? ' attente-j' : '') },
+          el('span', {}, m.joueur2 ? m.joueur2.pseudo : '…'), el('span', { class: 'sc' }, String(m.score2))),
+        el('div', { class: 'meta' },
+          enAttente ? el('span', { class: 'attente-tag' }, '⏳ match attendu') : null,
+          m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : null,
+          (m.etat === 'termine' || m.etat === 'forfait') ? badgeEtat(m.etat) : null,
+          m.table != null ? el('span', { class: 'table-badge' }, '🎱 Table ' + m.table) : null,
+          m.duree_s != null ? el('span', {}, '⏳ ' + fmtDuree(m.duree_s)) : null));
+      if (!opts.readonly) { node.addEventListener('click', () => { location.href = `/match.html?id=${m.id}`; }); node.style.cursor = 'pointer'; }
+      col.append(node);
+    }
+    bracket.append(col);
+  }
+  wrap.append(bracket);
+  container.append(wrap);
+  if (opts.drawLinks !== false) requestAnimationFrame(() => drawBracketLinks(t));
+}
+
+function drawBracketLinks(t) {
+  const bracket = document.getElementById('bracket');
+  const svg = document.getElementById('bracket-svg');
+  if (!bracket || !svg || !t) return;
+  const rect = bracket.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+  svg.innerHTML = '';
+  const ns = 'http://www.w3.org/2000/svg';
+  for (const m of t.matchs) {
+    for (const targetId of [m.suivant_id, m.perdant_id]) {
+      if (!targetId) continue;
+      const a = bracket.querySelector(`[data-id="${m.id}"]`);
+      const b = bracket.querySelector(`[data-id="${targetId}"]`);
+      if (!a || !b) continue;
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const x1 = ra.right - rect.left, y1 = ra.top + ra.height / 2 - rect.top;
+      const x2 = rb.left - rect.left, y2 = rb.top + rb.height / 2 - rect.top;
+      const mx = (x1 + x2) / 2;
+      const p = document.createElementNS(ns, 'path');
+      p.setAttribute('d', `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+      let cls = '';
+      if (m.etat === 'en_cours') cls = 'live';
+      else if (m.etat === 'termine' || m.etat === 'forfait') cls = 'done';
+      else if (m.etat === 'prevu') cls = 'attente';
+      if (cls) p.setAttribute('class', cls);
+      svg.append(p);
+    }
+  }
+}
+
 function renderStatsPanel(stats, titre = '📊 Statistiques', topN = 10) {
   if (!stats) return null;
   const r = stats.resume;
