@@ -234,6 +234,24 @@ async function main() {
   check('inscrit rattaché au tournoi B', !!jb);
   check('les inscrits du tournoi A ne sont pas dans B', !ja.includes('CycleB1') && !etat.data.actif.joueurs.some(j => j.pseudo === 'CycleA1'), { ja });
 
+  console.log('== 9d. Mode simulation : joueurs fictifs en masse, payés ==');
+  await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Simu Test', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2 } });
+  r = await api('/api/admin/joueurs/simulation', { method: 'POST', body: { count: 16, prefix: 'Bot' } });
+  check('simulation 200', r.status === 200, r.data);
+  check('16 fictifs créés', r.data.crees === 16, r.data.crees);
+  const js = (await api('/api/etat')).data.actif.joueurs;
+  check('tous payés directement', js.length === 16 && js.every(j => j.statut === 'paye'));
+  check('pseudos préfixés Bot01..Bot16', js[0].pseudo === 'Bot01' && js[15].pseudo === 'Bot16', js.map(j => j.pseudo).slice(0, 3));
+  r = await api('/api/admin/joueurs/simulation', { method: 'POST', body: { count: 10, prefix: 'Bot' } });
+  check('2e appel : tableau plein -> 409 ou partiel', r.status === 409 || r.data.crees === 0, r.status === 409 ? '409' : r.data.crees);
+  r = await api('/api/admin/joueurs/simulation', { method: 'POST', pin: '9999', body: { count: 5 } });
+  check('endpoint protégé (401 mauvais PIN)', r.status === 401, r.status);
+  r = await api('/api/admin/joueurs/simulation', { method: 'POST', pin: null, body: { count: 5 } });
+  check('endpoint protégé (401 sans PIN)', r.status === 401, r.status);
+  r = await api('/api/admin/tirage', { method: 'POST', body: {} });
+  check('tirage OK avec 16 simulés', r.status === 200 && r.data.actif.matchs.filter(m => m.tour === 1).length === 8);
+
   console.log('== 9. SSE accessible ==');
   const ctrl = new AbortController();
   const res = await fetch(BASE + '/api/events', { signal: ctrl.signal });

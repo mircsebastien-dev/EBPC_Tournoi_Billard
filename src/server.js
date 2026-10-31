@@ -338,6 +338,34 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
   }
 });
 
+app.post('/api/admin/joueurs/simulation', requireAdmin, (req, res) => {
+  const t = tournoiActif();
+  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes' });
+  const count = Math.max(1, Math.min(128, Number(req.body.count) || 8));
+  const prefix = String(req.body.prefix || 'Simu').replace(/[^\w\-]/g, '').slice(0, 20) || 'Simu';
+  const deja = db.prepare('SELECT COUNT(*) c FROM joueur WHERE tournoi_id = ?').get(t.id).c;
+  const places = t.taille - deja;
+  if (places <= 0) return res.status(409).json({ error: 'Tableau déjà plein' });
+  const n = Math.min(count, places);
+  const ins = db.prepare('INSERT INTO joueur (tournoi_id, pseudo, statut) VALUES (?, ?, ?)');
+  const crees = [];
+  let k = 1;
+  const existe = db.prepare('SELECT 1 FROM joueur WHERE tournoi_id = ? AND pseudo = ?');
+  while (crees.length < n) {
+    const pseudo = `${prefix}${String(k).padStart(2, '0')}`;
+    if (!existe.get(t.id, pseudo)) {
+      const info = ins.run(t.id, pseudo, 'paye');
+      crees.push({ id: Number(info.lastInsertRowid), pseudo });
+    }
+    k++;
+    if (k > 999) break;
+  }
+  logAudit('simulation_joueurs', `tournoi ${t.id}`, null, { prefix, demandes: count, crees: crees.length, statut: 'paye' });
+  majEtBroadcast();
+  res.json({ ok: true, crees: crees.length, joueurs: crees });
+});
+
 app.post('/api/joueur', (req, res) => {
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi ouvert aux inscriptions — attendez que le tournoi en cours soit terminé et que le prochain soit créé' });

@@ -107,7 +107,22 @@ function renderInscriptions(t) {
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'pseudo', maxlength: 40, placeholder: 'Nouveau joueur', autocomplete: 'off' })),
       tn.tetes_de_serie ? el('div', { style: 'flex:0 0 90px' }, el('label', {}, 'N° série'), el('input', { id: 'tds', type: 'number', min: 1 })) : null,
-      el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: ajouter }, 'Inscrire')))));
+      el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: ajouter }, 'Inscrire'))),
+    el('div', { class: 'panel', style: 'margin-top:12px;border-style:dashed' },
+      el('h2', {}, '🎲 Mode simulation'),
+      el('p', { class: 'muted small' }, 'Inscrit des joueurs fictifs en masse, directement marqués payés (pour tester le tableau rapidement).'),
+      el('div', { class: 'row' },
+        el('div', { style: 'flex:0 0 110px' }, el('label', {}, 'Nombre'), el('input', { id: 'simcount', type: 'number', value: 16, min: 1, max: 128 })),
+        el('div', { style: 'flex:0 0 110px' }, el('label', {}, 'Préfixe'), el('input', { id: 'simprefix', value: 'Simu', maxlength: 12 })),
+        el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: simuler }, 'Ajouter'))))));
+  async function simuler() {
+    const count = Number(val('simcount')) || 8;
+    const prefix = val('simprefix') || 'Simu';
+    try {
+      const r = await adminApi('/api/admin/joueurs/simulation', { method: 'POST', body: JSON.stringify({ count, prefix }) });
+      alert(`${r.crees} joueur(s) fictif(s) ajouté(s) et marqués payés ✅`);
+    } catch (e) { alert(e.message); }
+  }
   async function ajouter() {
     const pseudo = val('pseudo').trim();
     if (!pseudo) return;
