@@ -29,6 +29,12 @@ function badgeEtat(etat) {
   return el('span', { class: `badge ${etat}` }, labels[etat] || etat);
 }
 
+function fmtDuree(s) {
+  if (s == null) return null;
+  const m = Math.floor(s / 60), sec = s % 60;
+  return m > 0 ? `${m} min ${String(sec).padStart(2, '0')} s` : `${sec} s`;
+}
+
 function matchCard(m, opts = {}) {
   const j1g = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
   const j2g = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
@@ -45,6 +51,8 @@ function matchCard(m, opts = {}) {
       m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : null,
       m.table != null ? el('span', {}, `Table ${m.table}`) : null,
       el('span', {}, `race to ${m.manches}`),
+      m.started_at ? el('span', {}, `⏱ début ${m.started_at.slice(11, 16)}`) : null,
+      m.duree_s != null ? el('span', {}, `⏳ ${fmtDuree(m.duree_s)}`) : null,
       m.gagnant ? el('span', { style: 'color:var(--green);font-weight:700' }, `🏆 ${m.gagnant}`) : null));
   if (opts.onClick) { card.addEventListener('click', () => opts.onClick(m)); card.style.cursor = 'pointer'; }
   return card;

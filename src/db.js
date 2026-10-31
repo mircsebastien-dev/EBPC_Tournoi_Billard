@@ -6,50 +6,6 @@ const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const tournoiExiste = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tournoi'`).get();
-if (tournoiExiste) {
-  const cols = db.prepare('PRAGMA table_info(tournoi)').all().map(c => c.name);
-  const manquantes = ['tetes_de_serie', 'nb_tables', 'ajustement_auto', 'seuil_distance', 'distance_speciale', 'champion_id']
-    .filter(c => !cols.includes(c));
-  if (manquantes.length > 0) {
-    db.pragma('foreign_keys = OFF');
-    db.exec('BEGIN');
-    db.exec(`
-      CREATE TABLE tournoi_mig (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        nom TEXT NOT NULL,
-        regle TEXT NOT NULL CHECK (regle IN ('blackball', 'ultimate')),
-        taille INTEGER NOT NULL CHECK (taille IN (4, 8, 16, 32, 64, 128)),
-        format TEXT NOT NULL CHECK (format IN ('simple', 'double')),
-        dko_tours INTEGER NOT NULL DEFAULT 0 CHECK (dko_tours BETWEEN 0 AND 3),
-        tetes_de_serie INTEGER NOT NULL DEFAULT 0,
-        nb_tables INTEGER NOT NULL DEFAULT 4,
-        ajustement_auto INTEGER NOT NULL DEFAULT 1,
-        seuil_distance TEXT NOT NULL DEFAULT 'jamais' CHECK (seuil_distance IN ('jamais', 'quarts', 'demis', 'finale')),
-        distance_speciale INTEGER NOT NULL DEFAULT 3 CHECK (distance_speciale IN (3, 5, 7)),
-        statut TEXT NOT NULL DEFAULT 'inscription' CHECK (statut IN ('inscription', 'en_cours', 'termine')),
-        champion_id INTEGER,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-    `);
-    const aColonne = (n) => cols.includes(n);
-    const selectCols = ['id', 'nom', 'regle', 'taille', 'format', 'dko_tours',
-      aColonne('tetes_de_serie') ? 'tetes_de_serie' : '0',
-      aColonne('nb_tables') ? 'nb_tables' : '4',
-      aColonne('ajustement_auto') ? 'ajustement_auto' : '1',
-      aColonne('seuil_distance') ? 'seuil_distance' : "'jamais'",
-      aColonne('distance_speciale') ? 'distance_speciale' : '3',
-      'statut',
-      aColonne('champion_id') ? 'champion_id' : 'NULL',
-      'created_at'].join(', ');
-    db.exec(`INSERT INTO tournoi_mig SELECT ${selectCols} FROM tournoi`);
-    db.exec('DROP TABLE tournoi');
-    db.exec('ALTER TABLE tournoi_mig RENAME TO tournoi');
-    db.exec('COMMIT');
-    db.pragma('foreign_keys = ON');
-  }
-}
-
 db.exec(`
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -147,8 +103,50 @@ if (!joueurCols.includes('statut')) {
   db.exec("ALTER TABLE joueur ADD COLUMN statut TEXT NOT NULL DEFAULT 'en_attente'");
 }
 const tournoiCols = db.prepare('PRAGMA table_info(tournoi)').all().map(c => c.name);
-if (!tournoiCols.includes('ajustement_auto')) {
-  db.exec('ALTER TABLE tournoi ADD COLUMN ajustement_auto INTEGER NOT NULL DEFAULT 1');
+const manquantes = ['tetes_de_serie', 'nb_tables', 'ajustement_auto', 'seuil_distance', 'distance_speciale', 'champion_id']
+  .filter(c => !tournoiCols.includes(c));
+if (tournoiCols.length > 0 && manquantes.length > 0) {
+  db.pragma('foreign_keys = OFF');
+  db.exec('BEGIN');
+  db.exec([
+    "CREATE TABLE tournoi_mig (",
+    "  id INTEGER PRIMARY KEY CHECK (id = 1),",
+    "  nom TEXT NOT NULL,",
+    "  regle TEXT NOT NULL CHECK (regle IN ('blackball', 'ultimate')),",
+    "  taille INTEGER NOT NULL CHECK (taille IN (4, 8, 16, 32, 64, 128)),",
+    "  format TEXT NOT NULL CHECK (format IN ('simple', 'double')),",
+    "  dko_tours INTEGER NOT NULL DEFAULT 0 CHECK (dko_tours BETWEEN 0 AND 3),",
+    "  tetes_de_serie INTEGER NOT NULL DEFAULT 0,",
+    "  nb_tables INTEGER NOT NULL DEFAULT 4,",
+    "  ajustement_auto INTEGER NOT NULL DEFAULT 1,",
+    "  seuil_distance TEXT NOT NULL DEFAULT 'jamais' CHECK (seuil_distance IN ('jamais', 'quarts', 'demis', 'finale')),",
+    "  distance_speciale INTEGER NOT NULL DEFAULT 3 CHECK (distance_speciale IN (3, 5, 7)),",
+    "  statut TEXT NOT NULL DEFAULT 'inscription' CHECK (statut IN ('inscription', 'en_cours', 'termine')),",
+    "  champion_id INTEGER,",
+    "  created_at TEXT NOT NULL DEFAULT (datetime('now'))",
+    ");"
+  ].join('\n'));
+  const aColonne = (n) => tournoiCols.includes(n);
+  const selectCols = ['id', 'nom', 'regle', 'taille', 'format', 'dko_tours',
+    aColonne('tetes_de_serie') ? 'tetes_de_serie' : '0',
+    aColonne('nb_tables') ? 'nb_tables' : '4',
+    aColonne('ajustement_auto') ? 'ajustement_auto' : '1',
+    aColonne('seuil_distance') ? 'seuil_distance' : "'jamais'",
+    aColonne('distance_speciale') ? 'distance_speciale' : '3',
+    'statut',
+    aColonne('champion_id') ? 'champion_id' : 'NULL',
+    'created_at'].join(', ');
+  db.exec('INSERT INTO tournoi_mig SELECT ' + selectCols + ' FROM tournoi');
+  db.exec('DROP TABLE tournoi');
+  db.exec('ALTER TABLE tournoi_mig RENAME TO tournoi');
+  db.exec('COMMIT');
+  db.pragma('foreign_keys = ON');
+}
+
+const matchCols = db.prepare('PRAGMA table_info(match)').all().map(c => c.name);
+if (matchCols.length > 0) {
+  if (!matchCols.includes('started_at')) db.exec('ALTER TABLE match ADD COLUMN started_at TEXT');
+  if (!matchCols.includes('ended_at')) db.exec('ALTER TABLE match ADD COLUMN ended_at TEXT');
 }
 
 function setSetting(key, value) {

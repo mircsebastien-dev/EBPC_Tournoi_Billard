@@ -59,7 +59,7 @@ function appliquerBye(matchId) {
   } else if (m.joueur1_id == null && m.joueur2_id == null && feederTermine(m, 1) && feederTermine(m, 2)) {
     raison = 'match vide (aucun joueur des deux côtés)';
   } else return;
-  db.prepare(`UPDATE match SET gagnant_id = ?, etat = 'termine', updated_at = datetime('now') WHERE id = ?`)
+  db.prepare(`UPDATE match SET gagnant_id = ?, etat = 'termine', ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE id = ?`)
     .run(gagnant, matchId);
   insererEvent(matchId, gagnant, 'bye', { raison });
   if (gagnant != null) propagerGagnant(matchId, gagnant);
@@ -90,7 +90,7 @@ function verifierFinTournoi(m) {
 
 function terminerMatch(matchId, gagnantId, perdantId, raison) {
   const m = matchById(matchId);
-  db.prepare(`UPDATE match SET gagnant_id = ?, etat = 'termine', updated_at = datetime('now') WHERE id = ?`)
+  db.prepare(`UPDATE match SET gagnant_id = ?, etat = 'termine', ended_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`)
     .run(gagnantId, matchId);
   insererEvent(matchId, gagnantId, raison === 'forfait' ? 'forfait' : 'manche', { detail: raison || 'distance atteinte' });
   propagerGagnant(matchId, gagnantId);
@@ -122,7 +122,7 @@ function lancerMatch(matchId, tableId) {
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.joueur1_id == null || m.joueur2_id == null) throw httpError(409, 'Match incomplet (joueur manquant)');
   if (m.etat !== 'pret' && m.etat !== 'prevu') throw httpError(409, 'Match non lançable dans cet état');
-  db.prepare(`UPDATE match SET etat = 'en_cours', table_id = ?, updated_at = datetime('now') WHERE id = ?`).run(tableId, matchId);
+  db.prepare(`UPDATE match SET etat = 'en_cours', table_id = ?, started_at = COALESCE(started_at, datetime('now')), updated_at = datetime('now') WHERE id = ?`).run(tableId, matchId);
   insererEvent(matchId, null, 'lancement', { table: tableId != null ? tableNumero(tableId) : null });
   return matchById(matchId);
 }
@@ -139,8 +139,8 @@ function corrigerScore(matchId, score1, score2, manches, motif) {
     etat = 'termine';
     gagnant = s1 > s2 ? m.joueur1_id : m.joueur2_id;
   }
-  db.prepare(`UPDATE match SET score1 = ?, score2 = ?, manches = ?, etat = ?, gagnant_id = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(s1, s2, manches, etat, gagnant, matchId);
+  db.prepare(`UPDATE match SET score1 = ?, score2 = ?, manches = ?, etat = ?, gagnant_id = ?, ended_at = CASE WHEN ? = 'termine' THEN COALESCE(ended_at, datetime('now')) ELSE ended_at END, updated_at = datetime('now') WHERE id = ?`)
+    .run(s1, s2, manches, etat, gagnant, etat, matchId);
   insererEvent(matchId, null, 'correction', { avant, apres: { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant }, motif });
   logAudit('correction_score', `match ${matchId}`, avant, { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant });
   if (etat === 'termine' && gagnant != null && avant.etat !== 'termine') {
@@ -157,7 +157,7 @@ function declarerForfait(matchId, forfaitJoueurId) {
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.etat === 'termine') throw httpError(409, 'Match déjà terminé');
   const autre = forfaitJoueurId === m.joueur1_id ? m.joueur2_id : m.joueur1_id;
-  db.prepare(`UPDATE match SET etat = 'forfait', gagnant_id = ?, updated_at = datetime('now') WHERE id = ?`).run(autre, matchId);
+  db.prepare(`UPDATE match SET etat = 'forfait', gagnant_id = ?, ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE id = ?`).run(autre, matchId);
   insererEvent(matchId, forfaitJoueurId, 'forfait', { perdant: pseudo(forfaitJoueurId), gagnant: pseudo(autre) });
   logAudit('forfait', `match ${matchId}`, { etat: m.etat }, { forfait: pseudo(forfaitJoueurId), gagnant: pseudo(autre) });
   propagerGagnant(matchId, autre);

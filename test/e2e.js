@@ -87,6 +87,12 @@ async function main() {
   r = await api('/api/etat');
   const m2 = r.data.tournoi.matchs.find(mm => mm.id === m.id);
   check('match terminé 3-0, gagnant J1', m2.etat === 'termine' && m2.score1 === 3 && m2.gagnant_id === j1, m2);
+  check('started_at renseigné au lancement', !!m2.started_at, m2.started_at);
+  check('ended_at + durée renseignés à la fin', !!m2.ended_at && typeof m2.duree_s === 'number' && m2.duree_s >= 0, { ended: m2.ended_at, duree: m2.duree_s });
+  const st = r.data.tournoi.stats;
+  check('stats présentes avec classement', !!st && Array.isArray(st.classement) && st.resume.joues >= 1);
+  const j1stats = st.classement.find(p => p.id === j1);
+  check('stats J1 : 1 joué 1 gagné', j1stats && j1stats.joues === 1 && j1stats.gagnes === 1 && j1stats.pct === 100, j1stats);
   const suivant = r.data.tournoi.matchs.find(mm => mm.id === m2.suivant_id);
   check('gagnant propagé au match suivant', suivant && (suivant.joueur1?.id === j1 || suivant.joueur2?.id === j1), suivant);
   const lbMatch = r.data.tournoi.matchs.find(mm => mm.id === m2.perdant_id);

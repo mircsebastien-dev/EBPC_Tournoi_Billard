@@ -56,6 +56,22 @@ function render() {
     ...groups.map(g => el('div', { class: 'round' },
       el('h3', {}, `${g.round.label} · race to ${g.round.manches}`),
       el('div', { class: 'matchs-grid', style: 'grid-template-columns:1fr' }, g.matchs.map(matchCard))))));
+  if (t.stats && t.stats.classement.length > 0) {
+    const top = t.stats.classement.filter(p => p.joues > 0).slice(0, 8);
+    const r = t.stats.resume;
+    tableau.append(el('div', { class: 'panel' },
+      el('h2', { style: 'font-size:20px' }, '📊 Stats'),
+      el('div', { class: 'row' },
+        el('span', { class: 'chip' }, `${r.joues}/${r.total} joués`),
+        r.duree_moyenne_s != null ? el('span', { class: 'chip' }, `⏱ moy ${fmtDuree(r.duree_moyenne_s)}`) : null),
+        r.dernier_gagnant ? el('span', { class: 'chip' }, `🔥 ${r.dernier_gagnant}`) : null),
+      el('table', { class: 'audit', style: 'font-size:15px;margin-top:10px' },
+        el('tr', {}, el('th', {}, '#'), el('th', {}, 'Joueur'), el('th', {}, 'G'), el('th', {}, 'P'), el('th', {}, '%'), el('th', {}, 'Série')),
+        ...top.map((p, i) => el('tr', {},
+          el('td', {}, String(i + 1)), el('td', { style: 'font-weight:700' }, p.pseudo),
+          el('td', {}, String(p.gagnes)), el('td', {}, String(p.perdus)), el('td', {}, `${p.pct}%`),
+          el('td', {}, p.serie > 0 ? `🔥${p.serie}V` : p.serie < 0 ? `${-p.serie}D` : '—'))))));
+  }
 }
 
 async function init() {

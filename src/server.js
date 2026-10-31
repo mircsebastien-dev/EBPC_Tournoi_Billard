@@ -65,6 +65,55 @@ function vueMatch(m) {
     table: m.table_id ? M.tableNumero(m.table_id) : null,
     suivant_id: m.suivant_id,
     perdant_id: m.perdant_id,
+    started_at: m.started_at,
+    ended_at: m.ended_at,
+    duree_s: (m.started_at && m.ended_at)
+      ? Math.max(0, Math.round((new Date(m.ended_at.replace(' ', 'T') + 'Z') - new Date(m.started_at.replace(' ', 'T') + 'Z')) / 1000))
+      : null,
+  };
+}
+
+function calculerStats(t) {
+  const rows = db.prepare(`
+    SELECT joueur1_id j1, joueur2_id j2, gagnant_id, etat, started_at, ended_at
+    FROM match WHERE tournoi_id = ? AND etat IN ('termine', 'forfait') AND gagnant_id IS NOT NULL
+  `).all(t.id);
+  const parJoueur = {};
+  for (const j of db.prepare('SELECT id, pseudo FROM joueur WHERE tournoi_id = ?').all(t.id)) {
+    parJoueur[j.id] = { id: j.id, pseudo: j.pseudo, joues: 0, gagnes: 0, perdus: 0, pct: 0, serie: 0, dernier: null };
+  }
+  let dureeTot = 0, nbDurees = 0, plusRapide = null, plusLong = null, dernierGagnant = null, dernierFin = null;
+  for (const r of rows) {
+    for (const [jid, adv] of [[r.j1, r.j2], [r.j2, r.j1]]) {
+      if (jid == null || !parJoueur[jid]) continue;
+      const p = parJoueur[jid];
+      p.joues++;
+      if (r.gagnant_id === jid) { p.gagnes++; p.serie = p.serie >= 0 ? p.serie + 1 : 1; p.dernier = 'W'; }
+      else { p.perdus++; p.serie = p.serie <= 0 ? p.serie - 1 : -1; p.dernier = 'L'; }
+    }
+    if (r.started_at && r.ended_at) {
+      const d = Math.max(0, Math.round((new Date(r.ended_at.replace(' ', 'T') + 'Z') - new Date(r.started_at.replace(' ', 'T') + 'Z')) / 1000));
+      dureeTot += d; nbDurees++;
+      if (!plusRapide || d < plusRapide.d) plusRapide = { d, gagnant: M.pseudo(r.gagnant_id) };
+      if (!plusLong || d > plusLong.d) plusLong = { d, gagnant: M.pseudo(r.gagnant_id) };
+    }
+    if (!dernierFin || (r.ended_at && r.ended_at > dernierFin)) { dernierFin = r.ended_at; dernierGagnant = M.pseudo(r.gagnant_id); }
+  }
+  for (const p of Object.values(parJoueur)) p.pct = p.joues ? Math.round((p.gagnes / p.joues) * 100) : 0;
+  const classement = Object.values(parJoueur).sort((a, b) => b.gagnes - a.gagnes || b.pct - a.pct || a.pseudo.localeCompare(b.pseudo));
+  const joues = rows.length;
+  const total = db.prepare(`SELECT COUNT(*) c FROM match WHERE tournoi_id = ?`).get(t.id).c;
+  return {
+    classement,
+    resume: {
+      joues,
+      total,
+      restants: total - joues,
+      duree_moyenne_s: nbDurees ? Math.round(dureeTot / nbDurees) : null,
+      plus_rapide: plusRapide,
+      plus_long: plusLong,
+      dernier_gagnant: dernierGagnant,
+    },
   };
 }
 
@@ -87,6 +136,7 @@ function vueTournoiComplet() {
     rounds,
     tables,
     champion,
+    stats: calculerStats(t),
   };
 }
 
