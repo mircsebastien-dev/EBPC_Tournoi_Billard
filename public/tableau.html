@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tableau — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.bracket-scroll { overflow-x: auto; padding-bottom: 10px; }
+.bracket { display: flex; gap: 46px; align-items: stretch; min-width: max-content; position: relative; }
+.bracket-col { display: flex; flex-direction: column; justify-content: space-around; min-width: 220px; position: relative; z-index: 1; }
+.bracket-col h3 { text-align: center; margin-bottom: 8px; }
+.bcol { position: relative; }
+.node { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin: 6px 0; font-size: 14px; min-width: 200px; }
+.node.live { border-color: var(--pink); box-shadow: 0 0 14px var(--pink-glow); }
+.node.done { opacity: 0.75; }
+.node .nj { display: flex; justify-content: space-between; gap: 8px; }
+.node .nj.win { color: var(--green); font-weight: 700; }
+.node .nj .sc { color: var(--pink-soft); font-weight: 700; }
+.node .meta { font-size: 11px; color: var(--muted); margin-top: 4px; display: flex; gap: 8px; }
+#bracket-svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+#bracket-svg path { stroke: var(--line); stroke-width: 2; fill: none; }
+#bracket-svg path.live { stroke: var(--pink); }
+#bracket-svg path.done { stroke: rgba(46, 230, 168, 0.5); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Pink City Billard</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+document.getElementById('nav').append(nav('tableau'));
+const main = document.getElementById('main');
+let state = null;
+
+function render() {
+  main.innerHTML = '';
+  const t = state && state.actif;
+  if (!t) {
+    main.append(el('div', { class: 'panel', style: 'text-align:center;padding:40px 20px' },
+      el('div', { class: 'hero-title' }, '🎱 Aucun tournoi en cours'),
+      el('p', { class: 'muted' }, 'Le tableau apparaîtra ici dès le tirage au sort.')));
+    return;
+  }
+  const rounds = t.rounds;
+  const byKey = {};
+  for (const m of t.matchs) {
+    const k = m.bracket + m.tour;
+    if (!byKey[k]) byKey[k] = [];
+    byKey[k].push(m);
+  }
+  for (const k in byKey) byKey[k].sort((a, b) => a.position - b.position);
+
+  const groups = rounds.map(r => ({ round: r, matchs: byKey[r.bracket + r.tour] || [] })).filter(g => g.matchs.length > 0);
+
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, `🗺 Tableau — ${t.tournoi.nom}`),
+    el('p', { class: 'hero-sub' }, `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? 'double KO ' + t.tournoi.dko_tours + ' tours + tableau final' : 'élimination directe'}`),
+    el('div', { class: 'legend' },
+      el('span', { class: 'chip' }, 'Rose = match en cours'),
+      el('span', { class: 'chip' }, 'Vert = chemin joué'),
+      el('span', { class: 'chip' }, 'Flèches = vainqueur avance / perdant vers loser bracket'))));
+
+  const wrap = el('div', { class: 'bracket-scroll' });
+  const bracket = el('div', { class: 'bracket', id: 'bracket' });
+  const svg = el('svg', { id: 'bracket-svg' });
+  bracket.append(svg);
+
+  for (const g of groups) {
+    const col = el('div', { class: 'bracket-col' },
+      el('h3', {}, g.round.label + ' · race to ' + g.round.manches));
+    for (const m of g.matchs) {
+      const win1 = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
+      const win2 = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
+      const node = el('div', {
+        class: 'node' + (m.etat === 'en_cours' ? ' live' : '') + ((m.etat === 'termine' || m.etat === 'forfait') ? ' done' : ''),
+        'data-id': m.id,
+      },
+        el('div', { class: 'nj' + (win1 ? ' win' : '') },
+          el('span', {}, m.joueur1 ? m.joueur1.pseudo : '—'),
+          el('span', { class: 'sc' }, String(m.score1))),
+        el('div', { class: 'nj' + (win2 ? ' win' : '') },
+          el('span', {}, m.joueur2 ? m.joueur2.pseudo : '—'),
+          el('span', { class: 'sc' }, String(m.score2))),
+        el('div', { class: 'meta' },
+          m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : badgeEtat(m.etat),
+          m.table != null ? el('span', {}, 'Table ' + m.table) : null));
+      col.append(node);
+    }
+    bracket.append(col);
+  }
+  wrap.append(bracket);
+  main.append(wrap);
+
+  requestAnimationFrame(drawLinks);
+}
+
+function drawLinks() {
+  const bracket = document.getElementById('bracket');
+  const svg = document.getElementById('bracket-svg');
+  if (!bracket || !svg) return;
+  const t = state && state.actif;
+  if (!t) return;
+  const rect = bracket.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+  svg.innerHTML = '';
+  const ns = 'http://www.w3.org/2000/svg';
+  const byId = {};
+  for (const m of t.matchs) byId[m.id] = m;
+  for (const m of t.matchs) {
+    for (const [targetId, cls] of [[m.suivant_id, 'suivant'], [m.perdant_id, 'perdant']]) {
+      if (!targetId) continue;
+      const a = bracket.querySelector(`[data-id="${m.id}"]`);
+      const b = bracket.querySelector(`[data-id="${targetId}"]`);
+      if (!a || !b) continue;
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const x1 = ra.right - rect.left, y1 = ra.top + ra.height / 2 - rect.top;
+      const x2 = rb.left - rect.left, y2 = rb.top + rb.height / 2 - rect.top;
+      const mx = (x1 + x2) / 2;
+      const p = document.createElementNS(ns, 'path');
+      p.setAttribute('d', `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+      let cls2 = '';
+      if (m.etat === 'en_cours') cls2 = 'live';
+      else if (m.etat === 'termine' || m.etat === 'forfait') cls2 = 'done';
+      if (cls2) p.setAttribute('class', cls2);
+      svg.append(p);
+    }
+  }
+}
+
+window.addEventListener('resize', () => requestAnimationFrame(drawLinks));
+
+async function init() {
+  state = await api('/api/etat');
+  render();
+  connecterSSE((s) => { state = s; render(); });
+}
+init();
+</script>
+</body>
+</html>

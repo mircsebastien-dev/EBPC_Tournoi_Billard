@@ -39,6 +39,7 @@ function fmtDuree(s) {
 function nav(active) {
   return el('nav', {},
     el('a', { href: '/', class: active === 'home' ? 'active' : null }, 'Tournoi'),
+    el('a', { href: '/tableau.html', class: active === 'tableau' ? 'active' : null }, '🗺 Tableau'),
     el('a', { href: '/tv.html', class: active === 'tv' ? 'active' : null }, '📺 TV'),
     el('a', { href: '/suivi.html', class: active === 'joueur' ? 'active' : null }, 'Joueur'),
     el('a', { href: '/stats.html', class: active === 'stats' ? 'active' : null }, '📊 Stats'),

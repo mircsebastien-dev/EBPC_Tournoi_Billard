@@ -50,6 +50,7 @@ Pages :
 |---|---|
 | `/` | Accueil public + inscription + tableau live + stats |
 | `/tv.html` | Écran TV (plein écran, auto-refresh, stats) |
+| `/tableau.html` | **Bracket visuel** (colonnes par round, liens SVG, surlignage live) |
 | `/suivi.html` | Suivi joueur (sélection du pseudo, ses matchs) |
 | `/match.html?id=<id>&joueur=<id>` | Écran de saisie live d'un match |
 | `/historique.html` | Liste des tournois terminés (consultation + suppression admin) |
