@@ -107,7 +107,7 @@ function render() {
           enAttente ? el('span', { class: 'attente-tag' }, '⏳ match attendu') : null,
           m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : null,
           (m.etat === 'termine' || m.etat === 'forfait') ? badgeEtat(m.etat) : null,
-          m.table != null ? el('span', {}, 'Table ' + m.table) : null));
+          m.table != null ? el('span', { class: 'table-badge' }, '🎱 Table ' + m.table) : null));
       node.addEventListener('click', () => { location.href = `/match.html?id=${m.id}`; });
       node.style.cursor = 'pointer';
       col.append(node);

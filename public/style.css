@@ -112,6 +112,13 @@ label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 5px
 .match-card .j.gagnant .score { color: var(--green); }
 .match-card .meta { margin-top: 8px; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .live-dot { color: var(--red); animation: blink 1s infinite; font-weight: 800; }
+.table-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(255, 209, 102, 0.14); color: var(--gold);
+  border: 1px solid rgba(255, 209, 102, 0.55); border-radius: 8px;
+  padding: 2px 9px; font-size: 12px; font-weight: 800;
+}
+.node .table-badge { font-size: 11px; }
 @keyframes blink { 50% { opacity: 0.15; } }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;

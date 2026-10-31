@@ -98,6 +98,25 @@ async function main() {
   const lbMatch = r.data.actif.matchs.find(mm => mm.id === m2.perdant_id);
   check('perdant envoyé en LB', lbMatch && (lbMatch.joueur1?.id === j2 || lbMatch.joueur2?.id === j2), lbMatch);
 
+  console.log('== 5b. Assignation auto des tables ==');
+  const prets5 = (await api('/api/etat')).data.actif.matchs.filter(mm => (mm.etat === 'pret') && mm.joueur1 && mm.joueur2);
+  const mA = prets5[0];
+  r = await api(`/api/admin/match/${mA.id}/lancer`, { method: 'POST', body: { table_id: null } });
+  check('lancer sans table -> auto assignée', r.status === 200 && r.data.match.table != null, r.data.match);
+  const tableA = r.data.match.table;
+  const mB = prets5.find(mm => mm.id !== mA.id);
+  if (mB) {
+    r = await api(`/api/admin/match/${mB.id}/lancer`, { method: 'POST', body: { table_id: null } });
+    check('2e match auto -> table différente', r.status === 200 && r.data.match.table != null && r.data.match.table !== tableA, { tableA, tableB: r.data.match.table });
+    const tableB = r.data.match.table;
+    const mC = prets5.find(mm => mm.id !== mA.id && mm.id !== mB.id);
+    if (mC) {
+      const tableOccupee = (await api('/api/etat')).data.actif.tables.find(tb => tb.numero === tableA);
+      r = await api(`/api/admin/match/${mC.id}/lancer`, { method: 'POST', body: { table_id: tableOccupee.id } });
+      check('table déjà occupée -> 409', r.status === 409, r.status);
+    }
+  }
+
   console.log('== 6. Correction admin ==');
   r = await api(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: { score1: 1, score2: 3, manches: 3, motif: 'test' } });
   check('correction 200', r.status === 200, r.data);

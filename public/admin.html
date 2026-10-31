@@ -208,9 +208,10 @@ function renderTournoi(t) {
   if (prets.length > 0) {
     const p = el('div', { class: 'panel' }, el('h2', {}, `⏳ Prêts à lancer (${prets.length})`));
     for (const m of prets) {
-      const libres = t.tables.filter(tb => !t.matchs.some(mm => mm.etat === 'en_cours' && mm.table === tb.numero));
+      const occupees = new Set(t.matchs.filter(mm => mm.etat === 'en_cours' && mm.table != null).map(mm => mm.table));
       const sel = el('select', { id: `table-${m.id}`, style: 'width:auto' },
-        el('option', { value: '' }, 'Table auto'), libres.map(tb => el('option', { value: tb.id }, `Table ${tb.numero}`)));
+        el('option', { value: '' }, '🎱 Table auto (libre)'),
+        t.tables.map(tb => el('option', { value: tb.id, ...(occupees.has(tb.numero) ? { disabled: '' } : {}) }, `Table ${tb.numero}${occupees.has(tb.numero) ? ' (occupée)' : ''}`)));
       p.append(el('div', { class: 'match-admin' },
         el('div', { style: 'font-weight:700;font-size:16px' }, `${m.joueur1 ? m.joueur1.pseudo : '—'}  vs  ${m.joueur2 ? m.joueur2.pseudo : '—'}`),
         el('div', { class: 'muted small' }, `${m.bracket === 'WB' ? 'Tour' : m.bracket === 'LB' ? 'Loser bracket' : 'Tableau final'} ${m.tour} · race to ${m.manches}`),

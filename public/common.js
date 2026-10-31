@@ -61,7 +61,7 @@ function matchCard(m, opts = {}) {
     el('div', { class: 'meta' },
       badgeEtat(m.etat),
       m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : null,
-      m.table != null ? el('span', {}, `Table ${m.table}`) : null,
+      m.table != null ? el('span', { class: 'table-badge' }, `🎱 Table ${m.table}`) : null,
       el('span', {}, `race to ${m.manches}`),
       m.started_at ? el('span', {}, `⏱ début ${m.started_at.slice(11, 16)}`) : null,
       m.duree_s != null ? el('span', {}, `⏳ ${fmtDuree(m.duree_s)}`) : null,

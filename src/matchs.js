@@ -117,11 +117,30 @@ function declarerManche(matchId, joueurId) {
   return matchById(matchId);
 }
 
+function tableLibre(tournoiId, exclureMatchId) {
+  const occupees = db.prepare(`
+    SELECT table_id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id IS NOT NULL
+  `).all(tournoiId).map(r => r.table_id);
+  const t = db.prepare(`
+    SELECT id, numero FROM table_billard WHERE tournoi_id = ? ORDER BY numero
+  `).all(tournoiId).find(tb => !occupees.includes(tb.id));
+  return t || null;
+}
+
 function lancerMatch(matchId, tableId) {
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.joueur1_id == null || m.joueur2_id == null) throw httpError(409, 'Match incomplet (joueur manquant)');
   if (m.etat !== 'pret' && m.etat !== 'prevu') throw httpError(409, 'Match non lançable dans cet état');
+  if (tableId == null) {
+    const libre = tableLibre(m.tournoi_id, matchId);
+    tableId = libre ? libre.id : null;
+  } else {
+    const existe = db.prepare('SELECT id FROM table_billard WHERE id = ? AND tournoi_id = ?').get(tableId, m.tournoi_id);
+    if (!existe) throw httpError(400, 'Table inconnue');
+    const prise = db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id = ? AND id != ?`).get(m.tournoi_id, tableId, matchId);
+    if (prise) throw httpError(409, 'Cette table est déjà occupée par un match en cours');
+  }
   db.prepare(`UPDATE match SET etat = 'en_cours', table_id = ?, started_at = COALESCE(started_at, datetime('now')), updated_at = datetime('now') WHERE id = ?`).run(tableId, matchId);
   insererEvent(matchId, null, 'lancement', { table: tableId != null ? tableNumero(tableId) : null });
   return matchById(matchId);
@@ -195,4 +214,5 @@ module.exports = {
   corrigerScore,
   declarerForfait,
   rafraichirPrets,
+  tableLibre,
 };
