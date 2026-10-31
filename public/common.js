@@ -19,6 +19,7 @@ function el(tag, attrs = {}, ...children) {
   }
   for (const c of children) {
     if (c == null || c === false) continue;
+    if (Array.isArray(c)) { for (const cc of c) e.append(cc.nodeType ? cc : document.createTextNode(cc)); continue; }
     e.append(c.nodeType ? c : document.createTextNode(c));
   }
   return e;
