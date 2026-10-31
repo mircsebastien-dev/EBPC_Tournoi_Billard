@@ -175,9 +175,9 @@ async function main() {
   check('tableau archivé dans l\'historique', !!apres.data.historique && apres.data.historique.length === 1 && apres.data.historique[0].statut === 'termine');
 
   console.log('== 9b. Historique multi-tournois + stats all-time + suppression ==');
-  let hist = (await api('/api/etat')).data.historique;
-  check('1 tournoi dans l\'historique après clôture', hist.length === 1, hist.length);
-  const histId = hist[0].id;
+  let histL = (await api('/api/etat')).data.historique;
+  check('1 tournoi dans l\'historique après clôture', histL.length === 1, histL.length);
+  const histId = histL[0].id;
   r = await api(`/api/tournois/${histId}`);
   check('consultation d\'un tournoi archivé', r.status === 200 && r.data.tournoi.matchs.length > 0);
   r = await api('/api/stats-joueurs');
@@ -192,15 +192,15 @@ async function main() {
   }
   await api('/api/admin/tirage', { method: 'POST', body: {} });
   await api('/api/admin/terminer', { method: 'POST', body: {} });
-  hist = (await api('/api/etat')).data.historique;
-  check('2 tournois dans l\'historique', hist.length === 2, hist.length);
+  histL = (await api('/api/etat')).data.historique;
+  check('2 tournois dans l\'historique', histL.length === 2, histL.length);
   r = await api('/api/stats-joueurs');
   const d1 = r.data.joueurs.find(j => j.pseudo === 'D1');
   check('stats all-time agrègent les 2 tournois', !!d1 && d1.tournois >= 1, d1);
   r = await api(`/api/admin/tournoi/${histId}`, { method: 'DELETE' });
   check('suppression d\'un tournoi de l\'historique', r.status === 200, r.data);
-  hist = (await api('/api/etat')).data.historique;
-  check('historique passé à 1', hist.length === 1, hist.length);
+  histL = (await api('/api/etat')).data.historique;
+  check('historique passé à 1', histL.length === 1, histL.length);
   r = await api(`/api/tournois/${histId}`);
   check('tournoi supprimé -> 404', r.status === 404);
 
@@ -251,6 +251,27 @@ async function main() {
   check('endpoint protégé (401 sans PIN)', r.status === 401, r.status);
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });
   check('tirage OK avec 16 simulés', r.status === 200 && r.data.actif.matchs.filter(m => m.tour === 1).length === 8);
+
+  console.log('== 9e. Simuler tout le tournoi (jusqu\'au champion) ==');
+  r = await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'SimuTotale', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 2 } });
+  r = await api('/api/admin/joueurs/simulation', { method: 'POST', body: { count: 16, prefix: 'Bot' } });
+  await api('/api/admin/tirage', { method: 'POST', body: {} });
+  r = await api('/api/admin/simuler', { method: 'POST', body: {} });
+  check('simulation 200', r.status === 200, r.data);
+  const hist9e = (await api('/api/etat')).data.historique.find(h => h.nom === 'SimuTotale');
+  const detail9e = await api(`/api/tournois/${hist9e.id}`);
+  const ms9e = detail9e.data.tournoi.matchs;
+  const total9e = ms9e.length;
+  const joues9e = ms9e.filter(x => x.etat === 'termine' || x.etat === 'forfait').length;
+  check(`tous les matchs du tournoi joués (${joues9e}/${total9e})`, joues9e === total9e, { joues: joues9e, total: total9e });
+  check('tournoi terminé avec champion', r.data.statut === 'termine' && !!r.data.champion, r.data);
+  const hist = (await api('/api/etat')).data.historique;
+  check('archivé dans l\'historique', hist.some(h => h.nom === 'SimuTotale' && h.statut === 'termine'));
+  const stE = await api('/api/stats-joueurs');
+  check('stats all-time remplies (16 joueurs du tournoi simulé présents)', stE.data.joueurs.filter(j => j.pseudo.startsWith('Bot')).length === 16, stE.data.joueurs.filter(j => j.pseudo.startsWith('Bot')).length);
+  r = await api('/api/admin/simuler', { method: 'POST', pin: '9999', body: {} });
+  check('simuler protégé par PIN (401)', r.status === 401, r.status);
 
   console.log('== 9. SSE accessible ==');
   const ctrl = new AbortController();

@@ -15,7 +15,9 @@ Design **« Eight Ball Pink City »** : thème sombre noir profond avec accents 
 - **Stats joueurs all-time** (`/stats.html`, `GET /api/stats-joueurs`) : par pseudo sur tous les tournois — matchs joués/gagnés/perdus, % victoires, nombre de tournois, 🏆 titres
 - **Statistiques live** : heure de début/fin et durée de chaque match (affichées sur les cartes), panneau stats (matchs joués/restants, durée moyenne, match le plus rapide/long, dernier vainqueur) et **classement des joueurs** (joués, gagnés, perdus, % victoires, série en cours) sur l'accueil et la TV
 - **Droit d'inscription** : les joueurs s'inscrivent eux-mêmes (statut « en attente »), la table de marque valide le paiement (« 💰 payé ») ; **seuls les joueurs payés entrent dans le tirage**
-- **Mode simulation** (table de marque, phase inscriptions) : `POST /api/admin/joueurs/simulation {count, prefix}` inscrit des joueurs fictifs en masse (`Bot01…`), directement marqués **payés**, pour tester un tableau complet en 1 clic
+- **Mode simulation** (table de marque) :
+  - phase inscriptions : `POST /api/admin/joueurs/simulation {count, prefix}` inscrit des joueurs fictifs en masse (`Bot01…`), directement **payés** ;
+  - tournoi en cours : bouton **▶ Simuler tout le tournoi** (`POST /api/admin/simuler`) joue automatiquement tous les matchs restants (scores aléatoires) jusqu'au champion, qui est archivé dans l'historique avec les stats all-time mises à jour
 - **Inscriptions strictement liées à un tournoi** : on ne peut s'inscrire (public ou admin) qu'à un tournoi en statut « inscription » ; tant qu'un tournoi est « en cours » ou « terminé » sans successeur, l'inscription renvoie 409/404 explicite, et un nouveau tournoi ne peut être créé que lorsque le précédent est « terminé »
 - **Élimination directe** ou **double KO partiel** (N = 1/2/3 tours) : les perdants des N premiers tours passent en loser bracket, puis **tableau final à élimination directe** entre tous les survivants, finale en 1 match
 - **Distances paramétrables par round** : 3, 5 ou 7 manches gagnantes (défaut : 3 / 5 / 7 vers la fin)

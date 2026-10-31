@@ -241,6 +241,19 @@ function renderTournoi(t) {
   }
 
   main.append(el('div', { class: 'panel' },
+    el('h2', {}, '🎬 Simulation'),
+    el('p', { class: 'muted small' }, 'Joue automatiquement tous les matchs restants avec des scores aléatoires, jusqu\'au champion.'),
+    el('button', { class: 'secondary', style: 'width:100%', onclick: simulerTout }, '▶ Simuler tout le tournoi')));
+
+  async function simulerTout() {
+    if (!confirmer('Lancer la simulation complète ? Tous les matchs restants seront joués automatiquement (scores aléatoires).')) return;
+    try {
+      const r = await adminApi('/api/admin/simuler', { method: 'POST', body: '{}' });
+      alert(`Simulation terminée : ${r.matchs_joues} matchs joués. ${r.statut === 'termine' ? '🏆 Champion : ' + r.champion : 'Tournoi non terminé (' + r.statut + ')'}`);
+    } catch (e) { alert(e.message); }
+  }
+
+  main.append(el('div', { class: 'panel' },
     el('h2', {}, '⚠️ Clôturer le tournoi'),
     el('p', { class: 'muted small' }, 'Termine le tournoi immédiatement, même si la finale n\'a pas été jouée. Les tableaux restent en ligne jusqu\'au prochain tournoi.'),
     el('div', { class: 'row' },

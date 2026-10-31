@@ -477,6 +477,33 @@ app.post('/api/admin/terminer', requireAdmin, (req, res) => {
   res.json({ ok: true, ...etatGlobal() });
 });
 
+app.post('/api/admin/simuler', requireAdmin, (req, res) => {
+  const t = tournoiActif();
+  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  if (t.statut !== 'en_cours') return res.status(409).json({ error: 'Le tournoi doit être en cours (faites le tirage d\'abord)' });
+  M.rafraichirPrets();
+  let joues = 0;
+  let guard = 0;
+  while (guard++ < 2000) {
+    const cur = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
+    if (cur.statut === 'termine') break;
+    const m = db.prepare(`
+      SELECT * FROM match WHERE tournoi_id = ? AND etat IN ('prevu', 'pret')
+        AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL
+      ORDER BY CASE bracket WHEN 'WB' THEN 1 WHEN 'LB' THEN 2 ELSE 3 END, tour, position LIMIT 1
+    `).get(t.id);
+    if (!m) break;
+    M.lancerMatch(m.id, null);
+    const gagnant = Math.random() < 0.5 ? m.joueur1_id : m.joueur2_id;
+    for (let i = 0; i < m.manches; i++) M.declarerManche(m.id, gagnant);
+    joues++;
+  }
+  const final = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
+  logAudit('simulation_tournoi', `tournoi ${t.id}`, null, { matchs_joues: joues, statut: final.statut, champion_id: final.champion_id });
+  majEtBroadcast();
+  res.json({ ok: true, matchs_joues: joues, statut: final.statut, champion: final.champion_id ? M.pseudo(final.champion_id) : null });
+});
+
 app.get('/api/admin/audit', requireAdmin, (req, res) => {
   const rows = db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200').all();
   res.json({ audit: rows });
