@@ -219,7 +219,7 @@ function majEtBroadcast() {
 }
 
 app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
-  const { nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale } = req.body;
+  const { nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu } = req.body;
   const actif = tournoiActif();
   if (actif) return res.status(409).json({ error: `Un tournoi est encore actif (${actif.nom}). Terminez-le ou supprimez-le d'abord.`, actif_id: actif.id });
   if (!['blackball', 'ultimate'].includes(regle)) return res.status(400).json({ error: 'Règle invalide' });
@@ -228,10 +228,12 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const k = format === 'double' ? Math.min(3, Math.max(1, Number(dko_tours) || 1)) : 0;
   const seuil = ['jamais', 'quarts', 'demis', 'finale'].includes(seuil_distance) ? seuil_distance : 'jamais';
   const distSpe = [3, 5, 7].includes(Number(distance_speciale)) ? Number(distance_speciale) : 3;
+  const dateH = (typeof date_heure === 'string' && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(date_heure)) ? date_heure.replace('T', ' ').slice(0, 16) : bracket.prochainMardi20h();
+  const lieuT = (typeof lieu === 'string' && lieu.trim()) ? lieu.trim().slice(0, 200) : 'Le 147, 12 Rue des Amidonniers 31000 Toulouse';
   const info = db.prepare(`
-    INSERT INTO tournoi (nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, statut)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
-  `).run(nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 4), ajustement_auto === false ? 0 : 1, seuil, distSpe);
+    INSERT INTO tournoi (nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, statut)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
+  `).run(nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 4), ajustement_auto === false ? 0 : 1, seuil, distSpe, dateH, lieuT);
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(info.lastInsertRowid));
   for (let i = 1; i <= t.nb_tables; i++) {
     db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
@@ -282,9 +284,11 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé, config verrouillée' });
-  const { nom, tetes_de_serie, nb_tables, ajustement_auto } = req.body;
-  db.prepare('UPDATE tournoi SET nom = ?, tetes_de_serie = ?, nb_tables = ?, ajustement_auto = ? WHERE id = ?')
-    .run(nom || t.nom, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || t.nb_tables), ajustement_auto === false ? 0 : 1, t.id);
+  const { nom, tetes_de_serie, nb_tables, ajustement_auto, date_heure, lieu } = req.body;
+  const setDate = (typeof date_heure === 'string' && date_heure.trim()) ? date_heure.trim().slice(0, 16) : t.date_heure;
+  const setLieu = (typeof lieu === 'string') ? (lieu.trim() ? lieu.trim().slice(0, 200) : t.lieu) : t.lieu;
+  db.prepare('UPDATE tournoi SET nom = ?, tetes_de_serie = ?, nb_tables = ?, ajustement_auto = ?, date_heure = ?, lieu = ? WHERE id = ?')
+    .run(nom || t.nom, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || t.nb_tables), ajustement_auto === false ? 0 : 1, setDate, setLieu, t.id);
   const t2 = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
   const existantes = db.prepare('SELECT numero FROM table_billard WHERE tournoi_id = ?').all(t.id).map(r => r.numero);
   for (let i = 1; i <= t2.nb_tables; i++) {

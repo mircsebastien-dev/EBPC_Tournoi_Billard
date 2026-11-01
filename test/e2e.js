@@ -23,6 +23,17 @@ async function main() {
   check('création 200', r.status === 200, r.data);
   check('statut inscription', r.data.actif.tournoi.statut === 'inscription');
 
+  console.log('== 1b. Date/heure + lieu du tournoi (défaut mardi prochain 20h, lieu Le 147) ==');
+  const t1 = r.data.actif.tournoi;
+  check('date_heure renseignée par défaut', !!t1.date_heure && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(t1.date_heure), t1.date_heure);
+  check('c\'est un mardi à 20h00', new Date(t1.date_heure.replace(' ', 'T') + 'Z').getUTCDay() === 2 && t1.date_heure.endsWith('20:00'), t1.date_heure);
+  check('lieu par défaut = Le 147 Toulouse', t1.lieu === 'Le 147, 12 Rue des Amidonniers 31000 Toulouse', t1.lieu);
+  r = await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'AvecDate', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, date_heure: '2026-12-25 21:30', lieu: 'Salle test' } });
+  check('date/lieu personnalisés retenus', r.data.actif.tournoi.date_heure === '2026-12-25 21:30' && r.data.actif.tournoi.lieu === 'Salle test', r.data.actif.tournoi);
+  await api('/api/admin/tournoi', { method: 'DELETE' });
+  await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Test Cup', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 4 } });
+
   console.log('== 2. PIN requis ==');
   r = await api('/api/admin/joueur', { method: 'POST', pin: '9999', body: { pseudo: 'X' } });
   check('mauvais PIN -> 401', r.status === 401);

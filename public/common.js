@@ -238,3 +238,11 @@ function renderStatsPanel(stats, titre = '📊 Statistiques', topN = 10) {
   }
   return panels;
 }
+
+function fmtDateHeure(dh) {
+  if (!dh) return '';
+  const d = new Date(dh.replace(' ', 'T') + 'Z');
+  const p = n => String(n).padStart(2, '0');
+  const jours = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  return `${jours[d.getDay()]} ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} à ${p(d.getHours())}h${p(d.getMinutes())}`;
+}

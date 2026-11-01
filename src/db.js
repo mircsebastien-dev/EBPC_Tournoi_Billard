@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS tournoi (
   ajustement_auto INTEGER NOT NULL DEFAULT 1,
   seuil_distance TEXT NOT NULL DEFAULT 'jamais' CHECK (seuil_distance IN ('jamais', 'quarts', 'demis', 'finale')),
   distance_speciale INTEGER NOT NULL DEFAULT 3 CHECK (distance_speciale IN (3, 5, 7)),
+  date_heure TEXT,
+  lieu TEXT,
   statut TEXT NOT NULL DEFAULT 'inscription' CHECK (statut IN ('inscription', 'en_cours', 'termine')),
   champion_id INTEGER REFERENCES joueur(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -105,7 +107,7 @@ if (!joueurCols.includes('statut')) {
 const tournoiCols = db.prepare('PRAGMA table_info(tournoi)').all().map(c => c.name);
 const tournoiPkCheck = db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tournoi'`).get();
 const idFixe = tournoiPkCheck && /CHECK\s*\(\s*id\s*=\s*1\s*\)/i.test(tournoiPkCheck.sql || '');
-const manquantes = ['tetes_de_serie', 'nb_tables', 'ajustement_auto', 'seuil_distance', 'distance_speciale', 'champion_id']
+const manquantes = ['tetes_de_serie', 'nb_tables', 'ajustement_auto', 'seuil_distance', 'distance_speciale', 'champion_id', 'date_heure', 'lieu']
   .filter(c => !tournoiCols.includes(c));
 if (tournoiCols.length > 0 && (manquantes.length > 0 || idFixe)) {
   db.pragma('foreign_keys = OFF');
@@ -123,6 +125,8 @@ if (tournoiCols.length > 0 && (manquantes.length > 0 || idFixe)) {
     "  ajustement_auto INTEGER NOT NULL DEFAULT 1,",
     "  seuil_distance TEXT NOT NULL DEFAULT 'jamais' CHECK (seuil_distance IN ('jamais', 'quarts', 'demis', 'finale')),",
     "  distance_speciale INTEGER NOT NULL DEFAULT 3 CHECK (distance_speciale IN (3, 5, 7)),",
+    "  date_heure TEXT,",
+    "  lieu TEXT,",
     "  statut TEXT NOT NULL DEFAULT 'inscription' CHECK (statut IN ('inscription', 'en_cours', 'termine')),",
     "  champion_id INTEGER,",
     "  created_at TEXT NOT NULL DEFAULT (datetime('now'))",
@@ -135,6 +139,8 @@ if (tournoiCols.length > 0 && (manquantes.length > 0 || idFixe)) {
     aColonne('ajustement_auto') ? 'ajustement_auto' : '1',
     aColonne('seuil_distance') ? 'seuil_distance' : "'jamais'",
     aColonne('distance_speciale') ? 'distance_speciale' : '3',
+      aColonne('date_heure') ? 'date_heure' : 'NULL',
+      aColonne('lieu') ? 'lieu' : 'NULL',
     'statut',
     aColonne('champion_id') ? 'champion_id' : 'NULL',
     'created_at'].join(', ');

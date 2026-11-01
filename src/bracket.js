@@ -77,6 +77,17 @@ function manchesDefaut(rounds, seuil = 'jamais', distanceSpeciale = 3) {
   return map;
 }
 
+// Prochain mardi à 20h00 (heure serveur), au format 'YYYY-MM-DD HH:MM' UTC
+function prochainMardi20h(from = new Date()) {
+  const d = new Date(from.getTime());
+  d.setUTCHours(20, 0, 0, 0);
+  let add = (2 - d.getUTCDay() + 7) % 7; // 2 = mardi
+  if (add === 0 && d.getTime() <= from.getTime()) add = 7; // si aujourd'hui mardi mais déjà passé 20h -> semaine prochaine
+  d.setUTCDate(d.getUTCDate() + add);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
 function tailleAuto(nbPayes, tailleMax) {
   let taille = 4;
   while (taille < nbPayes) taille <<= 1;
@@ -254,6 +265,7 @@ module.exports = {
   listeRounds,
   labelRound,
   manchesDefaut,
+  prochainMardi20h,
   tailleAuto,
   genererBracket,
   appariementPremierTour,

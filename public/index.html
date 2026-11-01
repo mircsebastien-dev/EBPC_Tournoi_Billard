@@ -37,6 +37,8 @@ function render() {
 
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, t.tournoi.nom),
+    (t.tournoi.date_heure || t.tournoi.lieu) ? el('p', { class: 'hero-sub', style: 'font-size:16px;font-weight:700;color:var(--gold)' },
+      `${t.tournoi.date_heure ? '📅 ' + fmtDateHeure(t.tournoi.date_heure) : ''}${t.tournoi.date_heure && t.tournoi.lieu ? '  ·  ' : ''}${t.tournoi.lieu ? '📍 ' + t.tournoi.lieu : ''}`) : null,
     el('p', { class: 'hero-sub' },
       `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · tableau ${t.tournoi.taille} · ` +
       (t.tournoi.format === 'double' ? `double KO ${t.tournoi.dko_tours} tour${t.tournoi.dko_tours > 1 ? 's' : ''}` : 'élimination directe')),
