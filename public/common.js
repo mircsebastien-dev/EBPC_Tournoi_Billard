@@ -111,10 +111,20 @@ function renderBracket(container, t, opts = {}) {
   const bracket = el('div', { class: 'bracket', id: 'bracket' });
   const svg = el('svg', { id: 'bracket-svg' });
   bracket.append(svg);
+  const NODE_H = 80; // hauteur d'un nœud de match
+  const GAP = 16;
+  const SLOT_H = NODE_H + GAP; // 96 : hauteur d'un slot de match
   for (const g of groups) {
     const colCls = g.round.bracket === 'LB' ? 'lb' : g.round.bracket === 'F' ? 'finale' : 'wb';
     const col = el('div', { class: `bracket-col ${colCls}` }, el('h3', {}, g.round.label + ' · race to ' + g.round.manches));
+    col.style.height = (g.matchs.length * SLOT_H + 40) + 'px';
+    col.style.justifyContent = 'flex-start';
+    // décalage en escalier : le match #p d'une colonne est centré verticalement entre ses 2 parents
+    // (les matchs #2p-1 et #2p de la colonne précédente) -> top = 40 + (p-1)*2*SLOT_H + SLOT_H/2
+    const level = groups.indexOf(g);
+    const step = Math.pow(2, level);
     for (const m of g.matchs) {
+      const top = 40 + (m.position - 1) * step * SLOT_H + (step - 1) * SLOT_H / 2;
       const win1 = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
       const win2 = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
       const enAttente = m.etat === 'prevu';
@@ -133,6 +143,10 @@ function renderBracket(container, t, opts = {}) {
           m.table != null ? el('span', { class: 'table-badge' }, '🎱 Table ' + m.table) : null,
           m.duree_s != null ? el('span', {}, '⏳ ' + fmtDuree(m.duree_s)) : null));
       if (!opts.readonly) { node.addEventListener('click', () => { location.href = `/match.html?id=${m.id}`; }); node.style.cursor = 'pointer'; }
+      node.style.position = 'absolute';
+      node.style.top = top + 'px';
+      node.style.left = '0';
+      node.style.right = '0';
       col.append(node);
     }
     bracket.append(col);

@@ -8,7 +8,8 @@
 <style>
 .bracket-scroll { overflow-x: auto; padding-bottom: 10px; }
 .bracket { display: flex; gap: 46px; align-items: stretch; min-width: max-content; position: relative; }
-.bracket-col { display: flex; flex-direction: column; justify-content: space-around; min-width: 220px; position: relative; z-index: 1; }
+.bracket-col { display: block; min-width: 220px; position: relative; z-index: 1; }
+.bracket-col h3 { position: sticky; top: 0; }
 .bracket-col h3 { text-align: center; margin-bottom: 8px; }
 .bracket-col.lb h3 { color: #ff8fb8; }
 .bracket-col.wb h3 { color: var(--pink-soft); }
