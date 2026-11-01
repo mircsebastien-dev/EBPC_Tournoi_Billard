@@ -292,6 +292,21 @@ async function main() {
   r = await api('/api/admin/simuler', { method: 'POST', pin: '9999', body: {} });
   check('simuler protégé par PIN (401)', r.status === 401, r.status);
 
+  console.log('== 9f. Câblage DKO : le dernier tour du loser bracket réintègre le tableau final ==');
+  for (const [taille, k] of [[16, 1], [16, 2], [16, 3], [32, 2], [32, 3]]) {
+    await api('/api/admin/tournoi', { method: 'DELETE' }).catch(() => {});
+    await api('/api/admin/tournoi', { method: 'POST', body: { nom: `DKO${taille}k${k}`, regle: 'blackball', taille, format: 'double', dko_tours: k, nb_tables: 4 } });
+    await api('/api/admin/joueurs/simulation', { method: 'POST', body: { count: taille, prefix: 'P' } });
+    await api('/api/admin/tirage', { method: 'POST', body: {} });
+    const t = (await api('/api/etat')).data.actif;
+    const maxLB = Math.max(...t.matchs.filter(m => m.bracket === 'LB').map(m => m.tour), 0);
+    const lbLast = t.matchs.filter(m => m.bracket === 'LB' && m.tour === maxLB);
+    const f1ids = new Set(t.matchs.filter(m => m.bracket === 'F' && m.tour === 1).map(m => m.id));
+    check(`DKO ${taille} k=${k} : dernier LB (tour ${maxLB}) -> F tour 1`, lbLast.every(m => m.suivant_id && f1ids.has(m.suivant_id)));
+    const r = await api('/api/admin/simuler', { method: 'POST', body: {} });
+    check(`DKO ${taille} k=${k} : simulé jusqu'au bout (${r.data.statut}, champion ${r.data.champion})`, r.data.statut === 'termine' && !!r.data.champion);
+  }
+
   console.log('== 9. SSE accessible ==');
   const ctrl = new AbortController();
   const res = await fetch(BASE + '/api/events', { signal: ctrl.signal });

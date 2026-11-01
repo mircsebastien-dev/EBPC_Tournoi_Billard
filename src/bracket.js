@@ -92,8 +92,7 @@ function listeRounds(taille, format, dkoTours) {
     for (let t = 1; t <= dkoTours; t++) rounds.push({ key: `wb${t}`, bracket: 'WB', tour: t });
     const nbToursLB = dkoTours === 1 ? 1 : 2 * dkoTours - 2;
     for (let t = 1; t <= nbToursLB; t++) rounds.push({ key: `lb${t}`, bracket: 'LB', tour: t });
-    const s = (taille >> dkoTours) + (dkoTours === 1 ? taille >> 2 : taille >> dkoTours);
-    const p = pow2superieur(s);
+    const p = taille >> (dkoTours - 1);
     const toursF = log2int(p);
     for (let t = 1; t <= toursF; t++) rounds.push({ key: `f${t}`, bracket: 'F', tour: t });
   }
@@ -114,8 +113,7 @@ function labelRound(key, taille, format, dkoTours) {
     return `Tour ${tour}`;
   }
   if (m[1] === 'lb') return `Loser bracket - tour ${tour}`;
-  const s = (taille >> dkoTours) + (dkoTours === 1 ? taille >> 2 : taille >> dkoTours);
-  const p = pow2superieur(s);
+  const p = taille >> (dkoTours - 1);
   const toursF = log2int(p);
   if (tour === toursF) return 'Finale';
   if (tour === toursF - 1) return 'Demi-finales';
@@ -214,8 +212,8 @@ function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
         }
       }
 
-      const s = (taille >> k) + (k === 1 ? taille >> 2 : taille >> k);
-      const p2 = pow2superieur(s);
+      const nbWBk = taille >> k;
+      const p2 = taille >> (k - 1);
       const toursF = log2int(p2);
       for (let t = 1; t <= toursF; t++) {
         const nb = p2 >> t;
@@ -229,13 +227,12 @@ function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
           setLien(get('F', t, pos), 'suivant', get('F', t + 1, Math.ceil(pos / 2)), pos % 2 === 1 ? 1 : 2);
         }
       }
-      const nbWBk = taille >> k;
       for (let p = 1; p <= nbWBk; p++) {
         setLien(get('WB', k, p), 'suivant', get('F', 1, p), 1);
       }
       const nbLB = Object.keys(M.LB).filter(key => key.startsWith(`${nbToursLB}:`)).length;
       for (let p = 1; p <= nbLB; p++) {
-        setLien(get('LB', nbToursLB, p), 'suivant', get('F', 1, nbWBk + p), 2);
+        setLien(get('LB', nbToursLB, p), 'suivant', get('F', 1, p), 2);
       }
     }
   });
