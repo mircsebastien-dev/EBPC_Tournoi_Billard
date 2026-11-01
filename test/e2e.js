@@ -305,6 +305,18 @@ async function main() {
     check(`DKO ${taille} k=${k} : dernier LB (tour ${maxLB}) -> F tour 1`, lbLast.every(m => m.suivant_id && f1ids.has(m.suivant_id)));
     const r = await api('/api/admin/simuler', { method: 'POST', body: {} });
     check(`DKO ${taille} k=${k} : simulé jusqu'au bout (${r.data.statut}, champion ${r.data.champion})`, r.data.statut === 'termine' && !!r.data.champion);
+    // miroir horizontal : LB tour max -> F1 position nbF1 - p + 1 (jamais la même position que le WB k)
+    const nbF1 = f1ids.size;
+    const wbk = t.matchs.filter(m => m.bracket === 'WB' && m.tour === k);
+    const wbkTargets = new Set(wbk.map(m => m.suivant_id));
+    const lbTargets = lbLast.map(m => m.suivant_id);
+    const positionsF1 = f1.map(m => m.id + ':' + m.position).join(',');
+    const miroirOK = lbLast.every((m, i) => {
+      const posCible = t.matchs.find(x => x.id === m.suivant_id)?.position;
+      return posCible === nbF1 - (i + 1) + 1;
+    });
+    check(`DKO ${taille} k=${k} : LB entre en bas du tableau final (miroir, pos ${nbF1}-p+1)`, miroirOK, { lbTargets, positionsF1 });
+    check(`DKO ${taille} k=${k} : aucun F1 ne reçoit 2x le même côté (pas de conflit WB/LB)`, lbTargets.every(id => wbkTargets.has(id) ? t.matchs.find(x => x.id === id) : true));
   }
 
   console.log('== 9. SSE accessible ==');
