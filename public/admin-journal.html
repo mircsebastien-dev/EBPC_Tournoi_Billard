@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal d'audit — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Table de marque</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+
+async function render() {
+  main.innerHTML = '';
+  if (!adminPin) { renderAdminLogin(main); return; }
+  main.append(el('div', { class: 'panel' }, el('div', { class: 'hero-title' }, '📜 Journal d\'audit'), el('div', { id: 'audit' }, 'Chargement…')));
+  try {
+    const { audit } = await adminApi('/api/admin/audit');
+    const box = document.getElementById('audit');
+    box.innerHTML = '';
+    box.append(el('table', { class: 'audit' },
+      el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Action'), el('th', {}, 'Cible'), el('th', {}, 'Détails')),
+      ...audit.slice(0, 200).map(a => el('tr', {},
+        el('td', {}, a.created_at), el('td', {}, a.action), el('td', {}, a.cible || ''),
+        el('td', { class: 'small muted' }, `${a.avant || ''} → ${a.apres || ''}`)))));
+  } catch (e) {
+    document.getElementById('audit').textContent = e.message;
+  }
+}
+
+async function init() {
+  await adminInit(render);
+  render();
+}
+init();
+</script>
+</body>
+</html>

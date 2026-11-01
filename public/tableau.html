@@ -90,9 +90,10 @@ function renderListe(container, t) {
   const rounds = t.rounds;
   const byKey = {};
   for (const m of t.matchs) (byKey[m.bracket + m.tour] = byKey[m.bracket + m.tour] || []).push(m);
+  // Vue liste : d'abord les tours gagnants (WB tour 1, 2...), puis les perdants (LB 1, 2...), puis le tableau final
   const ordered = [
-    ...rounds.filter(r => r.bracket === 'LB').reverse(),
     ...rounds.filter(r => r.bracket === 'WB'),
+    ...rounds.filter(r => r.bracket === 'LB'),
     ...rounds.filter(r => r.bracket === 'F'),
   ];
   for (const r of ordered) {
