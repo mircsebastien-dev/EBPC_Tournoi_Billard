@@ -18,7 +18,14 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 .tv-table { display: inline-block; margin-top: 14px; font-size: clamp(18px, 3.5vw, 30px); font-weight: 800; color: var(--gold); background: rgba(255,209,102,.1); border: 1px solid rgba(255,209,102,.5); border-radius: 14px; padding: 8px 22px; }
 .tv-live-badge { display: inline-block; background: var(--pink); color: #fff; font-weight: 800; font-size: clamp(14px, 2.5vw, 24px); border-radius: 999px; padding: 6px 22px; animation: blink 1s infinite; }
 .tv-next-title { font-size: clamp(20px, 4vw, 36px); color: var(--pink-soft); font-weight: 800; margin-bottom: 16px; }
-.tv-next-list { display: inline-flex; flex-direction: column; gap: 10px; text-align: left; }
+.tv-next-list-wrap { max-height: 55vh; overflow: hidden; position: relative; }
+.tv-next-list { display: inline-flex; flex-direction: column; gap: 10px; text-align: left; transition: transform 0.8s ease; }
+.tv-next-list.scrolling { animation: tvscroll 12s linear infinite; }
+@keyframes tvscroll { 0% { transform: translateY(0); } 80% { transform: translateY(calc(-100% + 45vh)); } 100% { transform: translateY(calc(-100% + 45vh)); } }
+#rotate-overlay { display: none; position: fixed; inset: 0; z-index: 99; background: rgba(5,5,8,0.96); color: var(--text); flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; padding: 20px; }
+#rotate-overlay .big { font-size: clamp(40px, 10vw, 90px); }
+#rotate-overlay .small { color: var(--muted); font-size: clamp(16px, 3vw, 26px); }
+@media (orientation: portrait) { #rotate-overlay { display: flex; } }
 .tv-next-item { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 20px; font-size: clamp(16px, 3vw, 28px); font-weight: 600; display: flex; justify-content: space-between; gap: 30px; }
 .tv-next-item .meta { color: var(--muted); font-size: 0.75em; font-weight: 600; }
 .tv-dots { position: fixed; bottom: 18px; left: 0; right: 0; display: flex; justify-content: center; gap: 10px; }
@@ -35,6 +42,7 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 </header>
 <main id="slides"></main>
 <div class="tv-dots" id="dots"></div>
+<div id="rotate-overlay"><div class="big">🔄</div><div class="big" style="font-size:clamp(24px,5vw,44px);font-weight:800">Tourne l'écran en paysage</div><div class="small">La TV Pink City est pensée pour le mode paysage</div></div>
 <script src="/common.js"></script>
 <script>
 document.getElementById('nav').append(nav('tv'));
@@ -87,14 +95,14 @@ function render() {
           el('div', {}, el('div', { class: 'p' }, m.joueur2 ? m.joueur2.pseudo : '—'), el('div', { class: 's' }, String(m.score2)))),
         m.table != null ? el('div', { class: 'tv-table' }, `🎱 Table n° ${m.table}`) : null);
     } else if (s.type === 'next') {
-      const list = el('div', { class: 'tv-next-list' });
+      const list = el('div', { class: 'tv-next-list' + (s.items.length > 4 ? ' scrolling' : '') });
       for (const m of s.items) {
         const r = t.rounds.find(rr => rr.bracket === m.bracket && rr.tour === m.tour);
         list.append(el('div', { class: 'tv-next-item' },
           el('span', {}, `${m.joueur1 ? m.joueur1.pseudo : '…'}  vs  ${m.joueur2 ? m.joueur2.pseudo : '…'}`),
           el('span', { class: 'meta' }, `${r ? r.label : ''} · #${m.position}`)));
       }
-      div.append(el('div', { class: 'tv-next-title' }, `⏭ Prochains matchs (${s.items.length})`), list);
+      div.append(el('div', { class: 'tv-next-title' }, `⏭ Prochains matchs (${s.items.length})`), el('div', { class: 'tv-next-list-wrap' }, list));
     } else if (s.type === 'champion') {
       div.append(el('div', { class: 'tv-champion' }, `🏆 ${s.t.champion.pseudo}`), el('div', { class: 'tv-big', style: 'color:var(--muted)' }, 'Champion de la Pink City'));
     } else if (s.type === 'attente') {
