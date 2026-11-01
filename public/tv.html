@@ -31,6 +31,14 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 .tv-dots { position: fixed; bottom: 18px; left: 0; right: 0; display: flex; justify-content: center; gap: 10px; }
 .tv-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
 .tv-dots span.on { background: var(--pink); box-shadow: 0 0 10px var(--pink-glow); }
+#celebration { display: none; position: fixed; inset: 0; z-index: 200; background: radial-gradient(circle at 50% 40%, rgba(255,46,136,.25), rgba(5,5,8,.94) 70%); align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center; animation: popin .4s; overflow: hidden; }
+#celebration.on { display: flex; }
+@keyframes popin { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+#celebration .felicitations { font-size: clamp(26px, 5vw, 52px); font-weight: 800; color: var(--pink-soft); }
+#celebration .winner { font-size: clamp(44px, 10vw, 110px); font-weight: 900; background: linear-gradient(90deg, var(--gold), #fff, var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#celebration .score-line { font-size: clamp(20px, 4vw, 40px); color: var(--text); font-weight: 700; }
+.sparkle { position: absolute; font-size: 22px; animation: fall linear forwards; pointer-events: none; }
+@keyframes fall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
 .tv-champion { font-size: clamp(40px, 9vw, 110px); font-weight: 800; background: linear-gradient(90deg, var(--gold), #fff); -webkit-background-clip: text; background-clip: text; color: transparent; }
 </style>
 </head>
@@ -42,6 +50,7 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 </header>
 <main id="slides"></main>
 <div class="tv-dots" id="dots"></div>
+<div id="celebration"><div class="felicitations">🎉 Félicitations ! 🎉</div><div class="winner" id="cel-winner"></div><div class="score-line" id="cel-score"></div></div>
 <div id="rotate-overlay"><div class="big">🔄</div><div class="big" style="font-size:clamp(24px,5vw,44px);font-weight:800">Tourne l'écran en paysage</div><div class="small">La TV Pink City est pensée pour le mode paysage</div></div>
 <script src="/common.js"></script>
 <script>
@@ -118,10 +127,47 @@ function render() {
   if (slides.length > 1) timer = setInterval(() => { slideIdx = (slideIdx + 1) % slides.length; render(); }, SLIDE_MS);
 }
 
+let prevTermine = new Set();
+let celTimer = null;
+
+function celebrateIfNew(t) {
+  if (!t) return;
+  const nowTermine = new Set(t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').map(m => m.id));
+  for (const id of nowTermine) {
+    if (!prevTermine.has(id)) {
+      const m = t.matchs.find(x => x.id === id);
+      if (m && m.gagnant) showCelebration(m);
+      break; // une seule célébration à la fois
+    }
+  }
+  prevTermine = nowTermine;
+}
+
+function showCelebration(m) {
+  const cel = document.getElementById('celebration');
+  document.getElementById('cel-winner').textContent = m.gagnant;
+  document.getElementById('cel-score').textContent = `remporte le match ${m.score1}–${m.score2}${m.table != null ? ' · 🎱 table ' + m.table : ''}`;
+  cel.classList.add('on');
+  // paillettes
+  const emojis = ['✨', '🎉', '⭐', '💫', '🌟'];
+  for (let i = 0; i < 40; i++) {
+    const sp = el('span', { class: 'sparkle' }, emojis[i % emojis.length]);
+    sp.style.left = Math.random() * 100 + 'vw';
+    sp.style.top = '-5vh';
+    sp.style.animationDuration = (1.5 + Math.random() * 2.5) + 's';
+    sp.style.animationDelay = (Math.random() * 1.5) + 's';
+    cel.append(sp);
+    setTimeout(() => sp.remove(), 4500);
+  }
+  clearTimeout(celTimer);
+  celTimer = setTimeout(() => cel.classList.remove('on'), 4000);
+}
+
 async function init() {
   state = await api('/api/etat');
+  if (state && state.actif) prevTermine = new Set(state.actif.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').map(m => m.id));
   render();
-  connecterSSE((s) => { state = s; render(); });
+  connecterSSE((s) => { const old = state; state = s; render(); if (state && state.actif) celebrateIfNew(state.actif); });
 }
 init();
 </script>
