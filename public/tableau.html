@@ -24,7 +24,7 @@
 .node .nj.attente-j { color: var(--muted); font-style: italic; }
 .node .meta { font-size: 11px; color: var(--muted); margin-top: 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .attente-tag { color: var(--gold); font-weight: 700; }
-#bracket-svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+#bracket-svg { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; overflow: visible; }
 #bracket-svg path { stroke: rgba(255, 122, 181, 0.55); stroke-width: 2.5; fill: none; }
 #bracket-svg path.live { stroke: var(--pink); stroke-width: 3; filter: drop-shadow(0 0 6px var(--pink-glow)); }
 #bracket-svg path.done { stroke: rgba(46, 230, 168, 0.75); stroke-width: 2.5; }

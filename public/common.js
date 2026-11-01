@@ -158,7 +158,11 @@ function renderBracket(container, t, opts = {}) {
   }
   wrap.append(bracket);
   container.append(wrap);
-  if (opts.drawLinks !== false) requestAnimationFrame(() => drawBracketLinks(t));
+  if (opts.drawLinks !== false) {
+    requestAnimationFrame(() => drawBracketLinks(t));
+    setTimeout(() => drawBracketLinks(t), 60);
+    setTimeout(() => drawBracketLinks(t), 300);
+  }
 }
 
 function drawBracketLinks(t) {
@@ -166,7 +170,10 @@ function drawBracketLinks(t) {
   const svg = document.getElementById('bracket-svg');
   if (!bracket || !svg || !t) return;
   const rect = bracket.getBoundingClientRect();
-  svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+  // Pas de viewBox : 1 unité SVG = 1 px CSS, pour que les liens collent exactement aux nœuds
+  svg.setAttribute('width', Math.ceil(rect.width));
+  svg.setAttribute('height', Math.ceil(rect.height));
+  svg.removeAttribute('viewBox');
   svg.innerHTML = '';
   const ns = 'http://www.w3.org/2000/svg';
   for (const m of t.matchs) {
