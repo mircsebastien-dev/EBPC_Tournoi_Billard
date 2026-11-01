@@ -110,19 +110,17 @@ function labelRound(key, taille, format, dkoTours) {
       if (tour === toursWB - 2) return 'Quarts de finale';
       return `1/${(taille >> (tour - 1))} de finale`;
     }
-    // Double KO partiel : libellé en fraction de finale (1/16, 1/8...) basé sur la taille du tableau
-    if (tour === toursWB) return 'Finale';
-    if (tour === toursWB - 1) return 'Demi-finales';
-    if (tour === toursWB - 2) return 'Quarts de finale';
-    return `1/${taille >> (tour - 1)} de finale`;
+    // Double KO partiel : les tours WB restent "Tour N"
+    return `Tour ${tour}`;
   }
   if (m[1] === 'lb') return `Loser bracket - tour ${tour}`;
+  // Tableau final (bracket F) : libellés en fractions de finale (1/16, 1/8...) selon sa taille
   const p = taille >> (dkoTours - 1);
   const toursF = log2int(p);
   if (tour === toursF) return 'Finale';
   if (tour === toursF - 1) return 'Demi-finales';
   if (tour === toursF - 2) return 'Quarts de finale';
-  return `Tableau final - tour ${tour}`;
+  return `1/${p >> (tour - 1)} de finale`;
 }
 
 function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
