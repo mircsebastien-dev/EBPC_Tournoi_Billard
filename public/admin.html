@@ -32,7 +32,7 @@ const val = (id) => document.getElementById(id).value;
 function renderLogin() {
   main.innerHTML = '';
   const input = el('input', { type: 'password', id: 'pin', placeholder: 'Code PIN', inputmode: 'numeric', maxlength: 8 });
-  const entrer = () => { pin = input.value.trim(); if (pin) { localStorage.setItem('ebpc_admin_pin', pin); init(); } };
+  const entrer = () => { pin = input.value.trim(); if (pin) { localStorage.setItem('ebpc_admin_pin', pin); init().catch(() => renderLogin()); } };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') entrer(); });
   main.append(el('div', { class: 'panel', style: 'max-width:380px;margin:60px auto' },
     el('div', { class: 'hero-title', style: 'text-align:center' }, '🔐 Table de marque'),
