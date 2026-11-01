@@ -54,14 +54,15 @@ function render() {
       el('div', { class: 'mid' }, `race<br>to ${m.manches}`),
       el('div', {}, el('div', { class: 'p' }, m.joueur2 ? m.joueur2.pseudo : '—'), el('div', { class: 's' }, String(m.score2)))),
     peutJouer && moi && adv ? el('div', { class: 'score-actions' },
+      // aligné avec le scoreboard : joueur1 à gauche, joueur2 à droite
       el('div', { class: 'score-col' },
-        el('div', { class: 'score-col-label' }, `✅ ${moi.pseudo} gagne`),
-        btnScore(moi.id, '+1 manche', true),
-        btnScore(moi.id, '−1 manche', false)),
+        el('div', { class: 'score-col-label' }, `✅ ${m.joueur1.pseudo}${m.joueur1.id === joueurId ? ' (toi)' : ''}`),
+        btnScore(m.joueur1.id, '+1 manche', true),
+        btnScore(m.joueur1.id, '−1 manche', false)),
       el('div', { class: 'score-col' },
-        el('div', { class: 'score-col-label' }, `✅ ${adv.pseudo} gagne`),
-        btnScore(adv.id, '+1 manche', true),
-        btnScore(adv.id, '−1 manche', false)))
+        el('div', { class: 'score-col-label' }, `✅ ${m.joueur2.pseudo}${m.joueur2.id === joueurId ? ' (toi)' : ''}`),
+        btnScore(m.joueur2.id, '+1 manche', true),
+        btnScore(m.joueur2.id, '−1 manche', false)))
       : null,
     (m.etat === 'termine' || m.etat === 'forfait')
       ? el('p', { style: 'text-align:center;font-size:24px;font-weight:800;color:var(--green)' }, `🏁 ${m.gagnant || '—'} remporte le match`)
