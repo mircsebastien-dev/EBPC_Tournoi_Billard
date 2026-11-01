@@ -121,7 +121,7 @@ function labelRound(key, taille, format, dkoTours) {
       if (tour === toursWB) return 'Finale';
       if (tour === toursWB - 1) return 'Demi-finales';
       if (tour === toursWB - 2) return 'Quarts de finale';
-      return `1/${(taille >> (tour - 1))} de finale`;
+      return `1/${(taille >> tour)} de finale`;
     }
     // Double KO partiel : les tours WB restent "Tour N"
     return `Tour ${tour}`;
@@ -133,7 +133,7 @@ function labelRound(key, taille, format, dkoTours) {
   if (tour === toursF) return 'Finale';
   if (tour === toursF - 1) return 'Demi-finales';
   if (tour === toursF - 2) return 'Quarts de finale';
-  return `1/${p >> (tour - 1)} de finale`;
+  return `1/${p >> tour} de finale`;
 }
 
 function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
