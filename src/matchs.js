@@ -243,6 +243,45 @@ function declarerForfait(matchId, forfaitJoueurId) {
   return matchById(matchId);
 }
 
+// Ordre de priorité demandé : round 1 d'abord, puis LB1#1, WB2#1, LB2#1... 
+// => tri par (niveau, WB avant LB, position). Niveau: WB tour t -> t, LB tour t -> t, F tour t -> k+t
+function niveauMatch(m, k) {
+  if (m.bracket === 'WB') return m.tour;
+  if (m.bracket === 'LB') return m.tour;
+  return k + m.tour;
+}
+
+function prochainMatchAuto(tournoiId) {
+  const t = db.prepare('SELECT dko_tours FROM tournoi WHERE id = ?').get(tournoiId);
+  const k = t ? t.dko_tours : 0;
+  const rows = db.prepare(`
+    SELECT * FROM match WHERE tournoi_id = ? AND etat = 'pret'
+      AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL
+  `).all(tournoiId);
+  rows.sort((a, b) => {
+    const na = niveauMatch(a, k), nb = niveauMatch(b, k);
+    if (na !== nb) return na - nb;
+    if (a.bracket !== b.bracket) return a.bracket === 'WB' ? -1 : 1; // WB avant LB
+    return a.position - b.position;
+  });
+  return rows[0] || null;
+}
+
+function autoLancer(tournoiId) {
+  const { getSetting } = require('./db');
+  if (getSetting('auto_on') !== '1') return 0;
+  let lances = 0;
+  for (let i = 0; i < 64; i++) {
+    const m = prochainMatchAuto(tournoiId);
+    if (!m) break;
+    const libre = tableLibre(tournoiId, m.id);
+    if (!libre) break; // plus de table libre -> on attend
+    lancerMatch(m.id, libre.id);
+    lances++;
+  }
+  return lances;
+}
+
 function rafraichirPrets() {
   const actif = db.prepare(`SELECT id FROM tournoi WHERE statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1`).get();
   if (!actif) return;
@@ -276,4 +315,6 @@ module.exports = {
   tableLibre,
   rouvrirMatch,
   annulerEnAval,
+  autoLancer,
+  prochainMatchAuto,
 };

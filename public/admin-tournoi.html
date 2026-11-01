@@ -205,6 +205,11 @@ function renderTournoi(t) {
     el('a', { href: '/tableau.html' }, el('button', { class: 'secondary' }, 'Ouvrir le tableau 🗺'))));
 
   main.append(el('div', { class: 'panel' },
+    el('h2', {}, '🤖 Gestion automatique'),
+    el('p', { class: 'muted small' }, 'Lance automatiquement le prochain match dès qu'un match se termine (priorité : Tour 1, puis LB1#1, WB2#1, LB2#1…, une table libre à chaque fois).'),
+    el('button', { id: 'btn-auto', onclick: toggleAuto }, `Mode auto : ${getSettingAuto() ? 'ACTIF ✅' : 'inactif'}`)));)
+
+  main.append(el('div', { class: 'panel' },
     el('h2', {}, '🎬 Simulation'),
     el('button', { class: 'secondary', style: 'width:100%', onclick: simulerTout }, '▶ Simuler tout le tournoi')));
 
@@ -254,6 +259,25 @@ function renderTournoi(t) {
     const cid = val('champion');
     try { await adminApi('/api/admin/terminer', { method: 'POST', body: JSON.stringify({ champion_id: cid ? Number(cid) : null }) }); } catch (e) { alert(e.message); }
   }
+}
+
+
+let autoOn = false;
+function getSettingAuto() { return autoOn; }
+async function refreshAutoState() {
+  try {
+    const r = await adminApi('/api/admin/auto', { method: 'GET' }).catch(() => null);
+    // pas de GET -> on garde l'état local; on essaie via /api/etat? non. On garde simple: bouton toggle.
+  } catch {}
+}
+async function toggleAuto() {
+  autoOn = !autoOn;
+  try {
+    await adminApi('/api/admin/auto', { method: 'POST', body: JSON.stringify({ on: autoOn }) });
+    const b = document.getElementById('btn-auto');
+    if (b) b.textContent = `Mode auto : ${autoOn ? 'ACTIF ✅' : 'inactif'}`;
+    alert(autoOn ? '🤖 Mode auto ACTIVÉ : les matchs se lancent tout seuls.' : 'Mode auto désactivé.');
+  } catch (e) { autoOn = !autoOn; alert(e.message); }
 }
 
 async function init() {

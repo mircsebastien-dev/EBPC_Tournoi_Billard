@@ -215,8 +215,28 @@ app.get('/api/events', (req, res) => {
 
 function majEtBroadcast() {
   M.rafraichirPrets();
+  const t = tournoiActif();
+  if (t && t.statut === 'en_cours') {
+    const lances = M.autoLancer(t.id);
+    if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances });
+  }
   broadcast('update', etatGlobal());
 }
+
+app.post('/api/admin/auto', requireAdmin, (req, res) => {
+  const on = req.body.on === true || req.body.on === '1' || req.body.on === 1;
+  setSetting('auto_on', on ? '1' : '0');
+  logAudit('auto_toggle', 'tournoi', null, { on });
+  if (on) {
+    const t = tournoiActif();
+    if (t && t.statut === 'en_cours') {
+      const lances = M.autoLancer(t.id);
+      if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances, declencheur: 'activation' });
+    }
+  }
+  majEtBroadcast();
+  res.json({ ok: true, auto: on });
+});
 
 app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const { nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu } = req.body;
