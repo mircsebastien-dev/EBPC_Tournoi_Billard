@@ -2,9 +2,11 @@ app = "ebpc-tournoi-billard"
 primary_region = "cdg"
 
 [build]
+  builder = "paketobuildpacks/builder:base"
 
 [env]
   DB_PATH = "/data/tournoi.db"
+  PORT = "3000"
   # ADMIN_PIN se définit via `fly secrets set ADMIN_PIN=xxxx`
 
 [http_service]

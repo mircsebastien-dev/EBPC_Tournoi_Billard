@@ -109,57 +109,21 @@ mkdir -p /srv/tournoi/backups
 
 Mise à jour : `cd /srv/tournoi && git pull && npm install --omit=dev && sudo systemctl restart tournoi`
 
-## Déploiement gratuit recommandé : Fly.io (volume persistant inclus)
+## Déploiement gratuit recommandé : Fly.io — 100 % navigateur (sans CLI locale)
 
-Fly.io est le meilleur choix gratuit **avec persistance** de la base SQLite : le dépôt contient `fly.toml` (app `ebpc-tournoi-billard`, région Paris `cdg`, volume `tournoi_data` monté sur `/data`, `DB_PATH=/data/tournoi.db`, machines jamais éteintes `auto_stop_machines = "off"`).
+Le dépôt contient `fly.toml` (app `ebpc-tournoi-billard`, région Paris `cdg`, `DB_PATH=/data/tournoi.db`, volume `tournoi_data` sur `/data`, machine jamais éteinte, 256 Mo). Fly.io construit **depuis GitHub**, aucune commande locale nécessaire (utile si un administrateur bloque les exécutables) :
 
-### Sous Linux / macOS
+1. Va sur [fly.io](https://fly.io) → **Sign up with GitHub** → autorise Fly à lire `mircsebastien-dev/EBPC_Tournoi_Billard`
+2. Dashboard Fly → **Launch an App** → onglet **Deploy from GitHub** → choisis le dépôt + branche `main` → Fly détecte `fly.toml` automatiquement
+3. **Create app** → choisis le nom `ebpc-tournoi-billard` (ou un autre dispo) et la région **Paris (cdg)**
+4. Va dans l'app créée → **Volumes** → **Create volume** : nom `tournoi_data`, size **3 Go**, région `cdg` (gratuit, inclus)
+5. **Secrets** (ou Variables) → ajoute `ADMIN_PIN` = ton code PIN table de marque
+6. **Deploy** (ou laisse le déploiement auto depuis GitHub à chaque push sur `main`)
+7. L'URL publique : **Overview** → `https://ebpc-tournoi-billard.fly.dev` (ou le nom choisi)
 
-```bash
-# 1. Installer flyctl et se connecter
-curl -L https://fly.io/install.sh | sh
-fly auth login
+Le plan gratuit Fly.io inclut 3 VM shared-cpu-1x + 3 Go de volume + 160 Go de bande passante/mois : largement suffisant pour 128 joueurs, **pas de cold start**, base persistante sur le volume.
 
-# 2. Créer l'app depuis le dépôt cloné (le fly.toml est détecté)
-cd EBPC_Tournoi_Billard
-fly launch --no-deploy          # valide la config, ne déploie pas encore
-
-# 3. Créer le volume persistant (3 Go gratuits) et poser le PIN
-fly volumes create tournoi_data --region cdg --size 3
-fly secrets set ADMIN_PIN=ton-code-pin
-
-# 4. Déployer
-fly deploy
-
-# URL publique :
-fly open          # -> https://ebpc-tournoi-billard.fly.dev
-```
-
-### Sous Windows (PowerShell)
-
-```powershell
-# 1. Installer flyctl (au choix) :
-#    - avec winget :  winget install Fly-io.flyctl
-#    - ou PowerShell admin :  iwr https://fly.io/install.ps1 -useb | iex
-fly auth login
-
-# 2. Cloner le dépôt et se placer dedans
-git clone https://github.com/mircsebastien-dev/EBPC_Tournoi_Billard.git
-cd EBPC_Tournoi_Billard
-fly launch --no-deploy
-
-# 3. Volume persistant (3 Go gratuits) + PIN
-fly volumes create tournoi_data --region cdg --size 3
-fly secrets set ADMIN_PIN=ton-code-pin
-
-# 4. Déployer et ouvrir
-fly deploy
-fly open          # -> https://ebpc-tournoi-billard.fly.dev
-```
-
-Si `git` n'est pas installé : **winget install Git.Git**, ou télécharge depuis git-scm.com. Si `winget` n'existe pas (vieille version de Windows) : télécharge flyctl directement sur [fly.io/docs/hands-on/install-flyctl](https://fly.io/docs/hands-on/install-flyctl/) (section Windows).
-
-Le plan gratuit Fly.io inclut 3 VM shared-cpu-1x + 3 Go de volume : largement suffisant pour 128 joueurs. **Avantage clé** : pas de cold start (machine toujours allumée), données persistantes.
+Variante CLI (si un jour tu as un PC libre) : voir ancienne procédure (`fly auth login`, `fly launch --no-deploy`, `fly volumes create tournoi_data --region cdg --size 3`, `fly secrets set ADMIN_PIN=...`, `fly deploy`).
 
 ## Alternative : Railway (volume payant mais crédits gratuits)
 
