@@ -46,6 +46,13 @@
 document.getElementById('nav').append(nav('tableau'));
 const main = document.getElementById('main');
 let state = null;
+let viewMode = (new URLSearchParams(location.search)).get('vue') || localStorage.getItem('ebpc_view') || 'bracket';
+
+function feederLabel(t, src, kind) {
+  const r = t.rounds.find(rr => rr.bracket === src.bracket && rr.tour === src.tour);
+  const nom = r ? r.label : src.bracket + ' t' + src.tour;
+  return `${kind === 'perdant' ? 'perdant' : 'vainqueur'} du match #${src.position} (${nom})`;
+}
 
 function render() {
   main.innerHTML = '';
@@ -65,8 +72,47 @@ function render() {
       el('span', { class: 'chip' }, '🏁 Tableau final à droite'),
       el('span', { class: 'chip' }, 'Rose = en cours'),
       el('span', { class: 'chip' }, 'Vert = joué'),
-      el('span', { class: 'chip' }, '⏳ pointillé = match attendu'))));
-  renderBracket(main, t);
+      el('span', { class: 'chip' }, '⏳ pointillé = match attendu')),
+    el('div', { class: 'view-switch' },
+      el('button', { class: viewMode === 'bracket' ? '' : 'secondary', onclick: () => switchView('bracket') }, '🗺 Bracket'),
+      el('button', { class: viewMode === 'liste' ? '' : 'secondary', onclick: () => switchView('liste') }, '📋 Liste'))));
+  if (viewMode === 'bracket') renderBracket(main, t);
+  else renderListe(main, t);
+}
+
+function switchView(mode) {
+  viewMode = mode;
+  localStorage.setItem('ebpc_view', mode);
+  render();
+}
+
+function renderListe(container, t) {
+  const rounds = t.rounds;
+  const byKey = {};
+  for (const m of t.matchs) (byKey[m.bracket + m.tour] = byKey[m.bracket + m.tour] || []).push(m);
+  const ordered = [
+    ...rounds.filter(r => r.bracket === 'LB').reverse(),
+    ...rounds.filter(r => r.bracket === 'WB'),
+    ...rounds.filter(r => r.bracket === 'F'),
+  ];
+  for (const r of ordered) {
+    const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position);
+    if (!matchs.length) continue;
+    const section = el('div', { class: 'round' },
+      el('h3', {}, `${r.label} · race to ${r.manches}`),
+      el('div', { class: 'liste-matchs' }));
+    for (const m of matchs) {
+      const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id)
+        .map(x => feederLabel(t, x, x.perdant_id === m.id ? 'perdant' : 'vainqueur'));
+      section.lastChild.append(matchCard(m, {
+        onClick: () => { location.href = `/match.html?id=${m.id}`; },
+        extra: m.etat === 'prevu' && feeders.length
+          ? el('div', { class: 'attente-detail' }, `⏳ attendu : ${feeders.join('  vs  ')}`)
+          : null,
+      }));
+    }
+    container.append(section);
+  }
 }
 
 window.addEventListener('resize', () => { const t = state && state.actif; if (t) requestAnimationFrame(() => drawBracketLinks(t)); });
