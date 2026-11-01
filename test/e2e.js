@@ -34,6 +34,9 @@ async function main() {
   await api('/api/admin/tournoi', { method: 'DELETE' });
   await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Test Cup', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 4 } });
 
+  r = await api('/api/admin/tournoi', { method: 'PUT', body: { nom: 'Test Cup', date_heure: '2026-12-31 19:45', lieu: 'Chez Marco' } });
+  check('PUT modifie date/lieu', r.status === 200 && r.data.actif.tournoi.date_heure === '2026-12-31 19:45' && r.data.actif.tournoi.lieu === 'Chez Marco', r.data.actif.tournoi);
+
   console.log('== 2. PIN requis ==');
   r = await api('/api/admin/joueur', { method: 'POST', pin: '9999', body: { pseudo: 'X' } });
   check('mauvais PIN -> 401', r.status === 401);

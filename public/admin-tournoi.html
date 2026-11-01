@@ -70,6 +70,10 @@ function renderInscriptions(t) {
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, `⚙️ ${tn.nom} — inscriptions`),
     el('p', { class: 'hero-sub' }, `${tn.taille} max · ${t.joueurs.length} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés · ${t.tables.length} tables`),
+    el('div', { class: 'row', style: 'margin-top:10px' },
+      el('div', {}, el('label', {}, '📅 Date et heure'), el('input', { id: 'edit-dateheure', type: 'datetime-local', value: toLocalInput(tn.date_heure) })),
+      el('div', { style: 'flex:1 1 220px' }, el('label', {}, '📍 Lieu'), el('input', { id: 'edit-lieu', value: tn.lieu || '', maxlength: 200, placeholder: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse' })),
+      el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: majInfos }, 'Enregistrer date/lieu'))),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'pseudo', maxlength: 40, placeholder: 'Nouveau joueur', autocomplete: 'off' })),
       tn.tetes_de_serie ? el('div', { style: 'flex:0 0 90px' }, el('label', {}, 'N° série'), el('input', { id: 'tds', type: 'number', min: 1 })) : null,
@@ -100,6 +104,20 @@ function renderInscriptions(t) {
     el('button', { onclick: tirage, disabled: t.joueurs.filter(j => j.statut === 'paye').length < 2 ? '' : null, style: 'width:100%' }, `🎲 Lancer le tirage (${t.joueurs.filter(j => j.statut === 'paye').length} payés)`),
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'danger', style: 'width:100%', onclick: supprimer }, 'Supprimer le tournoi'))));
 
+  function toLocalInput(dh) {
+    if (!dh) return '';
+    const d = new Date(dh.replace(' ', 'T') + 'Z');
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  async function majInfos() {
+    try {
+      await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify({
+        nom: tn.nom, tetes_de_serie: tn.tetes_de_serie, nb_tables: tn.nb_tables, ajustement_auto: tn.ajustement_auto,
+        date_heure: val('edit-dateheure'), lieu: val('edit-lieu'),
+      })});
+    } catch (e) { alert(e.message); }
+  }
   async function ajouter() {
     const pseudo = val('pseudo').trim();
     if (!pseudo) return;
