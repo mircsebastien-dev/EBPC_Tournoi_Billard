@@ -67,7 +67,16 @@ function matchCard(m, opts = {}) {
       m.duree_s != null ? el('span', {}, `⏳ ${fmtDuree(m.duree_s)}`) : null,
       m.gagnant ? el('span', { style: 'color:var(--green);font-weight:700' }, `🏆 ${m.gagnant}`) : null),
       opts.extra || null);
-  if (opts.onClick) { card.addEventListener('click', () => opts.onClick(m)); card.style.cursor = 'pointer'; }
+  card.addEventListener('click', () => {
+    if (opts.onClick) { opts.onClick(m); return; }
+    if (typeof hasAdminPin === 'function' && hasAdminPin() && typeof openMatchEditor === 'function') {
+      openMatchEditor(m, () => { if (opts.onAdminChange) opts.onAdminChange(); });
+    } else {
+      location.href = `/match.html?id=${m.id}`;
+    }
+  });
+  card.style.cursor = 'pointer';
+  if (typeof hasAdminPin === 'function' && hasAdminPin()) card.title = 'Clic = éditer (admin)';
   return card;
 }
 
@@ -148,7 +157,17 @@ function renderBracket(container, t, opts = {}) {
           (m.etat === 'termine' || m.etat === 'forfait') ? badgeEtat(m.etat) : null,
           m.table != null ? el('span', { class: 'table-badge' }, '🎱 Table ' + m.table) : null,
           m.duree_s != null ? el('span', {}, '⏳ ' + fmtDuree(m.duree_s)) : null));
-      if (!opts.readonly) { node.addEventListener('click', () => { location.href = `/match.html?id=${m.id}`; }); node.style.cursor = 'pointer'; }
+      if (!opts.readonly) {
+        node.addEventListener('click', () => {
+          if (typeof hasAdminPin === 'function' && hasAdminPin() && typeof openMatchEditor === 'function') {
+            openMatchEditor(m, () => { if (opts.onAdminChange) opts.onAdminChange(); });
+          } else {
+            location.href = `/match.html?id=${m.id}`;
+          }
+        });
+        node.style.cursor = 'pointer';
+        if (typeof hasAdminPin === 'function' && hasAdminPin()) node.title = 'Clic = éditer (admin)';
+      }
       node.style.position = 'absolute';
       node.style.top = top + 'px';
       node.style.left = '0';
@@ -245,4 +264,72 @@ function fmtDateHeure(dh) {
   const p = n => String(n).padStart(2, '0');
   const jours = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
   return `${jours[d.getDay()]} ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} à ${p(d.getHours())}h${p(d.getMinutes())}`;
+}
+
+/* ===== Édition admin inline d'un match (depuis le tableau quand le PIN est mémorisé) ===== */
+function hasAdminPin() {
+  return !!(localStorage.getItem('ebpc_admin_pin') || '');
+}
+
+async function adminCall(path, opts = {}) {
+  const pin = localStorage.getItem('ebpc_admin_pin') || '';
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json', ...(pin ? { 'X-Admin-Pin': pin } : {}) },
+    ...opts,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { localStorage.removeItem('ebpc_admin_pin'); throw new Error('PIN invalide — reconnecte-toi dans l\'admin'); }
+  if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+  return data;
+}
+
+function openMatchEditor(m, onDone) {
+  closeMatchEditor();
+  const overlay = el('div', { id: 'match-editor', style: 'position:fixed;inset:0;z-index:100;background:rgba(5,5,8,.8);display:flex;align-items:center;justify-content:center;padding:16px' });
+  const j1 = m.joueur1 ? m.joueur1.pseudo : '—';
+  const j2 = m.joueur2 ? m.joueur2.pseudo : '—';
+  const s1 = el('input', { type: 'number', min: 0, max: m.manches, value: m.score1, style: 'width:70px;text-align:center;font-size:22px;font-weight:800' });
+  const s2 = el('input', { type: 'number', min: 0, max: m.manches, value: m.score2, style: 'width:70px;text-align:center;font-size:22px;font-weight:800' });
+  const man = el('select', { style: 'width:auto' }, [3, 5, 7].map(n => el('option', { value: n, ...(n === m.manches ? { selected: '' } : {}) }, `race to ${n}`)));
+  const motif = el('input', { placeholder: 'Motif (optionnel)', maxlength: 80, style: 'width:100%' });
+  const msg = el('div', { class: 'msg err', style: 'display:none' });
+
+  const btn = (label, cls, fn) => el('button', { class: cls, onclick: async () => {
+    msg.style.display = 'none';
+    try { await fn(); closeMatchEditor(); if (onDone) onDone(); }
+    catch (e) { msg.textContent = e.message; msg.style.display = 'block'; }
+  } }, label);
+
+  const actions = [];
+  if (m.etat === 'pret' || m.etat === 'prevu') {
+    actions.push(btn('▶ Lancer', '', () => adminCall(`/api/admin/match/${m.id}/lancer`, { method: 'POST', body: '{}' })));
+  }
+  actions.push(btn('💾 Enregistrer le score', '', () => adminCall(`/api/admin/match/${m.id}/correction`, {
+    method: 'POST', body: JSON.stringify({ score1: Number(s1.value), score2: Number(s2.value), manches: Number(man.value), motif: motif.value })
+  })));
+  if (m.etat === 'termine' || m.etat === 'forfait') {
+    actions.push(btn('🔓 Rouvrir', 'secondary', () => adminCall(`/api/admin/match/${m.id}/rouvrir`, { method: 'POST', body: '{}' })));
+  } else if (m.joueur1 && m.joueur2) {
+    actions.push(btn(`${j1} forfait`, 'danger', () => adminCall(`/api/admin/match/${m.id}/forfait`, { method: 'POST', body: JSON.stringify({ joueur_id: m.joueur1.id }) })));
+    actions.push(btn(`${j2} forfait`, 'danger', () => adminCall(`/api/admin/match/${m.id}/forfait`, { method: 'POST', body: JSON.stringify({ joueur_id: m.joueur2.id }) })));
+  }
+
+  overlay.append(el('div', { class: 'panel', style: 'max-width:460px;width:100%' },
+    el('h2', {}, `✏️ Match #${m.position}`),
+    el('p', { class: 'muted small' }, `${j1}  vs  ${j2} · ${badgeEtat(m.etat)}${m.table != null ? ' · 🎱 Table ' + m.table : ''}`),
+    el('div', { style: 'display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0' },
+      el('div', { style: 'font-weight:800;font-size:18px;max-width:130px;overflow:hidden;text-overflow:ellipsis' }, j1), s1,
+      el('span', { class: 'muted', style: 'font-weight:800' }, '–'), s2,
+      el('div', { style: 'font-weight:800;font-size:18px;max-width:130px;overflow:hidden;text-overflow:ellipsis' }, j2)),
+    el('div', { class: 'row', style: 'justify-content:center' }, man, motif),
+    msg,
+    el('div', { class: 'actions', style: 'display:flex;flex-direction:column;gap:8px;margin-top:12px' }, ...actions),
+    el('div', { style: 'margin-top:10px' }, el('button', { class: 'secondary', style: 'width:100%', onclick: closeMatchEditor }, 'Fermer'))));
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMatchEditor(); });
+  document.body.append(overlay);
+}
+
+function closeMatchEditor() {
+  const e = document.getElementById('match-editor');
+  if (e) e.remove();
 }
