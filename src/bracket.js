@@ -110,7 +110,11 @@ function labelRound(key, taille, format, dkoTours) {
       if (tour === toursWB - 2) return 'Quarts de finale';
       return `1/${(taille >> (tour - 1))} de finale`;
     }
-    return `Tour ${tour}`;
+    // Double KO partiel : libellé en fraction de finale (1/16, 1/8...) basé sur la taille du tableau
+    if (tour === toursWB) return 'Finale';
+    if (tour === toursWB - 1) return 'Demi-finales';
+    if (tour === toursWB - 2) return 'Quarts de finale';
+    return `1/${taille >> (tour - 1)} de finale`;
   }
   if (m[1] === 'lb') return `Loser bracket - tour ${tour}`;
   const p = taille >> (dkoTours - 1);
