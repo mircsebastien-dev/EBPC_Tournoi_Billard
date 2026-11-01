@@ -159,9 +159,13 @@ function renderBracket(container, t, opts = {}) {
   wrap.append(bracket);
   container.append(wrap);
   if (opts.drawLinks !== false) {
-    requestAnimationFrame(() => drawBracketLinks(t));
-    setTimeout(() => drawBracketLinks(t), 60);
-    setTimeout(() => drawBracketLinks(t), 300);
+    // redraws robustes (iOS charge lentement, layout tardif)
+    const redraw = () => drawBracketLinks(t);
+    requestAnimationFrame(redraw);
+    [60, 300, 800, 1500].forEach(ms => setTimeout(redraw, ms));
+    window.addEventListener('load', redraw, { once: true });
+    const sc = container.querySelector('.bracket-scroll') || container;
+    sc.addEventListener('scroll', redraw, { passive: true });
   }
 }
 
@@ -186,12 +190,19 @@ function drawBracketLinks(t) {
       const x1 = ra.right - rect.left, y1 = ra.top + ra.height / 2 - rect.top;
       const x2 = rb.left - rect.left, y2 = rb.top + rb.height / 2 - rect.top;
       const mx = (x1 + x2) / 2;
-      const p = document.createElementNS(ns, 'path');
-      p.setAttribute('d', `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+      const d = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
       let cls = '';
       if (m.etat === 'en_cours') cls = 'live';
       else if (m.etat === 'termine' || m.etat === 'forfait') cls = 'done';
       else if (m.etat === 'prevu') cls = 'attente';
+      // halo (gros trait translucide) + trait fin coloré, pour être visible sur fond sombre
+      const halo = document.createElementNS(ns, 'path');
+      halo.setAttribute('d', d);
+      if (cls) halo.setAttribute('class', cls + ' halo');
+      else halo.setAttribute('class', 'halo');
+      svg.append(halo);
+      const p = document.createElementNS(ns, 'path');
+      p.setAttribute('d', d);
       if (cls) p.setAttribute('class', cls);
       svg.append(p);
     }

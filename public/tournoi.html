@@ -20,9 +20,11 @@
 .node .nj.win { color: var(--green); font-weight: 700; }
 .node .nj .sc { color: var(--pink-soft); font-weight: 700; }
 .node .meta { font-size: 11px; color: var(--muted); margin-top: 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-#bracket-svg { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; overflow: visible; }
-#bracket-svg path { stroke: rgba(255, 122, 181, 0.55); stroke-width: 2.5; fill: none; }
-#bracket-svg path.done { stroke: rgba(46, 230, 168, 0.75); stroke-width: 2.5; }
+#bracket-svg { position: absolute; top: 0; left: 0; z-index: 3; pointer-events: none; overflow: visible; }
+#bracket-svg path { stroke: rgba(255, 122, 181, 0.85); stroke-width: 3; fill: none; }
+#bracket-svg path.halo { stroke: rgba(255, 46, 136, 0.18); stroke-width: 9; }
+#bracket-svg path.done { stroke: rgba(46, 230, 168, 0.9); stroke-width: 3; }
+#bracket-svg path.done.halo { stroke: rgba(46, 230, 168, 0.2); stroke-width: 9; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
 </style>
 </head>
