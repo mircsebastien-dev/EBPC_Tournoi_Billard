@@ -74,7 +74,7 @@ async function main() {
   check('bye terminé automatiquement + gagnant propagé', byes.length === 1 && byes[0].etat === 'termine' && byes[0].gagnant_id != null, byes);
 
   console.log('== 5. Lancer un match complet et jouer ==');
-  const m = withBoth.find(mm => mm.etat === 'pret') || withBoth[0];
+  let m = withBoth.find(mm => mm.etat === 'pret') || withBoth[0];
   r = await api(`/api/admin/match/${m.id}/lancer`, { method: 'POST', body: { table_id: null } });
   check('lancement 200', r.status === 200, r.data);
   check('état en_cours', r.data.match.etat === 'en_cours');
@@ -83,19 +83,45 @@ async function main() {
   check('manche J1', r.status === 200 && r.data.match.score1 === 1, r.data);
   r = await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: 9999 } });
   check('joueur externe -> 403', r.status === 403, r.data);
+  // --- nouveau : gestion complète du score par le joueur (ajouter/retirer, soi + adversaire) sur un 2e match ---
+  console.log('== 5c. Gestion du score par le joueur (+/- soi et adversaire) ==');
+  const mC = withBoth.find(mm => mm.id !== m.id && mm.etat === 'pret') || null;
+  if (mC) {
+    await api(`/api/admin/match/${mC.id}/lancer`, { method: 'POST', body: { table_id: null } });
+    const a1 = mC.joueur1.id, a2 = mC.joueur2.id;
+    r = await api(`/api/match/${mC.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: a1 } });
+    check('manche pour soi', r.status === 200 && r.data.match.score1 === 1, r.data);
+    r = await api(`/api/match/${mC.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: a2 } });
+    check('manche pour l\'adversaire acceptée', r.status === 200 && r.data.match.score2 === 1, r.data);
+    r = await api(`/api/match/${mC.id}/retirer`, { method: 'POST', pin: null, body: { joueur_id: a2 } });
+    check('retirer une manche à l\'adversaire', r.status === 200 && r.data.match.score2 === 0, r.data.match);
+    r = await api(`/api/match/${mC.id}/retirer`, { method: 'POST', pin: null, body: { joueur_id: a1 } });
+    check('retirer une manche à soi', r.status === 200 && r.data.match.score1 === 0, r.data.match);
+    r = await api(`/api/match/${mC.id}/retirer`, { method: 'POST', pin: null, body: { joueur_id: a1 } });
+    check('retirer à 0 reste bloqué à 0', r.status === 200 && r.data.match.score1 === 0, r.data.match);
+    r = await api(`/api/match/${mC.id}/retirer`, { method: 'POST', pin: null, body: { joueur_id: 9999 } });
+    check('retirer pour un joueur externe -> 403', r.status === 403, r.status);
+    for (let i = 0; i < mC.manches; i++) await api(`/api/match/${mC.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: a1 } });
+  } else {
+    check('2e match disponible pour les tests +/-', false);
+  }
   for (let i = 0; i < 2; i++) await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: j1 } });
+  for (let i = 0; i < 3; i++) await api('/api/match/' + m.id + '/manche', { method: 'POST', pin: null, body: { joueur_id: j1 } });
   r = await api('/api/etat');
   const m2 = r.data.actif.matchs.find(mm => mm.id === m.id);
   check('match terminé 3-0, gagnant J1', m2.etat === 'termine' && m2.score1 === 3 && m2.gagnant_id === j1, m2);
+  r = await api('/api/match/' + m.id + '/retirer', { method: 'POST', pin: null, body: { joueur_id: j1 } });
+  check('retirer sur match terminé -> 409', r.status === 409, r.status);
   check('started_at renseigné au lancement', !!m2.started_at, m2.started_at);
   check('ended_at + durée renseignés à la fin', !!m2.ended_at && typeof m2.duree_s === 'number' && m2.duree_s >= 0, { ended: m2.ended_at, duree: m2.duree_s });
-  const st = r.data.actif.stats;
+  const st = (await api('/api/etat')).data.actif.stats;
   check('stats présentes avec classement', !!st && Array.isArray(st.classement) && st.resume.joues >= 1);
   const j1stats = st.classement.find(p => p.id === j1);
   check('stats J1 : 1 joué 1 gagné', j1stats && j1stats.joues === 1 && j1stats.gagnes === 1 && j1stats.pct === 100, j1stats);
-  const suivant = r.data.actif.matchs.find(mm => mm.id === m2.suivant_id);
+  const etatA = (await api('/api/etat')).data.actif;
+  const suivant = etatA.matchs.find(mm => mm.id === m2.suivant_id);
   check('gagnant propagé au match suivant', suivant && (suivant.joueur1?.id === j1 || suivant.joueur2?.id === j1), suivant);
-  const lbMatch = r.data.actif.matchs.find(mm => mm.id === m2.perdant_id);
+  const lbMatch = etatA.matchs.find(mm => mm.id === m2.perdant_id);
   check('perdant envoyé en LB', lbMatch && (lbMatch.joueur1?.id === j2 || lbMatch.joueur2?.id === j2), lbMatch);
 
   console.log('== 5b. Assignation auto des tables ==');

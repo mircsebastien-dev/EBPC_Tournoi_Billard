@@ -511,8 +511,16 @@ app.get('/api/admin/audit', requireAdmin, (req, res) => {
 
 app.post('/api/match/:id/manche', (req, res) => {
   const joueurId = Number(req.body.joueur_id);
-  if (!joueurId) return res.status(400).json({ error: 'joueur_id requis' });
+  if (!joueurId) return res.status(400).json({ error: 'joueur_id requis (gagnant de la manche)' });
   const m = M.declarerManche(Number(req.params.id), joueurId);
+  majEtBroadcast();
+  res.json({ ok: true, match: vueMatch(m) });
+});
+
+app.post('/api/match/:id/retirer', (req, res) => {
+  const joueurId = Number(req.body.joueur_id);
+  if (!joueurId) return res.status(400).json({ error: 'joueur_id requis (à qui retirer la manche)' });
+  const m = M.retirerManche(Number(req.params.id), joueurId);
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });

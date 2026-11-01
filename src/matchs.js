@@ -127,6 +127,19 @@ function tableLibre(tournoiId, exclureMatchId) {
   return t || null;
 }
 
+function retirerManche(matchId, joueurId) {
+  const m = matchById(matchId);
+  if (!m) throw httpError(404, 'Match introuvable');
+  if (m.etat !== 'en_cours' && m.etat !== 'pret') throw httpError(409, 'Le match n\'est pas en cours');
+  if (m.joueur1_id !== joueurId && m.joueur2_id !== joueurId) throw httpError(403, 'Vous ne jouez pas ce match');
+  const s1 = m.joueur1_id === joueurId ? Math.max(0, m.score1 - 1) : m.score1;
+  const s2 = m.joueur2_id === joueurId ? Math.max(0, m.score2 - 1) : m.score2;
+  db.prepare(`UPDATE match SET score1 = ?, score2 = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(s1, s2, matchId);
+  insererEvent(matchId, joueurId, 'correction', { action: 'retirer_manche', score1: s1, score2: s2 });
+  return matchById(matchId);
+}
+
 function lancerMatch(matchId, tableId) {
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
@@ -210,6 +223,7 @@ module.exports = {
   propagerPerdant,
   terminerMatch,
   declarerManche,
+  retirerManche,
   lancerMatch,
   corrigerScore,
   declarerForfait,

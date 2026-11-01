@@ -9,7 +9,7 @@
 <body>
 <header class="top">
   <h1>🎱 Match en direct</h1>
-  <nav><a href="/suivi.html">← Mes matchs</a><a href="/tv.html">📺 TV</a><a href="/stats.html">📊 Stats</a><a href="/historique.html">🗂 Historique</a></nav>
+  <nav><a href="/suivi.html">← Mes matchs</a><a href="/tv.html">📺 TV</a><a href="/tableau.html">🗺 Tableau</a></nav>
 </header>
 <main id="main"></main>
 <script src="/common.js"></script>
@@ -31,7 +31,13 @@ function render() {
   const m = monMatch();
   if (!m) { main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', {}, 'Match introuvable.'))); return; }
   const moi = m.joueur1 && m.joueur1.id === joueurId ? m.joueur1 : (m.joueur2 && m.joueur2.id === joueurId ? m.joueur2 : null);
-  const peutJouer = m.etat === 'en_cours' && moi;
+  const adv = m.joueur1 && m.joueur1.id === joueurId ? m.joueur2 : m.joueur1;
+  const peutJouer = (m.etat === 'en_cours' || m.etat === 'pret') && moi;
+
+  const btnScore = (target, label, plus) => el('button', {
+    class: 'btn-score ' + (plus ? '' : 'secondary'),
+    onclick: () => envoyer(target, plus),
+  }, label);
 
   const carte = el('div', { class: 'panel' },
     el('div', { style: 'display:flex;justify-content:space-between;align-items:center' },
@@ -47,8 +53,15 @@ function render() {
       el('div', {}, el('div', { class: 'p' }, m.joueur1 ? m.joueur1.pseudo : '—'), el('div', { class: 's' }, String(m.score1))),
       el('div', { class: 'mid' }, `race<br>to ${m.manches}`),
       el('div', {}, el('div', { class: 'p' }, m.joueur2 ? m.joueur2.pseudo : '—'), el('div', { class: 's' }, String(m.score2)))),
-    peutJouer
-      ? el('button', { class: 'btn-manche', onclick: envoyerManche }, `✅ J'ai gagné la manche${moi.pseudo ? ` (${moi.pseudo})` : ''}`)
+    peutJouer && moi && adv ? el('div', { class: 'score-actions' },
+      el('div', { class: 'score-col' },
+        el('div', { class: 'score-col-label' }, `✅ ${moi.pseudo} gagne`),
+        btnScore(moi.id, '+1 manche', true),
+        btnScore(moi.id, '−1 manche', false)),
+      el('div', { class: 'score-col' },
+        el('div', { class: 'score-col-label' }, `✅ ${adv.pseudo} gagne`),
+        btnScore(adv.id, '+1 manche', true),
+        btnScore(adv.id, '−1 manche', false)))
       : null,
     (m.etat === 'termine' || m.etat === 'forfait')
       ? el('p', { style: 'text-align:center;font-size:24px;font-weight:800;color:var(--green)' }, `🏁 ${m.gagnant || '—'} remporte le match`)
@@ -58,9 +71,10 @@ function render() {
   main.append(carte);
 }
 
-async function envoyerManche() {
+async function envoyer(targetId, plus) {
   try {
-    await api(`/api/match/${matchId}/manche`, { method: 'POST', body: JSON.stringify({ joueur_id: joueurId }) });
+    if (plus) await api(`/api/match/${matchId}/manche`, { method: 'POST', body: JSON.stringify({ joueur_id: targetId }) });
+    else await api(`/api/match/${matchId}/retirer`, { method: 'POST', body: JSON.stringify({ joueur_id: targetId }) });
   } catch (e) { alert(e.message); }
 }
 
