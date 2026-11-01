@@ -159,15 +159,60 @@ function lancerMatch(matchId, tableId) {
   return matchById(matchId);
 }
 
+function retirerJoueurDuCible(m, champ, slot, joueurId) {
+  const cibleId = champ === 'suivant' ? m.suivant_id : m.perdant_id;
+  if (!cibleId) return;
+  const s = matchById(cibleId);
+  if (!s) return;
+  const col = slot === 1 ? 'joueur1_id' : 'joueur2_id';
+  const val = slot === 1 ? s.joueur1_id : s.joueur2_id;
+  if (val !== joueurId) return;
+  db.prepare(`UPDATE match SET ${col} = NULL, updated_at = datetime('now') WHERE id = ?`).run(s.id);
+  const cur = matchById(s.id);
+  if ((cur.joueur1_id == null || cur.joueur2_id == null) && cur.etat !== 'termine' && cur.etat !== 'forfait') {
+    db.prepare(`UPDATE match SET etat = 'prevu', score1 = 0, score2 = 0, gagnant_id = NULL, updated_at = datetime('now') WHERE id = ?`).run(s.id);
+  }
+}
+
+function annulerEnAval(matchId) {
+  const m = matchById(matchId);
+  if (!m) return;
+  // retire le gagnant/perdant de ce match des matchs suivants, en cascade
+  if (m.gagnant_id != null && m.suivant_id) {
+    retirerJoueurDuCible(m, 'suivant', m.suivant_slot, m.gagnant_id);
+    const s = matchById(m.suivant_id);
+    if (s && (s.etat === 'termine' || s.etat === 'forfait' || s.etat === 'en_cours')) annulerEnAval(s.id);
+  }
+  if (m.gagnant_id != null && m.perdant_id) {
+    retirerJoueurDuCible(m, 'perdant', m.perdant_slot, m.gagnant_id);
+    const s = matchById(m.perdant_id);
+    if (s && (s.etat === 'termine' || s.etat === 'forfait' || s.etat === 'en_cours')) annulerEnAval(s.id);
+  }
+  // le perdant de ce match venait peut-être d'ailleurs: on annule aussi son ancien perdant si le match était joué
+  // (le perdant de m reste, il est toujours valide; seul le gagnant change potentiellement)
+}
+
+function rouvrirMatch(matchId) {
+  const m = matchById(matchId);
+  if (!m) throw httpError(404, 'Match introuvable');
+  if (m.etat !== 'termine' && m.etat !== 'forfait') throw httpError(409, 'Seul un match terminé peut être rouvert');
+  if (m.joueur1_id == null || m.joueur2_id == null) throw httpError(409, 'Match sans 2 joueurs');
+  annulerEnAval(matchId);
+  db.prepare(`UPDATE match SET etat = 'en_cours', gagnant_id = NULL, ended_at = NULL, updated_at = datetime('now') WHERE id = ?`).run(matchId);
+  insererEvent(matchId, null, 'correction', { action: 'rouvrir' });
+  return matchById(matchId);
+}
+
 function corrigerScore(matchId, score1, score2, manches, motif) {
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   const avant = { score1: m.score1, score2: m.score2, manches: m.manches, etat: m.etat, gagnant_id: m.gagnant_id };
+  if (avant.etat === 'termine' || avant.etat === 'forfait') annulerEnAval(matchId);
   const s1 = Math.max(0, Math.min(score1, manches));
   const s2 = Math.max(0, Math.min(score2, manches));
   let etat = m.etat;
   let gagnant = m.gagnant_id;
-  if (m.etat !== 'termine' && (s1 >= manches || s2 >= manches)) {
+  if (s1 >= manches || s2 >= manches) {
     etat = 'termine';
     gagnant = s1 > s2 ? m.joueur1_id : m.joueur2_id;
   }
@@ -175,7 +220,7 @@ function corrigerScore(matchId, score1, score2, manches, motif) {
     .run(s1, s2, manches, etat, gagnant, etat, matchId);
   insererEvent(matchId, null, 'correction', { avant, apres: { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant }, motif });
   logAudit('correction_score', `match ${matchId}`, avant, { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant });
-  if (etat === 'termine' && gagnant != null && avant.etat !== 'termine') {
+  if (etat === 'termine' && gagnant != null) {
     const perdant = gagnant === m.joueur1_id ? m.joueur2_id : m.joueur1_id;
     propagerGagnant(matchId, gagnant);
     propagerPerdant(matchId, perdant);
@@ -229,4 +274,6 @@ module.exports = {
   declarerForfait,
   rafraichirPrets,
   tableLibre,
+  rouvrirMatch,
+  annulerEnAval,
 };

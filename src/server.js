@@ -452,6 +452,13 @@ app.post('/api/admin/match/:id/correction', requireAdmin, (req, res) => {
   res.json({ ok: true, match: vueMatch(m) });
 });
 
+app.post('/api/admin/match/:id/rouvrir', requireAdmin, (req, res) => {
+  const m = M.rouvrirMatch(Number(req.params.id));
+  logAudit('rouvrir_match', `match ${m.id}`, null, { etat: 'en_cours' });
+  majEtBroadcast();
+  res.json({ ok: true, match: vueMatch(m) });
+});
+
 app.post('/api/admin/match/:id/forfait', requireAdmin, (req, res) => {
   const m = M.declarerForfait(Number(req.params.id), Number(req.body.joueur_id));
   majEtBroadcast();

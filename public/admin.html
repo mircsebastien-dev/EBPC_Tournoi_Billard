@@ -238,7 +238,9 @@ function renderTournoi(t) {
       el('h3', {}, `${g.round.label} · race to ${g.round.manches}`),
       el('div', { class: 'matchs-grid' }, g.matchs.map(m =>
         el('div', {}, matchCard(m),
-          (m.etat === 'termine' || m.etat === 'forfait') ? el('div', { style: 'margin-top:8px' }, el('button', { class: 'secondary', onclick: () => corriger(m) }, '✏️ Corriger')) : null)))));
+          (m.etat === 'termine' || m.etat === 'forfait') ? el('div', { class: 'actions', style: 'margin-top:8px' },
+            el('button', { class: 'secondary', onclick: () => corriger(m) }, '✏️ Corriger le score'),
+            el('button', { class: 'secondary', onclick: () => rouvrir(m) }, '🔓 Rouvrir le match')) : null)))));
   }
 
   main.append(el('div', { class: 'panel' },
@@ -279,6 +281,12 @@ function renderTournoi(t) {
     const qui = joueurId === m.joueur1.id ? m.joueur1.pseudo : m.joueur2.pseudo;
     if (!confirmer(`Forfait de ${qui} ?`)) return;
     try { await adminApi(`/api/admin/match/${m.id}/forfait`, { method: 'POST', body: JSON.stringify({ joueur_id: joueurId }) }); }
+    catch (e) { alert(e.message); }
+  }
+  async function rouvrir(m) {
+    if (!confirmer(`Rouvrir le match #${m.position} (${m.joueur1?.pseudo || '—'} vs ${m.joueur2?.pseudo || '—'}) ?
+Le résultat est annulé et les matchs suivants seront vidés pour être rejoués.`)) return;
+    try { await adminApi(`/api/admin/match/${m.id}/rouvrir`, { method: 'POST', body: '{}' }); }
     catch (e) { alert(e.message); }
   }
   function corriger(m) {

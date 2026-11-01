@@ -79,6 +79,7 @@ async function main() {
   check('lancement 200', r.status === 200, r.data);
   check('état en_cours', r.data.match.etat === 'en_cours');
   const j1 = m.joueur1.id, j2 = m.joueur2.id;
+  check('m a bien 2 joueurs', !!m.joueur1 && !!m.joueur2, m);
   r = await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: j1 } });
   check('manche J1', r.status === 200 && r.data.match.score1 === 1, r.data);
   r = await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: 9999 } });
@@ -143,10 +144,24 @@ async function main() {
     }
   }
 
-  console.log('== 6. Correction admin ==');
+  console.log('== 6. Correction admin (match terminé : score + rouvrir + cascade) ==');
   r = await api(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: { score1: 1, score2: 3, manches: 3, motif: 'test' } });
   check('correction 200', r.status === 200, r.data);
   check('score corrigé 1-3', r.data.match.score1 === 1 && r.data.match.score2 === 3, r.data.match);
+  const mApres = r.data.match;
+  check('match reste terminé avec nouveau gagnant', mApres.etat === 'termine' && mApres.gagnant_id === j2, mApres);
+  const suivantA = (await api('/api/etat')).data.actif.matchs.find(mm => mm.id === mApres.suivant_id);
+  check('match suivant vidé du gagnant annulé', suivantA && ![suivantA.joueur1?.id, suivantA.joueur2?.id].includes(j1), suivantA);
+  r = await api(`/api/admin/match/${m.id}/rouvrir`, { method: 'POST', body: {} });
+  check('rouvrir 200', r.status === 200, r.data);
+  check('match rouvert en_cours, gagnant null', r.data.match.etat === 'en_cours' && r.data.match.gagnant_id == null, r.data.match);
+  r = await api(`/api/admin/match/${m.id}/rouvrir`, { method: 'POST', pin: '9999', body: {} });
+  check('rouvrir protégé PIN (401)', r.status === 401, r.status);
+  // reset du score à 0-0 via correction, puis rejeu complet
+  await api(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: { score1: 0, score2: 0, manches: 3, motif: 'reset avant rejeu' } });
+  for (let i = 0; i < 3; i++) await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: j1 } });
+  const mRe = (await api('/api/etat')).data.actif.matchs.find(mm => mm.id === m.id);
+  check('match rejoué 3-0', mRe.etat === 'termine' && mRe.score1 === 3 && mRe.gagnant_id === j1, mRe);
 
   console.log('== 7. Forfait ==');
   const pret = (await api('/api/etat')).data.actif.matchs.find(mm => mm.etat === 'pret' && mm.joueur1 && mm.joueur2);
