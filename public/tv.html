@@ -5,6 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TV — Pink City Billard</title>
 <link rel="stylesheet" href="/style.css">
+<style>
+body.tv { background: #050508; overflow: hidden; }
+body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; }
+.slide { display: none; width: 100%; text-align: center; padding: 20px; animation: fadein 0.5s; }
+.slide.on { display: block; }
+@keyframes fadein { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+.tv-big { font-size: clamp(28px, 6vw, 56px); font-weight: 800; margin: 10px 0; }
+.tv-vs { display: flex; justify-content: center; align-items: center; gap: 5vw; margin: 20px 0; }
+.tv-vs .p { font-size: clamp(26px, 5.5vw, 64px); font-weight: 800; }
+.tv-vs .s { font-size: clamp(60px, 12vw, 150px); font-weight: 800; color: var(--pink); font-variant-numeric: tabular-nums; }
+.tv-table { display: inline-block; margin-top: 14px; font-size: clamp(18px, 3.5vw, 30px); font-weight: 800; color: var(--gold); background: rgba(255,209,102,.1); border: 1px solid rgba(255,209,102,.5); border-radius: 14px; padding: 8px 22px; }
+.tv-live-badge { display: inline-block; background: var(--pink); color: #fff; font-weight: 800; font-size: clamp(14px, 2.5vw, 24px); border-radius: 999px; padding: 6px 22px; animation: blink 1s infinite; }
+.tv-next-title { font-size: clamp(20px, 4vw, 36px); color: var(--pink-soft); font-weight: 800; margin-bottom: 16px; }
+.tv-next-list { display: inline-flex; flex-direction: column; gap: 10px; text-align: left; }
+.tv-next-item { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 20px; font-size: clamp(16px, 3vw, 28px); font-weight: 600; display: flex; justify-content: space-between; gap: 30px; }
+.tv-next-item .meta { color: var(--muted); font-size: 0.75em; font-weight: 600; }
+.tv-dots { position: fixed; bottom: 18px; left: 0; right: 0; display: flex; justify-content: center; gap: 10px; }
+.tv-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+.tv-dots span.on { background: var(--pink); box-shadow: 0 0 10px var(--pink-glow); }
+.tv-champion { font-size: clamp(40px, 9vw, 110px); font-weight: 800; background: linear-gradient(90deg, var(--gold), #fff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+</style>
 </head>
 <body class="tv">
 <header class="top">
@@ -12,69 +33,81 @@
   <span id="statut" class="badge">—</span>
   <div id="nav"></div>
 </header>
-<main>
-  <div id="champion"></div>
-  <div id="live"></div>
-  <div id="tableau"></div>
-</main>
+<main id="slides"></main>
+<div class="tv-dots" id="dots"></div>
 <script src="/common.js"></script>
 <script>
 document.getElementById('nav').append(nav('tv'));
+const slidesEl = document.getElementById('slides');
+const dotsEl = document.getElementById('dots');
 let state = null;
+let slideIdx = 0;
+let timer = null;
+const SLIDE_MS = 6000;
+const MAX_NEXT = 6;
+
+function slidesList() {
+  const t = state && state.actif;
+  if (!t) return [{ type: 'vide' }];
+  if (t.champion) return [{ type: 'champion', t }];
+  const enCours = t.matchs.filter(m => m.etat === 'en_cours');
+  const aVenir = t.matchs
+    .filter(m => (m.etat === 'pret' || m.etat === 'prevu') && m.joueur1 && m.joueur2)
+    .sort((a, b) => (a.bracket === 'WB' ? 0 : a.bracket === 'LB' ? 1 : 2) - (b.bracket === 'WB' ? 0 : b.bracket === 'LB' ? 1 : 2) || a.tour - b.tour || a.position - b.position)
+    .slice(0, MAX_NEXT);
+  const slides = [];
+  for (const m of enCours) slides.push({ type: 'live', m });
+  if (aVenir.length > 0) slides.push({ type: 'next', items: aVenir, t });
+  if (slides.length === 0) slides.push({ type: 'attente', t });
+  return slides;
+}
 
 function render() {
-  const titre = document.getElementById('titre');
-  const statut = document.getElementById('statut');
-  const champion = document.getElementById('champion');
-  const live = document.getElementById('live');
-  const tableau = document.getElementById('tableau');
-  champion.innerHTML = ''; live.innerHTML = ''; tableau.innerHTML = '';
-  const t0 = state && state.actif;
-  if (!t0) {
-    titre.textContent = 'Pink City Billard';
-    statut.textContent = 'En attente';
-    return;
-  }
-  const t = t0;
-  titre.textContent = t.tournoi.nom;
-  statut.textContent = t.tournoi.statut === 'en_cours' ? '🔴 EN DIRECT' : t.tournoi.statut === 'termine' ? '🏁 TERMINÉ' : 'Inscriptions';
-  statut.className = `badge ${t.tournoi.statut}`;
-  if (t.champion) {
-    champion.append(el('div', { class: 'panel', style: 'text-align:center;border-color:var(--gold)' },
-      el('div', { style: 'font-size:52px;font-weight:800;background:linear-gradient(90deg,var(--gold),#fff);-webkit-background-clip:text;background-clip:text;color:transparent' }, `🏆 ${t.champion.pseudo}`),
-      el('div', { class: 'muted' }, 'Champion de la Pink City')));
-  }
-  const enCours = t.matchs.filter(m => m.etat === 'en_cours');
-  if (enCours.length > 0) {
-    live.append(el('div', { class: 'panel', style: 'border-color:rgba(255,46,136,.6)' },
-      el('h2', { style: 'font-size:24px' }, `🔴 EN DIRECT (${enCours.length})`),
-      el('div', { class: 'matchs-grid' }, enCours.map(m => {
-        const card = matchCard(m);
-        card.querySelectorAll('.score').forEach(s => s.classList.add('big-score'));
-        return card;
-      }))));
-  }
-  const groups = grouperParRound(t.matchs, t.rounds);
-  tableau.append(el('div', { class: 'tv-grid' },
-    ...groups.map(g => el('div', { class: 'round' },
-      el('h3', {}, `${g.round.label} · race to ${g.round.manches}`),
-      el('div', { class: 'matchs-grid', style: 'grid-template-columns:1fr' }, g.matchs.map(matchCard))))));
-  if (t.stats && t.stats.classement.length > 0) {
-    const top = t.stats.classement.filter(p => p.joues > 0).slice(0, 8);
-    const r = t.stats.resume;
-    tableau.append(el('div', { class: 'panel' },
-      el('h2', { style: 'font-size:20px' }, '📊 Stats'),
-      el('div', { class: 'row' },
-        el('span', { class: 'chip' }, `${r.joues}/${r.total} joués`),
-        r.duree_moyenne_s != null ? el('span', { class: 'chip' }, `⏱ moy ${fmtDuree(r.duree_moyenne_s)}`) : null),
-        r.dernier_gagnant ? el('span', { class: 'chip' }, `🔥 ${r.dernier_gagnant}`) : null),
-      el('table', { class: 'audit', style: 'font-size:15px;margin-top:10px' },
-        el('tr', {}, el('th', {}, '#'), el('th', {}, 'Joueur'), el('th', {}, 'G'), el('th', {}, 'P'), el('th', {}, '%'), el('th', {}, 'Série')),
-        ...top.map((p, i) => el('tr', {},
-          el('td', {}, String(i + 1)), el('td', { style: 'font-weight:700' }, p.pseudo),
-          el('td', {}, String(p.gagnes)), el('td', {}, String(p.perdus)), el('td', {}, `${p.pct}%`),
-          el('td', {}, p.serie > 0 ? `🔥${p.serie}V` : p.serie < 0 ? `${-p.serie}D` : '—')))));
-  }
+  const slides = slidesList();
+  if (slideIdx >= slides.length) slideIdx = 0;
+  slidesEl.innerHTML = '';
+  dotsEl.innerHTML = '';
+  const t = state && state.actif;
+  document.getElementById('titre').textContent = t ? t.tournoi.nom : 'Pink City Billard';
+  const st = document.getElementById('statut');
+  st.textContent = !t ? 'En attente' : t.tournoi.statut === 'en_cours' ? '🔴 EN DIRECT' : t.tournoi.statut === 'termine' ? '🏁 TERMINÉ' : 'Inscriptions';
+  st.className = `badge ${t ? t.tournoi.statut : ''}`;
+
+  slides.forEach((s, i) => {
+    const div = el('div', { class: 'slide' + (i === slideIdx ? ' on' : '') });
+    if (s.type === 'live') {
+      const m = s.m;
+      const r = t.rounds.find(rr => rr.bracket === m.bracket && rr.tour === m.tour);
+      div.append(
+        el('span', { class: 'tv-live-badge' }, '● EN DIRECT'),
+        el('div', { class: 'tv-big', style: 'color:var(--muted)' }, `${r ? r.label : ''} · race to ${m.manches}`),
+        el('div', { class: 'tv-vs' },
+          el('div', {}, el('div', { class: 'p' }, m.joueur1 ? m.joueur1.pseudo : '—'), el('div', { class: 's' }, String(m.score1))),
+          el('div', { class: 's', style: 'font-size:clamp(30px,6vw,70px);color:var(--muted)' }, '–'),
+          el('div', {}, el('div', { class: 'p' }, m.joueur2 ? m.joueur2.pseudo : '—'), el('div', { class: 's' }, String(m.score2)))),
+        m.table != null ? el('div', { class: 'tv-table' }, `🎱 Table n° ${m.table}`) : null);
+    } else if (s.type === 'next') {
+      const list = el('div', { class: 'tv-next-list' });
+      for (const m of s.items) {
+        const r = t.rounds.find(rr => rr.bracket === m.bracket && rr.tour === m.tour);
+        list.append(el('div', { class: 'tv-next-item' },
+          el('span', {}, `${m.joueur1 ? m.joueur1.pseudo : '…'}  vs  ${m.joueur2 ? m.joueur2.pseudo : '…'}`),
+          el('span', { class: 'meta' }, `${r ? r.label : ''} · #${m.position}`)));
+      }
+      div.append(el('div', { class: 'tv-next-title' }, `⏭ Prochains matchs (${s.items.length})`), list);
+    } else if (s.type === 'champion') {
+      div.append(el('div', { class: 'tv-champion' }, `🏆 ${s.t.champion.pseudo}`), el('div', { class: 'tv-big', style: 'color:var(--muted)' }, 'Champion de la Pink City'));
+    } else if (s.type === 'attente') {
+      div.append(el('div', { class: 'tv-big' }, '🎱 Le tournoi va bientôt commencer'), el('div', { class: 'tv-big', style: 'color:var(--muted);font-size:clamp(16px,3vw,28px)' }, 'En attente des matchs…'));
+    } else {
+      div.append(el('div', { class: 'tv-big' }, '🎱 Aucun tournoi pour le moment'));
+    }
+    slidesEl.append(div);
+    dotsEl.append(el('span', { class: i === slideIdx ? 'on' : '' }));
+  });
+
+  clearInterval(timer);
+  if (slides.length > 1) timer = setInterval(() => { slideIdx = (slideIdx + 1) % slides.length; render(); }, SLIDE_MS);
 }
 
 async function init() {
