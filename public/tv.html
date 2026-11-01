@@ -31,9 +31,11 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 .tv-dots { position: fixed; bottom: 18px; left: 0; right: 0; display: flex; justify-content: center; gap: 10px; }
 .tv-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
 .tv-dots span.on { background: var(--pink); box-shadow: 0 0 10px var(--pink-glow); }
-#celebration { display: none; position: fixed; inset: 0; z-index: 200; background: radial-gradient(circle at 50% 40%, rgba(255,46,136,.25), rgba(5,5,8,.94) 70%); align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center; animation: popin .4s; overflow: hidden; }
+#celebration { display: none; position: fixed; inset: 0; z-index: 200; background: #050508; align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center; animation: popin .4s; overflow: hidden; }
+#celebration::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 40%, rgba(255,46,136,.18), transparent 60%); pointer-events: none; }
 #celebration.on { display: flex; }
 @keyframes popin { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+#celebration > div { position: relative; z-index: 1; }
 #celebration .felicitations { font-size: clamp(26px, 5vw, 52px); font-weight: 800; color: var(--pink-soft); }
 #celebration .winner { font-size: clamp(44px, 10vw, 110px); font-weight: 900; background: linear-gradient(90deg, var(--gold), #fff, var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 #celebration .score-line { font-size: clamp(20px, 4vw, 40px); color: var(--text); font-weight: 700; }
