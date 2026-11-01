@@ -234,13 +234,17 @@ function renderTournoi(t) {
   }
 
   for (const g of grouperParRound(t.matchs, t.rounds)) {
+    const cards = g.matchs.map(m => {
+      const extra = (m.etat === 'termine' || m.etat === 'forfait')
+        ? el('div', { class: 'actions', style: 'margin-top:8px' },
+            el('button', { class: 'secondary', onclick: () => corriger(m) }, '✏️ Corriger le score'),
+            el('button', { class: 'secondary', onclick: () => rouvrir(m) }, '🔓 Rouvrir le match'))
+        : null;
+      return el('div', {}, matchCard(m), extra);
+    });
     main.append(el('div', { class: 'round' },
       el('h3', {}, `${g.round.label} · race to ${g.round.manches}`),
-      el('div', { class: 'matchs-grid' }, g.matchs.map(m =>
-        el('div', {}, matchCard(m),
-          (m.etat === 'termine' || m.etat === 'forfait') ? el('div', { class: 'actions', style: 'margin-top:8px' },
-            el('button', { class: 'secondary', onclick: () => corriger(m) }, '✏️ Corriger le score'),
-            el('button', { class: 'secondary', onclick: () => rouvrir(m) }, '🔓 Rouvrir le match')) : null)))));
+      el('div', { class: 'matchs-grid' }, cards)));
   }
 
   main.append(el('div', { class: 'panel' },

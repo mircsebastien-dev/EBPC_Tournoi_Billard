@@ -74,7 +74,7 @@ function matchCard(m, opts = {}) {
 function grouperParRound(matchs, rounds) {
   const byKey = {};
   for (const m of matchs) {
-    const k = `${m.bracket}${m.tour}`;
+    const k = `${m.bracket}${m.tour}`.toLowerCase(); // clés de rounds en minuscules (wb1, lb2, f1...)
     (byKey[k] = byKey[k] || []).push(m);
   }
   return rounds
