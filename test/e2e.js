@@ -374,6 +374,22 @@ async function main() {
     check(`DKO ${taille} k=${k} : aucun F1 ne reçoit 2x le même côté (pas de conflit WB/LB)`, lbTargets.every(id => wbkTargets.has(id) ? t.matchs.find(x => x.id === id) : true));
   }
 
+  console.log('== 9g. LB en race to 2 par défaut ==');
+  await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'LB2', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 4 } });
+  await api('/api/admin/joueurs/simulation', { method: 'POST', body: { count: 16, prefix: 'P' } });
+  await api('/api/admin/tirage', { method: 'POST', body: {} });
+  const t9g = (await api('/api/etat')).data.actif;
+  const lb = t9g.matchs.filter(m => m.bracket === 'LB');
+  const wb = t9g.matchs.filter(m => m.bracket === 'WB');
+  const f = t9g.matchs.filter(m => m.bracket === 'F');
+  check('tous les matchs LB en race to 2', lb.length > 0 && lb.every(m => m.manches === 2), lb.map(m => m.manches));
+  check('WB et F restent en race to 3', wb.every(m => m.manches === 3) && f.every(m => m.manches === 3));
+  r = await api('/api/admin/distances', { method: 'PUT', body: { distances: { lb1: 2, lb2: 3 } } });
+  check('distance LB modifiable (2 acceptée)', r.status === 200, r.data);
+  r = await api('/api/admin/distances', { method: 'PUT', body: { distances: { wb1: 9 } } });
+  check('distance invalide 9 -> 400', r.status === 400, r.status);
+
   console.log('== 9. SSE accessible ==');
   const ctrl = new AbortController();
   const res = await fetch(BASE + '/api/events', { signal: ctrl.signal });

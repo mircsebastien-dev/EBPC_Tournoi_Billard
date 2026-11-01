@@ -72,6 +72,8 @@ function manchesDefaut(rounds, seuil = 'jamais', distanceSpeciale = 3) {
   const n = rounds.length;
   const nbDepuisFin = seuil === 'finale' ? 1 : seuil === 'demis' ? 2 : seuil === 'quarts' ? 3 : 0;
   rounds.forEach((r, i) => {
+    // Loser bracket : race to 2 par défaut ; WB et tableau final : 3 (ou distance spéciale vers la fin)
+    if (r.bracket === 'LB') { map[r.key] = 2; return; }
     map[r.key] = (nbDepuisFin > 0 && i >= n - nbDepuisFin) ? distanceSpeciale : 3;
   });
   return map;
@@ -194,7 +196,7 @@ function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
         else if (t % 2 === 1) nb = taille >> ((t + 1) / 2 + 1);
         else nb = taille >> (t / 2 + 1);
         for (let p = 1; p <= nb; p++) {
-          M.LB[`${t}:${p}`] = creerMatch(tournoiId, 'LB', t, p, manches(`wb${Math.min(k, t)}`), null, null);
+          M.LB[`${t}:${p}`] = creerMatch(tournoiId, 'LB', t, p, manches(`lb${t}`), null, null);
         }
       }
       for (let p = 1; p <= taille >> 2; p++) {

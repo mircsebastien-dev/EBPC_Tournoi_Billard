@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS tournoi (
   nb_tables INTEGER NOT NULL DEFAULT 4,
   ajustement_auto INTEGER NOT NULL DEFAULT 1,
   seuil_distance TEXT NOT NULL DEFAULT 'jamais' CHECK (seuil_distance IN ('jamais', 'quarts', 'demis', 'finale')),
-  distance_speciale INTEGER NOT NULL DEFAULT 3 CHECK (distance_speciale IN (3, 5, 7)),
+  distance_speciale INTEGER NOT NULL DEFAULT 3 CHECK (distance_speciale IN (2, 3, 5, 7)),
   date_heure TEXT,
   lieu TEXT,
   statut TEXT NOT NULL DEFAULT 'inscription' CHECK (statut IN ('inscription', 'en_cours', 'termine')),
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS tournoi (
 CREATE TABLE IF NOT EXISTS distance_round (
   tournoi_id INTEGER NOT NULL REFERENCES tournoi(id),
   round TEXT NOT NULL,
-  manches INTEGER NOT NULL CHECK (manches IN (3, 5, 7)),
+  manches INTEGER NOT NULL CHECK (manches IN (2, 3, 5, 7)),
   PRIMARY KEY (tournoi_id, round)
 );
 
@@ -124,7 +124,7 @@ if (tournoiCols.length > 0 && (manquantes.length > 0 || idFixe)) {
     "  nb_tables INTEGER NOT NULL DEFAULT 4,",
     "  ajustement_auto INTEGER NOT NULL DEFAULT 1,",
     "  seuil_distance TEXT NOT NULL DEFAULT 'jamais' CHECK (seuil_distance IN ('jamais', 'quarts', 'demis', 'finale')),",
-    "  distance_speciale INTEGER NOT NULL DEFAULT 3 CHECK (distance_speciale IN (3, 5, 7)),",
+    "  distance_speciale INTEGER NOT NULL DEFAULT 3 CHECK (distance_speciale IN (2, 3, 5, 7)),",
     "  date_heure TEXT,",
     "  lieu TEXT,",
     "  statut TEXT NOT NULL DEFAULT 'inscription' CHECK (statut IN ('inscription', 'en_cours', 'termine')),",

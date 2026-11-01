@@ -51,7 +51,7 @@ function renderCreer() {
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Distance spéciale à partir de'), el('select', { id: 'seuil' },
         el('option', { value: 'jamais' }, 'Jamais (3 partout)'), el('option', { value: 'quarts' }, 'Quarts'), el('option', { value: 'demis' }, 'Demis'), el('option', { value: 'finale' }, 'Finale seule'))),
-      el('div', { style: 'flex:0 0 130px' }, el('label', {}, 'Distance spéciale'), el('select', { id: 'distspe' }, [3, 5, 7].map(n => el('option', { value: n }, `${n} manches`))))),
+      el('div', { style: 'flex:0 0 130px' }, el('label', {}, 'Distance spéciale'), el('select', { id: 'distspe' }, [2, 3, 5, 7].map(n => el('option', { value: n }, `${n} manches`))))),
     el('div', { style: 'margin-top:16px' }, el('button', { onclick: creer, style: 'width:100%' }, 'Créer le tournoi'))))
   async function creer() {
     try {
@@ -97,7 +97,7 @@ function renderInscriptions(t) {
     el('h2', {}, '📏 Distances (modifiables à tout moment)'),
     el('div', { class: 'row' }, t.rounds.map(r =>
       el('div', { style: 'flex:1 1 120px' }, el('label', {}, r.label), el('select', { id: `dist-${r.key}`, 'data-round': r.key },
-        [3, 5, 7].map(n => el('option', { value: n, ...(n === r.manches ? { selected: '' } : {}) }, `${n} manches`)))))),
+        [2, 3, 5, 7].map(n => el('option', { value: n, ...(n === r.manches ? { selected: '' } : {}) }, `${n} manches`)))))),
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'secondary', onclick: sauverDistances }, 'Enregistrer'))));
 
   main.append(el('div', { class: 'panel' },
@@ -164,7 +164,7 @@ function renderTournoi(t) {
     el('h2', {}, '📏 Distances (modifiables à tout moment)'),
     el('div', { class: 'row' }, t.rounds.map(r =>
       el('div', { style: 'flex:1 1 120px' }, el('label', {}, r.label), el('select', { id: `dist-${r.key}`, 'data-round': r.key },
-        [3, 5, 7].map(n => el('option', { value: n, ...(n === r.manches ? { selected: '' } : {}) }, `${n} manches`)))))),
+        [2, 3, 5, 7].map(n => el('option', { value: n, ...(n === r.manches ? { selected: '' } : {}) }, `${n} manches`)))))),
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'secondary', onclick: sauverDistances }, 'Enregistrer'))));
 
   const prets = t.matchs.filter(m => m.etat === 'pret');

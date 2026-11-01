@@ -290,7 +290,7 @@ function openMatchEditor(m, onDone) {
   const j2 = m.joueur2 ? m.joueur2.pseudo : '—';
   const s1 = el('input', { type: 'number', min: 0, max: m.manches, value: m.score1, style: 'width:70px;text-align:center;font-size:22px;font-weight:800' });
   const s2 = el('input', { type: 'number', min: 0, max: m.manches, value: m.score2, style: 'width:70px;text-align:center;font-size:22px;font-weight:800' });
-  const man = el('select', { style: 'width:auto' }, [3, 5, 7].map(n => el('option', { value: n, ...(n === m.manches ? { selected: '' } : {}) }, `race to ${n}`)));
+  const man = el('select', { style: 'width:auto' }, [2, 3, 5, 7].map(n => el('option', { value: n, ...(n === m.manches ? { selected: '' } : {}) }, `race to ${n}`)));
   const motif = el('input', { placeholder: 'Motif (optionnel)', maxlength: 80, style: 'width:100%' });
   const msg = el('div', { class: 'msg err', style: 'display:none' });
 

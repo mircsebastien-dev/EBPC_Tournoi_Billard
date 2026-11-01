@@ -327,7 +327,7 @@ app.put('/api/admin/distances', requireAdmin, (req, res) => {
   const ins = db.prepare(`INSERT INTO distance_round (tournoi_id, round, manches) VALUES (?, ?, ?)
     ON CONFLICT(tournoi_id, round) DO UPDATE SET manches = excluded.manches`);
   for (const [round, manches] of Object.entries(distances)) {
-    if (![3, 5, 7].includes(Number(manches))) return res.status(400).json({ error: `Distance invalide pour ${round}` });
+    if (![2, 3, 5, 7].includes(Number(manches))) return res.status(400).json({ error: `Distance invalide pour ${round}` });
     ins.run(t.id, round, Number(manches));
   }
   if (t.statut === 'en_cours') {
