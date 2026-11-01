@@ -113,17 +113,22 @@ function renderBracket(container, t, opts = {}) {
   bracket.append(svg);
   const NODE_H = 80; // hauteur d'un nœud de match
   const GAP = 16;
-  const SLOT_H = NODE_H + GAP; // 96 : hauteur d'un slot de match
+  const SLOT_H = NODE_H + GAP; // 96 : hauteur d'un slot de base
+  // Le WB tour 1 (au centre) est la référence resserrée (level 0) ; l'escalier s'ouvre
+  // vers la droite (WB2, WB3, F...) et vers la gauche en miroir (LB1, LB2...).
+  const k = t.tournoi.format === 'double' ? t.tournoi.dko_tours : 0;
+  const levelOf = (r) => r.bracket === 'WB' ? r.tour - 1
+    : r.bracket === 'LB' ? r.tour
+    : k + r.tour - 1;
   for (const g of groups) {
     const colCls = g.round.bracket === 'LB' ? 'lb' : g.round.bracket === 'F' ? 'finale' : 'wb';
     const col = el('div', { class: `bracket-col ${colCls}` }, el('h3', {}, g.round.label + ' · race to ' + g.round.manches));
-    col.style.height = (g.matchs.length * SLOT_H + 40) + 'px';
+    const step = Math.pow(2, levelOf(g.round));
+    const lastTop = 40 + (g.matchs.length - 1) * step * SLOT_H + (step - 1) * SLOT_H / 2;
+    col.style.height = (lastTop + NODE_H + 24) + 'px';
     col.style.justifyContent = 'flex-start';
-    // décalage en escalier : le match #p d'une colonne est centré verticalement entre ses 2 parents
-    // (les matchs #2p-1 et #2p de la colonne précédente) -> top = 40 + (p-1)*2*SLOT_H + SLOT_H/2
-    const level = groups.indexOf(g);
-    const step = Math.pow(2, level);
     for (const m of g.matchs) {
+      // escalier : le match #p est centré verticalement entre ses 2 parents (#2p-1 et #2p du niveau -1)
       const top = 40 + (m.position - 1) * step * SLOT_H + (step - 1) * SLOT_H / 2;
       const win1 = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
       const win2 = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
