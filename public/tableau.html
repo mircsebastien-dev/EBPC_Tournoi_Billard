@@ -47,6 +47,21 @@ document.getElementById('nav').append(nav('tableau'));
 const main = document.getElementById('main');
 let state = null;
 let viewMode = (new URLSearchParams(location.search)).get('vue') || localStorage.getItem('ebpc_view') || 'bracket';
+let autoScrolled = false;
+
+// Au chargement, centre la vue bracket sur la colonne "Tour 1" (WB tour 1)
+function scrollToRound1() {
+  if (autoScrolled || viewMode !== 'bracket') return;
+  const wrap = main.querySelector('.bracket-scroll');
+  const bracket = document.getElementById('bracket');
+  if (!wrap || !bracket) return;
+  const col = [...bracket.querySelectorAll('.bracket-col.wb')]
+    .find(c => /Tour 1\b/.test(c.querySelector('h3')?.textContent || ''));
+  if (!col) return;
+  const target = col.offsetLeft - (wrap.clientWidth - col.offsetWidth) / 2;
+  wrap.scrollLeft = Math.max(0, target);
+  autoScrolled = true;
+}
 
 function feederLabel(t, src, kind) {
   const r = t.rounds.find(rr => rr.bracket === src.bracket && rr.tour === src.tour);
@@ -76,8 +91,12 @@ function render() {
     el('div', { class: 'view-switch' },
       el('button', { class: viewMode === 'bracket' ? '' : 'secondary', onclick: () => switchView('bracket') }, '🗺 Bracket'),
       el('button', { class: viewMode === 'liste' ? '' : 'secondary', onclick: () => switchView('liste') }, '📋 Liste'))));
-  if (viewMode === 'bracket') renderBracket(main, t);
-  else renderListe(main, t);
+  if (viewMode === 'bracket') {
+    renderBracket(main, t);
+    requestAnimationFrame(scrollToRound1);
+    setTimeout(scrollToRound1, 150);
+    setTimeout(scrollToRound1, 600);
+  } else renderListe(main, t);
 }
 
 function switchView(mode) {
