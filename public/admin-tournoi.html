@@ -220,7 +220,13 @@ function renderTournoi(t) {
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🤖 Gestion automatique'),
     el('p', { class: 'muted small' }, 'Lance automatiquement le prochain match dès qu\'un match se termine (priorité : Tour 1, puis LB1#1, WB2#1, LB2#1…).'),
-    el('button', { id: 'btn-auto', onclick: toggleAuto }, '🤖 Mode auto : inactif')));
+    el('button', { id: 'btn-auto', onclick: toggleAuto }, '🤖 Mode auto : ' + (state.auto ? 'ACTIF ✅' : 'inactif')),
+    el('div', { class: 'row', style: 'margin-top:10px' },
+      el('div', { style: 'flex:1 1 auto' },
+        el('label', {}, 'Ordre des tables (mode auto)'),
+        el('input', { id: 'tablepref', value: state.table_pref || '', placeholder: 'ex: 3,4,5,6,7,8,1,2', maxlength: 100 })),
+      el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: sauverTablePref }, 'Enregistrer l\'ordre')))));
+  autoOn = !!state.auto;
 
 
   main.append(el('div', { class: 'panel' },
@@ -272,6 +278,11 @@ function renderTournoi(t) {
 }
 
 let autoOn = false;
+async function sauverTablePref() {
+  try {
+    await adminApi('/api/admin/auto', { method: 'POST', body: JSON.stringify({ on: autoOn, table_pref: val('tablepref') }) });
+  } catch (e) { alert(e.message); }
+}
 async function toggleAuto() {
   autoOn = !autoOn;
   try {

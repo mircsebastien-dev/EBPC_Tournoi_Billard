@@ -267,6 +267,23 @@ function prochainMatchAuto(tournoiId) {
   return rows[0] || null;
 }
 
+// Table libre en respectant l'ordre préférentiel (setting table_pref, ex "3,4,5,6,7,8,1,2")
+function tableLibrePref(tournoiId, exclureMatchId) {
+  const { getSetting } = require('./db');
+  const occupees = db.prepare(`
+    SELECT table_id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id IS NOT NULL
+  `).all(tournoiId).map(r => r.table_id);
+  const toutes = db.prepare(`SELECT id, numero FROM table_billard WHERE tournoi_id = ? ORDER BY numero`).all(tournoiId);
+  const libres = toutes.filter(tb => !occupees.includes(tb.id));
+  const pref = (getSetting('table_pref') || '').split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
+  if (pref.length === 0) return libres[0] || null;
+  libres.sort((a, b) => {
+    const ia = pref.indexOf(a.numero), ib = pref.indexOf(b.numero);
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.numero - b.numero;
+  });
+  return libres[0] || null;
+}
+
 function autoLancer(tournoiId) {
   const { getSetting } = require('./db');
   if (getSetting('auto_on') !== '1') return 0;
@@ -274,7 +291,7 @@ function autoLancer(tournoiId) {
   for (let i = 0; i < 64; i++) {
     const m = prochainMatchAuto(tournoiId);
     if (!m) break;
-    const libre = tableLibre(tournoiId, m.id);
+    const libre = tableLibrePref(tournoiId, m.id);
     if (!libre) break; // plus de table libre -> on attend
     lancerMatch(m.id, libre.id);
     lances++;
@@ -317,4 +334,5 @@ module.exports = {
   annulerEnAval,
   autoLancer,
   prochainMatchAuto,
+  tableLibrePref,
 };

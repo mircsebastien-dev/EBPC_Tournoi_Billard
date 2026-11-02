@@ -156,6 +156,8 @@ function etatGlobal() {
   return {
     actif: vueTournoiComplet(tournoiActif()),
     historique: vueTournoiListe().filter(t => t.statut === 'termine'),
+    auto: getSetting('auto_on') === '1',
+    table_pref: getSetting('table_pref') || '',
   };
 }
 
@@ -226,6 +228,11 @@ function majEtBroadcast() {
 app.post('/api/admin/auto', requireAdmin, (req, res) => {
   const on = req.body.on === true || req.body.on === '1' || req.body.on === 1;
   setSetting('auto_on', on ? '1' : '0');
+  if (typeof req.body.table_pref === 'string') {
+    // ex: "3,4,5,6,7,8,1,2" -> on ne garde que les numéros valides, séparés par des virgules
+    const nums = req.body.table_pref.split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
+    setSetting('table_pref', [...new Set(nums)].join(','));
+  }
   logAudit('auto_toggle', 'tournoi', null, { on });
   if (on) {
     const t = tournoiActif();
