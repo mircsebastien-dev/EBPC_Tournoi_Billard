@@ -133,14 +133,6 @@ function renderInscriptions(t) {
     const p = n => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
-  async function majTables() {
-    try {
-      await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify({
-        nom: tn.nom, tetes_de_serie: tn.tetes_de_serie, nb_tables: Number(val('edit-nbtables')), ajustement_auto: tn.ajustement_auto,
-        date_heure: tn.date_heure, lieu: tn.lieu,
-      })});
-    } catch (e) { alert(e.message); }
-  }
   async function majInfos() {
     try {
       await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify({
@@ -301,6 +293,16 @@ let autoOn = false;
 async function sauverTablePref() {
   try {
     await adminApi('/api/admin/auto', { method: 'POST', body: JSON.stringify({ on: autoOn, table_pref: val('tablepref') }) });
+  } catch (e) { alert(e.message); }
+}
+async function majTables() {
+  const t = adminTournoiActif();
+  if (!t) return;
+  try {
+    await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify({
+      nom: t.tournoi.nom, tetes_de_serie: t.tournoi.tetes_de_serie, nb_tables: Number(val('edit-nbtables')), ajustement_auto: t.tournoi.ajustement_auto,
+      date_heure: t.tournoi.date_heure, lieu: t.tournoi.lieu,
+    })});
   } catch (e) { alert(e.message); }
 }
 async function toggleAuto() {
