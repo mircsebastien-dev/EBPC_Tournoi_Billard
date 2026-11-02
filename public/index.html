@@ -14,8 +14,8 @@
 <main id="main"></main>
 <script src="/common.js"></script>
 <script>
-const main = document.getElementById('main');
 document.getElementById('nav').append(nav('home'));
+const main = document.getElementById('main');
 let state = null;
 
 function render() {
@@ -24,73 +24,50 @@ function render() {
   if (!t) {
     main.append(el('div', { class: 'panel', style: 'text-align:center;padding:40px 20px' },
       el('div', { class: 'hero-title' }, '🎱 Aucun tournoi pour le moment'),
-      el('p', { class: 'muted' }, 'La table de marque va bientôt lancer le prochain tournoi.')));
-    if (state && state.historique && state.historique.length > 0) {
-      main.append(el('div', { class: 'panel' },
-        el('h2', {}, '🗂 Tournois précédents'),
-        el('div', { class: 'liste-joueurs' }, state.historique.slice(0, 8).map(h =>
-          el('a', { class: 'chip', href: `/tournoi.html?id=${h.id}`, style: 'text-decoration:none;color:var(--text)' },
-            `${h.nom} — ${h.created_at.slice(0, 10)}${h.champion ? ` · 🏆 ${h.champion}` : ''}`)))));
-    }
+      el('p', { class: 'muted' }, 'Revenez bientôt !')));
     return;
   }
+  const tn = t.tournoi;
 
-  main.append(el('div', { class: 'panel' },
-    el('div', { class: 'hero-title' }, t.tournoi.nom),
-    (t.tournoi.date_heure || t.tournoi.lieu) ? el('p', { class: 'hero-sub', style: 'font-size:16px;font-weight:700;color:var(--gold)' },
-      `${t.tournoi.date_heure ? '📅 ' + fmtDateHeure(t.tournoi.date_heure) : ''}${t.tournoi.date_heure && t.tournoi.lieu ? '  ·  ' : ''}${t.tournoi.lieu ? '📍 ' + t.tournoi.lieu : ''}`) : null,
-    el('p', { class: 'hero-sub' },
-      `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · tableau ${t.tournoi.taille} · ` +
-      (t.tournoi.format === 'double' ? `double KO ${t.tournoi.dko_tours} tour${t.tournoi.dko_tours > 1 ? 's' : ''}` : 'élimination directe')),
-    el('div', { class: 'row' },
-      el('span', { class: `badge ${t.tournoi.statut}` }, t.tournoi.statut === 'inscription' ? 'Inscriptions ouvertes' : t.tournoi.statut === 'en_cours' ? '🔴 En cours' : '🏁 Terminé')),
-    t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--green);margin:10px 0 0' }, `🏆 Champion : ${t.champion.pseudo}`) : null));
+  // ---- Infos de base uniquement : nom, date, lieu ----
+  main.append(el('div', { class: 'panel', style: 'text-align:center' },
+    el('div', { class: 'hero-title' }, tn.nom),
+    (tn.date_heure || tn.lieu) ? el('p', { style: 'font-size:clamp(18px,4.5vw,24px);font-weight:800;color:var(--gold);margin:8px 0' },
+      `${tn.date_heure ? '📅 ' + fmtDateHeure(tn.date_heure) : ''}${tn.date_heure && tn.lieu ? '  ·  ' : ''}${tn.lieu ? '📍 ' + tn.lieu : ''}`) : null,
+    el('div', { class: 'row', style: 'justify-content:center' },
+      el('span', { class: `badge ${tn.statut}` }, tn.statut === 'inscription' ? 'Inscriptions ouvertes' : tn.statut === 'en_cours' ? '🔴 En cours' : '🏁 Terminé'),
+      el('span', { class: 'chip' }, tn.regle === 'blackball' ? 'Blackball' : 'Ultimate'),
+      el('span', { class: 'chip' }, `tableau ${tn.taille}`))));
 
-  if (t.tournoi.statut === 'inscription') {
+  // ---- Inscription (si ouverte) ----
+  if (tn.statut === 'inscription') {
     const input = el('input', { id: 'pseudo', placeholder: 'Ton pseudo', maxlength: 40, autocomplete: 'off' });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') inscrire(); });
     main.append(el('div', { class: 'panel' },
-      el('h2', {}, 'Inscription'),
       el('div', { class: 'row' },
         el('div', {}, input),
         el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: inscrire }, "S'inscrire"))),
-      el('p', { class: 'muted small', style: 'margin:10px 0 0' }, `${t.joueurs.length}/${t.tournoi.taille} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés`)));
-    main.append(el('div', { class: 'panel' },
-      el('h2', {}, 'Inscrits'),
-      t.joueurs.length === 0
-        ? el('p', { class: 'muted' }, 'Personne pour l\'instant…')
-        : el('div', { class: 'liste-joueurs' }, t.joueurs.map(j => el('span', { class: 'chip' },
-            `${j.tete_de_serie ? `#${j.tete_de_serie} ` : ''}${j.pseudo}`,
-            el('span', { class: `badge ${j.statut === 'paye' ? 'termine' : 'pret'}` }, j.statut === 'paye' ? '✅ payé' : '⏳ en attente'))))));
-  } else {
-    const enCours = t.matchs.filter(m => m.etat === 'en_cours');
-    if (enCours.length > 0) {
-      main.append(el('div', { class: 'panel' },
-        el('h2', {}, `🔴 En direct (${enCours.length})`),
-        el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { onClick: () => location.href = `/match.html?id=${m.id}` })))));
-    }
-    for (const g of grouperParRound(t.matchs, t.rounds)) {
-      main.append(el('div', { class: 'round' },
-        el('h3', {}, `${g.round.label} · race to ${g.round.manches}`),
-        el('div', { class: 'matchs-grid' }, g.matchs.map(m => matchCard(m)))));
-    }
-    for (const p of renderStatsPanel(t.stats) || []) main.append(p);
+      el('p', { class: 'muted small', style: 'margin:10px 0 0;text-align:center' }, `${t.joueurs.length}/${tn.taille} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés`)));
   }
 
-  if (state && state.historique && state.historique.length > 0 && t.tournoi.statut !== 'inscription') {
+  // ---- Uniquement les matchs EN COURS ----
+  const enCours = t.matchs.filter(m => m.etat === 'en_cours');
+  if (enCours.length > 0) {
     main.append(el('div', { class: 'panel' },
-      el('h2', {}, '🗂 Voir aussi'),
-      el('div', { class: 'row' }, el('a', { class: 'chip', href: '/historique.html', style: 'text-decoration:none;color:var(--text)' }, `Historique (${state.historique.length} tournois)`),
-        el('a', { class: 'chip', href: '/stats.html', style: 'text-decoration:none;color:var(--text)' }, 'Stats joueurs all-time'))));
+      el('h2', {}, `🔴 En direct (${enCours.length})`),
+      el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { onClick: () => location.href = `/match.html?id=${m.id}` })))));
   }
+
+  // lien discret vers le tableau complet
+  main.append(el('div', { style: 'text-align:center;margin-top:6px' },
+    el('a', { href: '/tableau.html', class: 'muted small' }, '🗺 Voir le tableau complet →')));
 }
 
 async function inscrire() {
   const pseudo = document.getElementById('pseudo').value.trim();
   if (!pseudo) return;
-  try {
-    await api('/api/joueur', { method: 'POST', body: JSON.stringify({ pseudo }) });
-  } catch (e) { alert(e.message); }
+  try { await api('/api/joueur', { method: 'POST', body: JSON.stringify({ pseudo }) }); }
+  catch (e) { alert(e.message); }
 }
 
 async function init() {

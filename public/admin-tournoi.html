@@ -38,7 +38,9 @@ function renderCreer() {
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, '🎱 Nouveau tournoi'),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
+      el('div', {}, el('label', {}, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' }),
+      el('div', {}, el('label', {}, '📅 Date et heure'), el('input', { id: 'dateheure', type: 'datetime-local' })),
+      el('div', { style: 'flex:1 1 220px' }, el('label', {}, '📍 Lieu'), el('input', { id: 'lieu', value: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse', maxlength: 200 }))),
       el('div', {}, el('label', {}, 'Règle'), el('select', { id: 'regle' }, el('option', { value: 'blackball' }, 'Blackball'), el('option', { value: 'ultimate' }, 'Ultimate'))),
       el('div', {}, el('label', {}, 'Taille max'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n, ...(n === 32 ? { selected: '' } : {}) }, `${n} joueurs`))))),
     el('div', { class: 'row' },
@@ -53,12 +55,20 @@ function renderCreer() {
         el('option', { value: 'jamais' }, 'Jamais (3 partout)'), el('option', { value: 'quarts' }, 'Quarts'), el('option', { value: 'demis' }, 'Demis'), el('option', { value: 'finale' }, 'Finale seule'))),
       el('div', { style: 'flex:0 0 130px' }, el('label', {}, 'Distance spéciale'), el('select', { id: 'distspe' }, [2, 3, 5, 7].map(n => el('option', { value: n }, `${n} manches`))))),
     el('div', { style: 'margin-top:16px' }, el('button', { onclick: creer, style: 'width:100%' }, 'Créer le tournoi'))))
+  (function() {
+    const d = new Date(); d.setHours(20, 0, 0, 0);
+    let add = (2 - d.getDay() + 7) % 7; if (add === 0 && d <= new Date()) add = 7;
+    d.setDate(d.getDate() + add);
+    const p = n => String(n).padStart(2, '0');
+    document.getElementById('dateheure').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  })();
   async function creer() {
     try {
       await adminApi('/api/admin/tournoi', { method: 'POST', body: JSON.stringify({
         nom: val('nom'), regle: val('regle'), taille: Number(val('taille')), format: val('format'), dko_tours: Number(val('dko')),
         tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
         ajustement_auto: document.getElementById('auto').checked, seuil_distance: val('seuil'), distance_speciale: Number(val('distspe')),
+        date_heure: val('dateheure'), lieu: val('lieu'),
       })});
     } catch (e) { alert(e.message); }
   }
@@ -106,7 +116,7 @@ function renderInscriptions(t) {
 
   function toLocalInput(dh) {
     if (!dh) return '';
-    const d = new Date(dh.replace(' ', 'T') + 'Z');
+    const d = new Date(dh.replace(' ', 'T')); // pas de 'Z' : heure locale telle quelle
     const p = n => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
