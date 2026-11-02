@@ -489,7 +489,9 @@ app.post('/api/admin/tirage', requireAdmin, (req, res) => {
     }
   }
   const manchesMap = distancesMap(t.id);
-  bracket.genererBracket(t, joueurs, manchesMap);
+  // Tirage VRAIMENT aléatoire (crypto), pas Math.random prévisible
+  const rngCrypto = () => crypto.randomInt(0, 2 ** 31) / 2 ** 31;
+  bracket.genererBracket(t, joueurs, manchesMap, rngCrypto);
   db.prepare(`UPDATE tournoi SET statut = 'en_cours' WHERE id = ?`).run(t.id);
   logAudit('tirage', `tournoi ${t.id}`, { nb_joueurs: joueurs.length }, null);
   majEtBroadcast();
