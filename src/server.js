@@ -333,8 +333,9 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
         return res.status(409).json({ error: `Impossible de descendre à ${nbCible} table(s) : ${nbActuel - nbCible} table(s) occupée(s) par un match en cours` });
       }
     } else {
-      for (let i = nbActuel + 1; i <= nbCible; i++) {
-        db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
+      const existants = new Set(rows.map(r => r.numero));
+      for (let i = 1; i <= nbCible; i++) {
+        if (!existants.has(i)) db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
       }
     }
   }
