@@ -55,7 +55,7 @@ function renderCreer() {
         el('option', { value: 'jamais' }, 'Jamais (3 partout)'), el('option', { value: 'quarts' }, 'Quarts'), el('option', { value: 'demis' }, 'Demis'), el('option', { value: 'finale' }, 'Finale seule'))),
       el('div', { style: 'flex:0 0 130px' }, el('label', {}, 'Distance spéciale'), el('select', { id: 'distspe' }, [2, 3, 5, 7].map(n => el('option', { value: n }, `${n} manches`))))),
     el('div', { style: 'margin-top:16px' }, el('button', { onclick: creer, style: 'width:100%' }, 'Créer le tournoi'))))
-  (function() {
+  ;(function() {
     const d = new Date(); d.setHours(20, 0, 0, 0);
     let add = (2 - d.getDay() + 7) % 7; if (add === 0 && d <= new Date()) add = 7;
     d.setDate(d.getDate() + add);
