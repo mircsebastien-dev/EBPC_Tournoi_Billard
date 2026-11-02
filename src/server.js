@@ -310,16 +310,40 @@ app.delete('/api/admin/tournoi/:id', requireAdmin, (req, res) => {
 app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
-  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé, config verrouillée' });
+  const enCours = t.statut === 'en_cours';
+  if (t.statut !== 'inscription' && !enCours) return res.status(409).json({ error: 'Tournoi terminé, config verrouillée' });
   const { nom, tetes_de_serie, nb_tables, ajustement_auto, date_heure, lieu } = req.body;
   const setDate = (typeof date_heure === 'string' && date_heure.trim()) ? date_heure.trim().slice(0, 16) : t.date_heure;
   const setLieu = (typeof lieu === 'string') ? (lieu.trim() ? lieu.trim().slice(0, 200) : t.lieu) : t.lieu;
+  // En cours : nom/têtes/ajustement verrouillés, mais nb_tables modifiable (ajout ou retrait de tables LIBRES)
+  const nbCible = Math.max(1, Math.min(20, Number(nb_tables) || t.nb_tables));
+  if (enCours && nbCible !== t.nb_tables) {
+    const rows = db.prepare('SELECT id, numero FROM table_billard WHERE tournoi_id = ? ORDER BY numero').all(t.id);
+    const occupees = new Set(db.prepare(`SELECT table_id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id IS NOT NULL`).all(t.id).map(r => r.table_id));
+    let nbActuel = rows.length;
+    if (nbCible < nbActuel) {
+      // retirer les tables LIBRES de numéro décroissant (jamais une table occupée)
+      for (const tb of [...rows].reverse()) {
+        if (nbActuel <= nbCible) break;
+        if (occupees.has(tb.id)) continue;
+        db.prepare('DELETE FROM table_billard WHERE id = ?').run(tb.id);
+        nbActuel--;
+      }
+      if (nbActuel > nbCible) {
+        return res.status(409).json({ error: `Impossible de descendre à ${nbCible} table(s) : ${nbActuel - nbCible} table(s) occupée(s) par un match en cours` });
+      }
+    } else {
+      for (let i = nbActuel + 1; i <= nbCible; i++) {
+        db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
+      }
+    }
+  }
   db.prepare('UPDATE tournoi SET nom = ?, tetes_de_serie = ?, nb_tables = ?, ajustement_auto = ?, date_heure = ?, lieu = ? WHERE id = ?')
-    .run(nom || t.nom, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || t.nb_tables), ajustement_auto === false ? 0 : 1, setDate, setLieu, t.id);
+    .run(enCours ? t.nom : (nom || t.nom), enCours ? t.tetes_de_serie : (tetes_de_serie ? 1 : 0), nbCible, enCours ? t.ajustement_auto : (ajustement_auto === false ? 0 : 1), setDate, setLieu, t.id);
   const t2 = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
-  const existantes = db.prepare('SELECT numero FROM table_billard WHERE tournoi_id = ?').all(t.id).map(r => r.numero);
+  const existantes2 = db.prepare('SELECT numero FROM table_billard WHERE tournoi_id = ?').all(t.id).map(r => r.numero);
   for (let i = 1; i <= t2.nb_tables; i++) {
-    if (!existantes.includes(i)) db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
+    if (!existantes2.includes(i)) db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
   }
   logAudit('maj_tournoi', `tournoi ${t.id}`, null, req.body);
   majEtBroadcast();

@@ -133,6 +133,14 @@ function renderInscriptions(t) {
     const p = n => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
+  async function majTables() {
+    try {
+      await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify({
+        nom: tn.nom, tetes_de_serie: tn.tetes_de_serie, nb_tables: Number(val('edit-nbtables')), ajustement_auto: tn.ajustement_auto,
+        date_heure: tn.date_heure, lieu: tn.lieu,
+      })});
+    } catch (e) { alert(e.message); }
+  }
   async function majInfos() {
     try {
       await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify({
@@ -183,6 +191,13 @@ function renderTournoi(t) {
     el('div', { class: 'row' },
       el('span', { class: 'chip' }, `${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués`)),
     t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, `🏆 Champion : ${t.champion.pseudo}`) : null));
+
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, '🎱 Tables disponibles'),
+    el('div', { class: 'row' },
+      el('div', {}, el('label', {}, 'Nombre de tables'), el('input', { id: 'edit-nbtables', type: 'number', value: tn.nb_tables, min: 1, max: 20 })),
+      el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: majTables }, 'Enregistrer')),
+      el('span', { class: 'muted small', style: 'align-self:center' }, `${t.tables.length} tables créées · ${t.tables.length - t.matchs.filter(m => m.etat === 'en_cours' && m.table != null).length} libres`))));
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '📏 Distances (modifiables à tout moment)'),
