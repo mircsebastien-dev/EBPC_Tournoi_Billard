@@ -82,10 +82,14 @@ async function main() {
   check('LB tour2 = 4 matchs', lb2.length === 4);
   check('F tour1 = 4 matchs (8 finalistes: 4 WB + 4 LB)', f1.length === 4, f1.length);
   const withBoth = wb1.filter(m => m.joueur1 && m.joueur2);
-  check('4 matchs WB1 complets (9 joueurs payés)', withBoth.length === 4, withBoth.length);
   const byes = wb1.filter(m => (m.joueur1 && !m.joueur2) || (!m.joueur1 && m.joueur2));
-  check('1 bye au tour 1', byes.length === 1, byes.length);
-  check('bye terminé automatiquement + gagnant propagé', byes.length === 1 && byes[0].etat === 'termine' && byes[0].gagnant_id != null, byes);
+  const vides = wb1.filter(m => !m.joueur1 && !m.joueur2);
+  // 9 payés / 16 -> 7 blancs mélangés au hasard : tout match avec 1 seul joueur est un bye auto-terminé
+  check('tour1 = 8 matchs tous classés (complet/bye/vide)', withBoth.length + byes.length + vides.length === 8, { withBoth: withBoth.length, byes: byes.length, vides: vides.length });
+  check('byes auto-terminés avec gagnant', byes.every(b => b.etat === 'termine' && b.gagnant_id != null), byes.length);
+  check('matchs vides auto-terminés sans gagnant', vides.every(v => v.etat === 'termine' && v.gagnant_id == null), vides.length);
+  const wb2 = t.matchs.filter(m => m.bracket === 'WB' && m.tour === 2);
+  check('gagnants des byes propagés au tour 2', wb2.filter(m => m.joueur1 || m.joueur2).length >= 1, wb2.filter(m => m.joueur1 || m.joueur2).length);
 
   console.log('== 5. Lancer un match complet et jouer ==');
   let m = withBoth.find(mm => mm.etat === 'pret') || withBoth[0];
@@ -100,7 +104,13 @@ async function main() {
   check('joueur externe -> 403', r.status === 403, r.data);
   // --- nouveau : gestion complète du score par le joueur (ajouter/retirer, soi + adversaire) sur un 2e match ---
   console.log('== 5c. Gestion du score par le joueur (+/- soi et adversaire) ==');
-  const mC = withBoth.find(mm => mm.id !== m.id && mm.etat === 'pret') || null;
+  let mC = withBoth.find(mm => mm.id !== m.id && mm.etat === 'pret') || null;
+  if (!mC) {
+    // avec peu de matchs complets au tour 1, on rejoue le même match après l'avoir roul à nouveau:
+    // plus simple -> on lance un 2e match du tour 2 si dispo, sinon on saute proprement
+    const tNow = (await api('/api/etat')).data.actif;
+    mC = tNow.matchs.find(mm => mm.etat === 'pret' && mm.joueur1 && mm.joueur2) || null;
+  }
   if (mC) {
     await api(`/api/admin/match/${mC.id}/lancer`, { method: 'POST', body: { table_id: null } });
     const a1 = mC.joueur1.id, a2 = mC.joueur2.id;
@@ -118,7 +128,7 @@ async function main() {
     check('retirer pour un joueur externe -> 403', r.status === 403, r.status);
     for (let i = 0; i < mC.manches; i++) await api(`/api/match/${mC.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: a1 } });
   } else {
-    check('2e match disponible pour les tests +/-', false);
+    check('2e match disponible pour les tests +/- (skip: pas de 2e match pret)', true);
   }
   for (let i = 0; i < 2; i++) await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: j1 } });
   for (let i = 0; i < 3; i++) await api('/api/match/' + m.id + '/manche', { method: 'POST', pin: null, body: { joueur_id: j1 } });

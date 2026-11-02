@@ -56,14 +56,8 @@ function appariementPremierTour(ids, taille, graines, rng) {
       if (slots[m][s] == null && k < pool.length) slots[m][s] = pool[k++];
     }
   }
-  // Post-traitement : éviter 2 blancs dans le même match tant qu'un autre match est plein
-  // (tant qu'il existe un match [blanc,blanc] et un match [joueur,joueur], déplacer un blanc)
-  for (let m1 = 0; m1 < nbMatchs; m1++) {
-    if (slots[m1][0] == null && slots[m1][1] == null) {
-      const m2 = slots.findIndex(s => s[0] != null && s[1] != null);
-      if (m2 !== -1 && m2 !== m1) { slots[m1][0] = slots[m2].pop(); }
-    }
-  }
+  // Les blancs restent mélangés au hasard dans le tirage : un match peut être joueur-vs-blanc
+  // (passe direct) ou blanc-vs-blanc (match vide auto-terminé, géré par appliquerBye).
   return slots;
 }
 
