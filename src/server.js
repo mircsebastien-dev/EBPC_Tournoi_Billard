@@ -342,8 +342,11 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
     .run(enCours ? t.nom : (nom || t.nom), enCours ? t.tetes_de_serie : (tetes_de_serie ? 1 : 0), nbCible, enCours ? t.ajustement_auto : (ajustement_auto === false ? 0 : 1), setDate, setLieu, t.id);
   const t2 = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
   const existantes2 = db.prepare('SELECT numero FROM table_billard WHERE tournoi_id = ?').all(t.id).map(r => r.numero);
-  for (let i = 1; i <= t2.nb_tables; i++) {
-    if (!existantes2.includes(i)) db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
+  // ne recréer des tables que si on a AUGMENTÉ (en phase inscriptions ou ajout en cours) — jamais après une réduction
+  if (t2.nb_tables > existantes2.length) {
+    for (let i = 1; i <= t2.nb_tables; i++) {
+      if (!existantes2.includes(i)) db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
+    }
   }
   logAudit('maj_tournoi', `tournoi ${t.id}`, null, req.body);
   majEtBroadcast();
