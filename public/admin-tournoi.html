@@ -47,7 +47,7 @@ function renderCreer() {
       el('div', {}, el('label', {}, 'Format'), el('select', { id: 'format' }, el('option', { value: 'simple' }, 'Élimination directe'), el('option', { value: 'double', selected: '' }, 'Double KO + tableau final'))),
       el('div', {}, el('label', {}, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n, ...(n === 2 ? { selected: '' } : {}) }, `${n} tour${n > 1 ? 's' : ''}`))))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 4, min: 1, max: 20 })),
+      el('div', {}, el('label', {}, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 8, min: 1, max: 20 })),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'tds', type: 'checkbox', style: 'width:auto' }), 'Têtes de série')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', style: 'width:auto', checked: '' }), 'Ajuster auto la taille au nombre de payés'))),
     el('div', { class: 'row' },
