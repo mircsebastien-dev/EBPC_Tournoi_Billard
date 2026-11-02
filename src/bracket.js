@@ -46,10 +46,22 @@ function appariementPremierTour(ids, taille, graines, rng) {
       slots[m][slot] = tds[g].id;
     }
   }
+  // Mélanger joueurs ET blancs ensemble, puis verser dans les slots
+  const nbJoueurs = tds.length + autres.length;
+  const blancs = taille - nbJoueurs;
+  const pool = melanger([...autres.map(j => j.id), ...Array(Math.max(0, blancs)).fill(null)], rng);
   let k = 0;
   for (let m = 0; m < nbMatchs; m++) {
     for (let s = 0; s < 2; s++) {
-      if (slots[m][s] == null && k < autres.length) slots[m][s] = autres[k++].id;
+      if (slots[m][s] == null && k < pool.length) slots[m][s] = pool[k++];
+    }
+  }
+  // Post-traitement : éviter 2 blancs dans le même match tant qu'un autre match est plein
+  // (tant qu'il existe un match [blanc,blanc] et un match [joueur,joueur], déplacer un blanc)
+  for (let m1 = 0; m1 < nbMatchs; m1++) {
+    if (slots[m1][0] == null && slots[m1][1] == null) {
+      const m2 = slots.findIndex(s => s[0] != null && s[1] != null);
+      if (m2 !== -1 && m2 !== m1) { slots[m1][0] = slots[m2].pop(); }
     }
   }
   return slots;
