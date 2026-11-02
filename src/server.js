@@ -322,15 +322,15 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
     const occupees = new Set(db.prepare(`SELECT table_id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id IS NOT NULL`).all(t.id).map(r => r.table_id));
     let nbActuel = rows.length;
     if (nbCible < nbActuel) {
-      // retirer les tables LIBRES de numéro décroissant (jamais une table occupée)
-      for (const tb of [...rows].reverse()) {
-        if (nbActuel <= nbCible) break;
-        if (occupees.has(tb.id)) continue;
-        db.prepare('DELETE FROM table_billard WHERE id = ?').run(tb.id);
-        nbActuel--;
+      // garder en priorité les tables OCCUPÉES (les matchs en cours y restent), retirer les libres de numéro décroissant
+      const aRetirer = rows.filter(tb => !occupees.has(tb.id)).sort((a, b) => b.numero - a.numero).slice(0, nbActuel - nbCible);
+      if (aRetirer.length < nbActuel - nbCible) {
+        return res.status(409).json({ error: `Impossible de descendre à ${nbCible} table(s) : ${nbActuel - aRetirer.length - nbCible + aRetirer.length} table(s) occupée(s) par un match en cours` });
       }
-      if (nbActuel > nbCible) {
-        return res.status(409).json({ error: `Impossible de descendre à ${nbCible} table(s) : ${nbActuel - nbCible} table(s) occupée(s) par un match en cours` });
+      for (const tb of aRetirer) {
+        // les matchs terminés sur cette table perdent juste l'info de table (FK), le match reste
+        db.prepare(`UPDATE match SET table_id = NULL WHERE table_id = ? AND etat != 'en_cours'`).run(tb.id);
+        db.prepare('DELETE FROM table_billard WHERE id = ?').run(tb.id);
       }
     } else {
       const existants = new Set(rows.map(r => r.numero));
