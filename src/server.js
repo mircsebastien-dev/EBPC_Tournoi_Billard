@@ -616,9 +616,15 @@ app.get('/api/joueur/:id/stats', (req, res) => {
   const gagnes = matchs.filter(m => m.gagnant_id === id).length;
   const joues = matchs.length;
   const parTournoi = {};
+  const statutsT = {};
+  for (const tr of db.prepare('SELECT id, nom, statut, champion_id FROM tournoi').all()) statutsT[tr.id] = tr;
   for (const m of matchs) {
-    const t = parTournoi[m.tournoi_id] = parTournoi[m.tournoi_id] || { joues: 0, gagnes: 0 };
-    t.joues++; if (m.gagnant_id === id) t.gagnes++;
+    const t = parTournoi[m.tournoi_id] = parTournoi[m.tournoi_id] || { joues: 0, gagnes: 0, enCours: 0 };
+    t.joues++; if (m.gagnant_id === id) t.gagnes++; if (m.etat === 'en_cours') t.enCours++;
+  }
+  for (const tid of Object.keys(parTournoi)) {
+    const tr = statutsT[tid];
+    if (tr) { parTournoi[tid].nom = tr.nom; parTournoi[tid].statut = tr.statut; parTournoi[tid].champion = tr.champion_id === id; }
   }
   res.json({ joueur: j, joues, gagnes, perdus: joues - gagnes, manches, runouts: runouts.length, casse, reprise, winrate: joues ? Math.round(100 * gagnes / joues) : 0, parTournoi });
 });

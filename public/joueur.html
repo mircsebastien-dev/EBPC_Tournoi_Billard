@@ -40,13 +40,13 @@ async function init() {
         el('span', { class: 'chip' }, `🔄 Reprise ferme : ${s.reprise}`))));
     const tids = Object.keys(s.parTournoi || {});
     if (tids.length) {
-      const hist = await api('/api/tournois').catch(() => ({ tournois: [] }));
-      const noms = {};
-      for (const t of hist.tournois || []) noms[t.id] = t.nom;
       main.append(el('div', { class: 'panel' },
         el('h2', {}, 'Par tournoi'),
-        el('div', { class: 'liste-joueurs' }, tids.map(tid =>
-          el('span', { class: 'chip' }, `${noms[tid] || 'Tournoi #' + tid} : ${s.parTournoi[tid].gagnes}/${s.parTournoi[tid].joues} gagnés`)))));
+        el('div', { class: 'liste-joueurs' }, tids.map(tid => {
+          const p = s.parTournoi[tid];
+          const statut = p.statut === 'en_cours' ? ' 🔴 en cours' : p.statut === 'termine' ? (p.champion ? ' 🏆 champion' : ' terminé') : '';
+          return el('span', { class: 'chip' }, `${p.nom || 'Tournoi #' + tid}${statut} : ${p.gagnes} gagné(s)/${p.joues} joué(s)${p.enCours ? ` (${p.enCours} en cours)` : ''}`);
+        }))));
     }
     // derniers matchs du joueur
     const mm = await api(`/api/joueur/${id}/matchs`);
