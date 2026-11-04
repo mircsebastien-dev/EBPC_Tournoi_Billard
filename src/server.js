@@ -646,6 +646,43 @@ app.get('/api/joueur/:id/matchs', (req, res) => {
   res.json({ matchs: rows.map(vueMatch) });
 });
 
+app.get('/api/joueur/:id/historique', (req, res) => {
+  const id = Number(req.params.id);
+  const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(id);
+  if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
+  const rows = db.prepare(`
+    SELECT m.*, t.nom AS tournoi_nom, t.date_heure AS tournoi_date, t.statut AS tournoi_statut,
+           j1.pseudo AS j1_pseudo, j2.pseudo AS j2_pseudo,
+           gw.pseudo AS gagnant_pseudo
+    FROM match m
+    JOIN tournoi t ON t.id = m.tournoi_id
+    LEFT JOIN joueur j1 ON j1.id = m.joueur1_id
+    LEFT JOIN joueur j2 ON j2.id = m.joueur2_id
+    LEFT JOIN joueur gw ON gw.id = m.gagnant_id
+    WHERE (m.joueur1_id = ? OR m.joueur2_id = ?) AND m.etat IN ('termine', 'forfait')
+    ORDER BY m.ended_at DESC, m.id DESC
+  `).all(id, id);
+  res.json({
+    joueur: j,
+    historique: rows.map(m => ({
+      id: m.id,
+      code: `${m.bracket.toLowerCase()}${m.tour}-${String(m.position).padStart(3, '0')}`,
+      tournoi: m.tournoi_nom,
+      tournoi_date: m.tournoi_date,
+      tournoi_statut: m.tournoi_statut,
+      date: m.ended_at || m.started_at,
+      adversaire: m.joueur1_id === id ? m.j2_pseudo : m.j1_pseudo,
+      adversaire_id: m.joueur1_id === id ? m.joueur2_id : m.joueur1_id,
+      moi: m.joueur1_id === id ? m.score1 : m.score2,
+      lui: m.joueur1_id === id ? m.score2 : m.score1,
+      victoire: m.gagnant_id === id,
+      forfait: m.etat === 'forfait',
+      gagnant: m.gagnant_pseudo,
+      manches: m.manches,
+    })),
+  });
+});
+
 app.use('/api', (req, res) => res.status(404).json({ error: 'Route inconnue' }));
 
 app.use((err, req, res, next) => {

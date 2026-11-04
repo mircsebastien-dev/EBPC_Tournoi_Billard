@@ -48,12 +48,22 @@ async function init() {
           return el('span', { class: 'chip' }, `${p.nom || 'Tournoi #' + tid}${statut} : ${p.gagnes} gagné(s)/${p.joues} joué(s)${p.enCours ? ` (${p.enCours} en cours)` : ''}`);
         }))));
     }
-    // derniers matchs du joueur
-    const mm = await api(`/api/joueur/${id}/matchs`);
-    if (mm.matchs && mm.matchs.length) {
+    // historique des matchs joués (date, tournoi, adversaire, score, V/D)
+    const h = await api(`/api/joueur/${id}/historique`);
+    if (h.historique && h.historique.length) {
       main.append(el('div', { class: 'panel' },
-        el('h2', {}, 'Derniers matchs'),
-        el('div', { class: 'matchs-grid' }, mm.matchs.slice(0, 12).map(m => matchCard(m)))));
+        el('h2', {}, `🧾 Historique (${h.historique.length} matchs)`),
+        el('table', { class: 'audit' },
+          el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Tournoi'), el('th', {}, 'Match'), el('th', {}, 'Adversaire'), el('th', {}, 'Score'), el('th', {}, 'Résultat')),
+          ...h.historique.map(x => el('tr', {},
+            el('td', {}, (x.date || '').slice(0, 16).replace('T', ' ')),
+            el('td', {}, x.tournoi + (x.tournoi_statut === 'en_cours' ? ' 🔴' : '')),
+            el('td', { class: 'code-match' }, x.code),
+            el('td', {}, x.adversaire_id ? el('a', { href: `/joueur.html?id=${x.adversaire_id}`, style: 'color:var(--pink-soft)' }, x.adversaire || '—') : '—'),
+            el('td', { style: 'font-weight:800' }, `${x.moi} – ${x.lui}`),
+            el('td', {}, x.victoire
+              ? el('span', { style: 'color:var(--green);font-weight:800' }, `✅ V (${x.gagnant})`)
+              : el('span', { style: 'color:var(--muted)' }, `❌ D${x.forfait ? ' (forfait)' : ''}`)))))));
     }
   } catch (e) {
     main.append(el('div', { class: 'panel', style: 'text-align:center' }, e.message));
