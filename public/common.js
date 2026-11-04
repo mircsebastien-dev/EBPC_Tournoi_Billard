@@ -47,6 +47,10 @@ function nav(active) {
     el('a', { href: '/admin.html', class: active === 'admin' ? 'active' : null }, 'Table de marque'));
 }
 
+function codeMatch(m) {
+  return `${String(m.bracket || '').toLowerCase()}${m.tour}-${String(m.position).padStart(3, '0')}`;
+}
+
 function matchCard(m, opts = {}) {
   const j1g = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
   const j2g = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
@@ -59,6 +63,7 @@ function matchCard(m, opts = {}) {
         el('span', {}, m.joueur2 ? m.joueur2.pseudo : '—'),
         el('span', { class: 'score' }, String(m.score2)))),
     el('div', { class: 'meta' },
+      el('span', { class: 'code-match' }, codeMatch(m)),
       badgeEtat(m.etat),
       m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : null,
       m.table != null ? el('span', { class: 'table-badge' }, `🎱 Table ${m.table}`) : null,
@@ -152,6 +157,7 @@ function renderBracket(container, t, opts = {}) {
         el('div', { class: 'nj' + (win2 ? ' win' : '') + (!m.joueur2 ? ' attente-j' : '') },
           el('span', {}, m.joueur2 ? m.joueur2.pseudo : '…'), el('span', { class: 'sc' }, String(m.score2))),
         el('div', { class: 'meta' },
+          el('span', { class: 'code-match' }, codeMatch(m)),
           enAttente ? el('span', { class: 'attente-tag' }, '⏳ match attendu') : null,
           m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : null,
           (m.etat === 'termine' || m.etat === 'forfait') ? badgeEtat(m.etat) : null,

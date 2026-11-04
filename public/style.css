@@ -194,3 +194,6 @@ table.audit th { color: var(--muted); }
   nav { width: 100%; overflow-x: auto; }
   .matchs-grid { grid-template-columns: 1fr; }
 }
+
+.code-match { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-weight: 700; color: var(--pink-soft); background: rgba(255,46,136,.12); border: 1px solid rgba(255,46,136,.35); border-radius: 6px; padding: 1px 6px; letter-spacing: .5px; }
+.node .code-match { font-size: 10px; padding: 0 5px; }
