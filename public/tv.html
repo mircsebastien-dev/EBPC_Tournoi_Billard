@@ -75,7 +75,10 @@ function slidesList() {
     .sort((a, b) => (a.bracket === 'WB' ? 0 : a.bracket === 'LB' ? 1 : 2) - (b.bracket === 'WB' ? 0 : b.bracket === 'LB' ? 1 : 2) || a.tour - b.tour || a.position - b.position)
     .slice(0, MAX_NEXT);
   const slides = [];
-  for (const m of enCours) slides.push({ type: 'live', m });
+  const LIVE_PAR_PAGE = 8;
+  for (let i = 0; i < enCours.length; i += LIVE_PAR_PAGE) {
+    slides.push({ type: 'live-group', items: enCours.slice(i, i + LIVE_PAR_PAGE), page: Math.floor(i / LIVE_PAR_PAGE) + 1, total: Math.ceil(enCours.length / LIVE_PAR_PAGE) });
+  }
   if (aVenir.length > 0) slides.push({ type: 'next', items: aVenir, t });
   if (slides.length === 0) slides.push({ type: 'attente', t });
   return slides;
@@ -94,7 +97,20 @@ function render() {
 
   slides.forEach((s, i) => {
     const div = el('div', { class: 'slide' + (i === slideIdx ? ' on' : '') });
-    if (s.type === 'live') {
+    if (s.type === 'live-group') {
+      const grid = el('div', { class: 'tv-live-grid' });
+      for (const m of s.items) {
+        const r = t.rounds.find(rr => rr.bracket === m.bracket && rr.tour === m.tour);
+        grid.append(el('div', { class: 'tv-live-cell' + (m.etat === 'en_cours' ? ' on' : '') },
+          el('div', { class: 'cell-code' }, codeMatch(m)),
+          el('div', { class: 'cell-vs' }, `${m.joueur1 ? m.joueur1.pseudo : '…'} – ${m.joueur2 ? m.joueur2.pseudo : '…'}`),
+          el('div', { class: 'cell-score' }, `${m.score1} – ${m.score2}` + (m.table != null ? ` · 🎱${m.table}` : '')),
+          el('div', { class: 'cell-meta' }, (r ? r.label : '') + (m.etat === 'en_cours' ? ' · ● LIVE' : ''))));
+      }
+      div.append(
+        el('div', { class: 'tv-next-title' }, `🔴 En direct — page ${s.page}/${s.total} (${s.items.length} matchs)`),
+        grid);
+    } else if (s.type === 'live') {
       const m = s.m;
       const r = t.rounds.find(rr => rr.bracket === m.bracket && rr.tour === m.tour);
       div.append(
