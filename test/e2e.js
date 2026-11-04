@@ -142,7 +142,7 @@ async function main() {
   const st = (await api('/api/etat')).data.actif.stats;
   check('stats présentes avec classement', !!st && Array.isArray(st.classement) && st.resume.joues >= 1);
   const j1stats = st.classement.find(p => p.id === j1);
-  check('stats J1 : 1 joué 1 gagné', j1stats && j1stats.joues === 1 && j1stats.gagnes === 1 && j1stats.pct === 100, j1stats);
+  check('stats J1 : tous ses matchs gagnés (bye inclus)', j1stats && j1stats.joues >= 1 && j1stats.gagnes === j1stats.joues && j1stats.pct === 100, j1stats);
   const etatA = (await api('/api/etat')).data.actif;
   const suivant = etatA.matchs.find(mm => mm.id === m2.suivant_id);
   check('gagnant propagé au match suivant', suivant && (suivant.joueur1?.id === j1 || suivant.joueur2?.id === j1), suivant);
