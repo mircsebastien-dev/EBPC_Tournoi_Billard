@@ -125,7 +125,7 @@ function renderListe(container, t) {
       const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id)
         .map(x => feederLabel(t, x, x.perdant_id === m.id ? 'perdant' : 'vainqueur'));
       section.lastChild.append(matchCard(m, {
-        onClick: () => { location.href = `/match.html?id=${m.id}`; },
+        // pas de onClick: matchCard ouvre l'éditeur inline si PIN admin en mémoire, sinon va sur /match.html
         extra: m.etat === 'prevu' && feeders.length
           ? el('div', { class: 'attente-detail' }, `⏳ attendu : ${feeders.join('  vs  ')}`)
           : null,
