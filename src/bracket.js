@@ -222,13 +222,23 @@ function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
         const nb = Object.keys(M.LB).filter(key => key.startsWith(`${t}:`)).length;
         const nbSuiv = Object.keys(M.LB).filter(key => key.startsWith(`${t + 1}:`)).length;
         if ((t + 1) % 2 === 1) {
-          for (let p = 1; p <= nbSuiv; p++) {
-            setLien(get('LB', t, 2 * p - 1), 'suivant', get('LB', t + 1, p), 1);
-            setLien(get('LB', t, 2 * p), 'suivant', get('LB', t + 1, p), 2);
+          // tour impair suivant (nbSuiv = nb/2) : croisement par bloc de 4 (extérieur <-> intérieur)
+          // pour que les 2 feeders d'un match LB ne viennent jamais du même groupe de 4 du WB
+          for (let p = 1; p <= nb; p++) {
+            const q = Math.floor((p - 1) / 4);
+            const r = (p - 1) % 4;
+            const cible = (r === 0 || r === 3) ? 2 * q + 1 : 2 * q + 2;
+            const slot = (r === 0 || r === 1) ? 1 : 2;
+            setLien(get('LB', t, p), 'suivant', get('LB', t + 1, cible), slot);
           }
         } else {
-          for (let p = 1; p <= nbSuiv; p++) {
-            setLien(get('LB', t, p), 'suivant', get('LB', t + 1, p), 1);
+          // tour PAIR suivant : il reçoit aussi les perdants du WB (slot 2 = perdant WB(t',p)).
+          // CROISEMENT par bloc de 4 du niveau WB correspondant (p <-> p^1 dans chaque paire)
+          // en slot 1 uniquement -> le perdant de WB ne retrouve jamais en LB le gagnant du match
+          // voisin de son propre groupe de 4 (évite le re-match J1-vs-J2).
+          for (let p = 1; p <= nb; p++) {
+            const cible = p % 2 === 1 ? p + 1 : p - 1;
+            setLien(get('LB', t, p), 'suivant', get('LB', t + 1, cible), 1);
           }
         }
       }
