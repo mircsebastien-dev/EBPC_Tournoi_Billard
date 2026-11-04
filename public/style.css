@@ -206,3 +206,6 @@ table.audit th { color: var(--muted); }
 .tv-live-cell .cell-score { font-size: clamp(20px, 3.4vw, 40px); font-weight: 900; color: var(--gold); }
 .tv-live-cell .cell-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
 @media (max-width: 900px) { .tv-live-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (orientation: landscape) and (max-width: 900px) { .tv-live-grid { grid-template-columns: repeat(4, 1fr); } .tv-live-cell .cell-vs { font-size: clamp(12px, 2.6vw, 18px); } .tv-live-cell .cell-score { font-size: clamp(16px, 4vw, 28px); } }
+/* smartphone : slides plus compacts */
+@media (max-width: 900px) { .slide { padding: 10px; } main#slides { padding-top: 40px; } }
