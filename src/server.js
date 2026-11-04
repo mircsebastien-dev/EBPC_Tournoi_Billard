@@ -585,6 +585,35 @@ app.post('/api/match/:id/manche', (req, res) => {
   res.json({ ok: true, match: vueMatch(m) });
 });
 
+app.post('/api/match/:id/runout', (req, res) => {
+  const joueurId = Number(req.body.joueur_id);
+  if (!joueurId) return res.status(400).json({ error: 'joueur_id requis' });
+  const kind = req.body.kind === 'casse' ? 'casse' : 'reprise';
+  const m = M.declarerRunout(Number(req.params.id), joueurId, kind);
+  majEtBroadcast();
+  res.json({ ok: true, match: vueMatch(m) });
+});
+
+app.get('/api/joueur/:id/stats', (req, res) => {
+  const id = Number(req.params.id);
+  const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(id);
+  if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
+  const matchs = db.prepare(`SELECT * FROM match WHERE (joueur1_id = ? OR joueur2_id = ?) AND etat IN ('termine', 'forfait', 'en_cours')`).all(id, id);
+  const evs = db.prepare(`SELECT e.type, e.detail, e.match_id, m.tournoi_id FROM match_event e JOIN match m ON m.id = e.match_id WHERE e.joueur_id = ?`).all(id);
+  const manches = evs.filter(e => e.type === 'manche' || e.type === 'runout').length;
+  const runouts = evs.filter(e => e.type === 'runout');
+  const casse = runouts.filter(e => { try { return JSON.parse(e.detail || '{}').kind === 'casse'; } catch { return false; } }).length;
+  const reprise = runouts.length - casse;
+  const gagnes = matchs.filter(m => m.gagnant_id === id).length;
+  const joues = matchs.length;
+  const parTournoi = {};
+  for (const m of matchs) {
+    const t = parTournoi[m.tournoi_id] = parTournoi[m.tournoi_id] || { joues: 0, gagnes: 0 };
+    t.joues++; if (m.gagnant_id === id) t.gagnes++;
+  }
+  res.json({ joueur: j, joues, gagnes, perdus: joues - gagnes, manches, runouts: runouts.length, casse, reprise, winrate: joues ? Math.round(100 * gagnes / joues) : 0, parTournoi });
+});
+
 app.post('/api/match/:id/retirer', (req, res) => {
   const joueurId = Number(req.body.joueur_id);
   if (!joueurId) return res.status(400).json({ error: 'joueur_id requis (à qui retirer la manche)' });

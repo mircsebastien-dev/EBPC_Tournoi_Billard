@@ -50,19 +50,21 @@ function render() {
       m.started_at ? `Début : ${m.started_at.slice(11, 16)}` : '',
       m.started_at && m.ended_at && m.duree_s != null ? ` · Durée : ${fmtDuree(m.duree_s)}` : ''),
     el('div', { class: 'scoreboard' },
-      el('div', {}, el('div', { class: 'p' }, m.joueur1 ? m.joueur1.pseudo : '—'), el('div', { class: 's' }, String(m.score1))),
+      el('div', {}, el('div', { class: 'p' }, m.joueur1 ? el('a', { href: `/joueur.html?id=${m.joueur1.id}`, style: 'color:inherit;text-decoration:none' }, m.joueur1.pseudo) : '—'), el('div', { class: 's' }, String(m.score1))),
       el('div', { class: 'mid' }, `race<br>to ${m.manches}`),
-      el('div', {}, el('div', { class: 'p' }, m.joueur2 ? m.joueur2.pseudo : '—'), el('div', { class: 's' }, String(m.score2)))),
+      el('div', {}, el('div', { class: 'p' }, m.joueur2 ? el('a', { href: `/joueur.html?id=${m.joueur2.id}`, style: 'color:inherit;text-decoration:none' }, m.joueur2.pseudo) : '—'), el('div', { class: 's' }, String(m.score2)))),
     peutJouer && moi && adv ? el('div', { class: 'score-actions' },
       // aligné avec le scoreboard : joueur1 à gauche, joueur2 à droite
       el('div', { class: 'score-col' },
         el('div', { class: 'score-col-label' }, `✅ ${m.joueur1.pseudo}${m.joueur1.id === joueurId ? ' (toi)' : ''}`),
         btnScore(m.joueur1.id, '+1 manche', true),
-        btnScore(m.joueur1.id, '−1 manche', false)),
+        btnScore(m.joueur1.id, '−1 manche', false),
+        btnRunout(m.joueur1.id, 'casse'), btnRunout(m.joueur1.id, 'reprise')),
       el('div', { class: 'score-col' },
         el('div', { class: 'score-col-label' }, `✅ ${m.joueur2.pseudo}${m.joueur2.id === joueurId ? ' (toi)' : ''}`),
         btnScore(m.joueur2.id, '+1 manche', true),
-        btnScore(m.joueur2.id, '−1 manche', false)))
+        btnScore(m.joueur2.id, '−1 manche', false),
+        btnRunout(m.joueur2.id, 'casse'), btnRunout(m.joueur2.id, 'reprise')))
       : null,
     (m.etat === 'termine' || m.etat === 'forfait')
       ? el('p', { style: 'text-align:center;font-size:24px;font-weight:800;color:var(--green)' }, `🏁 ${m.gagnant || '—'} remporte le match`)
@@ -70,6 +72,17 @@ function render() {
     m.etat === 'pret' ? el('p', { class: 'muted', style: 'text-align:center' }, 'La table de marque va lancer le match…') : null,
     !moi && m.etat !== 'termine' ? el('p', { class: 'muted small', style: 'text-align:center' }, 'Consultation seule — tu ne joues pas ce match.') : null);
   main.append(carte);
+}
+
+const btnRunout = (target, kind) => el('button', {
+  class: 'btn-score runout',
+  onclick: () => envoyerRunout(target, kind),
+}, kind === 'casse' ? '💥 Casse ferme' : '🔄 Reprise ferme');
+
+async function envoyerRunout(targetId, kind) {
+  try {
+    await api(`/api/match/${matchId}/runout`, { method: 'POST', body: JSON.stringify({ joueur_id: targetId, kind }) });
+  } catch (e) { alert(e.message); }
 }
 
 async function envoyer(targetId, plus) {

@@ -127,6 +127,26 @@ function tableLibre(tournoiId, exclureMatchId) {
   return t || null;
 }
 
+function declarerRunout(matchId, joueurId, kind = 'reprise') {
+  const m = matchById(matchId);
+  if (!m) throw httpError(404, 'Match introuvable');
+  if (m.etat !== 'en_cours' && m.etat !== 'pret') throw httpError(409, 'Le match n\'est pas en cours');
+  if (m.joueur1_id !== joueurId && m.joueur2_id !== joueurId) throw httpError(403, 'Vous ne jouez pas ce match');
+  const k = kind === 'casse' ? 'casse' : 'reprise';
+  const s1 = m.joueur1_id === joueurId ? m.score1 + 1 : m.score1;
+  const s2 = m.joueur2_id === joueurId ? m.score2 + 1 : m.score2;
+  db.prepare(`UPDATE match SET score1 = ?, score2 = ?, etat = 'en_cours', updated_at = datetime('now') WHERE id = ?`)
+    .run(s1, s2, matchId);
+  insererEvent(matchId, joueurId, 'runout', { kind: k, score1: s1, score2: s2 });
+  const cur = matchById(matchId);
+  if (s1 >= cur.manches || s2 >= cur.manches) {
+    const gagnant = s1 > s2 ? cur.joueur1_id : cur.joueur2_id;
+    const perdant = s1 > s2 ? cur.joueur2_id : cur.joueur1_id;
+    terminerMatch(matchId, gagnant, perdant, k === 'casse' ? 'casse ferme (8 à la casse)' : 'reprise ferme (run out)');
+  }
+  return matchById(matchId);
+}
+
 function retirerManche(matchId, joueurId) {
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
@@ -328,6 +348,7 @@ module.exports = {
   lancerMatch,
   corrigerScore,
   declarerForfait,
+  declarerRunout,
   rafraichirPrets,
   tableLibre,
   rouvrirMatch,

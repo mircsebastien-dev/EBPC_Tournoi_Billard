@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS match_event (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   match_id INTEGER NOT NULL REFERENCES match(id),
   joueur_id INTEGER REFERENCES joueur(id),
-  type TEXT NOT NULL CHECK (type IN ('manche', 'correction', 'forfait', 'lancement', 'bye', 'tirage')),
+  type TEXT NOT NULL CHECK (type IN ('manche', 'runout', 'correction', 'forfait', 'lancement', 'bye', 'tirage')),
   detail TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

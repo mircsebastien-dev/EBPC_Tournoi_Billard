@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiche joueur — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Pink City Billard</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+document.getElementById('nav').append(nav('home'));
+const main = document.getElementById('main');
+const id = Number(new URLSearchParams(location.search).get('id'));
+
+async function init() {
+  main.innerHTML = '';
+  if (!id) { main.append(el('div', { class: 'panel', style: 'text-align:center' }, 'Joueur introuvable.')); return; }
+  try {
+    const s = await api(`/api/joueur/${id}/stats`);
+    const j = s.joueur;
+    main.append(el('div', { class: 'panel', style: 'text-align:center' },
+      el('div', { class: 'hero-title' }, `👤 ${j.pseudo}`),
+      el('div', { class: 'row', style: 'justify-content:center;gap:10px;flex-wrap:wrap' },
+        el('span', { class: 'chip' }, `🏆 ${s.gagnes} gagnés`),
+        el('span', { class: 'chip' }, `🎱 ${s.joues} joués`),
+        el('span', { class: 'chip' }, `❌ ${s.perdus} perdus`),
+        el('span', { class: 'chip' }, `📊 ${s.winrate}% victoires`))));
+    main.append(el('div', { class: 'panel' },
+      el('h2', {}, '📈 Statistiques'),
+      el('div', { class: 'row', style: 'flex-wrap:wrap;gap:10px' },
+        el('span', { class: 'chip' }, `Manches gagnées : ${s.manches}`),
+        el('span', { class: 'chip' }, `💥 Run-outs : ${s.runouts}`),
+        el('span', { class: 'chip' }, `💥 Casse ferme : ${s.casse}`),
+        el('span', { class: 'chip' }, `🔄 Reprise ferme : ${s.reprise}`))));
+    const tids = Object.keys(s.parTournoi || {});
+    if (tids.length) {
+      const hist = await api('/api/tournois').catch(() => ({ tournois: [] }));
+      const noms = {};
+      for (const t of hist.tournois || []) noms[t.id] = t.nom;
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, 'Par tournoi'),
+        el('div', { class: 'liste-joueurs' }, tids.map(tid =>
+          el('span', { class: 'chip' }, `${noms[tid] || 'Tournoi #' + tid} : ${s.parTournoi[tid].gagnes}/${s.parTournoi[tid].joues} gagnés`)))));
+    }
+    // derniers matchs du joueur
+    const mm = await api(`/api/joueur/${id}/matchs`);
+    if (mm.matchs && mm.matchs.length) {
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, 'Derniers matchs'),
+        el('div', { class: 'matchs-grid' }, mm.matchs.slice(0, 12).map(m => matchCard(m)))));
+    }
+  } catch (e) {
+    main.append(el('div', { class: 'panel', style: 'text-align:center' }, e.message));
+  }
+}
+init();
+</script>
+</body>
+</html>

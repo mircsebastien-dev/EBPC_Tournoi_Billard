@@ -209,3 +209,4 @@ table.audit th { color: var(--muted); }
 @media (orientation: landscape) and (max-width: 900px) { .tv-live-grid { grid-template-columns: repeat(4, 1fr); } .tv-live-cell .cell-vs { font-size: clamp(12px, 2.6vw, 18px); } .tv-live-cell .cell-score { font-size: clamp(16px, 4vw, 28px); } }
 /* smartphone : slides plus compacts */
 @media (max-width: 900px) { .slide { padding: 10px; } main#slides { padding-top: 40px; } }
+.btn-score.runout { background: linear-gradient(135deg, #ff2e88, #ff7a00); font-size: 14px; padding: 10px 8px; }
