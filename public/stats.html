@@ -29,16 +29,16 @@ async function init() {
   }
   main.append(el('div', { class: 'panel' },
     el('table', { class: 'audit' },
-      el('tr', {}, el('th', {}, '#'), el('th', {}, 'Joueur'), el('th', {}, 'Tournois'), el('th', {}, '🏆 Titres'), el('th', {}, 'Joués'), el('th', {}, 'Gagnés'), el('th', {}, 'Perdus'), el('th', {}, '% victoires')),
+      el('tr', {}, el('th', {}, '#'), el('th', {}, 'Joueur'), el('th', {}, 'Tournois'), el('th', {}, '🏆 Titres'), el('th', {}, 'Joués'), el('th', {}, 'Gagnés'), el('th', {}, 'Perdus'), el('th', {}, '% victoires'), el('th', {}, 'Manches'), el('th', {}, '💥 Run-outs')),
       ...joueurs.map((p, i) => el('tr', {},
         el('td', {}, String(i + 1)),
-        el('td', { style: 'font-weight:700' }, p.pseudo),
+        el('td', { style: 'font-weight:700' }, el('a', { href: `/joueur.html?id=${p.id}`, style: 'color:var(--pink-soft)' }, p.pseudo)),
         el('td', {}, String(p.tournois)),
         el('td', {}, p.titres > 0 ? `🏆 ${p.titres}` : '—'),
         el('td', {}, String(p.joues)),
         el('td', { style: 'color:var(--green)' }, String(p.gagnes)),
         el('td', {}, String(p.perdus)),
-        el('td', { style: 'font-weight:700;color:var(--pink-soft)' }, `${p.pct} %`))))));
+        el('td', { style: 'font-weight:700;color:var(--pink-soft)' }, `${p.pct} %`), el('td', {}, String(p.manches || 0)), el('td', {}, p.runouts ? `💥 ${p.runouts}` : '—'))))));
 }
 init();
 </script>

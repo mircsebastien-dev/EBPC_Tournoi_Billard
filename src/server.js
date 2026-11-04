@@ -180,7 +180,7 @@ app.get('/api/tournois/:id', (req, res) => {
 
 app.get('/api/stats-joueurs', (req, res) => {
   const rows = db.prepare(`
-    SELECT j.pseudo,
+    SELECT MIN(j.id) id, j.pseudo,
            COUNT(DISTINCT m.id) joues,
            SUM(CASE WHEN m.gagnant_id IS NOT NULL AND (m.joueur1_id = j.id OR m.joueur2_id = j.id) AND m.gagnant_id = j.id THEN 1 ELSE 0 END) gagnes,
            COUNT(DISTINCT t.id) tournois,
@@ -191,8 +191,17 @@ app.get('/api/stats-joueurs', (req, res) => {
     GROUP BY LOWER(j.pseudo)
     ORDER BY gagnes DESC, joues DESC
   `).all();
+  const evAgg = db.prepare(`
+    SELECT e.joueur_id,
+           SUM(CASE WHEN e.type IN ('manche','runout') THEN 1 ELSE 0 END) manches,
+           SUM(CASE WHEN e.type = 'runout' THEN 1 ELSE 0 END) runouts
+    FROM match_event e GROUP BY e.joueur_id
+  `).all().reduce((a, r) => (a[r.joueur_id] = r, a), {});
   res.json({ joueurs: rows.map(r => ({
+    id: r.id,
     pseudo: r.pseudo,
+    manches: evAgg[r.id] ? evAgg[r.id].manches : 0,
+    runouts: evAgg[r.id] ? evAgg[r.id].runouts : 0,
     joues: r.joues,
     gagnes: r.gagnes || 0,
     perdus: r.joues - (r.gagnes || 0),
