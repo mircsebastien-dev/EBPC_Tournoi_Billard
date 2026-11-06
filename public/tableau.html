@@ -48,6 +48,7 @@ document.getElementById('nav').append(nav('tableau'));
 const main = document.getElementById('main');
 let state = null;
 let viewMode = (new URLSearchParams(location.search)).get('vue') || localStorage.getItem('ebpc_view') || 'bracket';
+let filtreJoueur = '';
 let autoScrolled = false;
 
 // Au chargement, centre la vue bracket sur la colonne "Tour 1" (WB tour 1)
@@ -125,6 +126,16 @@ function switchView(mode) {
 
 function renderListe(container, t) {
   const rounds = t.rounds;
+  // barre de filtre par joueur (préfixe, insensible à la casse)
+  const input = el('input', {
+    id: 'filtre-joueur', placeholder: '🔍 Filtrer par joueur (ex: seb)…', value: filtreJoueur, maxlength: 24,
+    style: 'width:100%;max-width:340px',
+  });
+  input.addEventListener('input', () => { filtreJoueur = input.value.trim().toLowerCase(); render(); });
+  container.append(el('div', { class: 'panel', style: 'padding:10px 14px;margin-bottom:12px' }, input));
+  const matchJoueur = (m) => !filtreJoueur
+    || (m.joueur1 && m.joueur1.pseudo.toLowerCase().startsWith(filtreJoueur))
+    || (m.joueur2 && m.joueur2.pseudo.toLowerCase().startsWith(filtreJoueur));
   const byKey = {};
   for (const m of t.matchs) (byKey[m.bracket + m.tour] = byKey[m.bracket + m.tour] || []).push(m);
   // Vue liste : d'abord les tours gagnants (WB tour 1, 2...), puis les perdants (LB 1, 2...), puis le tableau final
@@ -134,7 +145,7 @@ function renderListe(container, t) {
     ...rounds.filter(r => r.bracket === 'F'),
   ];
   for (const r of ordered) {
-    const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position);
+    const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position).filter(matchJoueur);
     if (!matchs.length) continue;
     const section = el('div', { class: 'round', id: 'col-' + r.bracket + r.tour },
       el('h3', {}, `${r.label} · race to ${r.manches}`),
