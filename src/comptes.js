@@ -134,6 +134,14 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!c || !verifierPassword(password, c.salt, c.pass_hash)) {
       return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect' });
     }
+    // rattachement auto : joueurs anonymes du tournoi actif avec le même pseudo -> compte
+    if (tournoiActif) {
+      const t = tournoiActif();
+      if (t && t.statut === 'inscription') {
+        db.prepare('UPDATE joueur SET compte_id = ? WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND compte_id IS NULL')
+          .run(c.id, t.id, c.pseudo);
+      }
+    }
     const token = creerSession(c.id);
     setSessionCookie(res, token, SESSION_JOURS);
     logAudit('compte_connexion', `compte ${c.id}`, null, { pseudo: c.pseudo });
