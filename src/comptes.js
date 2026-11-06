@@ -188,7 +188,9 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
       const token = crypto.randomBytes(32).toString('hex');
       const expires = new Date(Date.now() + RESET_VALIDITE_H * 3600 * 1000).toISOString();
       db.prepare('UPDATE compte SET reset_token_hash = ?, reset_expires = ? WHERE id = ?').run(hashToken(token), expires, c.id);
-      const link = `${baseUrl}/reinit.html?token=${token}`;
+      const origin = process.env.BASE_URL
+        || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.headers['x-forwarded-host'] || req.get('host')}`;
+      const link = `${origin}/reinit.html?token=${token}`;
       await envoyerMail({
         to: c.email,
         subject: 'Réinitialisation de ton mot de passe — Pink City Billard',
