@@ -178,6 +178,7 @@ if (matchCols.length > 0) {
   if (!matchCols.includes('ended_at')) db.exec('ALTER TABLE match ADD COLUMN ended_at TEXT');
   const joueurCols = db.prepare("PRAGMA table_info(joueur)").all().map(c => c.name);
   if (!joueurCols.includes('compte_id')) db.exec('ALTER TABLE joueur ADD COLUMN compte_id INTEGER REFERENCES compte(id)');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_joueur_tournoi_pseudo_nocase ON joueur(tournoi_id, pseudo COLLATE NOCASE)');
 }
 
 function setSetting(key, value) {
