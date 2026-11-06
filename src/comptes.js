@@ -101,7 +101,7 @@ function validerPassword(p) {
 }
 
 // ---------- routes ----------
-function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast }) {
+function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueMatch }) {
   // inscription compte
   app.post('/api/compte/inscription', (req, res) => {
     const ip = req.ip || 'local';
@@ -151,7 +151,9 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast }) {
 
   // moi
   app.get('/api/compte/moi', (req, res) => {
-    res.json({ compte: req.compte ? comptePublic(req.compte) : null });
+    if (!req.compte) return res.json({ compte: null, joueur_id: null });
+    const j = db.prepare('SELECT id FROM joueur WHERE compte_id = ? ORDER BY id DESC LIMIT 1').get(req.compte.id);
+    res.json({ compte: comptePublic(req.compte), joueur_id: j ? j.id : null });
   });
 
   // mes matchs (via les joueurs liés à mon compte)
@@ -162,7 +164,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast }) {
       WHERE j.compte_id = ?
       ORDER BY m.tournoi_id DESC, m.tour, m.position
     `).all(req.compte.id);
-    res.json({ matchs: rows.map(r => req.vueMatch ? req.vueMatch(r) : r) });
+    res.json({ matchs: rows.map(r => vueMatch(r)) });
   });
 
   // mot de passe oublié -> mail avec lien de réinit
