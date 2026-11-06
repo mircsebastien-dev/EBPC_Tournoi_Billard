@@ -62,9 +62,13 @@ function nav(active) {
     if (drop.classList.contains('open')) return fermer();
     // positionner le dropdown sous le bouton (fixed)
     const r = btn.getBoundingClientRect();
-    drop.style.top = (r.bottom + window.scrollY + 6) + 'px';
+    // position: fixed = relatif au viewport -> PAS de scrollY/scrollX (sinon le menu part hors écran quand on est scrollé)
+    drop.style.top = (r.bottom + 6) + 'px';
     const w = Math.min(260, window.innerWidth - 16);
-    drop.style.left = Math.max(8, Math.min(r.right + window.scrollX - w, window.innerWidth - w - 8)) + 'px';
+    drop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+    // si le menu dépasserait en bas du viewport, l'ouvrir vers le haut
+    const maxH = window.innerHeight - r.bottom - 14;
+    drop.style.maxHeight = Math.max(120, maxH) + 'px';
     drop.classList.add('open'); scrim.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
   });
   scrim.addEventListener('click', fermer);
