@@ -24,9 +24,14 @@ async function adminInit(onUpdate) {
 function renderAdminLogin(main) {
   main.innerHTML = '';
   const input = el('input', { type: 'password', id: 'pin', placeholder: 'Code PIN', inputmode: 'numeric', maxlength: 8 });
-  const entrer = () => {
+  const entrer = async () => {
     adminPin = input.value.trim();
     if (!adminPin) return;
+    // vérifier le PIN côté serveur AVANT d'entrer (sinon n'importe quel code "passe" visuellement)
+    try {
+      const r = await fetch('/api/admin/audit', { headers: { 'X-Admin-Pin': adminPin } });
+      if (r.status === 401) { alert('❌ PIN invalide'); adminPin = ''; input.value = ''; input.focus(); return; }
+    } catch (e) { alert('❌ PIN invalide'); return; }
     localStorage.setItem('ebpc_admin_pin', adminPin);
     location.reload();
   };
