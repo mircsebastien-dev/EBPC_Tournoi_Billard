@@ -41,6 +41,19 @@ function render() {
 
   // ---- Inscription (si ouverte) ----
   if (tn.statut === 'inscription') {
+    // ---- Compte connecté : bouton d'inscription en 1 clic avec le pseudo du compte ----
+    const compte = state.compte;
+    if (compte) {
+      const deja = t.joueurs.find(j => j.compte_id === compte.id);
+      main.append(el('div', { class: 'panel', style: 'text-align:center' },
+        el('p', {}, `👤 Connecté en tant que `, el('b', {}, compte.pseudo), ` — `, el('a', { href: '/compte.html' }, 'gérer mon compte')),
+        deja
+          ? el('p', { style: 'color:var(--green);font-weight:700' }, `✅ Déjà inscrit (${deja.statut === 'paye' ? 'payé' : 'en attente de paiement'})`)
+          : el('button', { style: 'width:100%;max-width:420px', onclick: inscrireCompte }, `📝 M'inscrire à « ${tn.nom} » en tant que ${compte.pseudo}`)));
+    } else {
+      main.append(el('div', { class: 'panel', style: 'text-align:center' },
+        el('p', { class: 'muted small' }, '💡 Crée un compte (pseudo + email + mot de passe) pour t\'inscrire en 1 clic et retrouver tes stats : ', el('a', { href: '/compte.html' }, '👤 Mon compte'))));
+    }
     const input = el('input', { id: 'pseudo', placeholder: 'Ton pseudo', maxlength: 40, autocomplete: 'off' });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') inscrire(); });
     main.append(el('div', { class: 'panel' },
@@ -70,6 +83,14 @@ async function inscrire() {
   if (!pseudo) return;
   try { await api('/api/joueur', { method: 'POST', body: JSON.stringify({ pseudo }) }); }
   catch (e) { alert(e.message); }
+}
+
+async function inscrireCompte() {
+  try {
+    await api('/api/tournoi/inscrire', { method: 'POST' });
+    state = await api('/api/etat');
+    render();
+  } catch (e) { alert(e.message); }
 }
 
 async function init() {

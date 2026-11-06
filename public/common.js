@@ -42,6 +42,7 @@ function nav(active) {
     el('a', { href: '/tableau.html', class: active === 'tableau' ? 'active' : null }, '🗺 Tableau'),
     el('a', { href: '/tv.html', class: active === 'tv' ? 'active' : null }, '📺 TV'),
     el('a', { href: '/suivi.html', class: active === 'joueur' ? 'active' : null }, 'Joueur'),
+    el('a', { href: '/compte.html', class: active === 'compte' ? 'active' : null }, '👤 Compte'),
     el('a', { href: '/stats.html', class: active === 'stats' ? 'active' : null }, '📊 Stats'),
     el('a', { href: '/historique.html', class: active === 'hist' ? 'active' : null }, '🗂 Historique'),
     el('a', { href: '/admin.html', class: active === 'admin' ? 'active' : null }, 'Table de marque'));

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon compte — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Pink City Billard</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+document.getElementById('nav').append(nav('compte'));
+const main = document.getElementById('main');
+const val = (id) => document.getElementById(id)?.value;
+
+function panelConnexion() {
+  return el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto' },
+    el('h2', {}, '🔑 Connexion'),
+    el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'c-pseudo', maxlength: 24, autocomplete: 'username' })),
+    el('div', {}, el('label', {}, 'Mot de passe'), el('input', { id: 'c-pass', type: 'password', autocomplete: 'current-password' })),
+    el('div', { style: 'margin-top:10px' }, el('button', { style: 'width:100%', onclick: connexion }, 'Se connecter')),
+    el('p', { class: 'muted small', style: 'text-align:center' }, el('a', { href: '/oubli.html' }, 'Mot de passe oublié ?')),
+    el('hr', {}),
+    el('h2', {}, '✨ Créer un compte'),
+    el('p', { class: 'muted small' }, 'Juste un pseudo, un email et un mot de passe. Rien d\'autre.'),
+    el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'i-pseudo', maxlength: 24, placeholder: 'ex: BlackMamba31' })),
+    el('div', {}, el('label', {}, 'Email (pour réinit du mot de passe)'), el('input', { id: 'i-email', type: 'email', maxlength: 190, autocomplete: 'email' })),
+    el('div', {}, el('label', {}, 'Mot de passe (min 4)'), el('input', { id: 'i-pass', type: 'password', minlength: 4, autocomplete: 'new-password' })),
+    el('div', { style: 'margin-top:10px' }, el('button', { class: 'secondary', style: 'width:100%', onclick: inscription }, 'Créer mon compte')));
+}
+
+async function inscription() {
+  try {
+    const r = await api('/api/compte/inscription', { method: 'POST', body: JSON.stringify({ pseudo: val('i-pseudo'), email: val('i-email'), password: val('i-pass') }) });
+    location.reload();
+  } catch (e) { alert(e.message); }
+}
+async function connexion() {
+  try {
+    await api('/api/compte/connexion', { method: 'POST', body: JSON.stringify({ pseudo: val('c-pseudo'), password: val('c-pass') }) });
+    location.href = '/';
+  } catch (e) { alert(e.message); }
+}
+async function deconnexion() {
+  await api('/api/compte/deconnexion', { method: 'POST' });
+  location.reload();
+}
+
+async function init() {
+  main.innerHTML = '';
+  const { compte } = await api('/api/compte/moi');
+  if (compte) {
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto;text-align:center' },
+      el('div', { class: 'hero-title' }, `👤 ${compte.pseudo}`),
+      el('p', { class: 'muted' }, 'Connecté'),
+      el('div', { class: 'row', style: 'justify-content:center' },
+        el('a', { href: '/joueur.html?id=' + compte.id }, el('button', { class: 'secondary' }, '📊 Ma fiche')),
+        el('button', { class: 'danger', onclick: deconnexion }, 'Se déconnecter'))));
+    // mes matchs (inscriptions en cours / matchs joués)
+    const mm = await api('/api/compte/moi/matchs');
+    const t = (await api('/api/etat')).actif;
+    const mesInscriptions = t ? t.joueurs.filter(j => j.compte_id === compte.id) : [];
+    if (mesInscriptions.length) {
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, '📋 Mon inscription'),
+        ...mesInscriptions.map(j => el('p', {}, `✅Inscrit au tournoi « ${t.tournoi.nom} » en tant que ${j.pseudo} — statut : ${j.statut === 'paye' ? 'payé' : 'en attente'}`))));
+    }
+    if (mm.matchs && mm.matchs.length) {
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, '🎱 Mes matchs'),
+        el('div', { class: 'matchs-grid' }, mm.matchs.slice(0, 12).map(m => matchCard(m)))));
+    }
+  } else {
+    main.append(panelConnexion());
+  }
+}
+init();
+</script>
+</body>
+</html>

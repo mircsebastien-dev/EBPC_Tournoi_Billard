@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { db, setSetting, getSetting, logAudit } = require('./db');
 const bracket = require('./bracket');
 const M = require('./matchs');
+const comptes = require('./comptes');
 
 const app = express();
 app.use(express.json());
@@ -12,6 +13,9 @@ app.use(express.urlencoded({ extended: true }));
 const PORT = process.env.PORT || 3000;
 const ADMIN_PIN = process.env.ADMIN_PIN || '0000';
 setSetting('admin_pin_hash', crypto.createHash('sha256').update(ADMIN_PIN).digest('hex'));
+
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+app.use(comptes.middlewareSession);
 
 const clients = new Set();
 function broadcast(event, data) {
@@ -152,12 +156,13 @@ function vueTournoiListe() {
   }));
 }
 
-function etatGlobal() {
+function etatGlobal(req) {
   return {
     actif: vueTournoiComplet(tournoiActif()),
     historique: vueTournoiListe().filter(t => t.statut === 'termine'),
     auto: getSetting('auto_on') === '1',
     table_pref: getSetting('table_pref') || '',
+    compte: req && req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo } : null,
   };
 }
 
@@ -165,9 +170,9 @@ app.get('/api/etat', (req, res) => {
   const tournoiId = req.query.tournoi_id ? Number(req.query.tournoi_id) : null;
   if (tournoiId) {
     const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(tournoiId);
-    return res.json({ tournoi: vueTournoiComplet(t), historique: vueTournoiListe().filter(x => x.statut === 'termine') });
+    return res.json({ tournoi: vueTournoiComplet(t), historique: vueTournoiListe().filter(x => x.statut === 'termine'), compte: req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo } : null });
   }
-  res.json(etatGlobal());
+  res.json(etatGlobal(req));
 });
 
 app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe() }));
@@ -231,7 +236,7 @@ function majEtBroadcast() {
     const lances = M.autoLancer(t.id);
     if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances });
   }
-  broadcast('update', etatGlobal());
+  broadcast('update', etatGlobal(null));
 }
 
 app.post('/api/admin/auto', requireAdmin, (req, res) => {
@@ -280,7 +285,7 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   for (const r of rounds) ins.run(t.id, r.key, def[r.key]);
   logAudit('creation_tournoi', `tournoi ${t.id}`, null, req.body);
   majEtBroadcast();
-  res.json({ ok: true, ...etatGlobal() });
+  res.json({ ok: true, ...etatGlobal(req) });
 });
 
 app.delete('/api/admin/tournoi', requireAdmin, (req, res) => {
@@ -360,7 +365,7 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
   }
   logAudit('maj_tournoi', `tournoi ${t.id}`, null, req.body);
   majEtBroadcast();
-  res.json({ ok: true, ...etatGlobal() });
+  res.json({ ok: true, ...etatGlobal(req) });
 });
 
 app.put('/api/admin/distances', requireAdmin, (req, res) => {
@@ -504,7 +509,7 @@ app.post('/api/admin/tirage', requireAdmin, (req, res) => {
   db.prepare(`UPDATE tournoi SET statut = 'en_cours' WHERE id = ?`).run(t.id);
   logAudit('tirage', `tournoi ${t.id}`, { nb_joueurs: joueurs.length }, null);
   majEtBroadcast();
-  res.json({ ok: true, ...etatGlobal() });
+  res.json({ ok: true, ...etatGlobal(req) });
 });
 
 app.post('/api/admin/match/:id/lancer', requireAdmin, (req, res) => {
@@ -551,7 +556,7 @@ app.post('/api/admin/terminer', requireAdmin, (req, res) => {
   db.prepare(`UPDATE match SET etat = 'termine', ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE tournoi_id = ? AND etat IN ('prevu', 'pret', 'en_cours')`).run(t.id);
   logAudit('tournoi_termine_manuellement', `tournoi ${t.id}`, { statut: t.statut }, { champion_id: championId });
   majEtBroadcast();
-  res.json({ ok: true, ...etatGlobal() });
+  res.json({ ok: true, ...etatGlobal(req) });
 });
 
 app.post('/api/admin/simuler', requireAdmin, (req, res) => {
@@ -682,6 +687,8 @@ app.get('/api/joueur/:id/historique', (req, res) => {
     })),
   });
 });
+
+comptes.registerCompteRoutes(app, { baseUrl: BASE_URL, tournoiActif, majEtBroadcast, vueMatch });
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Route inconnue' }));
 

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mot de passe oublié — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top"><h1>🎱 Pink City Billard</h1><div id="nav"></div></header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+document.getElementById('nav').append(nav('compte'));
+const main = document.getElementById('main');
+main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto' },
+  el('h2', {}, '🔑 Mot de passe oublié'),
+  el('p', { class: 'muted small' }, 'Donne l\'email de ton compte : on t\'envoie un lien de réinitialisation (valable 1h).'),
+  el('div', {}, el('label', {}, 'Email'), el('input', { id: 'email', type: 'email', autocomplete: 'email' })),
+  el('div', { style: 'margin-top:10px' }, el('button', { style: 'width:100%', onclick: envoyer }, 'Envoyer le lien')),
+  el('p', { id: 'msg', class: 'muted small', style: 'text-align:center' }),
+  el('p', { class: 'muted small', style: 'text-align:center' }, el('a', { href: '/compte.html' }, '← retour connexion'))));
+
+async function envoyer() {
+  const msg = document.getElementById('msg');
+  try {
+    const r = await api('/api/compte/oubli', { method: 'POST', body: JSON.stringify({ email: document.getElementById('email').value }) });
+    msg.textContent = r.message;
+    if (r.dev_reset_link) {
+      msg.append(el('div', { style: 'margin-top:8px' }, el('a', { href: r.dev_reset_link }, '🔗 lien de test (dev)')));
+    }
+  } catch (e) { msg.textContent = e.message; }
+}
+</script>
+</body>
+</html>

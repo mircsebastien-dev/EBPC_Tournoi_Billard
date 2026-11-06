@@ -48,6 +48,27 @@ CREATE TABLE IF NOT EXISTS joueur (
   UNIQUE (tournoi_id, pseudo)
 );
 
+CREATE TABLE IF NOT EXISTS compte (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pseudo TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  pass_hash TEXT NOT NULL,
+  salt TEXT NOT NULL,
+  reset_token_hash TEXT,
+  reset_expires TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS session (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_hash TEXT NOT NULL UNIQUE,
+  compte_id INTEGER NOT NULL REFERENCES compte(id),
+  expires TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_compte ON session(compte_id);
+
 CREATE TABLE IF NOT EXISTS table_billard (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tournoi_id INTEGER NOT NULL REFERENCES tournoi(id),
@@ -155,6 +176,8 @@ const matchCols = db.prepare('PRAGMA table_info(match)').all().map(c => c.name);
 if (matchCols.length > 0) {
   if (!matchCols.includes('started_at')) db.exec('ALTER TABLE match ADD COLUMN started_at TEXT');
   if (!matchCols.includes('ended_at')) db.exec('ALTER TABLE match ADD COLUMN ended_at TEXT');
+  const joueurCols = db.prepare("PRAGMA table_info(joueur)").all().map(c => c.name);
+  if (!joueurCols.includes('compte_id')) db.exec('ALTER TABLE joueur ADD COLUMN compte_id INTEGER REFERENCES compte(id)');
 }
 
 function setSetting(key, value) {
