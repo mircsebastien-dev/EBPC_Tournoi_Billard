@@ -147,7 +147,7 @@ function renderBracket(container, t, opts = {}) {
     : k + r.tour - 1;
   for (const g of groups) {
     const colCls = g.round.bracket === 'LB' ? 'lb' : g.round.bracket === 'F' ? 'finale' : 'wb';
-    const col = el('div', { class: `bracket-col ${colCls}` }, el('h3', {}, g.round.label + ' · race to ' + g.round.manches));
+    const col = el('div', { class: `bracket-col ${colCls}`, id: 'col-' + g.round.bracket + g.round.tour }, el('h3', {}, g.round.label + ' · race to ' + g.round.manches));
     const step = Math.pow(2, levelOf(g.round));
     const lastTop = 40 + (g.matchs.length - 1) * step * SLOT_H + (step - 1) * SLOT_H / 2;
     col.style.height = (lastTop + NODE_H + 24) + 'px';

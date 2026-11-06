@@ -215,3 +215,7 @@ table.audit th { color: var(--muted); }
 .tv-qr-label { color: var(--text); font-size: 13px; font-weight: 700; line-height: 1.3; max-width: 180px; word-break: break-all; }
 .tv-qr-label span { color: var(--muted); font-weight: 500; font-size: 11px; }
 @media (max-width: 900px) { .tv-qr { right: 8px; bottom: 40px; padding: 6px 8px; gap: 6px; } .tv-qr img { width: 64px; height: 64px; } .tv-qr-label { font-size: 10px; max-width: 110px; } }
+.round-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.round-link { text-decoration: none; color: var(--text); cursor: pointer; }
+.round-link:hover { border-color: var(--pink); color: var(--pink-soft); }
+.legend-bottom { margin: 18px 0 8px; opacity: .85; }

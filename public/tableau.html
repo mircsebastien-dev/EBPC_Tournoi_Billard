@@ -82,13 +82,12 @@ function render() {
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, `🗺 Tableau — ${t.tournoi.nom}`),
     el('p', { class: 'hero-sub' }, `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? 'double KO ' + t.tournoi.dko_tours + ' tours + tableau final' : 'élimination directe'}`),
-    el('div', { class: 'legend' },
-      el('span', { class: 'chip' }, '⬅ Loser bracket en miroir (tour 1 collé au WB, lecture droite→gauche)'),
-      el('span', { class: 'chip' }, 'Tours 1, 2… (WB) au centre'),
-      el('span', { class: 'chip' }, '🏁 Tableau final à droite'),
-      el('span', { class: 'chip' }, 'Rose = en cours'),
-      el('span', { class: 'chip' }, 'Vert = joué'),
-      el('span', { class: 'chip' }, '⏳ pointillé = match attendu')),
+    el('div', { class: 'round-nav' },
+      t.rounds.map(r => el('a', {
+        class: 'chip round-link',
+        href: '#col-' + r.bracket + r.tour,
+        onclick: (e) => { e.preventDefault(); const c = document.getElementById('col-' + r.bracket + r.tour); if (c) c.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'start' }); },
+      }, r.label))),
     el('div', { class: 'view-switch' },
       el('button', { class: viewMode === 'bracket' ? '' : 'secondary', onclick: () => switchView('bracket') }, '🗺 Bracket'),
       el('button', { class: viewMode === 'liste' ? '' : 'secondary', onclick: () => switchView('liste') }, '📋 Liste'))));
@@ -98,6 +97,14 @@ function render() {
     setTimeout(scrollToRound1, 150);
     setTimeout(scrollToRound1, 600);
   } else renderListe(main, t);
+  // légende en bas de page
+  main.append(el('div', { class: 'legend legend-bottom' },
+    el('span', { class: 'chip' }, '⬅ Loser bracket en miroir (tour 1 collé au WB, lecture droite→gauche)'),
+    el('span', { class: 'chip' }, 'Tours 1, 2… (WB) au centre'),
+    el('span', { class: 'chip' }, '🏁 Tableau final à droite'),
+    el('span', { class: 'chip' }, 'Rose = en cours'),
+    el('span', { class: 'chip' }, 'Vert = joué'),
+    el('span', { class: 'chip' }, '⏳ pointillé = match attendu')));
 }
 
 function switchView(mode) {
@@ -119,7 +126,7 @@ function renderListe(container, t) {
   for (const r of ordered) {
     const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position);
     if (!matchs.length) continue;
-    const section = el('div', { class: 'round' },
+    const section = el('div', { class: 'round', id: 'col-' + r.bracket + r.tour },
       el('h3', {}, `${r.label} · race to ${r.manches}`),
       el('div', { class: 'liste-matchs' }));
     for (const m of matchs) {
