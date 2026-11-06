@@ -1,5 +1,6 @@
 const API = '';
 
+let compteCourant = null; // mémo du compte connecté (le broadcast SSE ne le renvoie pas)
 async function api(path, opts = {}) {
   const res = await fetch(API + path, {
     headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
@@ -7,6 +8,7 @@ async function api(path, opts = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+  if (data && typeof data.compte !== 'undefined') compteCourant = data.compte;
   return data;
 }
 
@@ -99,7 +101,14 @@ function grouperParRound(matchs, rounds) {
 
 function connecterSSE(onUpdate) {
   const src = new EventSource('/api/events');
-  src.addEventListener('update', (e) => { try { onUpdate(JSON.parse(e.data)); } catch {} });
+  src.addEventListener('update', (e) => {
+    try {
+      const s = JSON.parse(e.data);
+      // le broadcast global ne contient pas le compte de la session -> on le réinjecte
+      if (s && !s.compte && compteCourant) s.compte = compteCourant;
+      onUpdate(s);
+    } catch {}
+  });
   src.onerror = () => {};
   return src;
 }
