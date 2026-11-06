@@ -83,11 +83,21 @@ function render() {
     el('div', { class: 'hero-title' }, `🗺 Tableau — ${t.tournoi.nom}`),
     el('p', { class: 'hero-sub' }, `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? 'double KO ' + t.tournoi.dko_tours + ' tours + tableau final' : 'élimination directe'}`),
     el('div', { class: 'round-nav' },
-      t.rounds.map(r => el('a', {
-        class: 'chip round-link',
-        href: '#col-' + r.bracket + r.tour,
-        onclick: (e) => { e.preventDefault(); const c = document.getElementById('col-' + r.bracket + r.tour); if (c) c.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'start' }); },
-      }, r.label))),
+      el('label', { class: 'muted small', style: 'align-self:center' }, 'Aller au tour :'),
+      (() => {
+        const sel = el('select', {
+          class: 'round-select',
+          onchange: (e) => {
+            const id = e.target.value;
+            const c = document.getElementById(id);
+            if (c) c.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'start' });
+            e.target.value = '';
+          },
+        },
+          el('option', { value: '' }, '— Choisir un tour —'),
+          ...t.rounds.map(r => el('option', { value: 'col-' + r.bracket + r.tour }, `${r.label} · race to ${r.manches}`)));
+        return sel;
+      })())),
     el('div', { class: 'view-switch' },
       el('button', { class: viewMode === 'bracket' ? '' : 'secondary', onclick: () => switchView('bracket') }, '🗺 Bracket'),
       el('button', { class: viewMode === 'liste' ? '' : 'secondary', onclick: () => switchView('liste') }, '📋 Liste'))));
