@@ -189,7 +189,7 @@ app.get('/api/stats-joueurs', (req, res) => {
            COUNT(DISTINCT m.id) joues,
            SUM(CASE WHEN m.gagnant_id IS NOT NULL AND (m.joueur1_id = j.id OR m.joueur2_id = j.id) AND m.gagnant_id = j.id THEN 1 ELSE 0 END) gagnes,
            COUNT(DISTINCT t.id) tournois,
-           SUM(CASE WHEN t.champion_id = j.id THEN 1 ELSE 0 END) titres
+           COUNT(DISTINCT CASE WHEN t.champion_id = j.id THEN t.id END) titres
     FROM joueur j
     LEFT JOIN match m ON m.tournoi_id = j.tournoi_id AND (m.joueur1_id = j.id OR m.joueur2_id = j.id) AND m.etat IN ('termine', 'forfait')
     LEFT JOIN tournoi t ON t.id = j.tournoi_id
