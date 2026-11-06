@@ -233,13 +233,8 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
 @media (max-width: 700px) {
   .nav-burger, .nav-login { padding: 7px 10px; font-size: 14px; }
   header.top { flex-wrap: wrap; }
-  /* bottom sheet plein écran bas : fiable sur iOS/Android */
-  .nav-dropdown.open {
-    position: fixed !important; left: 8px !important; right: 8px !important; bottom: 8px !important; top: auto !important;
-    min-width: 0; max-height: 70vh; overflow-y: auto;
-    border-radius: 16px; padding: 10px; z-index: 9999;
-    box-shadow: 0 -10px 40px rgba(0,0,0,.6);
-  }
+  /* mobile: vrai dropdown sous le bouton, largeur écran, liens tactiles */
+  .nav-dropdown.open { min-width: 0; width: min(260px, calc(100vw - 16px)); max-height: 70vh; overflow-y: auto; z-index: 9999; }
   .nav-dropdown.open a { padding: 13px 12px; font-size: 16px; }
   .nav-scrim { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9998; }
   .nav-scrim.open { display: block; }

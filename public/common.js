@@ -63,7 +63,8 @@ function nav(active) {
     // positionner le dropdown sous le bouton (fixed)
     const r = btn.getBoundingClientRect();
     drop.style.top = (r.bottom + window.scrollY + 6) + 'px';
-    drop.style.left = Math.max(8, r.right + window.scrollX - 220) + 'px';
+    const w = Math.min(260, window.innerWidth - 16);
+    drop.style.left = Math.max(8, Math.min(r.right + window.scrollX - w, window.innerWidth - w - 8)) + 'px';
     drop.classList.add('open'); scrim.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
   });
   scrim.addEventListener('click', fermer);
