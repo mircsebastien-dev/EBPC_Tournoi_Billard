@@ -691,9 +691,9 @@ app.get('/api/joueur/:id/historique', (req, res) => {
     LEFT JOIN joueur j1 ON j1.id = m.joueur1_id
     LEFT JOIN joueur j2 ON j2.id = m.joueur2_id
     LEFT JOIN joueur gw ON gw.id = m.gagnant_id
-    WHERE (m.joueur1_id = ? OR m.joueur2_id = ?) AND m.etat IN ('termine', 'forfait')
+    WHERE (m.joueur1_id IN (${phH}) OR m.joueur2_id IN (${phH})) AND m.etat IN ('termine', 'forfait')
     ORDER BY m.ended_at DESC, m.id DESC
-  `).all(id, id);
+  `).all(...idsH, ...idsH);
   res.json({
     joueur: j,
     historique: rows.map(m => ({
@@ -703,7 +703,6 @@ app.get('/api/joueur/:id/historique', (req, res) => {
       tournoi_date: m.tournoi_date,
       tournoi_statut: m.tournoi_statut,
       date: m.ended_at || m.started_at,
-      victoire: idsH.includes(m.gagnant_id),
       adversaire: idsH.includes(m.joueur1_id) ? m.j2_pseudo : m.j1_pseudo,
       adversaire_id: idsH.includes(m.joueur1_id) ? m.joueur2_id : m.joueur1_id,
       moi: idsH.includes(m.joueur1_id) ? m.score1 : m.score2,
