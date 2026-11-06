@@ -1,9 +1,6 @@
 app = "ebpc-tournoi-billard"
 primary_region = "cdg"
 
-[build]
-  builder = "paketobuildpacks/builder:base"
-
 [env]
   DB_PATH = "/data/tournoi.db"
   PORT = "3000"
