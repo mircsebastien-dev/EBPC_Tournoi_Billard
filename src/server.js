@@ -712,7 +712,8 @@ app.use((err, req, res, next) => {
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`EBPC Tournoi Billard démarré sur le port ${PORT}`);
-    console.log(`PIN admin par défaut: ${ADMIN_PIN} (à changer via ADMIN_PIN)`);
+    // JAMAIS de log du PIN en clair (fuite dans les logs Fly/Render)
+    console.log(process.env.ADMIN_PIN ? 'PIN admin: défini via ADMIN_PIN (secret)' : 'PIN admin: non défini, valeur par défaut active -> définis ADMIN_PIN !');
   });
 }
 
