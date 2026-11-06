@@ -92,7 +92,11 @@ function terminerMatch(matchId, gagnantId, perdantId, raison) {
   const m = matchById(matchId);
   db.prepare(`UPDATE match SET gagnant_id = ?, etat = 'termine', ended_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`)
     .run(gagnantId, matchId);
-  insererEvent(matchId, gagnantId, raison === 'forfait' ? 'forfait' : 'manche', { detail: raison || 'distance atteinte' });
+  // ne PAS re-loguer la manche gagnante si elle vient d'être loguée (runout/manche) -> sinon double comptage dans les stats
+  const dernier = db.prepare(`SELECT type, joueur_id FROM match_event WHERE match_id = ? ORDER BY id DESC LIMIT 1`).get(matchId);
+  if (!(dernier && (dernier.type === 'manche' || dernier.type === 'runout') && dernier.joueur_id === gagnantId)) {
+    insererEvent(matchId, gagnantId, raison === 'forfait' ? 'forfait' : 'manche', { detail: raison || 'distance atteinte' });
+  }
   propagerGagnant(matchId, gagnantId);
   propagerPerdant(matchId, perdantId);
   verifierFinTournoi(matchById(matchId));

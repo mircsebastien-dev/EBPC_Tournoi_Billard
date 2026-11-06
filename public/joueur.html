@@ -30,6 +30,7 @@ async function init() {
         el('span', { class: 'chip' }, `🏆 ${s.gagnes} gagnés`),
         el('span', { class: 'chip' }, `🎱 ${s.joues} joués`),
         el('span', { class: 'chip' }, `❌ ${s.perdus} perdus`),
+        s.enCours ? el('span', { class: 'chip' }, `🔴 ${s.enCours} en cours`) : null,
         el('span', { class: 'chip' }, `📊 ${s.winrate}% victoires`))));
     main.append(el('div', { class: 'panel' },
       el('h2', {}, '📈 Statistiques'),

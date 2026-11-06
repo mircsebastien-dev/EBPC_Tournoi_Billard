@@ -221,14 +221,19 @@ app.get('/api/stats-joueurs', (req, res) => {
   `).all();
   const evAgg = db.prepare(`
     SELECT e.joueur_id,
-           SUM(CASE WHEN e.type IN ('manche','runout') THEN 1 ELSE 0 END) manches,
            SUM(CASE WHEN e.type = 'runout' THEN 1 ELSE 0 END) runouts
     FROM match_event e GROUP BY e.joueur_id
   `).all().reduce((a, r) => (a[r.joueur_id] = r, a), {});
+  // manches gagnées par joueur = somme de ses scores dans ses matchs (évite le double comptage runout+manche)
+  const manchesAgg = db.prepare(`
+    SELECT m.joueur1_id jid, SUM(m.score1) s FROM match m WHERE m.joueur1_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur1_id
+    UNION ALL
+    SELECT m.joueur2_id jid, SUM(m.score2) s FROM match m WHERE m.joueur2_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur2_id
+  `).all().reduce((a, r) => (a[r.jid] = (a[r.jid] || 0) + (r.s || 0), a), {});
   res.json({ joueurs: rows.map(r => ({
     id: r.id,
     pseudo: r.pseudo,
-    manches: evAgg[r.id] ? evAgg[r.id].manches : 0,
+    manches: manchesAgg[r.id] || 0,
     runouts: evAgg[r.id] ? evAgg[r.id].runouts : 0,
     joues: r.joues,
     gagnes: r.gagnes || 0,
@@ -645,26 +650,18 @@ app.get('/api/joueur/:id/stats', (req, res) => {
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
   const { ids } = idsMemeJoueur(id);
   const ph = ids.map(() => '?').join(',');
-  const matchs = db.prepare(`SELECT * FROM match WHERE (joueur1_id IN (${ph}) OR joueur2_id IN (${ph})) AND etat IN ('termine', 'forfait', 'en_cours')`).all(...ids, ...ids);
+  const matchs = db.prepare(`SELECT * FROM match WHERE (joueur1_id IN (${ph}) OR joueur2_id IN (${ph}))`).all(...ids, ...ids);
   const evs = db.prepare(`SELECT e.type, e.detail, e.match_id, m.tournoi_id FROM match_event e JOIN match m ON m.id = e.match_id WHERE e.joueur_id IN (${ph})`).all(...ids);
-  const manches = evs.filter(e => e.type === 'manche' || e.type === 'runout').length;
+  // manches gagnées = somme des scores du joueur (fiable, pas de double comptage runout+manche)
+  const manches = matchs.reduce((a, m) => a + (ids.includes(m.joueur1_id) ? m.score1 : 0) + (ids.includes(m.joueur2_id) ? m.score2 : 0), 0);
   const runouts = evs.filter(e => e.type === 'runout');
   const casse = runouts.filter(e => { try { return JSON.parse(e.detail || '{}').kind === 'casse'; } catch { return false; } }).length;
   const reprise = runouts.length - casse;
-  const gagnes = matchs.filter(m => ids.includes(m.gagnant_id)).length;
-  const joues = matchs.length;
-  const parTournoi = {};
-  const statutsT = {};
-  for (const tr of db.prepare('SELECT id, nom, statut, champion_id FROM tournoi').all()) statutsT[tr.id] = tr;
-  for (const m of matchs) {
-    const t = parTournoi[m.tournoi_id] = parTournoi[m.tournoi_id] || { joues: 0, gagnes: 0, enCours: 0 };
-    t.joues++; if (m.gagnant_id === id) t.gagnes++; if (m.etat === 'en_cours') t.enCours++;
-  }
-  for (const tid of Object.keys(parTournoi)) {
-    const tr = statutsT[tid];
-    if (tr) { parTournoi[tid].nom = tr.nom; parTournoi[tid].statut = tr.statut; parTournoi[tid].champion = tr.champion_id === id; }
-  }
-  res.json({ joueur: j, joues, gagnes, perdus: joues - gagnes, manches, runouts: runouts.length, casse, reprise, winrate: joues ? Math.round(100 * gagnes / joues) : 0, parTournoi });
+  const termines = matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait');
+  const gagnes = termines.filter(m => ids.includes(m.gagnant_id)).length;
+  const joues = termines.length;
+  const enCours = matchs.filter(m => m.etat === 'en_cours').length;
+  res.json({ joueur: j, joues, gagnes, perdus: joues - gagnes, enCours, manches, runouts: runouts.length, casse, reprise, winrate: joues ? Math.round(100 * gagnes / joues) : 0 });
 });
 
 app.post('/api/match/:id/retirer', (req, res) => {
