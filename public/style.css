@@ -230,4 +230,17 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
 .nav-dropdown a { padding: 9px 12px; border-radius: 8px; text-decoration: none; color: var(--text); font-weight: 600; }
 .nav-dropdown a:hover, .nav-dropdown a.active { background: rgba(255,46,136,.12); color: var(--pink-soft); }
 .nav-login { padding: 8px 14px; border-radius: 10px; background: var(--pink); color: #fff !important; font-weight: 800; text-decoration: none; }
-@media (max-width: 700px) { .nav-dropdown { min-width: 170px; right: 0; } .nav-burger, .nav-login { padding: 7px 10px; font-size: 14px; } header.top { flex-wrap: wrap; } }
+@media (max-width: 700px) {
+  .nav-burger, .nav-login { padding: 7px 10px; font-size: 14px; }
+  header.top { flex-wrap: wrap; }
+  /* bottom sheet plein écran bas : fiable sur iOS/Android */
+  .nav-dropdown.open {
+    position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto;
+    min-width: 0; max-height: 70vh; overflow-y: auto;
+    border-radius: 16px; padding: 10px; z-index: 9999;
+    box-shadow: 0 -10px 40px rgba(0,0,0,.6);
+  }
+  .nav-dropdown.open a { padding: 13px 12px; font-size: 16px; }
+  .nav-scrim { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9998; }
+  .nav-scrim.open { display: block; }
+}
