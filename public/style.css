@@ -220,3 +220,14 @@ table.audit th { color: var(--muted); }
 .round-link:hover { border-color: var(--pink); color: var(--pink-soft); }
 .legend-bottom { margin: 18px 0 8px; opacity: .85; }
 .round-select { min-width: 220px; max-width: 100%; }
+/* nav compacte : ☰ menu déroulant + bouton compte visible */
+nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+.nav-menu { position: relative; }
+.nav-menu summary { list-style: none; cursor: pointer; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-weight: 700; user-select: none; }
+.nav-menu summary::-webkit-details-marker { display: none; }
+.nav-menu summary:hover { border-color: var(--pink); }
+.nav-dropdown { position: absolute; right: 0; top: calc(100% + 6px); min-width: 200px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 100; }
+.nav-dropdown a { padding: 9px 12px; border-radius: 8px; text-decoration: none; color: var(--text); font-weight: 600; }
+.nav-dropdown a:hover, .nav-dropdown a.active { background: rgba(255,46,136,.12); color: var(--pink-soft); }
+.nav-login { padding: 8px 14px; border-radius: 10px; background: var(--pink); color: #fff !important; font-weight: 800; text-decoration: none; }
+@media (max-width: 700px) { .nav-dropdown { min-width: 170px; } .nav-menu summary, .nav-login { padding: 7px 10px; font-size: 14px; } }

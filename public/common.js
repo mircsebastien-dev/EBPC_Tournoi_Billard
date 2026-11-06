@@ -39,15 +39,24 @@ function fmtDuree(s) {
 }
 
 function nav(active) {
+  const links = [
+    ['/', 'home', '🏠 Tournoi'],
+    ['/tableau.html', 'tableau', '🗺️ Tableau'],
+    ['/tv.html', 'tv', '📺 TV'],
+    ['/suivi.html', 'joueur', '🎱 Joueur'],
+    ['/stats.html', 'stats', '📊 Stats'],
+    ['/historique.html', 'hist', '🗂 Historique'],
+    ['/admin.html', 'admin', '⚙️ Table de marque'],
+  ];
+  const menu = el('details', { class: 'nav-menu' },
+    el('summary', {}, '☰ Menu'),
+    el('div', { class: 'nav-dropdown' },
+      ...links.map(([href, key, label]) => el('a', { href, class: active === key ? 'active' : null }, label))));
+  // fermer le menu après un clic sur un lien
+  menu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { menu.removeAttribute('open'); }));
   return el('nav', {},
-    el('a', { href: '/', class: active === 'home' ? 'active' : null }, 'Tournoi'),
-    el('a', { href: '/tableau.html', class: active === 'tableau' ? 'active' : null }, '🗺 Tableau'),
-    el('a', { href: '/tv.html', class: active === 'tv' ? 'active' : null }, '📺 TV'),
-    el('a', { href: '/suivi.html', class: active === 'joueur' ? 'active' : null }, 'Joueur'),
-    el('a', { href: '/compte.html', class: active === 'compte' ? 'active' : null }, '👤 Compte'),
-    el('a', { href: '/stats.html', class: active === 'stats' ? 'active' : null }, '📊 Stats'),
-    el('a', { href: '/historique.html', class: active === 'hist' ? 'active' : null }, '🗂 Historique'),
-    el('a', { href: '/admin.html', class: active === 'admin' ? 'active' : null }, 'Table de marque'));
+    menu,
+    el('a', { href: '/compte.html', class: 'nav-login' + (active === 'compte' ? ' active' : ''), title: 'Mon compte' }, '👤 Compte'));
 }
 
 function codeMatch(m) {
