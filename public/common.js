@@ -49,20 +49,29 @@ function nav(active) {
     ['/admin.html', 'admin', '⚙️ Table de marque'],
   ];
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
+  // dropdown + scrim dans le BODY (hors du header sticky) pour un z-index fiable sur iOS
   const drop = el('div', { class: 'nav-dropdown', role: 'menu' },
     ...links.map(([href, key, label]) => el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)));
   const scrim = el('div', { class: 'nav-scrim' });
-  const wrap = el('div', { class: 'nav-menu' }, btn, drop);
+  document.body.appendChild(drop);
+  document.body.appendChild(scrim);
+  const wrap = el('div', { class: 'nav-menu' }, btn);
   const fermer = () => { drop.classList.remove('open'); scrim.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
-  const ouvrir = () => { drop.classList.add('open'); scrim.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); };
-  btn.addEventListener('click', (e) => { e.stopPropagation(); drop.classList.contains('open') ? fermer() : ouvrir(); });
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (drop.classList.contains('open')) return fermer();
+    // positionner le dropdown sous le bouton (fixed)
+    const r = btn.getBoundingClientRect();
+    drop.style.top = (r.bottom + window.scrollY + 6) + 'px';
+    drop.style.left = Math.max(8, r.right + window.scrollX - 220) + 'px';
+    drop.classList.add('open'); scrim.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
+  });
   scrim.addEventListener('click', fermer);
   scrim.addEventListener('touchstart', fermer, { passive: true });
   drop.querySelectorAll('a').forEach(a => a.addEventListener('click', fermer));
-  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) fermer(); });
-  document.addEventListener('touchstart', (e) => { if (!wrap.contains(e.target) && !scrim.contains(e.target)) fermer(); }, { passive: true });
-  // le scrim doit être dans le body pour couvrir tout l'écran en fixed
-  document.body.appendChild(scrim);
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target) && !drop.contains(e.target)) fermer(); });
+  document.addEventListener('touchstart', (e) => { if (!wrap.contains(e.target) && !drop.contains(e.target) && !scrim.contains(e.target)) fermer(); }, { passive: true });
+  window.addEventListener('resize', fermer);
   return el('nav', {}, wrap, el('a', { href: '/compte.html', class: 'nav-login' + (active === 'compte' ? ' active' : ''), title: 'Mon compte' }, '👤 Compte'));
 }
 

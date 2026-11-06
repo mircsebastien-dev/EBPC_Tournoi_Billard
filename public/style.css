@@ -225,7 +225,7 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
 .nav-menu { position: relative; }
 .nav-burger { cursor: pointer; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); font-weight: 700; font-size: 15px; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .nav-burger:hover { border-color: var(--pink); }
-.nav-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 6px); min-width: 200px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px; flex-direction: column; gap: 2px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 1000; }
+.nav-dropdown { display: none; position: fixed; min-width: 220px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px; flex-direction: column; gap: 2px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 1000; }
 .nav-dropdown.open { display: flex; }
 .nav-dropdown a { padding: 9px 12px; border-radius: 8px; text-decoration: none; color: var(--text); font-weight: 600; }
 .nav-dropdown a:hover, .nav-dropdown a.active { background: rgba(255,46,136,.12); color: var(--pink-soft); }
@@ -235,7 +235,7 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
   header.top { flex-wrap: wrap; }
   /* bottom sheet plein écran bas : fiable sur iOS/Android */
   .nav-dropdown.open {
-    position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto;
+    position: fixed !important; left: 8px !important; right: 8px !important; bottom: 8px !important; top: auto !important;
     min-width: 0; max-height: 70vh; overflow-y: auto;
     border-radius: 16px; padding: 10px; z-index: 9999;
     box-shadow: 0 -10px 40px rgba(0,0,0,.6);
