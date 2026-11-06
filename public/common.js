@@ -101,7 +101,7 @@ function matchCard(m, opts = {}) {
       m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : null,
       m.table != null ? el('span', { class: 'table-badge' }, `🎱 Table ${m.table}`) : null,
       el('span', {}, `race to ${m.manches}`),
-      m.started_at ? el('span', {}, `⏱ début ${m.started_at.slice(11, 16)}`) : null,
+      m.started_at ? el('span', {}, `⏱ début ${fmtHeureSql(m.started_at)}`) : null,
       m.duree_s != null ? el('span', {}, `⏳ ${fmtDuree(m.duree_s)}`) : null,
       m.gagnant ? el('span', { style: 'color:var(--green);font-weight:700' }, `🏆 ${m.gagnant}`) : null),
       opts.extra || null);
@@ -302,6 +302,21 @@ function renderStatsPanel(stats, titre = '📊 Statistiques', topN = 10) {
           el('td', {}, p.serie > 0 ? `🔥 ${p.serie}V` : p.serie < 0 ? `${-p.serie}D` : '—'))))));
   }
   return panels;
+}
+
+// Convertit une date SQL stockée en UTC ("YYYY-MM-DD HH:MM:SS") en heure locale navigateur
+function dateSqlUtc(utc) { return new Date(String(utc).replace(' ', 'T') + 'Z'); }
+function fmtHeureSql(utc) {
+  if (!utc) return '';
+  const d = dateSqlUtc(utc);
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getHours())}h${p(d.getMinutes())}`;
+}
+function fmtDateHeureSql(utc) {
+  if (!utc) return '';
+  const d = dateSqlUtc(utc);
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} à ${p(d.getHours())}h${p(d.getMinutes())}`;
 }
 
 function fmtDateHeure(dh) {

@@ -49,7 +49,7 @@ function render() {
       ? el('div', { class: 'table-info' }, `📍 Va à la table n° ${m.table}`)
       : el('p', { class: 'muted', style: 'text-align:center' }, 'En attente de la table…'),
     el('div', { class: 'muted small', style: 'text-align:center' },
-      m.started_at ? `Début : ${m.started_at.slice(11, 16)}` : '',
+      m.started_at ? `Début : ${fmtHeureSql(m.started_at)}` : '',
       m.started_at && m.ended_at && m.duree_s != null ? ` · Durée : ${fmtDuree(m.duree_s)}` : ''),
     el('div', { class: 'scoreboard' },
       el('div', {}, el('div', { class: 'p' }, m.joueur1 ? el('a', { href: `/joueur.html?id=${m.joueur1.id}`, style: 'color:inherit;text-decoration:none' }, m.joueur1.pseudo) : '—'), el('div', { class: 's' }, String(m.score1))),

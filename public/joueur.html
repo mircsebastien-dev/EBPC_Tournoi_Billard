@@ -46,7 +46,7 @@ async function init() {
         el('table', { class: 'audit' },
           el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Tournoi'), el('th', {}, 'Match'), el('th', {}, 'Adversaire'), el('th', {}, 'Score'), el('th', {}, 'Résultat')),
           ...h.historique.map(x => el('tr', {},
-            el('td', {}, (x.date || '').slice(0, 16).replace('T', ' ')),
+            el('td', {}, fmtDateHeureSql(x.date || '')),
             el('td', {}, x.tournoi + (x.tournoi_statut === 'en_cours' ? ' 🔴' : '')),
             el('td', { class: 'code-match' }, x.code),
             el('td', {}, x.adversaire_id ? el('a', { href: `/joueur.html?id=${x.adversaire_id}`, style: 'color:var(--pink-soft)' }, x.adversaire || '—') : '—'),
