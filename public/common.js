@@ -126,9 +126,9 @@ function renderBracket(container, t, opts = {}) {
   const bracket = el('div', { class: 'bracket', id: 'bracket' });
   const svg = el('svg', { id: 'bracket-svg' });
   bracket.append(svg);
-  const NODE_H = 80; // hauteur d'un nœud de match
-  const GAP = 16;
-  const SLOT_H = NODE_H + GAP; // 96 : hauteur d'un slot de base
+  const NODE_H = 104; // hauteur d'un nœud de match (meta peut faire 2 lignes quand terminé)
+  const GAP = 14;
+  const SLOT_H = NODE_H + GAP; // 118 : hauteur d'un slot de base
   // Le WB tour 1 (au centre) est la référence resserrée (level 0) ; l'escalier s'ouvre
   // vers la droite (WB2, WB3, F...) et vers la gauche en miroir (LB1, LB2...).
   const k = t.tournoi.format === 'double' ? t.tournoi.dko_tours : 0;

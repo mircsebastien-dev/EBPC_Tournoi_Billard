@@ -14,7 +14,8 @@
 .bracket-col.lb h3 { color: #ff8fb8; }
 .bracket-col.wb h3 { color: var(--pink-soft); }
 .bracket-col.finale h3 { color: var(--gold); }
-.node { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin: 6px 0; font-size: 14px; min-width: 200px; }
+.node { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin: 0; font-size: 14px; min-width: 200px; height: 104px; overflow: hidden; box-sizing: border-box; }
+.node .meta { display: flex; flex-wrap: wrap; gap: 4px; font-size: 11px; margin-top: 4px; }
 .node.live { border-color: var(--pink); box-shadow: 0 0 14px var(--pink-glow); }
 .node.done { opacity: 0.75; }
 .node.attente { border-style: dashed; opacity: 0.85; background: repeating-linear-gradient(45deg, var(--panel), var(--panel) 8px, var(--bg2) 8px, var(--bg2) 16px); }
