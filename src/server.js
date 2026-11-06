@@ -183,6 +183,8 @@ function etatGlobal(req) {
     historique: vueTournoiListe().filter(t => t.statut === 'termine'),
     auto: getSetting('auto_on') === '1',
     table_pref: getSetting('table_pref') || '',
+    tables_reservees: getSetting('tables_reservees') || '1,2',
+    reservees_tour: getSetting('reservees_tour') || '',
     compte: req && req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo } : null,
   };
 }
@@ -267,6 +269,14 @@ app.post('/api/admin/auto', requireAdmin, (req, res) => {
     // ex: "3,4,5,6,7,8,1,2" -> on ne garde que les numéros valides, séparés par des virgules
     const nums = req.body.table_pref.split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
     setSetting('table_pref', [...new Set(nums)].join(','));
+  }
+  if (typeof req.body.tables_reservees === 'string') {
+    const nums = req.body.tables_reservees.split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
+    setSetting('tables_reservees', [...new Set(nums)].join(','));
+  }
+  if (req.body.reservees_tour !== undefined) {
+    const n = parseInt(req.body.reservees_tour, 10);
+    setSetting('reservees_tour', Number.isInteger(n) && n > 0 ? String(n) : '');
   }
   logAudit('auto_toggle', 'tournoi', null, { on });
   if (on) {

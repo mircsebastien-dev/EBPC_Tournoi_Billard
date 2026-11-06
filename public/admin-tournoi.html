@@ -85,7 +85,15 @@ function renderPanneauAuto() {
       el('div', { style: 'flex:1 1 auto' },
         el('label', {}, 'Ordre des tables (mode auto)'),
         el('input', { id: 'tablepref', value: (adminState && adminState.table_pref) || '', placeholder: 'ex: 3,4,5,6,7,8,1,2', maxlength: 100 })),
-      el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: sauverTablePref }, 'Enregistrer l\'ordre')))));
+      el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: sauverTablePref }, 'Enregistrer l\'ordre'))),
+    el('div', { class: 'row', style: 'margin-top:8px' },
+      el('div', { style: 'flex:1 1 auto' },
+        el('label', {}, 'Tables réservées en phase finale (jamais utilisées en auto à partir des quarts)'),
+        el('input', { id: 'tablesres', value: (adminState && adminState.tables_reservees) || '1,2', placeholder: 'ex: 1,2 (vide = aucune)', maxlength: 50 })),
+      el('div', {},
+        el('label', {}, 'Réservées à partir du tour n° (vide = quarts)'),
+        el('input', { id: 'restour', value: (adminState && adminState.reservees_tour) || '', placeholder: 'ex: 2', style: 'width:70px', type: 'number', min: 1 })),
+      el('div', { style: 'flex:0 0 auto;align-self:flex-end' }, el('button', { class: 'secondary', onclick: sauverReservees }, 'Enregistrer')))));
 }
 
 function renderInscriptions(t) {
@@ -290,6 +298,18 @@ function renderTournoi(t) {
 }
 
 let autoOn = false;
+async function sauverReservees() {
+  try {
+    await api('/api/admin/auto', { method: 'POST', body: JSON.stringify({
+      on: !!(adminState && adminState.auto),
+      table_pref: val('tablepref'),
+      tables_reservees: val('tablesres'),
+      reservees_tour: val('restour'),
+    }) });
+    alert('Enregistré ✅');
+  } catch (e) { alert(e.message); }
+}
+
 async function sauverTablePref() {
   try {
     await adminApi('/api/admin/auto', { method: 'POST', body: JSON.stringify({ on: autoOn, table_pref: val('tablepref') }) });

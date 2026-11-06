@@ -166,7 +166,7 @@ function lancerMatch(matchId, tableId) {
   if (m.joueur1_id == null || m.joueur2_id == null) throw httpError(409, 'Match incomplet (joueur manquant)');
   if (m.etat !== 'pret' && m.etat !== 'prevu') throw httpError(409, 'Match non lançable dans cet état');
   if (tableId == null) {
-    const libre = tableLibre(m.tournoi_id, matchId);
+    const libre = tableLibrePref(m.tournoi_id, matchId); // pref + tables réservées en phase finale
     tableId = libre ? libre.id : null;
   } else {
     const existe = db.prepare('SELECT id FROM table_billard WHERE id = ? AND tournoi_id = ?').get(tableId, m.tournoi_id);
@@ -287,14 +287,29 @@ function prochainMatchAuto(tournoiId) {
   return rows[0] || null;
 }
 
-// Table libre en respectant l'ordre préférentiel (setting table_pref, ex "3,4,5,6,7,8,1,2")
-function tableLibrePref(tournoiId, exclureMatchId) {
+// Tables réservées (setting tables_reservees, ex "1,2") à partir d'un tour (défaut: quarts = log2(taille)-2).
+// Ex 16 joueurs: quarts = tour 2 -> à partir de ce tour T1/T2 ne sont plus utilisées (sauf si plus assez de tables ailleurs)
+function tablesReserveesAuTour(tournoiId, m) {
   const { getSetting } = require('./db');
+  const nums = (getSetting('tables_reservees') || '1,2').split(',').map(x => parseInt(x.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
+  if (!nums.length || !m) return [];
+  const t = db.prepare('SELECT taille FROM tournoi WHERE id = ?').get(tournoiId);
+  const quarts = Math.max(1, Math.round(Math.log2(t.taille)) - 2);
+  const seuil = parseInt(getSetting('reservees_tour') || '', 10) || quarts;
+  const phaseFinale = m.bracket === 'F' || m.tour >= seuil;
+  return phaseFinale ? nums : [];
+}
+
+// Table libre en respectant l'ordre préférentiel (setting table_pref, ex "3,4,5,6,7,8,1,2")
+function tableLibrePref(tournoiId, matchId) {
+  const { getSetting } = require('./db');
+  const m = matchId ? db.prepare('SELECT bracket, tour FROM match WHERE id = ?').get(matchId) : null;
+  const reservees = tablesReserveesAuTour(tournoiId, m);
   const occupees = db.prepare(`
     SELECT table_id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id IS NOT NULL
   `).all(tournoiId).map(r => r.table_id);
   const toutes = db.prepare(`SELECT id, numero FROM table_billard WHERE tournoi_id = ? ORDER BY numero`).all(tournoiId);
-  const libres = toutes.filter(tb => !occupees.includes(tb.id));
+  const libres = toutes.filter(tb => !occupees.includes(tb.id) && !reservees.includes(tb.numero));
   const pref = (getSetting('table_pref') || '').split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
   if (pref.length === 0) return libres[0] || null;
   libres.sort((a, b) => {
