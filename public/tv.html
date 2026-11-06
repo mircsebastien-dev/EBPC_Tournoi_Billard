@@ -59,6 +59,16 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 </header>
 <main id="slides"></main>
 <div class="tv-dots" id="dots"></div>
+<div class="tv-qr" title="Scanner pour ouvrir le site sur ton téléphone">
+  <img id="qr" alt="QR code du site" width="110" height="110">
+  <div class="tv-qr-label">📱 Scanner moi<br><span id="qr-url"></span></div>
+</div>
+<script>
+  // URL recalculée selon l'hébergement (Render, Fly, local...)
+  const siteUrl = location.origin;
+  document.getElementById('qr').src = '/api/qrcode.svg?text=' + encodeURIComponent(siteUrl);
+  document.getElementById('qr-url').textContent = siteUrl.replace(/^https?:\/\//, '');
+</script>
 <div id="celebration"><div class="felicitations">🎉 Félicitations ! 🎉</div><div class="winner" id="cel-winner"></div><div class="score-line" id="cel-score"></div></div>
 <div id="rotate-overlay"><div class="big">🔄</div><div class="big" style="font-size:clamp(24px,5vw,44px);font-weight:800">Tourne l'écran en paysage</div><div class="small">La TV Pink City est pensée pour le mode paysage</div></div>
 <script src="/common.js"></script>

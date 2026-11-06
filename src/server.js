@@ -5,6 +5,7 @@ const { db, setSetting, getSetting, logAudit } = require('./db');
 const bracket = require('./bracket');
 const M = require('./matchs');
 const comptes = require('./comptes');
+const QRCode = require('qrcode');
 
 const app = express();
 app.use(express.json());
@@ -689,6 +690,16 @@ app.get('/api/joueur/:id/historique', (req, res) => {
 });
 
 comptes.registerCompteRoutes(app, { baseUrl: BASE_URL, tournoiActif, majEtBroadcast, vueMatch });
+
+app.get('/api/qrcode.svg', async (req, res) => {
+  const text = String(req.query.text || BASE_URL).slice(0, 500);
+  try {
+    const svg = await QRCode.toString(text, { type: 'svg', margin: 1, color: { dark: '#0b0b10', light: '#ffffff' } });
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(svg);
+  } catch (e) { res.status(500).json({ error: 'QR invalide' }); }
+});
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Route inconnue' }));
 
