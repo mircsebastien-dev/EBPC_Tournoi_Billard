@@ -48,15 +48,22 @@ function nav(active) {
     ['/historique.html', 'hist', '🗂 Historique'],
     ['/admin.html', 'admin', '⚙️ Table de marque'],
   ];
-  const menu = el('details', { class: 'nav-menu' },
-    el('summary', {}, '☰ Menu'),
-    el('div', { class: 'nav-dropdown' },
-      ...links.map(([href, key, label]) => el('a', { href, class: active === key ? 'active' : null }, label))));
-  // fermer le menu après un clic sur un lien
-  menu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { menu.removeAttribute('open'); }));
-  return el('nav', {},
-    menu,
-    el('a', { href: '/compte.html', class: 'nav-login' + (active === 'compte' ? ' active' : ''), title: 'Mon compte' }, '👤 Compte'));
+  const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
+  const drop = el('div', { class: 'nav-dropdown' },
+    ...links.map(([href, key, label]) => el('a', { href, class: active === key ? 'active' : null }, label)));
+  const wrap = el('div', { class: 'nav-menu' }, btn, drop);
+  const fermer = () => { drop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = drop.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  // clic sur un lien -> fermer + naviguer
+  drop.querySelectorAll('a').forEach(a => a.addEventListener('click', fermer));
+  // clic ailleurs -> fermer
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) fermer(); });
+  document.addEventListener('touchstart', (e) => { if (!wrap.contains(e.target)) fermer(); }, { passive: true });
+  return el('nav', {}, wrap, el('a', { href: '/compte.html', class: 'nav-login' + (active === 'compte' ? ' active' : ''), title: 'Mon compte' }, '👤 Compte'));
 }
 
 function codeMatch(m) {
