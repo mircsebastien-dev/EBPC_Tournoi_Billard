@@ -59,6 +59,17 @@ function distancesMap(tournoiId) {
   return map;
 }
 
+// Tous les ids joueur d'un même joueur (même pseudo, ou même compte) -> agrège tous les tournois
+function idsMemeJoueur(id) {
+  const j = db.prepare('SELECT pseudo, compte_id FROM joueur WHERE id = ?').get(id);
+  if (!j) return { pseudo: null, ids: [] };
+  let ids;
+  if (j.compte_id) ids = db.prepare('SELECT id FROM joueur WHERE compte_id = ?').all(j.compte_id).map(r => r.id);
+  else ids = db.prepare('SELECT id FROM joueur WHERE LOWER(pseudo) = LOWER(?)').all(j.pseudo).map(r => r.id);
+  if (!ids.includes(id)) ids.push(id);
+  return { pseudo: j.pseudo, ids };
+}
+
 function vueMatch(m) {
   const cids = m.joueur1_id ? db.prepare('SELECT compte_id FROM joueur WHERE id = ?').get(m.joueur1_id) : null;
   const cids2 = m.joueur2_id ? db.prepare('SELECT compte_id FROM joueur WHERE id = ?').get(m.joueur2_id) : null;
@@ -622,13 +633,15 @@ app.get('/api/joueur/:id/stats', (req, res) => {
   const id = Number(req.params.id);
   const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(id);
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
-  const matchs = db.prepare(`SELECT * FROM match WHERE (joueur1_id = ? OR joueur2_id = ?) AND etat IN ('termine', 'forfait', 'en_cours')`).all(id, id);
-  const evs = db.prepare(`SELECT e.type, e.detail, e.match_id, m.tournoi_id FROM match_event e JOIN match m ON m.id = e.match_id WHERE e.joueur_id = ?`).all(id);
+  const { ids } = idsMemeJoueur(id);
+  const ph = ids.map(() => '?').join(',');
+  const matchs = db.prepare(`SELECT * FROM match WHERE (joueur1_id IN (${ph}) OR joueur2_id IN (${ph})) AND etat IN ('termine', 'forfait', 'en_cours')`).all(...ids, ...ids);
+  const evs = db.prepare(`SELECT e.type, e.detail, e.match_id, m.tournoi_id FROM match_event e JOIN match m ON m.id = e.match_id WHERE e.joueur_id IN (${ph})`).all(...ids);
   const manches = evs.filter(e => e.type === 'manche' || e.type === 'runout').length;
   const runouts = evs.filter(e => e.type === 'runout');
   const casse = runouts.filter(e => { try { return JSON.parse(e.detail || '{}').kind === 'casse'; } catch { return false; } }).length;
   const reprise = runouts.length - casse;
-  const gagnes = matchs.filter(m => m.gagnant_id === id).length;
+  const gagnes = matchs.filter(m => ids.includes(m.gagnant_id)).length;
   const joues = matchs.length;
   const parTournoi = {};
   const statutsT = {};
@@ -654,10 +667,12 @@ app.post('/api/match/:id/retirer', (req, res) => {
 
 app.get('/api/joueur/:id/matchs', (req, res) => {
   const id = Number(req.params.id);
+  const { ids: idsM } = idsMemeJoueur(id);
+  const phM = idsM.map(() => '?').join(',');
   const rows = db.prepare(`
-    SELECT * FROM match WHERE joueur1_id = ? OR joueur2_id = ?
+    SELECT * FROM match WHERE joueur1_id IN (${phM}) OR joueur2_id IN (${phM})
     ORDER BY tournoi_id DESC, CASE bracket WHEN 'WB' THEN 1 WHEN 'LB' THEN 2 ELSE 3 END, tour, position
-  `).all(id, id);
+  `).all(...idsM, ...idsM);
   res.json({ matchs: rows.map(vueMatch) });
 });
 
@@ -665,6 +680,8 @@ app.get('/api/joueur/:id/historique', (req, res) => {
   const id = Number(req.params.id);
   const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(id);
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
+  const { ids: idsH } = idsMemeJoueur(id);
+  const phH = idsH.map(() => '?').join(',');
   const rows = db.prepare(`
     SELECT m.*, t.nom AS tournoi_nom, t.date_heure AS tournoi_date, t.statut AS tournoi_statut,
            j1.pseudo AS j1_pseudo, j2.pseudo AS j2_pseudo,
@@ -686,11 +703,12 @@ app.get('/api/joueur/:id/historique', (req, res) => {
       tournoi_date: m.tournoi_date,
       tournoi_statut: m.tournoi_statut,
       date: m.ended_at || m.started_at,
-      adversaire: m.joueur1_id === id ? m.j2_pseudo : m.j1_pseudo,
-      adversaire_id: m.joueur1_id === id ? m.joueur2_id : m.joueur1_id,
-      moi: m.joueur1_id === id ? m.score1 : m.score2,
-      lui: m.joueur1_id === id ? m.score2 : m.score1,
-      victoire: m.gagnant_id === id,
+      victoire: idsH.includes(m.gagnant_id),
+      adversaire: idsH.includes(m.joueur1_id) ? m.j2_pseudo : m.j1_pseudo,
+      adversaire_id: idsH.includes(m.joueur1_id) ? m.joueur2_id : m.joueur1_id,
+      moi: idsH.includes(m.joueur1_id) ? m.score1 : m.score2,
+      lui: idsH.includes(m.joueur1_id) ? m.score2 : m.score1,
+      victoire: idsH.includes(m.gagnant_id),
       forfait: m.etat === 'forfait',
       gagnant: m.gagnant_pseudo,
       manches: m.manches,
