@@ -55,14 +55,18 @@ function distancesMap(tournoiId) {
 }
 
 function vueMatch(m) {
+  const cids = m.joueur1_id ? db.prepare('SELECT compte_id FROM joueur WHERE id = ?').get(m.joueur1_id) : null;
+  const cids2 = m.joueur2_id ? db.prepare('SELECT compte_id FROM joueur WHERE id = ?').get(m.joueur2_id) : null;
+  m.joueur1_compte_id = cids ? cids.compte_id : null;
+  m.joueur2_compte_id = cids2 ? cids2.compte_id : null;
   return {
     id: m.id,
     tournoi_id: m.tournoi_id,
     bracket: m.bracket,
     tour: m.tour,
     position: m.position,
-    joueur1: m.joueur1_id ? { id: m.joueur1_id, pseudo: M.pseudo(m.joueur1_id) } : null,
-    joueur2: m.joueur2_id ? { id: m.joueur2_id, pseudo: M.pseudo(m.joueur2_id) } : null,
+    joueur1: m.joueur1_id ? { id: m.joueur1_id, pseudo: M.pseudo(m.joueur1_id), compte_id: m.joueur1_compte_id ?? null } : null,
+    joueur2: m.joueur2_id ? { id: m.joueur2_id, pseudo: M.pseudo(m.joueur2_id), compte_id: m.joueur2_compte_id ?? null } : null,
     score1: m.score1,
     score2: m.score2,
     manches: m.manches,
@@ -125,7 +129,7 @@ function calculerStats(tournoiId) {
 
 function vueTournoiComplet(t) {
   if (!t) return null;
-  const joueurs = db.prepare('SELECT id, pseudo, tete_de_serie, statut FROM joueur WHERE tournoi_id = ? ORDER BY pseudo').all(t.id);
+  const joueurs = db.prepare('SELECT id, pseudo, tete_de_serie, statut, compte_id FROM joueur WHERE tournoi_id = ? ORDER BY pseudo').all(t.id);
   const matchs = db.prepare(`SELECT * FROM match WHERE tournoi_id = ? ORDER BY CASE bracket WHEN 'WB' THEN 1 WHEN 'LB' THEN 2 ELSE 3 END, tour, position`).all(t.id);
   const rounds = bracket.listeRounds(t.taille, t.format, t.dko_tours).map(r => ({
     ...r,

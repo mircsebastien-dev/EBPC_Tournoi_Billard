@@ -30,8 +30,10 @@ function render() {
   main.innerHTML = '';
   const m = monMatch();
   if (!m) { main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', {}, 'Match introuvable.'))); return; }
-  const moi = m.joueur1 && m.joueur1.id === joueurId ? m.joueur1 : (m.joueur2 && m.joueur2.id === joueurId ? m.joueur2 : null);
-  const adv = m.joueur1 && m.joueur1.id === joueurId ? m.joueur2 : m.joueur1;
+  const compteId = (state && state.compte && state.compte.id) || 0;
+  const estMoi = (j) => j && (j.id === joueurId || (compteId && j.compte_id === compteId));
+  const moi = estMoi(m.joueur1) ? m.joueur1 : (estMoi(m.joueur2) ? m.joueur2 : null);
+  const adv = estMoi(m.joueur1) ? m.joueur2 : m.joueur1;
   const peutJouer = (m.etat === 'en_cours' || m.etat === 'pret') && moi;
 
   const btnScore = (target, label, plus) => el('button', {
@@ -56,12 +58,12 @@ function render() {
     peutJouer && moi && adv ? el('div', { class: 'score-actions' },
       // aligné avec le scoreboard : joueur1 à gauche, joueur2 à droite
       el('div', { class: 'score-col' },
-        el('div', { class: 'score-col-label' }, `✅ ${m.joueur1.pseudo}${m.joueur1.id === joueurId ? ' (toi)' : ''}`),
+        el('div', { class: 'score-col-label' }, `✅ ${m.joueur1.pseudo}${estMoi(m.joueur1) ? ' (toi)' : ''}`),
         btnScore(m.joueur1.id, '+1 manche', true),
         btnScore(m.joueur1.id, '−1 manche', false),
         btnRunout(m.joueur1.id, 'casse'), btnRunout(m.joueur1.id, 'reprise')),
       el('div', { class: 'score-col' },
-        el('div', { class: 'score-col-label' }, `✅ ${m.joueur2.pseudo}${m.joueur2.id === joueurId ? ' (toi)' : ''}`),
+        el('div', { class: 'score-col-label' }, `✅ ${m.joueur2.pseudo}${estMoi(m.joueur2) ? ' (toi)' : ''}`),
         btnScore(m.joueur2.id, '+1 manche', true),
         btnScore(m.joueur2.id, '−1 manche', false),
         btnRunout(m.joueur2.id, 'casse'), btnRunout(m.joueur2.id, 'reprise')))

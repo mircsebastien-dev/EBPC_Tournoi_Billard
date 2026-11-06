@@ -21,6 +21,11 @@ let joueurId = Number(localStorage.getItem('ebpc_joueur_id') || 0);
 
 function renderSelecteur() {
   main.innerHTML = '';
+  // si un compte est connecté et rattaché à un joueur du tournoi -> auto-sélection
+  if (state && state.compte && state.actif) {
+    const j = state.actif.joueurs.find(x => x.compte_id === state.compte.id);
+    if (j && j.id !== joueurId) { joueurId = j.id; localStorage.setItem('ebpc_joueur_id', String(j.id)); renderMatchs(); return; }
+  }
   if (!state || !state.actif) {
     main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', { class: 'muted' }, 'Aucun tournoi en cours.')));
     return;
@@ -41,7 +46,8 @@ function renderMatchs() {
   const t = state.actif;
   const moi = t.joueurs.find(j => j.id === joueurId);
   if (!moi) { renderSelecteur(); return; }
-  const mesMatchs = t.matchs.filter(m => (m.joueur1 && m.joueur1.id === joueurId) || (m.joueur2 && m.joueur2.id === joueurId));
+  const compteId = (state.compte && state.compte.id) || 0;
+  const mesMatchs = t.matchs.filter(m => (m.joueur1 && (m.joueur1.id === joueurId || (compteId && m.joueur1.compte_id === compteId))) || (m.joueur2 && (m.joueur2.id === joueurId || (compteId && m.joueur2.compte_id === compteId))));
 
   main.append(el('div', { class: 'panel', style: 'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px' },
     el('div', { class: 'hero-title' }, `👋 ${moi.pseudo}`),
