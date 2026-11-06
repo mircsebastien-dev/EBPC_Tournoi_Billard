@@ -73,7 +73,7 @@ async function init() {
     if (mm.matchs && mm.matchs.length) {
       main.append(el('div', { class: 'panel' },
         el('h2', {}, '🎱 Mes matchs'),
-        el('div', { class: 'matchs-grid' }, mm.matchs.slice(0, 12).map(m => matchCard(m)))));
+        el('div', { class: 'matchs-grid' }, mm.matchs.map(m => matchCard(m))))); // tous les matchs, pas de limite
     }
   } else {
     main.append(panelConnexion());
