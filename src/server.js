@@ -6,6 +6,7 @@ const bracket = require('./bracket');
 const M = require('./matchs');
 const comptes = require('./comptes');
 const QRCode = require('qrcode');
+const push = require('./push');
 
 const app = express();
 app.use(express.json());
@@ -177,6 +178,22 @@ function vueTournoiListe() {
   }));
 }
 
+
+// notifie les matchs passés en_cours depuis `avant` (lancement auto)
+function notifierAutoLances(tournoiId, avant) {
+  const rows = db.prepare("SELECT * FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(tournoiId);
+  for (const r of rows) {
+    if (avant.has(r.id)) continue;
+    const m = vueMatch(r);
+    if (!m.joueur1 && !m.joueur2) continue;
+    push.notifierMatchLance(
+      { id: m.id, joueur1_id: m.joueur1 ? m.joueur1.id : null, joueur2_id: m.joueur2 ? m.joueur2.id : null },
+      m.joueur1 ? m.joueur1.pseudo : '—', m.joueur2 ? m.joueur2.pseudo : '—', m.table,
+      `${m.bracket ? m.bracket.toLowerCase() : ''}${m.tour}-${String(m.position).padStart(3, '0')}`
+    );
+  }
+}
+
 function etatGlobal(req) {
   return {
     actif: vueTournoiComplet(tournoiActif()),
@@ -261,7 +278,9 @@ function majEtBroadcast() {
   M.rafraichirPrets();
   const t = tournoiActif();
   if (t && t.statut === 'en_cours') {
+    const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
     const lances = M.autoLancer(t.id);
+    notifierAutoLances(t.id, avant);
     if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances });
   }
   broadcast('update', etatGlobal(null));
@@ -287,7 +306,9 @@ app.post('/api/admin/auto', requireAdmin, (req, res) => {
   if (on) {
     const t = tournoiActif();
     if (t && t.statut === 'en_cours') {
-      const lances = M.autoLancer(t.id);
+      const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
+    const lances = M.autoLancer(t.id);
+    notifierAutoLances(t.id, avant);
       if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances, declencheur: 'activation' });
     }
   }
@@ -556,6 +577,18 @@ app.post('/api/admin/match/:id/lancer', requireAdmin, (req, res) => {
   res.json({ ok: true, match: vueMatch(m) });
 });
 
+  // notif push "à toi de jouer" (fire and forget)
+  try {
+    const mm = vueMatch(db.prepare('SELECT * FROM match WHERE id = ?').get(Number(req.params.id)));
+    if (mm && mm.etat === 'en_cours' && (mm.joueur1 || mm.joueur2)) {
+      push.notifierMatchLance(
+        { id: mm.id, joueur1_id: mm.joueur1 ? mm.joueur1.id : null, joueur2_id: mm.joueur2 ? mm.joueur2.id : null },
+        mm.joueur1 ? mm.joueur1.pseudo : '—', mm.joueur2 ? mm.joueur2.pseudo : '—', mm.table,
+        `${mm.bracket ? mm.bracket.toLowerCase() : ''}${mm.tour}-${String(mm.position).padStart(3, '0')}`
+      );
+    }
+  } catch (e) { console.error('[PUSH]', e.message); }
+
 app.post('/api/admin/match/:id/correction', requireAdmin, (req, res) => {
   const { score1, score2, manches, motif } = req.body;
   const m = M.corrigerScore(Number(req.params.id), Number(score1) || 0, Number(score2) || 0, Number(manches) || 3, motif || '');
@@ -723,6 +756,7 @@ app.get('/api/joueur/:id/historique', (req, res) => {
 });
 
 comptes.registerCompteRoutes(app, { baseUrl: BASE_URL, tournoiActif, majEtBroadcast, vueMatch });
+push.registerPushRoutes(app, { vueMatch });
 
 app.get('/api/qrcode.svg', async (req, res) => {
   const text = String(req.query.text || BASE_URL).slice(0, 500);

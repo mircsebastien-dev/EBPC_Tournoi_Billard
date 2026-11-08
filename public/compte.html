@@ -13,6 +13,7 @@
 </header>
 <main id="main"></main>
 <script src="/common.js"></script>
+<script src="/push-client.js"></script>
 <script>
 document.getElementById('nav').append(nav('compte'));
 const main = document.getElementById('main');
@@ -61,6 +62,16 @@ async function init() {
       el('div', { class: 'row', style: 'justify-content:center' },
         joueur_id ? el('a', { href: '/joueur.html?id=' + joueur_id }, el('button', { class: 'secondary' }, '📊 Ma fiche joueur')) : null,
         el('button', { class: 'danger', onclick: deconnexion }, 'Se déconnecter'))));
+    // panneau notifications push
+    const notifOk = await pushEstActif().catch(() => false);
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
+      el('h2', {}, '🔔 Notifications'),
+      el('p', { class: 'muted small' }, 'Reçois une notification push quand un de tes matchs est lancé (même écran verrouillé).'),
+      estIOS() && !estPWA() ? el('p', { class: 'muted small' }, '📲 Sur iPhone : ajoute d\'abord le site à l\'écran d\'accueil (Safari → Partager → « Sur l\'écran d\'accueil »), puis active les notifications.') : null,
+      el('div', { class: 'row', style: 'justify-content:center' },
+        notifOk
+          ? el('button', { class: 'secondary', onclick: async () => { try { await pushDesactiver(); alert('Notifications désactivées'); location.reload(); } catch (e) { alert(e.message); } } }, '🔕 Désactiver')
+          : el('button', { onclick: async () => { try { await pushActiver(); alert('✅ Notifications activées !'); location.reload(); } catch (e) { alert(e.message); } } }, '🔔 Activer les notifications'))));
     // mes matchs (inscriptions en cours / matchs joués)
     const mm = await api('/api/compte/moi/matchs');
     const t = (await api('/api/etat')).actif;

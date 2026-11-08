@@ -69,6 +69,14 @@ CREATE TABLE IF NOT EXISTS session (
 
 CREATE INDEX IF NOT EXISTS idx_session_compte ON session(compte_id);
 
+CREATE TABLE IF NOT EXISTS push_subscription (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  compte_id INTEGER NOT NULL REFERENCES compte(id),
+  endpoint TEXT NOT NULL UNIQUE,
+  keys_json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS table_billard (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tournoi_id INTEGER NOT NULL REFERENCES tournoi(id),
