@@ -574,13 +574,10 @@ app.post('/api/admin/match/:id/lancer', requireAdmin, (req, res) => {
   const m = M.lancerMatch(Number(req.params.id), tableId);
   logAudit('lancement_match', `match ${m.id}`, null, { table: m.table_id ? M.tableNumero(m.table_id) : null });
   majEtBroadcast();
-  res.json({ ok: true, match: vueMatch(m) });
-});
-
   // notif push "à toi de jouer" (fire and forget)
   try {
-    const mm = vueMatch(db.prepare('SELECT * FROM match WHERE id = ?').get(Number(req.params.id)));
-    if (mm && mm.etat === 'en_cours' && (mm.joueur1 || mm.joueur2)) {
+    const mm = vueMatch(m);
+    if (mm.etat === 'en_cours' && (mm.joueur1 || mm.joueur2)) {
       push.notifierMatchLance(
         { id: mm.id, joueur1_id: mm.joueur1 ? mm.joueur1.id : null, joueur2_id: mm.joueur2 ? mm.joueur2.id : null },
         mm.joueur1 ? mm.joueur1.pseudo : '—', mm.joueur2 ? mm.joueur2.pseudo : '—', mm.table,
@@ -588,6 +585,10 @@ app.post('/api/admin/match/:id/lancer', requireAdmin, (req, res) => {
       );
     }
   } catch (e) { console.error('[PUSH]', e.message); }
+  res.json({ ok: true, match: vueMatch(m) });
+});
+
+
 
 app.post('/api/admin/match/:id/correction', requireAdmin, (req, res) => {
   const { score1, score2, manches, motif } = req.body;
