@@ -232,7 +232,7 @@ app.get('/api/stats-joueurs', (req, res) => {
            COUNT(DISTINCT t.id) tournois,
            COUNT(DISTINCT CASE WHEN t.champion_id = j.id THEN t.id END) titres
     FROM joueur j
-    LEFT JOIN match m ON m.tournoi_id = j.tournoi_id AND (m.joueur1_id = j.id OR m.joueur2_id = j.id) AND m.etat IN ('termine', 'forfait')
+    LEFT JOIN match m ON m.tournoi_id = j.tournoi_id AND (m.joueur1_id = j.id OR m.joueur2_id = j.id) AND m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat IN ('termine', 'forfait')
     LEFT JOIN tournoi t ON t.id = j.tournoi_id
     GROUP BY LOWER(j.pseudo)
     ORDER BY gagnes DESC, joues DESC
@@ -244,9 +244,9 @@ app.get('/api/stats-joueurs', (req, res) => {
   `).all().reduce((a, r) => (a[r.joueur_id] = r, a), {});
   // manches gagnées par joueur = somme de ses scores dans ses matchs (évite le double comptage runout+manche)
   const manchesAgg = db.prepare(`
-    SELECT m.joueur1_id jid, SUM(m.score1) s FROM match m WHERE m.joueur1_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur1_id
+    SELECT m.joueur1_id jid, SUM(m.score1) s FROM match m WHERE m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur1_id
     UNION ALL
-    SELECT m.joueur2_id jid, SUM(m.score2) s FROM match m WHERE m.joueur2_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur2_id
+    SELECT m.joueur2_id jid, SUM(m.score2) s FROM match m WHERE m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur2_id
   `).all().reduce((a, r) => (a[r.jid] = (a[r.jid] || 0) + (r.s || 0), a), {});
   res.json({ joueurs: rows.map(r => ({
     id: r.id,
@@ -694,7 +694,7 @@ app.get('/api/joueur/:id/stats', (req, res) => {
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
   const { ids } = idsMemeJoueur(id);
   const ph = ids.map(() => '?').join(',');
-  const matchs = db.prepare(`SELECT * FROM match WHERE (joueur1_id IN (${ph}) OR joueur2_id IN (${ph}))`).all(...ids, ...ids);
+  const matchs = db.prepare(`SELECT * FROM match WHERE (joueur1_id IN (${ph}) OR joueur2_id IN (${ph})) AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL`).all(...ids, ...ids);
   const evs = db.prepare(`SELECT e.type, e.detail, e.match_id, m.tournoi_id FROM match_event e JOIN match m ON m.id = e.match_id WHERE e.joueur_id IN (${ph})`).all(...ids);
   // manches gagnées = somme des scores du joueur (fiable, pas de double comptage runout+manche)
   const manches = matchs.reduce((a, m) => a + (ids.includes(m.joueur1_id) ? m.score1 : 0) + (ids.includes(m.joueur2_id) ? m.score2 : 0), 0);
@@ -742,7 +742,7 @@ app.get('/api/joueur/:id/historique', (req, res) => {
     LEFT JOIN joueur j1 ON j1.id = m.joueur1_id
     LEFT JOIN joueur j2 ON j2.id = m.joueur2_id
     LEFT JOIN joueur gw ON gw.id = m.gagnant_id
-    WHERE (m.joueur1_id IN (${phH}) OR m.joueur2_id IN (${phH})) AND m.etat IN ('termine', 'forfait')
+    WHERE (m.joueur1_id IN (${phH}) OR m.joueur2_id IN (${phH})) AND m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat IN ('termine', 'forfait')
     ORDER BY m.ended_at DESC, m.id DESC
   `).all(...idsH, ...idsH);
   res.json({
