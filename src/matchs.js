@@ -196,13 +196,6 @@ function lancerMatch(matchId, tableId) {
   }
   db.prepare(`UPDATE match SET etat = 'en_cours', table_id = ?, started_at = COALESCE(started_at, datetime('now')), updated_at = datetime('now') WHERE id = ?`).run(tableId, matchId);
   insererEvent(matchId, null, 'lancement', { table: tableId != null ? tableNumero(tableId) : null });
-  // si aucun tirage à la bande fait: tirage aléatoire (crypto) pour le premier casseur
-  const mm = matchById(matchId);
-  if (mm.casseur_id == null && mm.joueur1_id && mm.joueur2_id) {
-    const g = require('crypto').randomInt(0, 2) === 0 ? mm.joueur1_id : mm.joueur2_id;
-    db.prepare("UPDATE match SET casseur_id = ? WHERE id = ?").run(g, matchId);
-    insererEvent(matchId, g, 'bande', { gagnant_bande: pseudo(g), auto: true });
-  }
   return matchById(matchId);
 }
 

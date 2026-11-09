@@ -54,7 +54,6 @@ function render() {
     el('div', { class: 'scoreboard' },
       el('div', {}, el('div', { class: 'p' }, m.joueur1 ? el('a', { href: `/joueur.html?id=${m.joueur1.id}`, style: 'color:inherit;text-decoration:none' }, (m.casseur && m.casseur.id === m.joueur1.id ? '⚪ ' : '') + m.joueur1.pseudo) : '—'), el('div', { class: 's' }, String(m.score1))),
       el('div', { class: 'mid' }, `race<br>to ${m.manches}`),
-    m.casseur ? el('div', { class: 'muted small', style: 'text-align:center' }, `🎱 Casse la manche en cours : **${m.casseur.pseudo}**`) : null,
       el('div', {}, el('div', { class: 'p' }, m.joueur2 ? el('a', { href: `/joueur.html?id=${m.joueur2.id}`, style: 'color:inherit;text-decoration:none' }, (m.casseur && m.casseur.id === m.joueur2.id ? '⚪ ' : '') + m.joueur2.pseudo) : '—'), el('div', { class: 's' }, String(m.score2)))),
     peutJouer && moi && m.etat === 'en_cours' && !m.casseur
       ? el('div', { class: 'panel', style: 'text-align:center;margin-top:10px' },
