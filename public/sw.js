@@ -31,7 +31,8 @@ self.addEventListener('notificationclick', (e) => {
         return;
       }
     }
-    // sinon: ouvre directement la card du match
-    await self.clients.openWindow(url);
+    // sinon: ouvre directement la card du match (fallback: accueil si openWindow échoue, ex. iOS)
+    try { await self.clients.openWindow(url); }
+    catch (err) { try { await self.clients.openWindow(self.location.origin + '/'); } catch (e2) {} }
   })());
 });
