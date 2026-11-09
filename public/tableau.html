@@ -128,10 +128,18 @@ function renderListe(container, t) {
   const rounds = t.rounds;
   // barre de filtre par joueur (préfixe, insensible à la casse)
   const input = el('input', {
-    id: 'filtre-joueur', placeholder: '🔍 Filtrer par joueur (ex: seb)…', value: filtreJoueur, maxlength: 24,
+    id: 'filtre-joueur', placeholder: '🔍 Filtrer par joueur (ex: seb) — Entrée pour valider', value: filtreJoueur, maxlength: 24,
     style: 'width:100%;max-width:340px',
   });
-  input.addEventListener('input', () => { filtreJoueur = input.value.trim().toLowerCase(); render(); });
+  // validation par Entrée seulement (sinon le re-render fait perdre le focus)
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      filtreJoueur = input.value.trim().toLowerCase();
+      render();
+      const f = document.getElementById('filtre-joueur'); // garder le focus après le re-render
+      if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+    }
+  });
   container.append(el('div', { class: 'panel', style: 'padding:10px 14px;margin-bottom:12px' }, input));
   const matchJoueur = (m) => !filtreJoueur
     || (m.joueur1 && m.joueur1.pseudo.toLowerCase().startsWith(filtreJoueur))
