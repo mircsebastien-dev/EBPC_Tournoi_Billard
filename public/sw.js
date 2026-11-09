@@ -19,13 +19,19 @@ self.addEventListener('push', (e) => {
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || '/';
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      for (const c of clients) {
-        if (c.url.includes(self.location.origin) && 'focus' in c) { c.focus(); if (c.navigate) c.navigate(url); return; }
+  // URL absolue de la card du match (payload.url = /match.html?id=...)
+  const url = new URL((e.notification.data && e.notification.data.url) || '/', self.location.origin).href;
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // d'abord: onglet déjà ouvert sur le site -> on le navigue vers le match puis focus
+    for (const c of wins) {
+      if (c.url.startsWith(self.location.origin)) {
+        try { if (c.navigate) await c.navigate(url); } catch (err) {}
+        try { await c.focus(); } catch (err) {}
+        return;
       }
-      return self.clients.openWindow(url);
-    })
-  );
+    }
+    // sinon: ouvre directement la card du match
+    await self.clients.openWindow(url);
+  })());
 });
