@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS match_event (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   match_id INTEGER NOT NULL REFERENCES match(id),
   joueur_id INTEGER REFERENCES joueur(id),
-  type TEXT NOT NULL CHECK (type IN ('manche', 'runout', 'correction', 'forfait', 'lancement', 'bye', 'tirage')),
+  type TEXT NOT NULL CHECK (type IN ('manche', 'runout', 'correction', 'forfait', 'lancement', 'bye', 'tirage', 'bande')),
   detail TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -187,6 +187,23 @@ if (matchCols.length > 0) {
   const joueurCols = db.prepare("PRAGMA table_info(joueur)").all().map(c => c.name);
   if (!joueurCols.includes('compte_id')) db.exec('ALTER TABLE joueur ADD COLUMN compte_id INTEGER REFERENCES compte(id)');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_joueur_tournoi_pseudo_nocase ON joueur(tournoi_id, pseudo COLLATE NOCASE)');
+  // migration match_event: ajouter 'bande' à la CHECK (SQLite -> recréer la table)
+  const evSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='match_event'").get();
+  if (evSql && !evSql.sql.includes("'bande'")) {
+    db.exec(`
+      CREATE TABLE match_event_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        match_id INTEGER NOT NULL REFERENCES match(id),
+        joueur_id INTEGER REFERENCES joueur(id),
+        type TEXT NOT NULL CHECK (type IN ('manche', 'runout', 'correction', 'forfait', 'lancement', 'bye', 'tirage', 'bande')),
+        detail TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO match_event_new SELECT * FROM match_event;
+      DROP TABLE match_event;
+      ALTER TABLE match_event_new RENAME TO match_event;
+    `);
+  }
   if (!db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id'))
     db.exec('ALTER TABLE match ADD COLUMN casseau_id INTEGER REFERENCES joueur(id)');
 }
