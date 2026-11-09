@@ -70,11 +70,11 @@ function render() {
       el('div', { class: 'score-col' },
         btnScore(m.joueur1.id, '+1 manche', true),
         btnScore(m.joueur1.id, '−1 manche', false),
-        btnRunout(m.joueur1.id, 'casse'), btnRunout(m.joueur1.id, 'reprise')),
+        btnRunout(m.joueur1.id, 'casse', m), btnRunout(m.joueur1.id, 'reprise', m)),
       el('div', { class: 'score-col' },
         btnScore(m.joueur2.id, '+1 manche', true),
         btnScore(m.joueur2.id, '−1 manche', false),
-        btnRunout(m.joueur2.id, 'casse'), btnRunout(m.joueur2.id, 'reprise')))
+        btnRunout(m.joueur2.id, 'casse', m), btnRunout(m.joueur2.id, 'reprise', m)))
       : null,
     (m.etat === 'termine' || m.etat === 'forfait')
       ? el('p', { style: 'text-align:center;font-size:24px;font-weight:800;color:var(--green)' }, `🏁 ${m.gagnant || '—'} remporte le match`)
@@ -90,10 +90,18 @@ function pseudoDe(targetId) {
   return (m.joueur1 && m.joueur1.id === targetId) ? m.joueur1.pseudo : (m.joueur2 ? m.joueur2.pseudo : '?');
 }
 
-const btnRunout = (target, kind) => el('button', {
-  class: 'btn-score runout',
-  onclick: () => envoyerAvecConfirm(target, true, true, kind, pseudoDe(target)),
-}, kind === 'casse' ? '💥 Casse ferme' : '🔄 Reprise ferme');
+const btnRunout = (target, kind, m) => {
+  // règle: le casseur (⚪) -> casse ferme autorisée, reprise grisée; l'autre -> l'inverse
+  const moiCasseur = m.casseur && m.casseur.id === target;
+  const interdit = (kind === 'casse' && !moiCasseur) || (kind === 'reprise' && moiCasseur);
+  return el('button', {
+    class: 'btn-score runout',
+    disabled: interdit ? true : null,
+    style: interdit ? 'opacity:.35;cursor:not-allowed' : null,
+    title: interdit ? (kind === 'casse' ? 'Seul le joueur qui a la casse peut faire une casse ferme' : 'Le joueur qui a la casse ne fait pas de reprise ferme') : null,
+    onclick: () => { if (!interdit) envoyerAvecConfirm(target, true, true, kind, pseudoDe(target)); },
+  }, kind === 'casse' ? '💥 Casse ferme' : '🎯 Reprise ferme');
+};
 
 // Modale de confirmation quand le point saisi termine le match (anti fausse manip)
 function confirmerFin(targetId, pseudo, nvScore, autreScore, isRunout, kind) {

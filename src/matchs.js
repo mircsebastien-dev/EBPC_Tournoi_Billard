@@ -151,6 +151,11 @@ function declarerRunout(matchId, joueurId, kind = 'reprise') {
   if (m.etat !== 'en_cours' && m.etat !== 'pret') throw httpError(409, 'Le match n\'est pas en cours');
   if (m.joueur1_id !== joueurId && m.joueur2_id !== joueurId) throw httpError(403, 'Vous ne jouez pas ce match');
   const k = kind === 'casse' ? 'casse' : 'reprise';
+  // règle: seul le casseur (⚪) peut faire une casse ferme; l'autre fait des reprises
+  if (m.casseur_id != null) {
+    if (k === 'casse' && m.casseur_id !== joueurId) throw httpError(403, 'Seul le joueur qui a la casse peut faire une casse ferme');
+    if (k === 'reprise' && m.casseur_id === joueurId) throw httpError(403, 'Le joueur qui a la casse ne peut pas faire de reprise ferme');
+  }
   const s1 = m.joueur1_id === joueurId ? m.score1 + 1 : m.score1;
   const s2 = m.joueur2_id === joueurId ? m.score2 + 1 : m.score2;
   db.prepare(`UPDATE match SET score1 = ?, score2 = ?, etat = 'en_cours', updated_at = datetime('now') WHERE id = ?`)
