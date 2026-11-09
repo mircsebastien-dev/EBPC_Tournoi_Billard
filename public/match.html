@@ -68,12 +68,12 @@ function render() {
     peutJouer && moi && adv && m.casseur ? el('div', { class: 'score-actions' },
       // aligné avec le scoreboard : joueur1 à gauche, joueur2 à droite
       el('div', { class: 'score-col' },
-        el('div', { class: 'score-col-label' }, `✅ ${m.joueur1.pseudo}${estMoi(m.joueur1) ? ' (toi)' : ''}`),
+        el('div', { class: 'score-col-label' }, estMoi(m.joueur1) ? '⭐ toi' : ''),
         btnScore(m.joueur1.id, '+1 manche', true),
         btnScore(m.joueur1.id, '−1 manche', false),
         btnRunout(m.joueur1.id, 'casse'), btnRunout(m.joueur1.id, 'reprise')),
       el('div', { class: 'score-col' },
-        el('div', { class: 'score-col-label' }, `✅ ${m.joueur2.pseudo}${estMoi(m.joueur2) ? ' (toi)' : ''}`),
+        el('div', { class: 'score-col-label' }, estMoi(m.joueur2) ? '⭐ toi' : ''),
         btnScore(m.joueur2.id, '+1 manche', true),
         btnScore(m.joueur2.id, '−1 manche', false),
         btnRunout(m.joueur2.id, 'casse'), btnRunout(m.joueur2.id, 'reprise')))
