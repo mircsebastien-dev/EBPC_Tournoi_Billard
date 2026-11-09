@@ -38,7 +38,7 @@ function render() {
 
   const btnScore = (target, label, plus) => el('button', {
     class: 'btn-score ' + (plus ? '' : 'secondary'),
-    onclick: () => envoyer(target, plus),
+    onclick: () => envoyerAvecConfirm(target, plus, false, null, pseudoDe(target)),
   }, label);
 
   const carte = el('div', { class: 'panel' },
@@ -84,22 +84,54 @@ function render() {
   main.append(carte);
 }
 
+function pseudoDe(targetId) {
+  const m = state && state.actif ? state.actif.matchs.find(x => x.id === matchId) : null;
+  if (!m) return '?';
+  return (m.joueur1 && m.joueur1.id === targetId) ? m.joueur1.pseudo : (m.joueur2 ? m.joueur2.pseudo : '?');
+}
+
 const btnRunout = (target, kind) => el('button', {
   class: 'btn-score runout',
-  onclick: () => envoyerRunout(target, kind),
+  onclick: () => envoyerAvecConfirm(target, true, true, kind, pseudoDe(target)),
 }, kind === 'casse' ? '💥 Casse ferme' : '🔄 Reprise ferme');
 
-async function envoyerRunout(targetId, kind) {
+// Modale de confirmation quand le point saisi termine le match (anti fausse manip)
+function confirmerFin(targetId, pseudo, nvScore, autreScore, isRunout, kind) {
+  const m = state && state.actif ? state.actif.matchs.find(x => x.id === matchId) : null;
+  const gagnant = nvScore > autreScore ? pseudo : (m ? (m.joueur1.id === targetId ? (m.joueur2||{}).pseudo : (m.joueur1||{}).pseudo) : '?');
+  const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+  const box = el('div', { class: 'panel', style: 'max-width:360px;text-align:center' },
+    el('h3', {}, '⚠️ Dernier point ?'),
+    el('p', {}, `Le score deviendrait ${nvScore} - ${autreScore}.`),
+    el('p', { style: 'font-weight:800;font-size:18px' }, `🏆 ${gagnant} remporte le match`),
+    el('p', { class: 'muted small' }, 'Vérifie le score sur la table avant de confirmer.'),
+    el('div', { class: 'row', style: 'justify-content:center;margin-top:12px' },
+      el('button', { onclick: async () => { overlay.remove(); await envoyer(targetId, true, isRunout, kind); } }, '✅ Confirmer le score'),
+      el('button', { class: 'secondary', onclick: () => overlay.remove() }, '✏️ Modifier (annuler ce point)')));
+  overlay.append(box);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.append(overlay);
+}
+
+async function envoyer(targetId, plus, isRunout, kind) {
   try {
-    await api(`/api/match/${matchId}/runout`, { method: 'POST', body: JSON.stringify({ joueur_id: targetId, kind }) });
+    if (plus) await api(`/api/match/${matchId}/${isRunout ? 'runout' : 'manche'}`, { method: 'POST', body: JSON.stringify(isRunout ? { joueur_id: targetId, kind } : { joueur_id: targetId }) });
+    else await api(`/api/match/${matchId}/retirer`, { method: 'POST', body: JSON.stringify({ joueur_id: targetId }) });
   } catch (e) { alert(e.message); }
 }
 
-async function envoyer(targetId, plus) {
-  try {
-    if (plus) await api(`/api/match/${matchId}/manche`, { method: 'POST', body: JSON.stringify({ joueur_id: targetId }) });
-    else await api(`/api/match/${matchId}/retirer`, { method: 'POST', body: JSON.stringify({ joueur_id: targetId }) });
-  } catch (e) { alert(e.message); }
+// intercepte le +1/runout qui atteindrait la distance -> confirmation d'abord
+function envoyerAvecConfirm(targetId, plus, isRunout, kind, pseudo) {
+  const m = state && state.actif ? state.actif.matchs.find(x => x.id === matchId) : null;
+  if (!m) return envoyer(targetId, plus, isRunout, kind);
+  if (!plus) return envoyer(targetId, false);
+  const s1 = m.joueur1.id === targetId ? m.score1 + 1 : m.score1;
+  const s2 = m.joueur2.id === targetId ? m.score2 + 1 : m.score2;
+  if (s1 >= m.manches || s2 >= m.manches) {
+    confirmerFin(targetId, pseudo, s1 >= m.manches ? s1 : s2, s1 >= m.manches ? s2 : s1, isRunout, kind);
+    return;
+  }
+  return envoyer(targetId, true, isRunout, kind);
 }
 
 async function init() {
