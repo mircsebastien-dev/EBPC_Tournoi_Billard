@@ -43,8 +43,9 @@ const tournoiId = Number(new URLSearchParams(location.search).get('id'));
 // Liste des matchs du tournoi (historique) avec recherche par joueur (préfixe, casse-insensible)
 let filtreJoueur = '';
 function renderListeTournoi(container, t) {
+  container.innerHTML = '';
   const input = el('input', {
-    id: 'filtre-joueur', placeholder: '🔍 Rechercher un joueur (ex: seb)…', value: filtreJoueur, maxlength: 24,
+    id: 'filtre-joueur', placeholder: '🔍 Surligner un joueur (ex: seb)…', value: filtreJoueur, maxlength: 24,
     style: 'width:100%;max-width:340px',
   });
   input.addEventListener('input', () => { filtreJoueur = input.value.trim().toLowerCase(); renderListeTournoi(container, t); });
@@ -61,14 +62,11 @@ function renderListeTournoi(container, t) {
     ...rounds.filter(r => r.bracket === 'F'),
   ];
   for (const r of ordered) {
-    const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position).filter(matchJoueur);
+    const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position);
     if (!matchs.length) continue;
     container.append(el('div', { class: 'round' },
       el('h3', {}, `${r.label} · race to ${r.manches}`),
-      el('div', { class: 'matchs-grid' }, ...matchs.map(m => matchCard(m)))));
-  }
-  if (filtreJoueur && !t.matchs.some(matchJoueur)) {
-    container.append(el('p', { class: 'muted', style: 'text-align:center' }, `Aucun match pour « ${filtreJoueur} »`));
+      el('div', { class: 'matchs-grid' }, ...matchs.map(m => matchCard(m, { hit: matchJoueur(m) })))));
   }
 }
 

@@ -248,3 +248,5 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
 /* ⚪ casseur hors flux: padding réservé des 2 côtés -> colonnes toujours alignées */
 .scoreboard .p { position: relative; padding-left: 1.4em; display: inline-block; max-width: 100%; }
 .scoreboard .p .bille { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+/* surbrillance recherche joueur dans l'historique */
+.match-card.hit { border-color: var(--pink) !important; box-shadow: 0 0 0 2px rgba(255,46,136,.45), 0 0 18px rgba(255,46,136,.25); background: rgba(255,46,136,.08); }

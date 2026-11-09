@@ -87,7 +87,7 @@ function codeMatch(m) {
 function matchCard(m, opts = {}) {
   const j1g = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
   const j2g = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
-  const card = el('div', { class: 'match-card' + (m.etat === 'prevu' ? ' attente' : ''), 'data-match-id': m.id },
+  const card = el('div', { class: 'match-card' + (m.etat === 'prevu' ? ' attente' : '') + (opts.hit ? ' hit' : ''), 'data-match-id': m.id },
     el('div', { class: 'joueurs' },
       el('div', { class: 'j' },
         el('span', {}, m.joueur1 ? m.joueur1.pseudo : '—'),
