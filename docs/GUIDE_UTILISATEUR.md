@@ -8,7 +8,7 @@
 > Sans compte, tu peux t'inscrire avec juste un pseudo (champ sur l'accueil), mais tu n'auras pas les notifications push ni ton historique perso.
 
 ## Notifications « à toi de joue » (push)
-1. Sur un téléphone : **ajoute d'abord le site à l'écran d'accueil** (Android : menu ⋯ → « Installer » ; iPhone : Safari → Partager → « Sur l'écran d'accueil »)
+1. Sur un téléphone : **ajoute d'abord le site à l'écran d'accueil** — Android : menu ⋯ → « Installer l'application » ; **iPhone : ouvrir le site dans Safari (obligatoire, Chrome iOS ne le permet pas) → Partager → « Sur l'écran d'accueil »**
 2. Ouvre l'app depuis l'écran d'accueil → **Compte** → 🔔 **Activer les notifications** → autorise
 3. Quand ton match est lancé, tu reçois une notif (même écran verrouillé). **Tap dessus → la card du match s'ouvre directement.**
 
