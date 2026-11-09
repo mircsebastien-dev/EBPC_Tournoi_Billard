@@ -5,7 +5,7 @@ async function pushInit() {
     const l = document.createElement('link'); l.rel = 'manifest'; l.href = '/manifest.webmanifest'; document.head.appendChild(l);
   }
   if (!document.querySelector('link[rel="apple-touch-icon"]')) {
-    const a = document.createElement('link'); a.rel = 'apple-touch-icon'; a.href = '/icon-192.png'; document.head.appendChild(a);
+    const a = document.createElement('link'); a.rel = 'apple-touch-icon'; a.href = '/apple-touch-icon.png'; document.head.appendChild(a);
   }
   const m = document.createElement('meta'); m.name = 'theme-color'; m.content = '#ff2e88'; document.head.appendChild(m);
   if (!('serviceWorker' in navigator)) return;
