@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comptes joueurs — Table de marque</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <h1>👤 Comptes joueurs</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+let filtre = '';
+
+async function charger() {
+  const { comptes } = await adminApi('/api/admin/comptes');
+  render(comptes);
+}
+
+function render(comptes) {
+  main.innerHTML = '';
+  if (!adminPin) { renderAdminLogin(main); return; }
+  const input = el('input', {
+    id: 'filtre', placeholder: '🔍 Rechercher (pseudo ou email)…', value: filtre, maxlength: 40, style: 'width:100%;max-width:340px',
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      filtre = input.value.trim().toLowerCase();
+      const f = document.getElementById('filtre');
+      charger().then(() => { const n = document.getElementById('filtre'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } });
+    }
+  });
+  main.append(el('div', { class: 'panel', style: 'padding:10px 14px;margin-bottom:12px' }, input));
+  const rows = comptes.filter(c => !filtre || c.pseudo.toLowerCase().includes(filtre) || (c.email || '').toLowerCase().includes(filtre));
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, `👤 ${rows.length} compte(s)`),
+    rows.length === 0 ? el('p', { class: 'muted' }, 'Aucun compte.') :
+    el('table', { style: 'width:100%;border-collapse:collapse' },
+      el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Joueurs rattachés', 'Matchs', 'Sessions', ''].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
+      el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
+        el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo),
+        el('td', { style: 'padding:6px 8px' }, c.email),
+        el('td', { style: 'padding:6px 8px', class: 'muted small' }, (c.created_at || '').slice(0, 16).replace('T', ' ')),
+        el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.joueurs)),
+        el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.matchs)),
+        el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.sessions)),
+        el('td', { style: 'padding:6px 8px;text-align:right' },
+          el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px', onclick: async () => {
+            if (!confirm(`Supprimer le compte « ${c.pseudo} » ?\nLes joueurs rattachés sont détachés (l'historique des matchs est conservé), les sessions et abonnements push sont supprimés.`)) return;
+            try { await adminApi(`/api/admin/compte/${c.id}`, { method: 'DELETE' }); charger(); }
+            catch (e) { alert(e.message); }
+          } }, '🗑 Supprimer'))))))));
+}
+
+async function init() {
+  if (!adminPin) { renderAdminLogin(main); return; }
+  await adminInit(() => {});
+  await charger();
+}
+init();
+</script>
+</body>
+</html>

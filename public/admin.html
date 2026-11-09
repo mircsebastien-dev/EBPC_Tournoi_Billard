@@ -32,7 +32,8 @@ function render() {
     el('div', { class: 'row' },
       el('a', { href: '/admin-tournoi.html' }, el('button', {}, t ? `⚙️ Gérer le tournoi « ${t.tournoi.nom} »` : '⚙️ Configurer / gérer le tournoi')),
       el('a', { href: '/admin-historique.html' }, el('button', { class: 'secondary' }, `🗂 Historique (${adminState.historique.length})`)),
-      el('a', { href: '/admin-journal.html' }, el('button', { class: 'secondary' }, '📜 Journal d\'audit')))));
+      el('a', { href: '/admin-journal.html' }, el('button', { class: 'secondary' }, '📜 Journal d\'audit')),
+      el('a', { href: '/admin-comptes.html' }, el('button', { class: 'secondary' }, '👤 Comptes joueurs')))));
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🔗 Liens publics'),
     el('div', { class: 'row' },

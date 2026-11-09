@@ -657,6 +657,31 @@ app.post('/api/admin/simuler', requireAdmin, (req, res) => {
   res.json({ ok: true, matchs_joues: joues, statut: final.statut, champion: final.champion_id ? M.pseudo(final.champion_id) : null });
 });
 
+// ---- Gestion des comptes joueurs (admin) ----
+app.get('/api/admin/comptes', requireAdmin, (req, res) => {
+  const rows = db.prepare(`
+    SELECT c.id, c.pseudo, c.email, c.created_at,
+           (SELECT COUNT(*) FROM session s WHERE s.compte_id = c.id) sessions,
+           (SELECT COUNT(*) FROM joueur j WHERE j.compte_id = c.id) joueurs,
+           (SELECT COUNT(*) FROM match m WHERE m.joueur1_id IN (SELECT id FROM joueur WHERE compte_id = c.id) OR m.joueur2_id IN (SELECT id FROM joueur WHERE compte_id = c.id)) matchs
+    FROM compte c ORDER BY c.id DESC
+  `).all();
+  res.json({ comptes: rows });
+});
+
+app.delete('/api/admin/compte/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const c = db.prepare('SELECT id, pseudo FROM compte WHERE id = ?').get(id);
+  if (!c) return res.status(404).json({ error: 'Compte introuvable' });
+  // détacher les joueurs (l'historique des matchs reste), supprimer les sessions, supprimer le compte
+  db.prepare('UPDATE joueur SET compte_id = NULL WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM session WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM push_subscription WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM compte WHERE id = ?').run(id);
+  logAudit('compte_supprime', `compte ${c.pseudo}`, null, { id });
+  res.json({ ok: true });
+});
+
 app.get('/api/admin/audit', requireAdmin, (req, res) => {
   const rows = db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200').all();
   res.json({ audit: rows });
