@@ -84,6 +84,7 @@ function vueMatch(m) {
     position: m.position,
     joueur1: m.joueur1_id ? { id: m.joueur1_id, pseudo: M.pseudo(m.joueur1_id), compte_id: m.joueur1_compte_id ?? null } : null,
     joueur2: m.joueur2_id ? { id: m.joueur2_id, pseudo: M.pseudo(m.joueur2_id), compte_id: m.joueur2_compte_id ?? null } : null,
+    casseau: m.casseur_id ? { id: m.casseur_id, pseudo: M.pseudo(m.casseur_id) } : null,
     score1: m.score1,
     score2: m.score2,
     manches: m.manches,
@@ -659,6 +660,15 @@ app.post('/api/admin/simuler', requireAdmin, (req, res) => {
 app.get('/api/admin/audit', requireAdmin, (req, res) => {
   const rows = db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200').all();
   res.json({ audit: rows });
+});
+
+// Tirage à la bande: déclare qui casse en premier (joueur du match ou admin)
+app.post('/api/match/:id/bande', (req, res, next) => {
+  try {
+    const m = M.setBande(Number(req.params.id), Number(req.body.joueur_id));
+    majEtBroadcast();
+    res.json({ ok: true, match: vueMatch(m) });
+  } catch (e) { next(e); }
 });
 
 app.post('/api/match/:id/manche', (req, res) => {

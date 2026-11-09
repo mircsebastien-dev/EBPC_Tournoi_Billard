@@ -187,6 +187,8 @@ if (matchCols.length > 0) {
   const joueurCols = db.prepare("PRAGMA table_info(joueur)").all().map(c => c.name);
   if (!joueurCols.includes('compte_id')) db.exec('ALTER TABLE joueur ADD COLUMN compte_id INTEGER REFERENCES compte(id)');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_joueur_tournoi_pseudo_nocase ON joueur(tournoi_id, pseudo COLLATE NOCASE)');
+  if (!db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id'))
+    db.exec('ALTER TABLE match ADD COLUMN casseau_id INTEGER REFERENCES joueur(id)');
 }
 
 function setSetting(key, value) {
