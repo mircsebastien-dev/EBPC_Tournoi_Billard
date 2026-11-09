@@ -12,7 +12,7 @@ primary_region = 'cdg'
   PORT = '3000'
 
 [[mounts]]
-  source = 'tournoi_data'
+  source = 'tournoi_data_restore'
   destination = '/data'
 
 [http_service]
