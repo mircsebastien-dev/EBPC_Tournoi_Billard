@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>❓ Aide — Tournoi EBPC</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top"><h1>❓ Aide</h1><div id="nav"></div></header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+document.getElementById('nav').append(nav('aide'));
+const main = document.getElementById('main');
+main.append(el('div', { class: 'panel' },
+  el('h2', {}, '🎱 S'inscrire'),
+  el('p', {}, 'Compte (👤 en haut à droite) → pseudo + email + mot de passe, puis « M'inscrire » sur l'accueil. Sans compte : champ pseudo sur l'accueil, mais pas de notif push ni d'historique perso.'),
+  el('h2', {}, '🔔 Notifications « à toi de jouer »'),
+  el('p', {}, 'Ajoute d'abord le site à l'écran d'accueil (Android : ⋯ → Installer ; iPhone : Partager → « Sur l'écran d'accueil »), ouvre l'app, puis Compte → 🔔 Activer les notifications. Au lancement de ton match tu reçois une notif — un tap ouvre directement la card du match (même écran verrouillé).'),
+  el('h2', {}, '🗺️ Suivre le tournoi'),
+  el('p', {}, 'Tableau (bracket ou liste, liste déroulante « Aller au tour », filtre joueur avec Entrée) · 📺 TV pour la salle · 🎱 Joueur = tes matchs · 📊 Stats · 🗂 Historique.'),
+  el('h2', {}, '🎲 Jouer un match'),
+  el('p', {}, 'Au lancement, panneau « Tirage à la bande » : chaque joueur fait rouler une bille, le plus proche de la bande gagne → clique « ⚪ [pseudo] casse ». La ⚪ alterne ensuite à chaque manche.'),
+  el('p', {}, 'Saisie : +1 manche pour le gagnant de la manche, −1 pour corriger. 💥 Casse ferme = réservé au joueur ⚪ (l'autre bouton est grisé). 🎯 Reprise ferme = réservé à l'autre. Dernier point → confirmation du score avec possibilité de modifier.'),
+  el('h2', {}, '🔑 Mot de passe oublié'),
+  el('p', {}, 'Compte → « Mot de passe oublié » → email → lien de réinit (valable 1 h).'),
+  el('h2', {}, '📊 Mon historique'),
+  el('p', {}, 'Compte → « 📊 Ma fiche joueur » : joués/gagnés, %, manches, run-outs + historique de tous tes matchs.'),
+  el('p', { class: 'muted small', style: 'margin-top:16px' }, 'Guide complet : docs/GUIDE_UTILISATEUR.md dans le dépôt GitHub.')));
+</script>
+</body>
+</html>
