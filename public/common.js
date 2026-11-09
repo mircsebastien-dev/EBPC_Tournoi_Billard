@@ -104,7 +104,6 @@ function matchCard(m, opts = {}) {
       m.started_at ? el('span', {}, `⏱ début ${fmtHeureSql(m.started_at)}`) : null,
       m.casseur ? el('span', { class: 'chip', title: 'Casse la manche en cours' }, `⚪ casse`) : null,
       m.duree_s != null ? el('span', {}, `⏳ ${fmtDuree(m.duree_s)}`) : null,
-
       opts.extra || null);
   card.addEventListener('click', () => {
     if (opts.onClick) { opts.onClick(m); return; }
