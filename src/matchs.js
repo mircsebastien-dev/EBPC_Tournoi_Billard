@@ -107,6 +107,7 @@ function setBande(matchId, joueurId) {
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.joueur1_id !== joueurId && m.joueur2_id !== joueurId) throw httpError(403, 'Vous ne jouez pas ce match');
+
   db.prepare("UPDATE match SET casseur_id = ?, updated_at = datetime('now') WHERE id = ?").run(joueurId, matchId);
   insererEvent(matchId, joueurId, 'bande', { gagnant_bande: pseudo(joueurId) });
   return matchById(matchId);
@@ -123,7 +124,8 @@ function declarerManche(matchId, joueurId) {
     .run(s1, s2, matchId);
   insererEvent(matchId, joueurId, 'manche', { score1: s1, score2: s2 });
   // règle tournoi: le gagnant d'une manche casse la suivante
-  db.prepare('UPDATE match SET casseur_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(joueurId, matchId);
+  const adversaire = (m.casseur_id || joueurId) === m.joueur1_id ? m.joueur2_id : m.joueur1_id; // alternance: on inverse le casseur actuel
+  db.prepare('UPDATE match SET casseur_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(adversaire, matchId);
   const cur = matchById(matchId);
   if (s1 >= cur.manches || s2 >= cur.manches) {
     const gagnant = s1 > s2 ? cur.joueur1_id : cur.joueur2_id;
@@ -154,7 +156,8 @@ function declarerRunout(matchId, joueurId, kind = 'reprise') {
   db.prepare(`UPDATE match SET score1 = ?, score2 = ?, etat = 'en_cours', updated_at = datetime('now') WHERE id = ?`)
     .run(s1, s2, matchId);
   insererEvent(matchId, joueurId, 'runout', { kind: k, score1: s1, score2: s2 });
-  db.prepare('UPDATE match SET casseur_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(joueurId, matchId);
+  const adversaire = (m.casseur_id || joueurId) === m.joueur1_id ? m.joueur2_id : m.joueur1_id; // alternance: on inverse le casseur actuel
+  db.prepare('UPDATE match SET casseur_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(adversaire, matchId);
   const cur = matchById(matchId);
   if (s1 >= cur.manches || s2 >= cur.manches) {
     const gagnant = s1 > s2 ? cur.joueur1_id : cur.joueur2_id;
