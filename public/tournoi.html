@@ -40,6 +40,38 @@ document.getElementById('nav').append(nav('hist'));
 const main = document.getElementById('main');
 const tournoiId = Number(new URLSearchParams(location.search).get('id'));
 
+// Liste des matchs du tournoi (historique) avec recherche par joueur (préfixe, casse-insensible)
+let filtreJoueur = '';
+function renderListeTournoi(container, t) {
+  const input = el('input', {
+    id: 'filtre-joueur', placeholder: '🔍 Rechercher un joueur (ex: seb)…', value: filtreJoueur, maxlength: 24,
+    style: 'width:100%;max-width:340px',
+  });
+  input.addEventListener('input', () => { filtreJoueur = input.value.trim().toLowerCase(); renderListeTournoi(container, t); });
+  container.append(el('div', { class: 'panel', style: 'padding:10px 14px;margin-bottom:12px' }, input));
+  const matchJoueur = (m) => !filtreJoueur
+    || (m.joueur1 && m.joueur1.pseudo.toLowerCase().startsWith(filtreJoueur))
+    || (m.joueur2 && m.joueur2.pseudo.toLowerCase().startsWith(filtreJoueur));
+  const byKey = {};
+  for (const m of t.matchs) (byKey[m.bracket + m.tour] = byKey[m.bracket + m.tour] || []).push(m);
+  const rounds = t.rounds || [];
+  const ordered = [
+    ...rounds.filter(r => r.bracket === 'WB'),
+    ...rounds.filter(r => r.bracket === 'LB'),
+    ...rounds.filter(r => r.bracket === 'F'),
+  ];
+  for (const r of ordered) {
+    const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position).filter(matchJoueur);
+    if (!matchs.length) continue;
+    container.append(el('div', { class: 'round' },
+      el('h3', {}, `${r.label} · race to ${r.manches}`),
+      el('div', { class: 'matchs-grid' }, ...matchs.map(m => matchCard(m)))));
+  }
+  if (filtreJoueur && !t.matchs.some(matchJoueur)) {
+    container.append(el('p', { class: 'muted', style: 'text-align:center' }, `Aucun match pour « ${filtreJoueur} »`));
+  }
+}
+
 async function init() {
   main.innerHTML = '';
   try {
@@ -55,7 +87,7 @@ async function init() {
         el('span', { class: 'chip' }, 'Tours WB au centre'),
         el('span', { class: 'chip' }, '🏁 Tableau final à droite'),
         el('span', { class: 'chip' }, 'Vert = joué'))));
-    renderBracket(main, t, { readonly: true });
+    renderListeTournoi(main, t);
     for (const p of renderStatsPanel(t.stats, '📊 Statistiques du tournoi', 50) || []) main.append(p);
   } catch (e) {
     main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', {}, e.message)));
