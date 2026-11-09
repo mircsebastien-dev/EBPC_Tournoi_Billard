@@ -662,6 +662,7 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
   const rows = db.prepare(`
     SELECT c.id, c.pseudo, c.email, c.created_at,
            (SELECT COUNT(*) FROM session s WHERE s.compte_id = c.id) sessions,
+           c.last_login_at,
            (SELECT COUNT(*) FROM joueur j WHERE j.compte_id = c.id) joueurs,
            (SELECT COUNT(*) FROM match m WHERE m.joueur1_id IN (SELECT id FROM joueur WHERE compte_id = c.id) OR m.joueur2_id IN (SELECT id FROM joueur WHERE compte_id = c.id)) matchs
     FROM compte c ORDER BY c.id DESC
@@ -671,13 +672,8 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
 
 app.delete('/api/admin/compte/:id', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
-  const c = db.prepare('SELECT id, pseudo FROM compte WHERE id = ?').get(id);
+  const c = comptes.supprimerCompte(id);
   if (!c) return res.status(404).json({ error: 'Compte introuvable' });
-  // détacher les joueurs (l'historique des matchs reste), supprimer les sessions, supprimer le compte
-  db.prepare('UPDATE joueur SET compte_id = NULL WHERE compte_id = ?').run(id);
-  db.prepare('DELETE FROM session WHERE compte_id = ?').run(id);
-  db.prepare('DELETE FROM push_subscription WHERE compte_id = ?').run(id);
-  db.prepare('DELETE FROM compte WHERE id = ?').run(id);
   logAudit('compte_supprime', `compte ${c.pseudo}`, null, { id });
   res.json({ ok: true });
 });
@@ -811,6 +807,12 @@ app.use((err, req, res, next) => {
   if (status === 500) console.error(err);
   res.status(status).json({ error: err.message || 'Erreur serveur' });
 });
+
+// Purge auto des comptes inactifs > 18 mois (au boot + toutes les heures)
+if (typeof comptes.purgerComptesInactifs === 'function') {
+  try { comptes.purgerComptesInactifs(); } catch (e) { console.error('[PURGE]', e.message); }
+  setInterval(() => { try { comptes.purgerComptesInactifs(); } catch {} }, 60 * 60 * 1000);
+}
 
 if (require.main === module) {
   app.listen(PORT, '0.0.0.0', () => { // 0.0.0.0 obligatoire sur Fly/Render sinon 'instance refused connection'

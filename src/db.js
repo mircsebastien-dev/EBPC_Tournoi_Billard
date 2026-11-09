@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS compte (
   salt TEXT NOT NULL,
   reset_token_hash TEXT,
   reset_expires TEXT,
+  last_login_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -208,6 +209,8 @@ if (matchCols.length > 0) {
   if (db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id')) {
     try { db.exec('ALTER TABLE match RENAME COLUMN casseur_id TO casseur_id'); } catch (e) { console.error('migration casseur:', e.message); }
   }
+  if (!db.prepare("PRAGMA table_info(compte)").all().some(c => c.name === 'last_login_at'))
+    db.exec('ALTER TABLE compte ADD COLUMN last_login_at TEXT');
   if (!db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id'))
     db.exec('ALTER TABLE match ADD COLUMN casseur_id INTEGER REFERENCES joueur(id)');
 }

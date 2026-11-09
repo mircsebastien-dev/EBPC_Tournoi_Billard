@@ -115,7 +115,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     const existe = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE OR email = ? COLLATE NOCASE').get(pseudo, email);
     if (existe) return res.status(409).json({ error: 'Pseudo ou email déjà utilisé' });
     const salt = nouveauSalt();
-    const info = db.prepare('INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES (?, ?, ?, ?)')
+    const info = db.prepare(`INSERT INTO compte (pseudo, email, pass_hash, salt, last_login_at) VALUES (?, ?, ?, ?, datetime('now'))`)
       .run(pseudo, email, hashPassword(password, salt), salt);
     const compte = db.prepare('SELECT id, pseudo, email FROM compte WHERE id = ?').get(info.lastInsertRowid);
     const token = creerSession(compte.id);
@@ -142,6 +142,9 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
           .run(c.id, t.id, c.pseudo);
       }
     }
+    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
+    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
+    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     const token = creerSession(c.id);
     setSessionCookie(res, token, SESSION_JOURS);
     logAudit('compte_connexion', `compte ${c.id}`, null, { pseudo: c.pseudo });
@@ -216,6 +219,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
       .run(hashPassword(password, salt), salt, c.id);
     // invalide les sessions existantes
     db.prepare('DELETE FROM session WHERE compte_id = ?').run(c.id);
+    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     const newToken = creerSession(c.id);
     setSessionCookie(res, newToken, SESSION_JOURS);
     logAudit('compte_reinit', `compte ${c.id}`, null, { pseudo: c.pseudo });
@@ -248,4 +252,62 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   });
 }
 
-module.exports = { registerCompteRoutes, middlewareSession, hashToken, SESSION_COOKIE };
+
+// Supprime un compte: détache les joueurs (historique conservé), supprime sessions/push, puis le compte
+function supprimerCompte(id) {
+  const c = db.prepare('SELECT id, pseudo FROM compte WHERE id = ?').get(id);
+  if (!c) return false;
+  db.prepare('UPDATE joueur SET compte_id = NULL WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM session WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM push_subscription WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM compte WHERE id = ?').run(id);
+  return c;
+}
+
+// Purge des comptes inactifs depuis 18 mois (jamais connecté: 18 mois après création)
+function purgerComptesInactifs() {
+  const rows = db.prepare(`
+    SELECT id, pseudo FROM compte
+    WHERE (last_login_at IS NOT NULL AND last_login_at < datetime('now', '-18 months'))
+       OR (last_login_at IS NULL AND created_at < datetime('now', '-18 months'))
+  `).all();
+  for (const r of rows) {
+    supprimerCompte(r.id);
+    logAuditSafe('compte_purge_inactivite', `compte ${r.pseudo} (18 mois d'inactivité)`, null, { id: r.id });
+  }
+  if (rows.length) console.log(`[PURGE] ${rows.length} compte(s) inactif(s) > 18 mois supprimé(s)`);
+  return rows.length;
+}
+
+function logAuditSafe(action, label, tournoiId, details) {
+  try { db.prepare('INSERT INTO audit_log (action, label, tournoi_id, details) VALUES (?, ?, ?, ?)').run(action, label, tournoiId, JSON.stringify(details || {})); } catch {}
+}
+
+
+// Supprime un compte: détache les joueurs (historique conservé), supprime sessions/push, puis le compte
+function supprimerCompte(id) {
+  const c = db.prepare('SELECT id, pseudo FROM compte WHERE id = ?').get(id);
+  if (!c) return false;
+  db.prepare('UPDATE joueur SET compte_id = NULL WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM session WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM push_subscription WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM compte WHERE id = ?').run(id);
+  return c;
+}
+
+// Purge des comptes inactifs depuis 18 mois (jamais connecté: 18 mois après création)
+function purgerComptesInactifs() {
+  const rows = db.prepare(`
+    SELECT id, pseudo FROM compte
+    WHERE (last_login_at IS NOT NULL AND last_login_at < datetime('now', '-18 months'))
+       OR (last_login_at IS NULL AND created_at < datetime('now', '-18 months'))
+  `).all();
+  for (const r of rows) {
+    supprimerCompte(r.id);
+    try { db.prepare('INSERT INTO audit_log (action, label, tournoi_id, details) VALUES (?, ?, ?, ?)').run('compte_purge_inactivite', `compte ${r.pseudo} (18 mois inactivité)`, null, JSON.stringify({ id: r.id })); } catch {}
+  }
+  if (rows.length) console.log(`[PURGE] ${rows.length} compte(s) inactif(s) > 18 mois supprimé(s)`);
+  return rows.length;
+}
+
+module.exports = { supprimerCompte, purgerComptesInactifs, supprimerCompte, purgerComptesInactifs, registerCompteRoutes, middlewareSession, hashToken, SESSION_COOKIE };

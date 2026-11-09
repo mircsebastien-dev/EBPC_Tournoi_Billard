@@ -43,11 +43,12 @@ function render(comptes) {
     el('div', { class: 'hero-title' }, `👤 ${rows.length} compte(s)`),
     rows.length === 0 ? el('p', { class: 'muted' }, 'Aucun compte.') :
     el('table', { style: 'width:100%;border-collapse:collapse' },
-      el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Joueurs rattachés', 'Matchs', 'Sessions', ''].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
+      el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Joueurs rattachés', 'Matchs', ''].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
       el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
         el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo),
         el('td', { style: 'padding:6px 8px' }, c.email),
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, (c.created_at || '').slice(0, 16).replace('T', ' ')),
+        el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.last_login_at ? fmtDateHeureSql(c.last_login_at) : 'jamais'),
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.joueurs)),
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.matchs)),
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.sessions)),
