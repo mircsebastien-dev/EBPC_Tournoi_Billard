@@ -107,7 +107,7 @@ function setBande(matchId, joueurId) {
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.joueur1_id !== joueurId && m.joueur2_id !== joueurId) throw httpError(403, 'Vous ne jouez pas ce match');
-  db.prepare("UPDATE match SET casseau_id = ?, updated_at = datetime('now') WHERE id = ?").run(joueurId, matchId);
+  db.prepare("UPDATE match SET casseur_id = ?, updated_at = datetime('now') WHERE id = ?").run(joueurId, matchId);
   insererEvent(matchId, joueurId, 'bande', { gagnant_bande: pseudo(joueurId) });
   return matchById(matchId);
 }
@@ -123,7 +123,7 @@ function declarerManche(matchId, joueurId) {
     .run(s1, s2, matchId);
   insererEvent(matchId, joueurId, 'manche', { score1: s1, score2: s2 });
   // règle tournoi: le gagnant d'une manche casse la suivante
-  db.prepare('UPDATE match SET casseau_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(joueurId, matchId);
+  db.prepare('UPDATE match SET casseur_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(joueurId, matchId);
   const cur = matchById(matchId);
   if (s1 >= cur.manches || s2 >= cur.manches) {
     const gagnant = s1 > s2 ? cur.joueur1_id : cur.joueur2_id;
@@ -154,7 +154,7 @@ function declarerRunout(matchId, joueurId, kind = 'reprise') {
   db.prepare(`UPDATE match SET score1 = ?, score2 = ?, etat = 'en_cours', updated_at = datetime('now') WHERE id = ?`)
     .run(s1, s2, matchId);
   insererEvent(matchId, joueurId, 'runout', { kind: k, score1: s1, score2: s2 });
-  db.prepare('UPDATE match SET casseau_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(joueurId, matchId);
+  db.prepare('UPDATE match SET casseur_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(joueurId, matchId);
   const cur = matchById(matchId);
   if (s1 >= cur.manches || s2 >= cur.manches) {
     const gagnant = s1 > s2 ? cur.joueur1_id : cur.joueur2_id;
@@ -197,7 +197,7 @@ function lancerMatch(matchId, tableId) {
   const mm = matchById(matchId);
   if (mm.casseur_id == null && mm.joueur1_id && mm.joueur2_id) {
     const g = require('crypto').randomInt(0, 2) === 0 ? mm.joueur1_id : mm.joueur2_id;
-    db.prepare("UPDATE match SET casseau_id = ? WHERE id = ?").run(g, matchId);
+    db.prepare("UPDATE match SET casseur_id = ? WHERE id = ?").run(g, matchId);
     insererEvent(matchId, g, 'bande', { gagnant_bande: pseudo(g), auto: true });
   }
   return matchById(matchId);

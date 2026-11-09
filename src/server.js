@@ -84,7 +84,7 @@ function vueMatch(m) {
     position: m.position,
     joueur1: m.joueur1_id ? { id: m.joueur1_id, pseudo: M.pseudo(m.joueur1_id), compte_id: m.joueur1_compte_id ?? null } : null,
     joueur2: m.joueur2_id ? { id: m.joueur2_id, pseudo: M.pseudo(m.joueur2_id), compte_id: m.joueur2_compte_id ?? null } : null,
-    casseau: m.casseur_id ? { id: m.casseur_id, pseudo: M.pseudo(m.casseur_id) } : null,
+    casseur: m.casseur_id ? { id: m.casseur_id, pseudo: M.pseudo(m.casseur_id) } : null,
     score1: m.score1,
     score2: m.score2,
     manches: m.manches,

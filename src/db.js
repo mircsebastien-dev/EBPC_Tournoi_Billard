@@ -204,8 +204,12 @@ if (matchCols.length > 0) {
       ALTER TABLE match_event_new RENAME TO match_event;
     `);
   }
+  // migration: renommer l'ancienne colonne fautive 'casseur_id' si présente
+  if (db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id')) {
+    try { db.exec('ALTER TABLE match RENAME COLUMN casseur_id TO casseur_id'); } catch (e) { console.error('migration casseur:', e.message); }
+  }
   if (!db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id'))
-    db.exec('ALTER TABLE match ADD COLUMN casseau_id INTEGER REFERENCES joueur(id)');
+    db.exec('ALTER TABLE match ADD COLUMN casseur_id INTEGER REFERENCES joueur(id)');
 }
 
 function setSetting(key, value) {
