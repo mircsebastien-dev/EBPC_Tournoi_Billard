@@ -89,10 +89,10 @@ function matchCard(m, opts = {}) {
   const j2g = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
   const card = el('div', { class: 'match-card' + (m.etat === 'prevu' ? ' attente' : ''), 'data-match-id': m.id },
     el('div', { class: 'joueurs' },
-      el('div', { class: `j ${j1g ? 'gagnant' : ''}` },
+      el('div', { class: 'j' },
         el('span', {}, m.joueur1 ? m.joueur1.pseudo : '—'),
         el('span', { class: 'score' }, String(m.score1))),
-      el('div', { class: `j ${j2g ? 'gagnant' : ''}` },
+      el('div', { class: 'j' },
         el('span', {}, m.joueur2 ? m.joueur2.pseudo : '—'),
         el('span', { class: 'score' }, String(m.score2)))),
     el('div', { class: 'meta' },
