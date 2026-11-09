@@ -102,9 +102,9 @@ function matchCard(m, opts = {}) {
       m.table != null ? el('span', { class: 'table-badge' }, `🎱 Table ${m.table}`) : null,
       el('span', {}, `race to ${m.manches}`),
       m.started_at ? el('span', {}, `⏱ début ${fmtHeureSql(m.started_at)}`) : null,
-      m.casseur ? el('span', { class: 'chip', title: 'Casse la manche en cours' }, `⚪ ${m.casseur.pseudo} casse`) : null,
+      m.casseur ? el('span', { class: 'chip', title: 'Casse la manche en cours' }, `⚪ casse`) : null,
       m.duree_s != null ? el('span', {}, `⏳ ${fmtDuree(m.duree_s)}`) : null,
-      m.gagnant ? el('span', { style: 'color:var(--green);font-weight:700' }, `🏆 ${m.gagnant}`) : null),
+
       opts.extra || null);
   card.addEventListener('click', () => {
     if (opts.onClick) { opts.onClick(m); return; }
