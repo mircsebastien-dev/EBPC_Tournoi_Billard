@@ -699,16 +699,6 @@ app.delete('/api/admin/compte/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/admin/match/:id/events', requireAdmin, (req, res) => {
-  res.json({ events: M.listerEvents(Number(req.params.id)) });
-});
-app.delete('/api/admin/match/:id/event/:eventId', requireAdmin, (req, res) => {
-  const m = M.supprimerEventAdmin(Number(req.params.id), Number(req.params.eventId));
-  logAudit('event_supprime', `match #${req.params.id} event #${req.params.eventId}`, null, {});
-  majEtBroadcast();
-  res.json({ ok: true, match: m });
-});
-
 app.get('/api/admin/audit', requireAdmin, (req, res) => {
   const rows = db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200').all();
   res.json({ audit: rows });

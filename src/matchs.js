@@ -372,37 +372,7 @@ function rafraichirPrets() {
   for (const r of db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'prevu'`).all(actif.id)) appliquerBye(r.id);
 }
 
-
-// Admin: supprimer un event (manche/runout/correction) et recalculer les scores depuis les events restants
-function supprimerEventAdmin(matchId, eventId) {
-  const m = matchById(matchId);
-  if (!m) throw httpError(404, 'Match introuvable');
-  const ev = db.prepare('SELECT * FROM match_event WHERE id = ? AND match_id = ?').get(eventId, matchId);
-  if (!ev) throw httpError(404, 'Événement introuvable');
-  if (ev.type === 'bande') throw httpError(400, 'Impossible de supprimer le tirage à la bande');
-  db.prepare('DELETE FROM match_event WHERE id = ?').run(eventId);
-  // recalcul: score = nombre d'events manche/runout par joueur
-  const evs = db.prepare("SELECT joueur_id, type FROM match_event WHERE match_id = ? AND type IN ('manche','runout')").all(matchId);
-  const s1 = evs.filter(e => e.joueur_id === m.joueur1_id).length;
-  const s2 = evs.filter(e => e.joueur_id === m.joueur2_id).length;
-  db.prepare(`UPDATE match SET score1 = ?, score2 = ?, updated_at = datetime('now') WHERE id = ?`).run(s1, s2, matchId);
-  // si le match était terminé et ne l'est plus -> rouvrir; si un joueur atteint la distance -> terminer
-  let cur = matchById(matchId);
-  if (cur.etat === 'termine' && s1 < cur.manches && s2 < cur.manches) {
-    db.prepare(`UPDATE match SET etat = 'en_cours', gagnant_id = NULL, perdant_id = NULL, ended_at = NULL, raison_fin = NULL WHERE id = ?`).run(matchId);
-  } else if (cur.etat !== 'termine' && (s1 >= cur.manches || s2 >= cur.manches)) {
-    const g = s1 > s2 ? cur.joueur1_id : cur.joueur2_id;
-    const p = s1 > s2 ? cur.joueur2_id : cur.joueur1_id;
-    terminerMatch(matchId, g, p, 'correction admin');
-  }
-  return matchById(matchId);
-}
-
-function listerEvents(matchId) {
-  return db.prepare(`SELECT e.id, e.type, e.detail, e.created_at, j.pseudo FROM match_event e LEFT JOIN joueur j ON j.id = e.joueur_id WHERE e.match_id = ? ORDER BY e.id`).all(matchId);
-}
-
-module.exports = { supprimerEventAdmin, listerEvents,
+module.exports = {
   httpError,
   matchById,
   setBande,
