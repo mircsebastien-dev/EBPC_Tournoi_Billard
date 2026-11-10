@@ -47,7 +47,7 @@ function rateLimit(cle, max, fenetreMs) {
 }
 
 // ---------- helpers ----------
-function comptePublic(c) { return c ? { id: c.id, pseudo: c.pseudo } : null; }
+function comptePublic(c) { return c ? { id: c.id, pseudo: c.pseudo, email: c.email || null } : null; }
 function parseCookies(req) {
   const out = {};
   const h = req.headers.cookie || '';
@@ -152,6 +152,16 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   });
 
   // déconnexion
+  app.post('/api/compte/email', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const email = String(req.body.email || '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Email invalide' });
+    const pris = db.prepare('SELECT id FROM compte WHERE email = ? AND id != ?').get(email, req.compte.id);
+    if (pris) return res.status(409).json({ error: 'Cet email est déjà utilisé par un autre compte' });
+    db.prepare('UPDATE compte SET email = ? WHERE id = ?').run(email, req.compte.id);
+    res.json({ ok: true, email });
+  });
+
   app.post('/api/compte/deconnexion', (req, res) => {
     const cookies = parseCookies(req);
     const token = cookies[SESSION_COOKIE];

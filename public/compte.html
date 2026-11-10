@@ -62,6 +62,17 @@ async function init() {
       el('div', { class: 'row', style: 'justify-content:center' },
         joueur_id ? el('a', { href: '/joueur.html?id=' + joueur_id }, el('button', { class: 'secondary' }, '📊 Ma fiche joueur')) : null,
         el('button', { class: 'danger', onclick: deconnexion }, 'Se déconnecter'))));
+    // panneau email
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
+      el('h2', {}, '✉️ Email'),
+      el('div', { class: 'row' },
+        el('div', { style: 'flex:1 1 auto' }, el('input', { id: 'c-email', type: 'email', value: compte.email || '', maxlength: 190 })),
+        el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: async () => {
+          try {
+            await api('/api/compte/email', { method: 'POST', body: JSON.stringify({ email: val('c-email') }) });
+            alert('✅ Email mis à jour'); location.reload();
+          } catch (e) { alert(e.message); }
+        } }, 'Enregistrer')))));
     // panneau notifications push
     const notifOk = await pushEstActif().catch(() => false);
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
