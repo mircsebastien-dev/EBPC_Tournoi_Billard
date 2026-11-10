@@ -310,4 +310,15 @@ function purgerComptesInactifs() {
   return rows.length;
 }
 
-module.exports = { supprimerCompte, purgerComptesInactifs, supprimerCompte, purgerComptesInactifs, registerCompteRoutes, middlewareSession, hashToken, SESSION_COOKIE };
+
+// Admin: définir un nouveau mot de passe pour un compte (et invalider ses sessions)
+function setPasswordAdmin(compteId, password) {
+  if (!password || String(password).length < 4) throw new Error('Mot de passe trop court (min 4)');
+  const salt = nouveauSalt();
+  const pass_hash = hashPassword(String(password), salt);
+  db.prepare('UPDATE compte SET salt = ?, pass_hash = ?, reset_token_hash = NULL, reset_expires = NULL WHERE id = ?').run(salt, pass_hash, compteId);
+  db.prepare('DELETE FROM session WHERE compte_id = ?').run(compteId); // force la reconnexion
+  return true;
+}
+
+module.exports = { supprimerCompte, purgerComptesInactifs, setPasswordAdmin, supprimerCompte, purgerComptesInactifs, registerCompteRoutes, middlewareSession, hashToken, SESSION_COOKIE };

@@ -53,6 +53,12 @@ function render(comptes) {
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.matchs)),
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.sessions)),
         el('td', { style: 'padding:6px 8px;text-align:right' },
+          el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: 'Changer le mot de passe du compte', onclick: async () => {
+            const mdp = prompt(`Nouveau mot de passe pour « ${c.pseudo} » (min 4 caractères) :`);
+            if (!mdp) return;
+            try { await adminApi(`/api/admin/compte/${c.id}/password`, { method: 'POST', body: JSON.stringify({ password: mdp }) }); alert('✅ Mot de passe changé (sessions invalidées)'); }
+            catch (e) { alert(e.message); }
+          } }, '🔑 mdp'),
           el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px', onclick: async () => {
             if (!confirm(`Supprimer le compte « ${c.pseudo} » ?\nLes joueurs rattachés sont détachés (l'historique des matchs est conservé), les sessions et abonnements push sont supprimés.`)) return;
             try { await adminApi(`/api/admin/compte/${c.id}`, { method: 'DELETE' }); charger(); }

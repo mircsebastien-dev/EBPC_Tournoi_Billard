@@ -670,6 +670,16 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
   res.json({ comptes: rows });
 });
 
+app.post('/api/admin/compte/:id/password', requireAdmin, (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!db.prepare('SELECT id FROM compte WHERE id = ?').get(id)) return res.status(404).json({ error: 'Compte introuvable' });
+    comptes.setPasswordAdmin(id, req.body.password);
+    logAudit('compte_mdp_change', `compte #${id}`, null, {});
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 app.delete('/api/admin/compte/:id', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const c = comptes.supprimerCompte(id);
