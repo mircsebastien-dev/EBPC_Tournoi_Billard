@@ -51,8 +51,8 @@ function adminTournoiActif() { return adminState && adminState.actif; }
 
 // Modale admin "Gérer le match" (clic sur une card avec le PIN): table, score, rouvrir/forfait
 async function openMatchEditor(m, onChange) {
-  const t = (typeof state !== 'undefined' && state && state.actif) || null;
-  const tables = (t && t.tables) || [];
+  let tables = (typeof state !== 'undefined' && state && state.actif && state.actif.tables) || null;
+  if (!tables) { try { const s = await api('/api/etat'); tables = (s && s.actif && s.actif.tables) || []; } catch { tables = []; } }
   const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
   const box = el('div', { class: 'panel', style: 'max-width:440px;width:92%' },
     el('h3', {}, `⚙️ Match #${m.position}`),
