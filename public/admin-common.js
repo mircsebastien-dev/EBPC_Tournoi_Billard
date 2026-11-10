@@ -63,7 +63,7 @@ async function openMatchEditor(m, onChange) {
       el('div', { class: 'row', style: 'margin-top:4px' },
         el('select', { id: 'adm-table', style: 'flex:1 1 auto' },
           el('option', { value: '' }, '— aucune —'),
-          ...tables.map(tb => el('option', { value: String(tb.id), selected: m.table === tb.id ? true : null }, `Table ${tb.numero}`))),
+          ...tables.map(tb => el('option', { value: String(tb.id), selected: m.table === tb.numero ? true : null }, `Table ${tb.numero}`))),
         el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
           const v = box.querySelector('#adm-table').value;
           try { await adminApi(`/api/admin/match/${m.id}/table`, { method: 'POST', body: JSON.stringify({ table_id: v === '' ? null : Number(v) }) }); if (onChange) onChange(); overlay.remove(); }
