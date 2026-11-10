@@ -250,3 +250,8 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
 .scoreboard .p .bille { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
 /* surbrillance recherche joueur dans l'historique */
 .match-card.hit { border-color: var(--pink) !important; box-shadow: 0 0 0 2px rgba(255,46,136,.45), 0 0 18px rgba(255,46,136,.25); background: rgba(255,46,136,.08); }
+/* bracket lisible en paysage/zoom sur mobile */
+@media (max-width: 719px) {
+  #bracket { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .round { min-width: 220px; }
+}

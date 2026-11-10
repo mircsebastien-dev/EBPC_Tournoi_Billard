@@ -48,7 +48,8 @@
 document.getElementById('nav').append(nav('tableau'));
 const main = document.getElementById('main');
 let state = null;
-let viewMode = (new URLSearchParams(location.search)).get('vue') || localStorage.getItem('ebpc_view') || 'bracket';
+// défaut: bracket sur desktop, LISTE sur téléphone (le bracket est illisible en petit écran)
+let viewMode = (new URLSearchParams(location.search)).get('vue') || localStorage.getItem('ebpc_view') || (window.innerWidth < 720 ? 'liste' : 'bracket');
 let filtreJoueur = '';
 let autoScrolled = false;
 
