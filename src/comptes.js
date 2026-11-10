@@ -331,4 +331,15 @@ function setPasswordAdmin(compteId, password) {
   return true;
 }
 
-module.exports = { supprimerCompte, purgerComptesInactifs, setPasswordAdmin, supprimerCompte, purgerComptesInactifs, registerCompteRoutes, middlewareSession, hashToken, SESSION_COOKIE };
+
+// Admin: renommer le pseudo d'un compte (unicité casse-insensible)
+function setPseudoAdmin(compteId, pseudo) {
+  const p = String(pseudo || '').trim();
+  if (p.length < 2) throw new Error('Pseudo trop court (min 2)');
+  const pris = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE AND id != ?').get(p, compteId);
+  if (pris) throw new Error('Ce pseudo est déjà pris');
+  db.prepare('UPDATE compte SET pseudo = ? WHERE id = ?').run(p, compteId);
+  return p;
+}
+
+module.exports = { supprimerCompte, purgerComptesInactifs, setPasswordAdmin, setPseudoAdmin, supprimerCompte, purgerComptesInactifs, registerCompteRoutes, middlewareSession, hashToken, SESSION_COOKIE };

@@ -670,6 +670,17 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
   res.json({ comptes: rows });
 });
 
+app.post('/api/admin/compte/:id/pseudo', requireAdmin, (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const c = db.prepare('SELECT id FROM compte WHERE id = ?').get(id);
+    if (!c) return res.status(404).json({ error: 'Compte introuvable' });
+    const p = comptes.setPseudoAdmin(id, req.body.pseudo);
+    logAudit('compte_pseudo_change', `compte #${id} -> ${p}`, null, {});
+    res.json({ ok: true, pseudo: p });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 app.post('/api/admin/compte/:id/password', requireAdmin, (req, res) => {
   try {
     const id = Number(req.params.id);
