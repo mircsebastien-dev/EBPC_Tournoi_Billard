@@ -639,16 +639,6 @@ app.post('/api/admin/terminer', requireAdmin, (req, res) => {
     `).get(t.id);
     championId = dernierJoue ? dernierJoue.gagnant_id : null;
   }
-  if (!championId) {
-    // arrêt en cours sans match gagné: champion = meilleur joueur (victoires, puis manches gagnées)
-    const best = db.prepare(`
-      SELECT j.id, COUNT(m.id) wins, COALESCE(SUM(CASE WHEN m.joueur1_id = j.id THEN m.score1 ELSE m.score2 END), 0) manches
-      FROM joueur j LEFT JOIN match m ON m.tournoi_id = j.tournoi_id AND m.gagnant_id = j.id AND m.etat IN ('termine','forfait')
-      WHERE j.tournoi_id = ? AND j.statut = 'paye'
-      GROUP BY j.id ORDER BY wins DESC, manches DESC, j.id LIMIT 1
-    `).get(t.id);
-    championId = best ? best.id : null;
-  }
   db.prepare(`UPDATE tournoi SET statut = 'termine', champion_id = ? WHERE id = ?`).run(championId, t.id);
   db.prepare(`UPDATE match SET etat = 'termine', ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE tournoi_id = ? AND etat IN ('prevu', 'pret', 'en_cours')`).run(t.id);
   logAudit('tournoi_termine_manuellement', `tournoi ${t.id}`, { statut: t.statut }, { champion_id: championId });
