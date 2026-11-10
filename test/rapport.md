@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-10T21:11:07.553Z
-- Base : http://127.0.0.1:3520
-- Résultat : **63 OK / 0 ÉCHEC** (1.6s)
+- Date : 2026-11-10T20:50:28.112Z
+- Base : http://127.0.0.1:3518
+- Résultat : **63 OK / 0 ÉCHEC** (1.7s)
 
 | Statut | Test | Détail |
 |---|---|---|

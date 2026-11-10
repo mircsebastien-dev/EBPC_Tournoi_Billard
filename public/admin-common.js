@@ -54,16 +54,7 @@ async function openMatchEditor(m, onChange) {
   const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
   const box = el('div', { class: 'panel', style: 'max-width:520px;width:92%;max-height:85vh;overflow:auto' },
     el('h3', {}, `⚙️ Match #${m.position} — ${m.joueur1 ? m.joueur1.pseudo : '…'} vs ${m.joueur2 ? m.joueur2.pseudo : '…'}`),
-    el('p', { class: 'muted small', id: 'ev-score' }, `Score ${m.score1} - ${m.score2} · ${m.etat} · race to ${m.manches}`),
-    el('div', { class: 'row', style: 'justify-content:center;gap:18px;margin:8px 0' },
-      el('div', { style: 'text-align:center' },
-        el('div', { style: 'font-weight:700' }, m.joueur1 ? m.joueur1.pseudo : '…'),
-        el('button', { class: 'secondary', style: 'padding:6px 14px', onclick: () => corriger(m.joueur1.id, -1) }, '−1'),
-        el('button', { style: 'padding:6px 14px;margin-left:6px', onclick: () => corriger(m.joueur1.id, +1) }, '+1')),
-      el('div', { style: 'text-align:center' },
-        el('div', { style: 'font-weight:700' }, m.joueur2 ? m.joueur2.pseudo : '…'),
-        el('button', { class: 'secondary', style: 'padding:6px 14px', onclick: () => corriger(m.joueur2.id, -1) }, '−1'),
-        el('button', { style: 'padding:6px 14px;margin-left:6px', onclick: () => corriger(m.joueur2.id, +1) }, '+1'))),
+    el('p', { class: 'muted small' }, `Score ${m.score1} - ${m.score2} · ${m.etat} · race to ${m.manches}`),
     el('div', { id: 'ev-list' }, 'Chargement…'));
   overlay.append(box);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
@@ -86,21 +77,6 @@ async function openMatchEditor(m, onChange) {
           } }, '🗑')));
       }
     } catch (e) { list.innerHTML = ''; list.append(el('p', { class: 'muted' }, e.message)); }
-  }
-  let cur = { score1: m.score1, score2: m.score2 };
-  async function corriger(joueurId, delta) {
-    const body = joueurId === m.joueur1_id
-      ? { score1: Math.max(0, cur.score1 + delta), score2: cur.score2, manches: m.manches, motif: 'correction admin' }
-      : { score1: cur.score1, score2: Math.max(0, cur.score2 + delta), manches: m.manches, motif: 'correction admin' };
-    try {
-      const r = await adminApi(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: JSON.stringify(body) });
-      if (r.match) { cur = { score1: r.match.score1, score2: r.match.score2 };
-        const sc = box.querySelector('#ev-score');
-        if (sc) sc.textContent = `Score ${cur.score1} - ${cur.score2} · ${r.match.etat} · race to ${r.match.manches}`;
-      }
-      await chargerEvents();
-      if (onChange) onChange();
-    } catch (e) { alert(e.message); }
   }
   await chargerEvents();
   box.append(el('div', { class: 'row', style: 'justify-content:flex-end;margin-top:10px' },
