@@ -7,15 +7,17 @@
 <link rel="stylesheet" href="/style.css">
 <style>
 .bracket-scroll { overflow-x: auto; padding-bottom: 10px; }
-.bracket { display: flex; gap: 46px; align-items: stretch; min-width: max-content; position: relative; }
-.bracket-col { display: block; min-width: 220px; position: relative; z-index: 1; }
+.bracket { display: flex; gap: 18px; align-items: stretch; min-width: max-content; position: relative; }
+.bracket-col { display: block; min-width: 168px; position: relative; z-index: 1; }
+.bracket-col.lb, .bracket-col.finale { min-width: 150px; }
 .bracket-col h3 { position: sticky; top: 0; }
 .bracket-col h3 { text-align: center; margin-bottom: 8px; }
 .bracket-col.lb h3 { color: #ff8fb8; }
 .bracket-col.wb h3 { color: var(--pink-soft); }
 .bracket-col.finale h3 { color: var(--gold); }
-.node { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin: 0; font-size: 14px; min-width: 200px; height: 104px; overflow: hidden; box-sizing: border-box; }
-.node .meta { display: flex; flex-wrap: wrap; gap: 4px; font-size: 11px; margin-top: 4px; }
+.node { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; margin: 0; font-size: 12.5px; min-width: 150px; height: 84px; overflow: hidden; box-sizing: border-box; }
+.node .nj span:first-child { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+.node .meta { display: flex; flex-wrap: wrap; gap: 3px; font-size: 10px; margin-top: 3px; }
 .node.live { border-color: var(--pink); box-shadow: 0 0 14px var(--pink-glow); }
 .node.done { opacity: 0.75; }
 .node.attente { border-style: dashed; opacity: 0.85; background: repeating-linear-gradient(45deg, var(--panel), var(--panel) 8px, var(--bg2) 8px, var(--bg2) 16px); }
@@ -49,7 +51,7 @@ document.getElementById('nav').append(nav('tableau'));
 const main = document.getElementById('main');
 let state = null;
 // défaut: bracket sur desktop, LISTE sur téléphone (le bracket est illisible en petit écran)
-let viewMode = (new URLSearchParams(location.search)).get('vue') || localStorage.getItem('ebpc_view') || (window.innerWidth < 720 ? 'liste' : 'bracket');
+let viewMode = (new URLSearchParams(location.search)).get('vue') || localStorage.getItem('ebpc_view') || 'bracket';
 let filtreJoueur = '';
 let autoScrolled = false;
 
