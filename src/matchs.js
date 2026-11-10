@@ -372,7 +372,24 @@ function rafraichirPrets() {
   for (const r of db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'prevu'`).all(actif.id)) appliquerBye(r.id);
 }
 
-module.exports = {
+
+// Admin: déplacer un match sur une autre table (vérifie que la table existe et n'est pas occupée)
+function setTableAdmin(matchId, tableId) {
+  const m = matchById(matchId);
+  if (!m) throw httpError(404, 'Match introuvable');
+  if (tableId == null) { // libérer la table
+    db.prepare('UPDATE match SET table_id = NULL, updated_at = datetime(\'now\') WHERE id = ?').run(matchId);
+    return matchById(matchId);
+  }
+  const t = db.prepare('SELECT id FROM table_billard WHERE id = ? AND tournoi_id = ?').get(tableId, m.tournoi_id);
+  if (!t) throw httpError(400, 'Table inconnue pour ce tournoi');
+  const prise = db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id = ? AND id != ?`).get(m.tournoi_id, tableId, matchId);
+  if (prise) throw httpError(409, `Table déjà occupée par le match #${prise}`);
+  db.prepare('UPDATE match SET table_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(tableId, matchId);
+  return matchById(matchId);
+}
+
+module.exports = { setTableAdmin,
   httpError,
   matchById,
   setBande,

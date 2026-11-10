@@ -591,6 +591,13 @@ app.post('/api/admin/match/:id/lancer', requireAdmin, (req, res) => {
 
 
 
+app.post('/api/admin/match/:id/table', requireAdmin, (req, res) => {
+  const m = M.setTableAdmin(Number(req.params.id), req.body.table_id == null ? null : Number(req.body.table_id));
+  logAudit('match_table_change', `match #${req.params.id} -> table ${req.body.table_id}`, null, {});
+  majEtBroadcast();
+  res.json({ ok: true, match: vueMatch(m) });
+});
+
 app.post('/api/admin/match/:id/correction', requireAdmin, (req, res) => {
   const { score1, score2, manches, motif } = req.body;
   const m = M.corrigerScore(Number(req.params.id), Number(score1) || 0, Number(score2) || 0, Number(manches) || 3, motif || '');

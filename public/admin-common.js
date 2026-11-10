@@ -48,3 +48,47 @@ function adminNav(active) {
 }
 
 function adminTournoiActif() { return adminState && adminState.actif; }
+
+// Modale admin "Gérer le match" (clic sur une card avec le PIN): table, score, rouvrir/forfait
+async function openMatchEditor(m, onChange) {
+  const t = (typeof state !== 'undefined' && state && state.actif) || null;
+  const tables = (t && t.tables) || [];
+  const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+  const box = el('div', { class: 'panel', style: 'max-width:440px;width:92%' },
+    el('h3', {}, `⚙️ Match #${m.position}`),
+    el('p', { class: 'muted small' }, `${m.joueur1 ? m.joueur1.pseudo : '…'} vs ${m.joueur2 ? m.joueur2.pseudo : '…'} · ${m.etat} · score ${m.score1} - ${m.score2} · race to ${m.manches}`),
+    // table
+    el('div', { style: 'margin:10px 0' },
+      el('label', { class: 'small muted' }, '🎱 Table'),
+      el('div', { class: 'row', style: 'margin-top:4px' },
+        el('select', { id: 'adm-table', style: 'flex:1 1 auto' },
+          el('option', { value: '' }, '— aucune —'),
+          ...tables.map(tb => el('option', { value: String(tb.id), selected: m.table === tb.id ? true : null }, `Table ${tb.numero}`))),
+        el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
+          const v = box.querySelector('#adm-table').value;
+          try { await adminApi(`/api/admin/match/${m.id}/table`, { method: 'POST', body: JSON.stringify({ table_id: v === '' ? null : Number(v) }) }); if (onChange) onChange(); overlay.remove(); }
+          catch (e) { alert(e.message); }
+        } }, 'Appliquer'))),
+    // score
+    el('div', { style: 'margin:10px 0' },
+      el('label', { class: 'small muted' }, '✏️ Score (correction)'),
+      el('div', { class: 'row', style: 'margin-top:4px;align-items:center' },
+        el('input', { id: 'adm-s1', type: 'number', min: 0, value: String(m.score1), style: 'width:64px' }),
+        el('span', {}, ' - '),
+        el('input', { id: 'adm-s2', type: 'number', min: 0, value: String(m.score2), style: 'width:64px' }),
+        el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
+          try {
+            await adminApi(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: JSON.stringify({ score1: Number(box.querySelector('#adm-s1').value) || 0, score2: Number(box.querySelector('#adm-s2').value) || 0, manches: m.manches, motif: 'correction admin' }) });
+            if (onChange) onChange(); overlay.remove();
+          } catch (e) { alert(e.message); }
+        } }, 'Enregistrer'))),
+    // rouvrir / forfait
+    el('div', { class: 'row', style: 'margin-top:10px;justify-content:space-between' },
+      m.etat === 'termine' || m.etat === 'forfait'
+        ? el('button', { class: 'secondary', onclick: async () => { try { await adminApi(`/api/admin/match/${m.id}/rouvrir`, { method: 'POST' }); if (onChange) onChange(); overlay.remove(); } catch (e) { alert(e.message); } } }, '🔓 Rouvrir le match')
+        : el('button', { class: 'danger', onclick: async () => { const j = prompt('Forfait: id du joueur perdant (1=' + (m.joueur1 ? m.joueur1.pseudo : '?') + ', 2=' + (m.joueur2 ? m.joueur2.pseudo : '?') + ')'); const jid = j === '1' ? m.joueur1 && m.joueur1.id : j === '2' ? m.joueur2 && m.joueur2.id : null; if (!jid) return; try { await adminApi(`/api/admin/match/${m.id}/forfait`, { method: 'POST', body: JSON.stringify({ joueur_id: jid }) }); if (onChange) onChange(); overlay.remove(); } catch (e) { alert(e.message); } } }, '🚫 Forfait'),
+      el('button', { class: 'secondary', onclick: () => overlay.remove() }, 'Fermer')));
+  overlay.append(box);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.append(overlay);
+}
