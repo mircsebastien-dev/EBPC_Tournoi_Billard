@@ -101,6 +101,17 @@ function validerPassword(p) {
 }
 
 // ---------- routes ----------
+
+// Rattache les joueurs anonymes du tournoi actif au même pseudo -> compte (création de compte ou connexion)
+function rattacherJoueursAnonymes(compteId, pseudo, tournoiActif) {
+  if (!tournoiActif) return;
+  const t = tournoiActif();
+  if (t && (t.statut === 'inscription' || t.statut === 'en_cours')) {
+    db.prepare('UPDATE joueur SET compte_id = ? WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND compte_id IS NULL')
+      .run(compteId, t.id, pseudo);
+  }
+}
+
 function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueMatch }) {
   // inscription compte
   app.post('/api/compte/inscription', (req, res) => {
@@ -117,6 +128,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     const salt = nouveauSalt();
     const info = db.prepare(`INSERT INTO compte (pseudo, email, pass_hash, salt, last_login_at) VALUES (?, ?, ?, ?, datetime('now'))`)
       .run(pseudo, email, hashPassword(password, salt), salt);
+    rattacherJoueursAnonymes(info.lastInsertRowid, pseudo, tournoiActif);
     const compte = db.prepare('SELECT id, pseudo, email FROM compte WHERE id = ?').get(info.lastInsertRowid);
     const token = creerSession(compte.id);
     setSessionCookie(res, token, SESSION_JOURS);
@@ -134,14 +146,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!c || !verifierPassword(password, c.salt, c.pass_hash)) {
       return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect' });
     }
-    // rattachement auto : joueurs anonymes du tournoi actif avec le même pseudo -> compte
-    if (tournoiActif) {
-      const t = tournoiActif();
-      if (t && t.statut === 'inscription') {
-        db.prepare('UPDATE joueur SET compte_id = ? WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND compte_id IS NULL')
-          .run(c.id, t.id, c.pseudo);
-      }
-    }
+    rattacherJoueursAnonymes(c.id, c.pseudo, tournoiActif);
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
