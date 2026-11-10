@@ -34,8 +34,15 @@ function renderSelecteur() {
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, 'Qui es-tu ?'),
     el('p', { class: 'muted', style: 'margin-bottom:14px' }, 'Touche ton pseudo ci-dessous.'),
+    // invité (pas de compte) -> on ne peut choisir que des joueurs sans compte (pas de joueur enregistré)
+    const connecte = !!(state && state.compte);
+    if (!connecte && joueurId) {
+      const jCourant = t.joueurs.find(x => x.id === joueurId);
+      if (jCourant && jCourant.compte_id) { joueurId = 0; localStorage.removeItem('ebpc_joueur_id'); }
+    }
+    const visibles = t.joueurs.filter(j => connecte || !j.compte_id);
     el('div', { class: 'liste-joueurs' },
-      t.joueurs.map(j => el('button', {
+      visibles.map(j => el('button', {
         class: 'joueur-btn secondary',
         onclick: () => { joueurId = j.id; localStorage.setItem('ebpc_joueur_id', String(j.id)); renderMatchs(); }
       }, j.pseudo)))));
