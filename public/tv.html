@@ -80,23 +80,18 @@ let state = null;
 let slideIdx = 0;
 let timer = null;
 const SLIDE_MS = 6000;
-const MAX_NEXT = 6;
 
 function slidesList() {
   const t = state && state.actif;
   if (!t) return [{ type: 'vide' }];
   if (t.champion) return [{ type: 'champion', t }];
+  // TV = uniquement les matchs EN COURS (plus de slide « prochains matchs »)
   const enCours = t.matchs.filter(m => m.etat === 'en_cours');
-  const aVenir = t.matchs
-    .filter(m => (m.etat === 'pret' || m.etat === 'prevu') && m.joueur1 && m.joueur2)
-    .sort((a, b) => (a.bracket === 'WB' ? 0 : a.bracket === 'LB' ? 1 : 2) - (b.bracket === 'WB' ? 0 : b.bracket === 'LB' ? 1 : 2) || a.tour - b.tour || a.position - b.position)
-    .slice(0, MAX_NEXT);
   const slides = [];
   const LIVE_PAR_PAGE = 8;
   for (let i = 0; i < enCours.length; i += LIVE_PAR_PAGE) {
     slides.push({ type: 'live-group', items: enCours.slice(i, i + LIVE_PAR_PAGE), page: Math.floor(i / LIVE_PAR_PAGE) + 1, total: Math.ceil(enCours.length / LIVE_PAR_PAGE) });
   }
-  if (aVenir.length > 0) slides.push({ type: 'next', items: aVenir, t });
   if (slides.length === 0) slides.push({ type: 'attente', t });
   return slides;
 }
@@ -138,15 +133,6 @@ function render() {
           el('div', { class: 's', style: 'font-size:clamp(30px,6vw,70px);color:var(--muted)' }, '–'),
           el('div', {}, el('div', { class: 'p' }, m.joueur2 ? m.joueur2.pseudo : '—'), el('div', { class: 's' }, String(m.score2)))),
         m.table != null ? el('div', { class: 'tv-table' }, `🎱 Table n° ${m.table}`) : null);
-    } else if (s.type === 'next') {
-      const list = el('div', { class: 'tv-next-list' + (s.items.length > 4 ? ' scrolling' : '') });
-      for (const m of s.items) {
-        const r = t.rounds.find(rr => rr.bracket === m.bracket && rr.tour === m.tour);
-        list.append(el('div', { class: 'tv-next-item' },
-          el('span', {}, `${m.joueur1 ? m.joueur1.pseudo : '…'}  vs  ${m.joueur2 ? m.joueur2.pseudo : '…'}`),
-          el('span', { class: 'meta' }, `${r ? r.label : ''} · #${m.position}`)));
-      }
-      div.append(el('div', { class: 'tv-next-title' }, `⏭ Prochains matchs (${s.items.length})`), el('div', { class: 'tv-next-list-wrap' }, list));
     } else if (s.type === 'champion') {
       div.append(el('div', { class: 'tv-champion' }, `🏆 ${s.t.champion.pseudo}`), el('div', { class: 'tv-big', style: 'color:var(--muted)' }, 'Champion de la Pink City'));
     } else if (s.type === 'attente') {
