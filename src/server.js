@@ -591,6 +591,15 @@ app.post('/api/admin/match/:id/lancer', requireAdmin, (req, res) => {
 
 
 
+app.post('/api/admin/match/:id/joueurs', requireAdmin, (req, res) => {
+  const j1 = req.body.joueur1_id == null || req.body.joueur1_id === '' ? null : Number(req.body.joueur1_id);
+  const j2 = req.body.joueur2_id == null || req.body.joueur2_id === '' ? null : Number(req.body.joueur2_id);
+  const m = M.setJoueursAdmin(Number(req.params.id), j1, j2);
+  logAudit('match_joueurs_change', `match #${req.params.id} -> j1=${j1} j2=${j2}`, null, {});
+  majEtBroadcast();
+  res.json({ ok: true, match: vueMatch(m) });
+});
+
 app.post('/api/admin/match/:id/table', requireAdmin, (req, res) => {
   const m = M.setTableAdmin(Number(req.params.id), req.body.table_id == null ? null : Number(req.body.table_id));
   logAudit('match_table_change', `match #${req.params.id} -> table ${req.body.table_id}`, null, {});

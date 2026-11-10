@@ -389,7 +389,28 @@ function setTableAdmin(matchId, tableId) {
   return matchById(matchId);
 }
 
-module.exports = { setTableAdmin,
+
+// Admin: changer les joueurs d'un match (joueur1_id / joueur2_id, null autorisé pour un blanc)
+function setJoueursAdmin(matchId, j1, j2) {
+  const m = matchById(matchId);
+  if (!m) throw httpError(404, 'Match introuvable');
+  if (j1 != null && j1 === j2) throw httpError(400, 'Les deux joueurs doivent être différents');
+  for (const j of [j1, j2]) {
+    if (j != null && !db.prepare('SELECT id FROM joueur WHERE id = ? AND tournoi_id = ?').get(j, m.tournoi_id))
+      throw httpError(400, 'Joueur inconnu dans ce tournoi');
+  }
+  db.prepare('UPDATE match SET joueur1_id = ?, joueur2_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(j1, j2, matchId);
+  // si un côté devient null et l'autre non -> bye auto
+  const cur = matchById(matchId);
+  if (cur.etat === 'prevu' && ((cur.joueur1_id == null) !== (cur.joueur2_id == null))) {
+    const g = cur.joueur1_id || cur.joueur2_id;
+    const p = null;
+    terminerMatch(matchId, g, p, 'adversaire absent (bye)');
+  }
+  return matchById(matchId);
+}
+
+module.exports = { setTableAdmin, setJoueursAdmin,
   httpError,
   matchById,
   setBande,

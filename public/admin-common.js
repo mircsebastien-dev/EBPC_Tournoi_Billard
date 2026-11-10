@@ -52,11 +52,29 @@ function adminTournoiActif() { return adminState && adminState.actif; }
 // Modale admin "Gérer le match" (clic sur une card avec le PIN): table, score, rouvrir/forfait
 async function openMatchEditor(m, onChange) {
   let tables = (typeof state !== 'undefined' && state && state.actif && state.actif.tables) || null;
-  if (!tables) { try { const s = await api('/api/etat'); tables = (s && s.actif && s.actif.tables) || []; } catch { tables = []; } }
+  let joueurs = (typeof state !== 'undefined' && state && state.actif && state.actif.joueurs) || null;
+  if (!tables || !joueurs) { try { const s = await api('/api/etat'); tables = tables || (s && s.actif && s.actif.tables) || []; joueurs = joueurs || (s && s.actif && s.actif.joueurs) || []; } catch { tables = tables || []; joueurs = joueurs || []; } }
   const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
   const box = el('div', { class: 'panel', style: 'max-width:440px;width:92%' },
     el('h3', {}, `⚙️ Match #${m.position}`),
     el('p', { class: 'muted small' }, `${m.joueur1 ? m.joueur1.pseudo : '…'} vs ${m.joueur2 ? m.joueur2.pseudo : '…'} · ${m.etat} · score ${m.score1} - ${m.score2} · race to ${m.manches}`),
+    // joueurs
+    el('div', { style: 'margin:10px 0' },
+      el('label', { class: 'small muted' }, '👥 Joueurs du match'),
+      el('div', { class: 'row', style: 'margin-top:4px' },
+        el('select', { id: 'adm-j1', style: 'flex:1 1 auto' },
+          el('option', { value: '' }, '— blanc —'),
+          ...joueurs.map(j => el('option', { value: String(j.id), selected: m.joueur1 && m.joueur1.id === j.id ? true : null }, j.pseudo))),
+        el('span', {}, ' vs '),
+        el('select', { id: 'adm-j2', style: 'flex:1 1 auto' },
+          el('option', { value: '' }, '— blanc —'),
+          ...joueurs.map(j => el('option', { value: String(j.id), selected: m.joueur2 && m.joueur2.id === j.id ? true : null }, j.pseudo))),
+        el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
+          try {
+            await adminApi(`/api/admin/match/${m.id}/joueurs`, { method: 'POST', body: JSON.stringify({ joueur1_id: box.querySelector('#adm-j1').value, joueur2_id: box.querySelector('#adm-j2').value }) });
+            if (onChange) onChange(); overlay.remove();
+          } catch (e) { alert(e.message); }
+        } }, 'Appliquer'))),
     // table
     el('div', { style: 'margin:10px 0' },
       el('label', { class: 'small muted' }, '🎱 Table'),
