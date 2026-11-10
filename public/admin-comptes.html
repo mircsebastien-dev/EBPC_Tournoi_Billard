@@ -43,7 +43,7 @@ function render(comptes) {
     el('div', { class: 'hero-title' }, `👤 ${rows.length} compte(s)`),
     rows.length === 0 ? el('p', { class: 'muted' }, 'Aucun compte.') :
     el('table', { style: 'width:100%;border-collapse:collapse' },
-      el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
+      el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Sessions', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
       el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
         el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo),
         el('td', { style: 'padding:6px 8px' }, c.email),
