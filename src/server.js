@@ -201,7 +201,7 @@ function etatGlobal(req) {
     historique: vueTournoiListe().filter(t => t.statut === 'termine'),
     auto: getSetting('auto_on') === '1',
     table_pref: getSetting('table_pref') || '',
-    tables_reservees: getSetting('tables_reservees') || '1,2',
+    tables_reservees: getSetting('tables_reservees') || '',
     reservees_tour: getSetting('reservees_tour') || '',
     compte: req && req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo } : null,
   };

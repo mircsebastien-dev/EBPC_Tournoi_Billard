@@ -89,7 +89,7 @@ function renderPanneauAuto() {
     el('div', { class: 'row', style: 'margin-top:8px' },
       el('div', { style: 'flex:1 1 auto' },
         el('label', {}, 'Tables réservées en phase finale (jamais utilisées en auto à partir des quarts)'),
-        el('input', { id: 'tablesres', value: (adminState && adminState.tables_reservees) || '1,2', placeholder: 'ex: 1,2 (vide = aucune)', maxlength: 50 })),
+        el('input', { id: 'tablesres', value: (adminState && adminState.tables_reservees) || '', placeholder: 'ex: 1,2 (vide = aucune)', maxlength: 50 })),
       el('div', {},
         el('label', {}, 'Réservées à partir du tour n° (vide = quarts)'),
         el('input', { id: 'restour', value: (adminState && adminState.reservees_tour) || '', placeholder: 'ex: 2', style: 'width:70px', type: 'number', min: 1 })),

@@ -316,7 +316,7 @@ function prochainMatchAuto(tournoiId) {
 // Ex 16 joueurs: quarts = tour 2 -> à partir de ce tour T1/T2 ne sont plus utilisées (sauf si plus assez de tables ailleurs)
 function tablesReserveesAuTour(tournoiId, m) {
   const { getSetting } = require('./db');
-  const nums = (getSetting('tables_reservees') || '1,2').split(',').map(x => parseInt(x.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
+  const nums = (getSetting('tables_reservees') || '').split(',').map(x => parseInt(x.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
   if (!nums.length || !m) return [];
   const t = db.prepare('SELECT taille FROM tournoi WHERE id = ?').get(tournoiId);
   const quarts = Math.max(1, Math.round(Math.log2(t.taille)) - 2);
