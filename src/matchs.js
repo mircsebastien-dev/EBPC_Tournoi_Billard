@@ -243,6 +243,14 @@ function rouvrirMatch(matchId) {
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.etat !== 'termine' && m.etat !== 'forfait') throw httpError(409, 'Seul un match terminé peut être rouvert');
   if (m.joueur1_id == null || m.joueur2_id == null) throw httpError(409, 'Match sans 2 joueurs');
+  // réouverture interdite si l'aval a déjà commencé/joué (corriger manuellement les matchs suivants à la place)
+  for (const toId of [m.suivant_id, m.perdant_id]) {
+    if (!toId) continue;
+    const s = matchById(toId);
+    if (s && (s.etat === 'en_cours' || s.etat === 'termine' || s.etat === 'forfait' || (s.joueur1_id != null && s.joueur2_id != null && s.etat !== 'prevu'))) {
+      throw httpError(409, `Réouverture interdite : le match aval #${s.position} (${s.bracket}${s.tour}) a déjà commencé. Corrige les joueurs/scores à la main sur ce match.`);
+    }
+  }
   annulerEnAval(matchId);
   db.prepare(`UPDATE match SET etat = 'en_cours', gagnant_id = NULL, ended_at = NULL, updated_at = datetime('now') WHERE id = ?`).run(matchId);
   insererEvent(matchId, null, 'correction', { action: 'rouvrir' });
