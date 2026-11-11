@@ -814,7 +814,8 @@ app.get('/api/joueur/:id/stats', (req, res) => {
   const runouts = evs.filter(e => e.type === 'runout');
   const casse = runouts.filter(e => { try { return JSON.parse(e.detail || '{}').kind === 'casse'; } catch { return false; } }).length;
   const reprise = runouts.length - casse;
-  const termines = matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait');
+  // un match clôturé sans gagnant (tournoi arrêté) ne compte ni comme joué ni comme perdu
+  const termines = matchs.filter(m => (m.etat === 'termine' || m.etat === 'forfait') && m.gagnant_id != null);
   const gagnes = termines.filter(m => ids.includes(m.gagnant_id)).length;
   const joues = termines.length;
   const enCours = matchs.filter(m => m.etat === 'en_cours').length;
