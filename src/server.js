@@ -631,14 +631,8 @@ app.post('/api/admin/terminer', requireAdmin, (req, res) => {
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut === 'termine') return res.status(409).json({ error: 'Tournoi déjà terminé' });
-  let championId = req.body.champion_id ? Number(req.body.champion_id) : null;
-  if (!championId) {
-    const dernierJoue = db.prepare(`
-      SELECT gagnant_id FROM match WHERE tournoi_id = ? AND gagnant_id IS NOT NULL
-      ORDER BY CASE bracket WHEN 'F' THEN 2 WHEN 'WB' THEN 1 ELSE 0 END DESC, tour DESC LIMIT 1
-    `).get(t.id);
-    championId = dernierJoue ? dernierJoue.gagnant_id : null;
-  }
+  // arrêt manuel = coupe net: champion UNIQUEMENT si explicitement choisi (pas de fallback auto)
+  const championId = req.body.champion_id ? Number(req.body.champion_id) : null;
   db.prepare(`UPDATE tournoi SET statut = 'termine', champion_id = ? WHERE id = ?`).run(championId, t.id);
   db.prepare(`UPDATE match SET etat = 'termine', ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE tournoi_id = ? AND etat IN ('prevu', 'pret', 'en_cours')`).run(t.id);
   logAudit('tournoi_termine_manuellement', `tournoi ${t.id}`, { statut: t.statut }, { champion_id: championId });
