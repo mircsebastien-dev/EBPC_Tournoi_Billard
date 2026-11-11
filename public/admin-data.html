@@ -18,15 +18,26 @@ let onglet = "matchs";
 const TH = h => el("th", { style: "text-align:left;padding:4px 6px" }, h);
 const TD = (h, style) => el("td", { style: "padding:4px 6px" + (style ? ";" + style : "") }, h);
 
+let tournoiId = null; // null = tournoi actif
+
 async function charger() {
   if (!adminPin) { renderAdminLogin(main); return; }
   const st = await adminApi("/api/etat");
-  const t = st.actif;
+  let t = st.actif;
+  if (tournoiId) {
+    const r = await api("/api/tournois/" + tournoiId); // public, lecture seule
+    t = r.tournoi;
+  }
   main.innerHTML = "";
   const tabs = el("div", { class: "row" }, ["matchs", "joueurs", "events"].map(o =>
     el("button", { class: onglet === o ? "" : "secondary", style: "margin-right:6px", onclick: () => { onglet = o; charger(); } },
       { matchs: "🎱 Matchs", joueurs: "👥 Joueurs", events: "📜 Events" }[o])));
-  main.append(el("div", { class: "panel", style: "padding:10px 14px;margin-bottom:12px" }, tabs));
+  const liste = await adminApi("/api/tournois");
+  const selT = el("select", { id: "sel-tournoi", style: "margin-right:10px" },
+    el("option", { value: "", selected: !tournoiId ? true : null }, "▶ tournoi actif"),
+    ...liste.tournois.map(x => el("option", { value: String(x.id), selected: tournoiId === x.id ? true : null }, (x.statut === "termine" ? "🗂 " : "") + x.nom + " (" + (x.created_at || "").slice(0, 10) + ")")));
+  selT.addEventListener("change", () => { tournoiId = selT.value ? Number(selT.value) : null; charger(); });
+  main.append(el("div", { class: "panel", style: "padding:10px 14px;margin-bottom:12px" }, el("div", { class: "row", style: "flex-wrap:wrap" }, selT, tabs)));
   if (!t) { main.append(el("p", { class: "muted" }, "Aucun tournoi actif.")); return; }
   if (onglet === "matchs") renderMatchs(t);
   else if (onglet === "joueurs") renderJoueurs(t);
