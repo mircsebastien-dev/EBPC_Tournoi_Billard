@@ -104,20 +104,18 @@ function vueMatch(m) {
 
 // points par joueur pour un tournoi: dernier tour WB/F atteint + 1 si passé par le LB
 function pointsParTournoi(tournoiId) {
-  const t = db.prepare('SELECT format, dko_tours FROM tournoi WHERE id = ?').get(tournoiId);
-  const k = (t && t.format === 'double') ? (t.dko_tours || 1) : 0; // nb de tours WB en DKO
-  const niveau = (bracket, tour) => bracket === 'WB' ? tour : bracket === 'F' ? k + tour : 0; // F tour t = profondeur k+t
-  const matchs = db.prepare(`SELECT joueur1_id j1, joueur2_id j2, bracket, tour FROM match WHERE tournoi_id = ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat != 'annule'`).all(tournoiId);
+  // points = 1 + matchs gagnés (si a joué au moins un match)
+  // => perd 2 premiers matchs = 1 pt ; gagne 1 puis perd 2 = 2 pts ; rentre en F (k=2) = 3 pts min, +1 par tour de F
+  const matchs = db.prepare(`SELECT joueur1_id j1, joueur2_id j2, gagnant_id, etat FROM match WHERE tournoi_id = ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat IN ('termine','forfait')`).all(tournoiId);
   const out = {};
   for (const j of db.prepare('SELECT id FROM joueur WHERE tournoi_id = ?').all(tournoiId)) {
-    let nivMax = 0, enLB = false;
+    let joues = 0, gagnes = 0;
     for (const m of matchs) {
       if (m.j1 !== j.id && m.j2 !== j.id) continue;
-      const niv = niveau(m.bracket, m.tour);
-      if (niv > nivMax) nivMax = niv;
-      if (m.bracket === 'LB') enLB = true;
+      joues++;
+      if (m.gagnant_id === j.id) gagnes++;
     }
-    out[j.id] = nivMax + (enLB ? 1 : 0);
+    out[j.id] = joues > 0 ? 1 + gagnes : 0;
   }
   return out;
 }
