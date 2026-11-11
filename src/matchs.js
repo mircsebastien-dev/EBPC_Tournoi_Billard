@@ -36,6 +36,7 @@ function setJoueurDansSuivant(m, champ, toId, slot, joueurId) {
   const autre = slot === 1 ? 'joueur2_id' : 'joueur1_id';
   db.prepare(`UPDATE match SET ${col} = ?, etat = CASE WHEN ${autre} IS NOT NULL AND etat = 'prevu' THEN 'pret' ELSE etat END, updated_at = datetime('now') WHERE id = ?`)
     .run(joueurId, s.id);
+  if (s.bracket === 'F') eviterRematchF(s.id);
   appliquerBye(s.id);
 }
 
@@ -410,7 +411,43 @@ function setJoueursAdmin(matchId, j1, j2) {
   return matchById(matchId);
 }
 
-module.exports = { setTableAdmin, setJoueursAdmin,
+
+// ---- Anti-rematch strict jusqu'à la vraie finale (dernier tour F) ----
+function dejaJoues(tournoiId, a, b) {
+  if (!a || !b || a === b) return false;
+  return !!db.prepare(`
+    SELECT 1 FROM match WHERE tournoi_id = ? AND etat IN ('termine','forfait','en_cours')
+      AND ((joueur1_id = ? AND joueur2_id = ?) OR (joueur1_id = ? AND joueur2_id = ?)) LIMIT 1
+  `).get(tournoiId, a, b, b, a);
+}
+
+function dernierTourF(tournoiId) {
+  const r = db.prepare("SELECT MAX(tour) t FROM match WHERE tournoi_id = ? AND bracket = 'F'").get(tournoiId);
+  return r ? r.t : 0;
+}
+
+// Si un match F (hors vraie finale) a ses 2 joueurs déjà rencontrés, on essaie de swap
+// avec un autre match du même tour F pour casser le rematch.
+function eviterRematchF(fMatchId) {
+  const f = matchById(fMatchId);
+  if (!f || f.bracket !== 'F') return false;
+  if (f.tour >= dernierTourF(f.tournoi_id)) return false; // vraie finale: rematch autorisé
+  if (!f.joueur1_id || !f.joueur2_id) return false;
+  if (!dejaJoues(f.tournoi_id, f.joueur1_id, f.joueur2_id)) return false;
+  const autres = db.prepare(`SELECT * FROM match WHERE tournoi_id = ? AND bracket = 'F' AND tour = ? AND id != ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL`).all(f.tournoi_id, f.tour, f.id);
+  for (const g of autres) {
+    // swap complet des 2 matchs si ça casse le conflit des deux côtés
+    if (!dejaJoues(f.tournoi_id, g.joueur1_id, f.joueur2_id) && !dejaJoues(f.tournoi_id, g.joueur2_id, f.joueur1_id)) {
+        db.prepare('UPDATE match SET joueur1_id = ?, joueur2_id = ? WHERE id = ?').run(g.joueur1_id, g.joueur2_id, f.id);
+        db.prepare('UPDATE match SET joueur1_id = ?, joueur2_id = ? WHERE id = ?').run(f.joueur1_id, f.joueur2_id, g.id);
+        try { db.prepare('INSERT INTO audit_log (action, label, tournoi_id, details) VALUES (?, ?, ?, ?)').run('rematch_swap_f', `swap F${f.tour} #${f.position}<->#${g.position}`, f.tournoi_id, JSON.stringify({ f: f.id, g: g.id })); } catch {}
+        return true;
+    }
+  }
+  return false;
+}
+
+module.exports = { eviterRematchF, dejaJoues, setTableAdmin, setJoueursAdmin,
   httpError,
   matchById,
   setBande,
