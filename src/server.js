@@ -528,6 +528,24 @@ app.delete('/api/admin/joueur/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+app.put('/api/admin/joueur/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const j = db.prepare('SELECT * FROM joueur WHERE id = ?').get(id);
+  if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
+  const pseudo = String(req.body.pseudo || '').trim();
+  if (pseudo.length >= 2) {
+    const pris = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND id != ?').get(j.tournoi_id, pseudo, id);
+    if (pris) return res.status(409).json({ error: 'Pseudo déjà pris dans ce tournoi' });
+    db.prepare('UPDATE joueur SET pseudo = ? WHERE id = ?').run(pseudo, id);
+  }
+  if (req.body.statut === 'paye' || req.body.statut === 'inscrit' || req.body.statut === 'absent') {
+    db.prepare('UPDATE joueur SET statut = ? WHERE id = ?').run(req.body.statut, id);
+  }
+  logAudit('joueur_edite', `joueur #${id}`, j.tournoi_id, { pseudo });
+  majEtBroadcast();
+  res.json({ ok: true, joueur: db.prepare('SELECT * FROM joueur WHERE id = ?').get(id) });
+});
+
 app.post('/api/admin/joueur/:id/paiement', requireAdmin, (req, res) => {
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
@@ -707,6 +725,16 @@ app.delete('/api/admin/compte/:id', requireAdmin, (req, res) => {
   if (!c) return res.status(404).json({ error: 'Compte introuvable' });
   logAudit('compte_supprime', `compte ${c.pseudo}`, null, { id });
   res.json({ ok: true });
+});
+
+app.get('/api/admin/match/:id/events', requireAdmin, (req, res) => {
+  res.json({ events: M.listerEvents(Number(req.params.id)) });
+});
+app.delete('/api/admin/match/:id/event/:eventId', requireAdmin, (req, res) => {
+  const m = M.supprimerEventAdmin(Number(req.params.id), Number(req.params.eventId));
+  logAudit('event_supprime', `match #${req.params.id} event #${req.params.eventId}`, null, {});
+  majEtBroadcast();
+  res.json({ ok: true, match: vueMatch(m) });
 });
 
 app.get('/api/admin/audit', requireAdmin, (req, res) => {

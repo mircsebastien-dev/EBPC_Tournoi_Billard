@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🗄 Données — Table de marque</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top"><h1>🗄 Gestion des données</h1><div id="nav"></div></header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById("nav").append(nav("admin"));
+const main = document.getElementById("main");
+let onglet = "matchs";
+const TH = h => el("th", { style: "text-align:left;padding:4px 6px" }, h);
+const TD = (h, style) => el("td", { style: "padding:4px 6px" + (style ? ";" + style : "") }, h);
+
+async function charger() {
+  if (!adminPin) { renderAdminLogin(main); return; }
+  const st = await adminApi("/api/etat");
+  const t = st.actif;
+  main.innerHTML = "";
+  const tabs = el("div", { class: "row" }, ["matchs", "joueurs", "events"].map(o =>
+    el("button", { class: onglet === o ? "" : "secondary", style: "margin-right:6px", onclick: () => { onglet = o; charger(); } },
+      { matchs: "🎱 Matchs", joueurs: "👥 Joueurs", events: "📜 Events" }[o])));
+  main.append(el("div", { class: "panel", style: "padding:10px 14px;margin-bottom:12px" }, tabs));
+  if (!t) { main.append(el("p", { class: "muted" }, "Aucun tournoi actif.")); return; }
+  if (onglet === "matchs") renderMatchs(t);
+  else if (onglet === "joueurs") renderJoueurs(t);
+  else renderEvents(t);
+}
+
+function renderMatchs(t) {
+  const panel = el("div", { class: "panel" });
+  panel.append(el("h2", {}, "🎱 Matchs (" + t.matchs.length + ")"));
+  const table = el("table", { style: "width:100%;border-collapse:collapse;font-size:13px" });
+  const thead = el("thead", {}, el("tr", {}, ["#", "Bracket", "J1", "Score", "J2", "État", "Table", "Actions"].map(TH)));
+  const tbody = el("tbody", {});
+  for (const m of t.matchs) {
+    const tr = el("tr", { style: "border-top:1px solid var(--line)" });
+    tr.append(TD(m.position));
+    tr.append(TD(m.bracket + m.tour));
+    tr.append(TD(m.joueur1 ? m.joueur1.pseudo : "—"));
+    tr.append(TD(m.score1 + " - " + m.score2, "font-weight:700"));
+    tr.append(TD(m.joueur2 ? m.joueur2.pseudo : "—"));
+    tr.append(TD(m.etat));
+    tr.append(TD(m.table != null ? "T" + m.table : "—"));
+    const tdA = el("td", { style: "padding:4px 6px" });
+    const bEdit = el("button", { class: "secondary", style: "padding:3px 8px;font-size:12px", onclick: () => openMatchEditor(m, charger) }, "⚙️");
+    const bEv = el("button", { class: "secondary", style: "padding:3px 8px;font-size:12px;margin-left:4px", onclick: () => { onglet = "events"; charger().then(() => { const s = document.getElementById("ev-match"); if (s) { s.value = String(m.id); s.dispatchEvent(new Event("change")); } }); } }, "📜");
+    tdA.append(bEdit, bEv);
+    tr.append(tdA);
+    tbody.append(tr);
+  }
+  table.append(thead, tbody);
+  panel.append(table);
+  main.append(panel);
+}
+
+function renderJoueurs(t) {
+  const rows = t.joueurs.map(j => {
+    const inp = el("input", { id: "pj-" + j.id, value: j.pseudo, maxlength: 24, style: "width:140px" });
+    const sel = el("select", { id: "ps-" + j.id }, ["inscrit", "paye", "absent"].map(s => el("option", { value: s, selected: j.statut === s ? true : null }, s)));
+    const bSave = el("button", { class: "secondary", style: "padding:3px 8px;font-size:12px", onclick: async () => {
+      try { await adminApi("/api/admin/joueur/" + j.id, { method: "PUT", body: JSON.stringify({ pseudo: val("pj-" + j.id), statut: val("ps-" + j.id) }) }); charger(); }
+      catch (e) { alert(e.message); }
+    } }, "💾");
+    const bDel = el("button", { class: "danger", style: "padding:3px 8px;font-size:12px;margin-left:4px", onclick: async () => {
+      if (!confirm("Supprimer le joueur « " + j.pseudo + " » ?")) return;
+      try { await adminApi("/api/admin/joueur/" + j.id, { method: "DELETE" }); charger(); } catch (e) { alert(e.message); }
+    } }, "🗑");
+    return el("tr", { style: "border-top:1px solid var(--line)" },
+      el("td", { style: "padding:4px 6px" }, inp),
+      el("td", { style: "padding:4px 6px" }, sel),
+      TD(j.compte_id ? "🔗 #" + j.compte_id : "—", "muted small"),
+      el("td", { style: "padding:4px 6px" }, bSave, bDel));
+  });
+  const table = el("table", { style: "width:100%;border-collapse:collapse;font-size:13px" },
+    el("thead", {}, el("tr", {}, ["Pseudo", "Statut", "Compte", "Actions"].map(TH))),
+    el("tbody", {}, rows));
+  main.append(el("div", { class: "panel" }, el("h2", {}, `👥 Joueurs (${t.joueurs.length})`), table));
+}
+
+async function renderEvents(t) {
+  const sel = el("select", { id: "ev-match", style: "max-width:100%" },
+    t.matchs.map(m => el("option", { value: String(m.id) }, `#${m.position} ${m.bracket}${m.tour} — ${m.joueur1 ? m.joueur1.pseudo : "…"} vs ${m.joueur2 ? m.joueur2.pseudo : "…"} (${m.score1}-${m.score2})`)));
+  const list = el("div", { style: "margin-top:10px" }, el("p", { class: "muted" }, "Choisis un match."));
+  async function loadEv() {
+    list.innerHTML = "";
+    try {
+      const r = await adminApi(`/api/admin/match/${sel.value}/events`);
+      if (!r.events.length) { list.append(el("p", { class: "muted" }, "Aucun événement.")); return; }
+      for (const ev of r.events) {
+        const label = { manche: "➕ manche", runout: "🎱 run-out", correction: "✏️ correction", bande: "🎲 tirage à la bande", lancement: "🚀 lancement" }[ev.type] || ev.type;
+        const d = ev.detail ? JSON.parse(ev.detail) : {};
+        const bDel = ev.type === "bande" ? null : el("button", { class: "danger", style: "padding:3px 8px;font-size:12px", onclick: async () => {
+          if (!confirm("Supprimer cet événement ? Le score sera recalculé.")) return;
+          try { await adminApi(`/api/admin/match/${sel.value}/event/${ev.id}`, { method: "DELETE" }); loadEv(); charger(); }
+          catch (e) { alert(e.message); }
+        } }, "🗑");
+        list.append(el("div", { class: "row", style: "justify-content:space-between;border-top:1px solid var(--line);padding:6px 0" },
+          el("span", { class: "small" }, `${label} — ${ev.pseudo || "?"}${d.kind ? " (" + d.kind + ")" : ""} · ${(ev.created_at || "").slice(11, 16)}`),
+          bDel));
+      }
+    } catch (e) { list.append(el("p", { class: "muted" }, e.message)); }
+  }
+  sel.addEventListener("change", loadEv);
+  main.append(el("div", { class: "panel" }, el("h2", {}, "📜 Events d'un match"), sel, list));
+  if (sel.value) loadEv();
+}
+
+adminInit(() => {});
+charger();
+</script>
+</body>
+</html>
