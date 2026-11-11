@@ -290,13 +290,15 @@ function renderStatsPanel(stats, titre = '📊 Statistiques', topN = 10) {
       r.plus_long ? el('span', { class: 'chip' }, `🐢 plus long ${fmtDuree(r.plus_long.d)} (${r.plus_long.gagnant})`) : null,
       r.dernier_gagnant ? el('span', { class: 'chip' }, `🔥 dernier vainqueur : ${r.dernier_gagnant}`) : null)));
   const top = stats.classement.filter(p => p.joues > 0).slice(0, topN);
+  const all = stats.classement.filter(p => p.joues > 0); // pour le rang avec ex-aequo
+  const rang = (p) => 1 + all.filter(q => (q.points || 0) > (p.points || 0)).length;
   if (top.length > 0) {
     panels.push(el('div', { class: 'panel' },
       el('h2', {}, '🏅 Classement'),
       el('table', { class: 'audit' },
         el('tr', {}, el('th', {}, '#'), el('th', {}, 'Joueur'), el('th', {}, 'Joués'), el('th', {}, 'Gagnés'), el('th', {}, 'Perdus'), el('th', {}, '%'), el('th', {}, '⭐ Pts'), el('th', {}, 'Série')),
-        ...top.map((p, i) => el('tr', {},
-          el('td', {}, String(i + 1)),
+        ...top.map((p) => el('tr', {},
+          el('td', {}, String(rang(p))),
           el('td', { style: 'font-weight:700' }, p.pseudo),
           el('td', {}, String(p.joues)), el('td', {}, String(p.gagnes)), el('td', {}, String(p.perdus)),
           el('td', {}, `${p.pct} %`),
