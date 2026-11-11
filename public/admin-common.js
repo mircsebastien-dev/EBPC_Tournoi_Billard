@@ -50,10 +50,10 @@ function adminNav(active) {
 function adminTournoiActif() { return adminState && adminState.actif; }
 
 // Modale admin "Gérer le match" (clic sur une card avec le PIN): table, score, rouvrir/forfait
-async function openMatchEditor(m, onChange) {
-  let tables = (typeof state !== 'undefined' && state && state.actif && state.actif.tables) || null;
-  let joueurs = (typeof state !== 'undefined' && state && state.actif && state.actif.joueurs) || null;
-  if (!tables || !joueurs) { try { const s = await api('/api/etat'); tables = tables || (s && s.actif && s.actif.tables) || []; joueurs = joueurs || (s && s.actif && s.actif.joueurs) || []; } catch { tables = tables || []; joueurs = joueurs || []; } }
+async function openMatchEditor(m, onChange, opts) { opts = opts || {};
+  let joueurs = opts.joueurs || (typeof state !== 'undefined' && state && state.actif && state.actif.joueurs) || null;
+  let tables = opts.tables || (typeof state !== 'undefined' && state && state.actif && state.actif.tables) || null;
+  if ((!tables || !joueurs) && !opts.joueurs) { try { const s = await api('/api/etat'); tables = tables || (s && s.actif && s.actif.tables) || []; joueurs = joueurs || (s && s.actif && s.actif.joueurs) || []; } catch { tables = tables || []; joueurs = joueurs || []; } }
   const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
   const box = el('div', { class: 'panel', style: 'max-width:440px;width:92%' },
     el('h3', {}, `⚙️ Match #${m.position}`),
