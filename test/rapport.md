@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-11T21:31:14.636Z
-- Base : http://127.0.0.1:3561
-- Résultat : **61 OK / 2 ÉCHEC** (1.7s)
+- Date : 2026-11-11T21:35:34.583Z
+- Base : http://127.0.0.1:3565
+- Résultat : **63 OK / 0 ÉCHEC** (1.7s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -56,8 +56,8 @@
 
 | ✅ | tirage OK |  |
 | ✅ | 8 matchs WB1 |  |
-| ❌ | byes auto-terminés avec gagnant | 0 byes, 3 vides, 5 prets |
-| ❌ | gagnants byes propagés au tour 2 | 0 |
+| ✅ | byes auto-terminés avec gagnant |  |
+| ✅ | gagnants byes propagés au tour 2 |  |
 | ✅ | 2 tirages -> appariements différents (crypto) |  |
 
 ## 6. Matchs (lancer/scores/runout/forfait/sécurité)
