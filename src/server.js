@@ -104,9 +104,11 @@ function vueMatch(m) {
 
 function calculerStats(tournoiId) {
   const rows = db.prepare(`
-    SELECT joueur1_id j1, joueur2_id j2, gagnant_id, etat, started_at, ended_at
+    SELECT joueur1_id j1, joueur2_id j2, gagnant_id, etat, started_at, ended_at, bracket, tour
     FROM match WHERE tournoi_id = ? AND etat IN ('termine', 'forfait') AND gagnant_id IS NOT NULL
   `).all(tournoiId);
+  // matchs avec 2 joueurs (pour le calcul des points: dernier tour WB/F + passage en LB)
+  const matchsJoues = db.prepare(`SELECT joueur1_id j1, joueur2_id j2, bracket, tour FROM match WHERE tournoi_id = ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat != 'annule'`).all(tournoiId);
   const parJoueur = {};
   for (const j of db.prepare('SELECT id, pseudo FROM joueur WHERE tournoi_id = ?').all(tournoiId)) {
     parJoueur[j.id] = { id: j.id, pseudo: j.pseudo, joues: 0, gagnes: 0, perdus: 0, pct: 0, serie: 0 };
@@ -128,8 +130,18 @@ function calculerStats(tournoiId) {
     }
     if (!dernierFin || (r.ended_at && r.ended_at > dernierFin)) { dernierFin = r.ended_at; dernierGagnant = M.pseudo(r.gagnant_id); }
   }
-  for (const p of Object.values(parJoueur)) p.pct = p.joues ? Math.round((p.gagnes / p.joues) * 100) : 0;
-  const classement = Object.values(parJoueur).sort((a, b) => b.gagnes - a.gagnes || b.pct - a.pct || a.pseudo.localeCompare(b.pseudo));
+  for (const p of Object.values(parJoueur)) p.pct = p.joues ? Math.round((p.gagnes / p.joues || 0) * 100) : 0;
+  // points = dernier tour WB/F atteint + 1 si passé par le loser bracket
+  for (const p of Object.values(parJoueur)) {
+    let tourMax = 0, enLB = false;
+    for (const m of matchsJoues) {
+      if (m.j1 !== p.id && m.j2 !== p.id) continue;
+      if ((m.bracket === 'WB' || m.bracket === 'F') && m.tour > tourMax) tourMax = m.tour;
+      if (m.bracket === 'LB') enLB = true;
+    }
+    p.points = tourMax + (enLB ? 1 : 0);
+  }
+  const classement = Object.values(parJoueur).sort((a, b) => (b.points - a.points) || (b.gagnes - a.gagnes) || (b.pct - a.pct) || a.pseudo.localeCompare(b.pseudo));
   const total = db.prepare('SELECT COUNT(*) c FROM match WHERE tournoi_id = ?').get(tournoiId).c;
   return {
     classement,

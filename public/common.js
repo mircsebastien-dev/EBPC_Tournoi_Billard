@@ -294,12 +294,13 @@ function renderStatsPanel(stats, titre = '📊 Statistiques', topN = 10) {
     panels.push(el('div', { class: 'panel' },
       el('h2', {}, '🏅 Classement'),
       el('table', { class: 'audit' },
-        el('tr', {}, el('th', {}, '#'), el('th', {}, 'Joueur'), el('th', {}, 'Joués'), el('th', {}, 'Gagnés'), el('th', {}, 'Perdus'), el('th', {}, '%'), el('th', {}, 'Série')),
+        el('tr', {}, el('th', {}, '#'), el('th', {}, 'Joueur'), el('th', {}, 'Joués'), el('th', {}, 'Gagnés'), el('th', {}, 'Perdus'), el('th', {}, '%'), el('th', {}, '⭐ Pts'), el('th', {}, 'Série')),
         ...top.map((p, i) => el('tr', {},
           el('td', {}, String(i + 1)),
           el('td', { style: 'font-weight:700' }, p.pseudo),
           el('td', {}, String(p.joues)), el('td', {}, String(p.gagnes)), el('td', {}, String(p.perdus)),
           el('td', {}, `${p.pct} %`),
+          el('td', { style: 'font-weight:800;color:var(--gold)' }, String(p.points || 0)),
           el('td', {}, p.serie > 0 ? `🔥 ${p.serie}V` : p.serie < 0 ? `${-p.serie}D` : '—'))))));
   }
   return panels;
