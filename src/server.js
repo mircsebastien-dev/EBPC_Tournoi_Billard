@@ -108,7 +108,7 @@ function pointsParTournoi(tournoiId) {
   // => tous les demi-finalistes ont le même score ; perd 2 premiers matchs = 1 ; gagne 1 perd 2 = 2 ; rentre en F (k=2) = 3 min
   const t = db.prepare('SELECT format, dko_tours FROM tournoi WHERE id = ?').get(tournoiId);
   const k = (t && t.format === 'double') ? (t.dko_tours || 1) : 0;
-  const matchs = db.prepare(`SELECT joueur1_id j1, joueur2_id j2, bracket, tour FROM match WHERE tournoi_id = ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat != 'annule'`).all(tournoiId);
+  const matchs = db.prepare(`SELECT joueur1_id j1, joueur2_id j2, bracket, tour FROM match WHERE tournoi_id = ? AND (joueur1_id IS NOT NULL OR joueur2_id IS NOT NULL) AND etat != 'annule'`).all(tournoiId); // un seul côté peuplé = qualifié pour ce tour
   const out = {};
   for (const j of db.prepare('SELECT id FROM joueur WHERE tournoi_id = ?').all(tournoiId)) {
     let nivMax = 0;
