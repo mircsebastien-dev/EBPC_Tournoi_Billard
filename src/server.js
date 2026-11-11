@@ -106,16 +106,17 @@ function vueMatch(m) {
 function pointsParTournoi(tournoiId) {
   // points = 1 + matchs gagnés (si a joué au moins un match)
   // => perd 2 premiers matchs = 1 pt ; gagne 1 puis perd 2 = 2 pts ; rentre en F (k=2) = 3 pts min, +1 par tour de F
-  const matchs = db.prepare(`SELECT joueur1_id j1, joueur2_id j2, gagnant_id, etat FROM match WHERE tournoi_id = ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat IN ('termine','forfait')`).all(tournoiId);
+  const matchs = db.prepare(`SELECT joueur1_id j1, joueur2_id j2, gagnant_id, etat, bracket FROM match WHERE tournoi_id = ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat IN ('termine','forfait')`).all(tournoiId);
   const out = {};
   for (const j of db.prepare('SELECT id FROM joueur WHERE tournoi_id = ?').all(tournoiId)) {
-    let joues = 0, gagnes = 0;
+    let joues = 0, gagnesWB = 0;
     for (const m of matchs) {
       if (m.j1 !== j.id && m.j2 !== j.id) continue;
       joues++;
-      if (m.gagnant_id === j.id) gagnes++;
+      // seules les victoires en WB/F comptent (pas le loser bracket)
+      if (m.gagnant_id === j.id && (m.bracket === 'WB' || m.bracket === 'F')) gagnesWB++;
     }
-    out[j.id] = joues > 0 ? 1 + gagnes : 0;
+    out[j.id] = joues > 0 ? 1 + gagnesWB : 0;
   }
   return out;
 }
