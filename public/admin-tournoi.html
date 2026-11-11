@@ -253,7 +253,7 @@ function renderTournoi(t) {
     el('h2', {}, '⚠️ Clôturer le tournoi'),
     el('p', { class: 'muted small' }, 'Termine le tournoi immédiatement (même si la finale n\'a pas été jouée). Les tableaux restent en ligne.'),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Champion (optionnel)'), el('select', { id: 'champion' }, el('option', { value: '' }, 'Dernier gagnant (auto)'), t.joueurs.map(j => el('option', { value: j.id, ...(t.champion && t.champion.id === j.id ? { selected: '' } : {}) }, j.pseudo)))),
+      el('div', {}, el('label', {}, 'Champion (optionnel)'), el('select', { id: 'champion' }, el('option', { value: '' }, '— aucun (coupe net) —'), t.joueurs.map(j => el('option', { value: j.id, ...(t.champion && t.champion.id === j.id ? { selected: '' } : {}) }, j.pseudo)))),
       el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'danger', onclick: terminer }, '🏁 Terminer le tournoi maintenant')))));
 
   async function sauverDistances() {
