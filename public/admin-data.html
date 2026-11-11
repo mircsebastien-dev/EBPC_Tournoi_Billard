@@ -19,6 +19,7 @@ const TH = h => el("th", { style: "text-align:left;padding:4px 6px" }, h);
 const TD = (h, style) => el("td", { style: "padding:4px 6px" + (style ? ";" + style : "") }, h);
 
 let tournoiId = null; // null = tournoi actif
+let filtre = "";
 
 async function charger() {
   if (!adminPin) { renderAdminLogin(main); return; }
@@ -37,7 +38,16 @@ async function charger() {
     el("option", { value: "", selected: !tournoiId ? true : null }, "▶ tournoi actif"),
     ...liste.tournois.map(x => el("option", { value: String(x.id), selected: tournoiId === x.id ? true : null }, (x.statut === "termine" ? "🗂 " : "") + x.nom + " (" + (x.created_at || "").slice(0, 10) + ")")));
   selT.addEventListener("change", () => { tournoiId = selT.value ? Number(selT.value) : null; charger(); });
-  main.append(el("div", { class: "panel", style: "padding:10px 14px;margin-bottom:12px" }, el("div", { class: "row", style: "flex-wrap:wrap" }, selT, tabs)));
+  const inpF = el("input", { id: "filtre-data", placeholder: "🔍 Filtrer (pseudo/joueur) — Entrée", value: filtre, maxlength: 40, style: "max-width:240px;margin-left:10px" });
+  inpF.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      filtre = inpF.value.trim().toLowerCase();
+      charger();
+      const f = document.getElementById("filtre-data");
+      if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+    }
+  });
+  main.append(el("div", { class: "panel", style: "padding:10px 14px;margin-bottom:12px" }, el("div", { class: "row", style: "flex-wrap:wrap;align-items:center" }, selT, tabs, inpF)));
   if (!t) { main.append(el("p", { class: "muted" }, "Aucun tournoi actif.")); return; }
   if (onglet === "matchs") renderMatchs(t);
   else if (onglet === "joueurs") renderJoueurs(t);
@@ -46,11 +56,12 @@ async function charger() {
 
 function renderMatchs(t) {
   const panel = el("div", { class: "panel" });
-  panel.append(el("h2", {}, "🎱 Matchs (" + t.matchs.length + ")"));
+  panel.append(el("h2", {}, "🎱 Matchs (" + (filtre ? "filtre: " + filtre + " · " : "") + t.matchs.length + ")"));
   const table = el("table", { style: "width:100%;border-collapse:collapse;font-size:13px" });
   const thead = el("thead", {}, el("tr", {}, ["#", "Bracket", "J1", "Score", "J2", "État", "Table", "Actions"].map(TH)));
   const tbody = el("tbody", {});
   for (const m of t.matchs) {
+    if (filtre && !((m.joueur1 && m.joueur1.pseudo.toLowerCase().includes(filtre)) || (m.joueur2 && m.joueur2.pseudo.toLowerCase().includes(filtre)) || (m.bracket + m.tour).toLowerCase().includes(filtre))) continue;
     const tr = el("tr", { style: "border-top:1px solid var(--line)" });
     tr.append(TD(m.position));
     tr.append(TD(m.bracket + m.tour));
@@ -72,7 +83,7 @@ function renderMatchs(t) {
 }
 
 function renderJoueurs(t) {
-  const rows = t.joueurs.map(j => {
+  const rows = t.joueurs.filter(j => !filtre || j.pseudo.toLowerCase().includes(filtre)).map(j => {
     const inp = el("input", { id: "pj-" + j.id, value: j.pseudo, maxlength: 24, style: "width:140px" });
     const sel = el("select", { id: "ps-" + j.id }, ["inscrit", "paye", "absent"].map(s => el("option", { value: s, selected: j.statut === s ? true : null }, s)));
     const bSave = el("button", { class: "secondary", style: "padding:3px 8px;font-size:12px", onclick: async () => {
