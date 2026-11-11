@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>⚙️ Guide admin — Tournoi EBPC</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top"><h1>⚙️ Guide admin</h1><div id="nav"></div></header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+document.getElementById("nav").append(nav("admin"));
+const main = document.getElementById("main");
+main.append(el("div", { class: "panel" },
+  el("h2", {}, "1. Créer le tournoi"),
+  el("p", {}, "/admin-tournoi.html → nom, règle, taille (16/32/64), format (élim. directe / double KO + nb tours), nb tables, date. Ajustement auto à la taille des payés. Tables réservées: vide par défaut. En phase inscription, la TV montre un grand QR centré pour s'inscrire."),
+  el("h2", {}, "2. Inscriptions"),
+  el("p", {}, "Ajouter / simuler / payer / supprimer. Seuls les payés sont tirés. Un invité qui crée un compte avec le même pseudo est rattaché auto (reçoit les pushs). Pseudo/mdp oublié → /admin-comptes.html (✏️ pseudo, 🔑 mdp)."),
+  el("h2", {}, "3. Tirage"),
+  el("p", {}, "Bouton Tirage: appariements aléatoires crypto, byes répartis. ⚠️ Fige le bracket: plus de retour en arrière."),
+  el("h2", {}, "4. Lancer les matchs"),
+  el("p", {}, "Mode auto ON = départ auto sur table libre (ordre personnalisable). Manuel: clic sur une card (PIN) → modale. Tirage à la bande ⚪ sur la card, puis alternance à chaque manche. Joueurs: seul le ⚪ fait « casse ferme », l'autre « reprise ferme » (grisé + 403). Dernier point = confirmation obligatoire."),
+  el("h2", {}, "5. Interventions en cours (clic card avec PIN → modale ⚙️)"),
+  el("ul", {},
+    el("li", {}, "👥 Changer les joueurs (WB/LB, blanc possible, bye auto) — ⚠️ peut créer un rematch: vérifier avant"),
+    el("li", {}, "🎱 Déplacer de table (409 si occupée, « aucune » pour libérer)"),
+    el("li", {}, "✏️ Corriger le score (si distance atteinte → termine + propage, annule l'aval en cascade)"),
+    el("li", {}, "🔓 Rouvrir un match — ⚠️ 409 INTERDIT si un match aval a déjà commencé: corriger alors les matchs suivants à la main (joueurs/score)"),
+    el("li", {}, "🚫 Forfait (définitif dans l'historique)")),
+  el("p", { class: "muted small" }, "Règles DKO: WB/LB séparés jusqu'en finale; en F, alternance des moitiés + swap anti-rematch auto (rematch autorisé uniquement en vraie finale)."),
+  el("h2", {}, "6. Clôturer"),
+  el("p", {}, "« Terminer maintenant » = coupe net, aucun champion auto (sauf choix explicite dans le select). Fin normale = champion auto via la finale. Historique ensuite en liste + recherche/surbrillance joueur."),
+  el("h2", {}, "7. Comptes & audit"),
+  el("p", {}, "/admin-comptes.html: liste (dernière connexion, inscri., matchs, sessions), ✏️ pseudo, 🔑 mdp, 🗑 supprimer (historique matchs conservé). Purge auto des comptes inactifs > 18 mois. /admin-journal.html: toutes les actions admin."),
+  el("h2", {}, "8. Tests & déploiement"),
+  el("p", {}, "Batterie: BASE=http://127.0.0.1:PORT node test/batterie.js (63 checks). Fly: secrets ADMIN_PIN, RESEND_API_KEY, MAIL_FROM, VAPID_* (jamais BASE_URL); volume tournoi_data sur /data; snapshots dans Volumes."),
+  el("p", { class: "muted small", style: "margin-top:16px" }, "Version complète: docs/GUIDE_ADMIN.md dans le dépôt GitHub.")));
+</script>
+</body>
+</html>
