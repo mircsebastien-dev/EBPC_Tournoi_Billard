@@ -102,6 +102,22 @@ function vueMatch(m) {
   };
 }
 
+// points par joueur pour un tournoi: dernier tour WB/F atteint + 1 si passé par le LB
+function pointsParTournoi(tournoiId) {
+  const matchs = db.prepare(`SELECT joueur1_id j1, joueur2_id j2, bracket, tour FROM match WHERE tournoi_id = ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat != 'annule'`).all(tournoiId);
+  const out = {};
+  for (const j of db.prepare('SELECT id FROM joueur WHERE tournoi_id = ?').all(tournoiId)) {
+    let tourMax = 0, enLB = false;
+    for (const m of matchs) {
+      if (m.j1 !== j.id && m.j2 !== j.id) continue;
+      if ((m.bracket === 'WB' || m.bracket === 'F') && m.tour > tourMax) tourMax = m.tour;
+      if (m.bracket === 'LB') enLB = true;
+    }
+    out[j.id] = tourMax + (enLB ? 1 : 0);
+  }
+  return out;
+}
+
 function calculerStats(tournoiId) {
   const rows = db.prepare(`
     SELECT joueur1_id j1, joueur2_id j2, gagnant_id, etat, started_at, ended_at, bracket, tour
@@ -131,16 +147,8 @@ function calculerStats(tournoiId) {
     if (!dernierFin || (r.ended_at && r.ended_at > dernierFin)) { dernierFin = r.ended_at; dernierGagnant = M.pseudo(r.gagnant_id); }
   }
   for (const p of Object.values(parJoueur)) p.pct = p.joues ? Math.round((p.gagnes / p.joues || 0) * 100) : 0;
-  // points = dernier tour WB/F atteint + 1 si passé par le loser bracket
-  for (const p of Object.values(parJoueur)) {
-    let tourMax = 0, enLB = false;
-    for (const m of matchsJoues) {
-      if (m.j1 !== p.id && m.j2 !== p.id) continue;
-      if ((m.bracket === 'WB' || m.bracket === 'F') && m.tour > tourMax) tourMax = m.tour;
-      if (m.bracket === 'LB') enLB = true;
-    }
-    p.points = tourMax + (enLB ? 1 : 0);
-  }
+  const pts = pointsParTournoi(tournoiId);
+  for (const p of Object.values(parJoueur)) p.points = pts[p.id] || 0;
   const classement = Object.values(parJoueur).sort((a, b) => (b.points - a.points) || (b.gagnes - a.gagnes) || (b.pct - a.pct) || a.pseudo.localeCompare(b.pseudo));
   const total = db.prepare('SELECT COUNT(*) c FROM match WHERE tournoi_id = ?').get(tournoiId).c;
   return {
@@ -249,6 +257,14 @@ app.get('/api/stats-joueurs', (req, res) => {
     GROUP BY LOWER(j.pseudo)
     ORDER BY gagnes DESC, joues DESC
   `).all();
+  // points totaux = somme sur tous les tournois (passés inclus)
+  const ptsAgg = {}; // par pseudo (un joueur = plusieurs ids, un par tournoi)
+  for (const j of db.prepare('SELECT id, LOWER(pseudo) p FROM joueur').all()) {
+    for (const t of db.prepare('SELECT id FROM tournoi').all()) {
+      const pts = pointsParTournoi(t.id);
+      if (pts[j.id]) ptsAgg[j.p] = (ptsAgg[j.p] || 0) + pts[j.id];
+    }
+  }
   const evAgg = db.prepare(`
     SELECT e.joueur_id,
            SUM(CASE WHEN e.type = 'runout' THEN 1 ELSE 0 END) runouts
@@ -263,6 +279,7 @@ app.get('/api/stats-joueurs', (req, res) => {
   res.json({ joueurs: rows.map(r => ({
     id: r.id,
     pseudo: r.pseudo,
+    points: ptsAgg[r.pseudo.toLowerCase()] || 0,
     manches: manchesAgg[r.id] || 0,
     runouts: evAgg[r.id] ? evAgg[r.id].runouts : 0,
     joues: r.joues,
