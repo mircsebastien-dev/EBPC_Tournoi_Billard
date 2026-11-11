@@ -258,16 +258,19 @@ function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
           setLien(get('F', t, pos), 'suivant', get('F', t + 1, Math.ceil(pos / 2)), pos % 2 === 1 ? 1 : 2);
         }
       }
-      // Croisement en miroir horizontal : WB tour k alimente le HAUT du tableau final (slot 1),
-      // le dernier tour du loser bracket alimente le BAS (slot 2, positions miroir nbF1 - p + 1),
-      // pour éviter les re-matchs contre un joueur déjà rencontré.
+      // Croisement en alternance supérieure/inférieure : WB tour k alimente le tableau final (slot 1),
+      // le dernier tour LB alimente le slot 2 en ROTATION d'une demi-moitié (et non plus en miroir global),
+      // pour que le joueur remonté du LB tombe dans la moitié OPPOSÉE à son groupe WB d'origine
+      // -> impossible de se rejouer avant la vraie finale.
       const nbF1 = p2 >> 1;
       for (let p = 1; p <= nbWBk; p++) {
         setLien(get('WB', k, p), 'suivant', get('F', 1, p), 1);
       }
       const nbLB = Object.keys(M.LB).filter(key => key.startsWith(`${nbToursLB}:`)).length;
+      const demi = Math.floor(nbF1 / 2) || 1;
       for (let p = 1; p <= nbLB; p++) {
-        setLien(get('LB', nbToursLB, p), 'suivant', get('F', 1, nbF1 - p + 1), 2);
+        const pos = ((p - 1 + demi) % nbF1) + 1; // rotation d'une demi-moitié
+        setLien(get('LB', nbToursLB, p), 'suivant', get('F', 1, pos), 2);
       }
     }
   });
