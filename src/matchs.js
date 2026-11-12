@@ -115,6 +115,8 @@ function setBande(matchId, joueurId) {
 }
 
 function declarerManche(matchId, joueurId) {
+  const m0 = matchById(matchId);
+  if (m0 && m0.casseur_id == null && (m0.etat === 'en_cours' || m0.etat === 'pret')) throw httpError(409, 'Tirage à la bande non fait');
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.etat !== 'en_cours' && m.etat !== 'pret') throw httpError(409, 'Le match n\'est pas en cours');
@@ -147,6 +149,8 @@ function tableLibre(tournoiId, exclureMatchId) {
 }
 
 function declarerRunout(matchId, joueurId, kind = 'reprise') {
+  const m0 = matchById(matchId);
+  if (m0 && m0.casseur_id == null && (m0.etat === 'en_cours' || m0.etat === 'pret')) throw httpError(409, 'Tirage à la bande non fait');
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.etat !== 'en_cours' && m.etat !== 'pret') throw httpError(409, 'Le match n\'est pas en cours');
@@ -247,7 +251,7 @@ function rouvrirMatch(matchId) {
   for (const toId of [m.suivant_id, m.perdant_id]) {
     if (!toId) continue;
     const s = matchById(toId);
-    if (s && (s.etat === 'en_cours' || s.etat === 'termine' || s.etat === 'forfait' || (s.joueur1_id != null && s.joueur2_id != null && s.etat !== 'prevu'))) {
+    if (s && (s.etat === 'en_cours' || s.etat === 'termine' || s.etat === 'forfait' || s.joueur1_id != null || s.joueur2_id != null)) {
       throw httpError(409, `Réouverture interdite : le match aval #${s.position} (${s.bracket}${s.tour}) a déjà commencé. Corrige les joueurs/scores à la main sur ce match.`);
     }
   }
@@ -473,7 +477,7 @@ function supprimerEventAdmin(matchId, eventId) {
   db.prepare(`UPDATE match SET score1 = ?, score2 = ?, updated_at = datetime('now') WHERE id = ?`).run(s1, s2, matchId);
   let cur = matchById(matchId);
   if (cur.etat === 'termine' && s1 < cur.manches && s2 < cur.manches) {
-    db.prepare(`UPDATE match SET etat = 'en_cours', gagnant_id = NULL, perdant_id = NULL, ended_at = NULL, raison_fin = NULL WHERE id = ?`).run(matchId);
+    db.prepare(`UPDATE match SET etat = 'en_cours', gagnant_id = NULL, perdant_id = NULL, ended_at = NULL WHERE id = ?`).run(matchId);
   } else if (cur.etat !== 'termine' && (s1 >= cur.manches || s2 >= cur.manches)) {
     const g = s1 > s2 ? cur.joueur1_id : cur.joueur2_id;
     const p = s1 > s2 ? cur.joueur2_id : cur.joueur1_id;

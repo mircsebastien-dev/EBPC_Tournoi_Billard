@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-12T09:34:00.332Z
-- Base : http://127.0.0.1:3581
-- Résultat : **63 OK / 0 ÉCHEC** (1.7s)
+- Date : 2026-11-12T10:34:19.148Z
+- Base : http://127.0.0.1:3621
+- Résultat : **97 OK / 0 ÉCHEC** (1.8s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -100,6 +100,43 @@
 | ✅ | QR svg 200 + svg valide |  |
 | ✅ | journal audit lisible |  |
 
+## Amis, admin-data, règles, points, clôture
+
+| ✅ | création Batterie2 |  |
+| ✅ | simulation 15 joueurs |  |
+| ✅ | 16 joueurs inscrits |  |
+| ✅ | 16 joueurs payés |  |
+| ✅ | inscription AliceBT |  |
+| ✅ | recherche compte par pseudo |  |
+| ✅ | ajout ami |  |
+| ✅ | ami doublon -> 409 |  |
+| ✅ | ami inconnu -> 404 |  |
+| ✅ | s'ajouter soi-même -> 400 |  |
+| ✅ | tirage OK |  |
+| ✅ | liste amis = 1 (Seb) |  |
+| ✅ | ami a un statut de tournoi |  |
+| ✅ | joueur Seb rattaché au compte |  |
+| ✅ | retrait ami |  |
+| ✅ | saisie bloquée sans tirage à la bande |  |
+| ✅ | bande -> casseau = gagnant |  |
+| ✅ | casseur fait reprise -> 403 |  |
+| ✅ | non-casseur fait casse -> 403 |  |
+| ✅ | alternance après manche (casseur a changé) |  |
+| ✅ | changer table -> 200 |  |
+| ✅ | table inconnue -> 400 |  |
+| ✅ | rouvrir avec aval propagé -> 409 |  |
+| ✅ | changer joueur1 -> 200 |  |
+| ✅ | même joueur x2 -> 400 |  |
+| ✅ | points présents dans le classement |  |
+| ✅ | joueurs avec points >= 1 |  |
+| ✅ | stats globales ont points |  |
+| ✅ | PUT joueur pseudo -> 200 |  |
+| ✅ | PUT joueur pseudo pris -> 409 |  |
+| ✅ | delete event recalcule le score (diminue) |  |
+| ✅ | delete event sans PIN -> 401 |  |
+| ✅ | clôture -> 200 |  |
+| ✅ | clôture coupe net -> champion null |  |
+
 ## Couverture
 
 - Sécurité admin (PIN 401/200)
@@ -112,3 +149,7 @@
 - Tables dynamiques en cours (ajout, réduction, 409 si occupées, nom verrouillé)
 - Double KO (liens LB/F, croisement anti-re-match sur tournoi complet, champion)
 - Stats (stats-joueurs avec titres distincts, fiche joueur, historique), QR code, journal d'audit
+- Amis (recherche, ajout 200/409/404/400, liste+statut, retrait, rattachement compte à l'inscription)
+- Règles match (bande ⚪, alternance, blocage saisie sans bande, 403 casse/reprise, modale admin table/joueurs/rouvrir-409)
+- Admin-data (PUT joueur 200/409, delete event + recalc, 401 sans PIN)
+- Points au classement (présents, gagnant >= 1) + clôture coupe net (champion null)

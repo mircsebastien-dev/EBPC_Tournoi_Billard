@@ -33,6 +33,9 @@ const del = (p, opts) => api(p, { method: 'DELETE', ...opts });
 const put = (p, body, opts) => api(p, { method: 'PUT', body, ...opts });
 
 async function jouerMatch(m, gagnantId, opts = {}) {
+  // tirage à la bande si pas fait (sinon 409 côté serveur)
+  const cur = (await api('/api/etat')).data.actif.matchs.find(x => x.id === m.id);
+  if (cur && cur.casseur == null) await api(`/api/match/${m.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m.joueur1.id } });
   if (m.etat !== 'en_cours') await post(`/api/admin/match/${m.id}/lancer`, { table_id: opts.table_id ?? null });
   for (let i = 0; i < m.manches; i++) await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: gagnantId } });
   return (await api('/api/etat')).data.actif.matchs.find(x => x.id === m.id);
@@ -44,6 +47,7 @@ async function jouerTournoiSimple(gagnantId) {
     const m = t.matchs.find(m => m.etat === 'pret' && m.joueur1 && m.joueur2);
     if (!m) return t;
     await post(`/api/admin/match/${m.id}/lancer`, { table_id: null });
+    await api(`/api/match/${m.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m.joueur1.id } });
     for (let i = 0; i < m.manches; i++) await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: m.joueur1.id === gagnantId || m.joueur2.id === gagnantId ? gagnantId : m.joueur1.id } });
   }
   return null;
@@ -183,6 +187,7 @@ async function nouveauTournoi(body) {
   r = await post(`/api/admin/match/${m0.id}/lancer`, { table_id: t.tables[0].id });
   check('lancer sur table 1', r.status === 200 && r.data.match.etat === 'en_cours' && r.data.match.table === 1, JSON.stringify(r.data.match && r.data.match.table));
   const j1 = m0.joueur1.id, j2 = m0.joueur2.id;
+  await api(`/api/match/${m0.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: j1 } }); // tirage à la bande (obligatoire côté serveur)
   r = await api(`/api/match/${m0.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: 9999 } });
   check('manche par externe -> 403', r.status === 403, r.status);
   r = await api(`/api/match/${m0.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: j1 } });
@@ -268,6 +273,7 @@ async function nouveauTournoi(body) {
     if (deja.has(a + '-' + b) && m.bracket !== 'F') rematchs++;
     deja.add(a + '-' + b);
     await post(`/api/admin/match/${m.id}/lancer`, { table_id: null });
+    await api(`/api/match/${m.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m.joueur1.id } });
     const g = Math.random() < 0.5 ? m.joueur1.id : m.joueur2.id;
     for (let i = 0; i < m.manches; i++) await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: g } });
   }
@@ -290,6 +296,111 @@ async function nouveauTournoi(body) {
   check('journal audit lisible', r.status === 200, r.status);
 
   // ---------- rapport ----------
+
+
+  // ================= NOUVELLES FEATURES =================
+  results.push({ ok: null, name: '── Amis, admin-data, règles, points, clôture ──' });
+
+  // tournoi frais
+  await del('/api/admin/tournoi');
+  let nf_rc = await post('/api/admin/tournoi', { nom: 'Batterie2', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2 });
+  check('création Batterie2', nf_rc.status === 200, nf_rc.status + ' ' + (nf_rc.data.error || ''));
+  let nf_rs = await post('/api/admin/joueurs/simulation', { count: 15, prefix: 'J' });
+  check('simulation 15 joueurs', nf_rs.status === 200, nf_rs.status);
+  await post('/api/admin/joueur', { pseudo: 'Seb' }); // compte 'Seb' existe déjà (créé plus haut)
+  let nf_t = (await api('/api/etat')).data.actif;
+  check('16 joueurs inscrits', nf_t && nf_t.joueurs.length === 16, nf_t && nf_t.joueurs.length);
+  for (const j of nf_t.joueurs) await post(`/api/admin/joueur/${j.id}/paiement`, { statut: 'paye' });
+  nf_t = (await api('/api/etat')).data.actif;
+  check('16 joueurs payés', nf_t.joueurs.filter(j => j.statut === 'paye').length === 16, nf_t.joueurs.filter(j => j.statut === 'paye').length);
+
+  // --- amis (AliceBT connectée, ami = Seb) ---
+  let nf_ra = await post('/api/compte/inscription', { pseudo: 'AliceBT', email: 'alicebt@x.fr', password: '1234' }, { pin: null });
+  check('inscription AliceBT', nf_ra.status === 201, nf_ra.status + ' ' + (nf_ra.data.error || ''));
+  const nf_cookieAlice = cookie;
+  let nf_r = await api('/api/comptes/recherche?q=seb', { pin: null, useCookie: true });
+  check('recherche compte par pseudo', nf_r.status === 200 && nf_r.data.comptes.some(c => c.pseudo === 'Seb'), JSON.stringify(nf_r.data).slice(0, 120));
+  nf_r = await post('/api/compte/amis', { pseudo: 'Seb' }, { pin: null, useCookie: true });
+  check('ajout ami', nf_r.status === 200 && nf_r.data.ami && nf_r.data.ami.pseudo === 'Seb', nf_r.status);
+  nf_r = await post('/api/compte/amis', { pseudo: 'Seb' }, { pin: null, useCookie: true });
+  check('ami doublon -> 409', nf_r.status === 409, nf_r.status);
+  nf_r = await post('/api/compte/amis', { pseudo: 'NobodyXYZ' }, { pin: null, useCookie: true });
+  check('ami inconnu -> 404', nf_r.status === 404, nf_r.status);
+  nf_r = await post('/api/compte/amis', { pseudo: 'AliceBT' }, { pin: null, useCookie: true });
+  check('s\'ajouter soi-même -> 400', nf_r.status === 400, nf_r.status);
+  let nf_rt = await post('/api/admin/tirage', {});
+  check('tirage OK', nf_rt.status === 200, nf_rt.status + ' ' + (nf_rt.data.error || ''));
+  nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });
+  check('liste amis = 1 (Seb)', nf_r.status === 200 && nf_r.data.amis.length === 1 && nf_r.data.amis[0].pseudo === 'Seb', nf_r.status);
+  check('ami a un statut de tournoi', ['pret', 'en_cours', 'inscrit'].includes(nf_r.data.amis[0].statut.type), nf_r.data.amis[0].statut.type);
+  nf_t = (await api('/api/etat')).data.actif;
+  const nf_jseb = nf_t.joueurs.find(j => j.pseudo === 'Seb');
+  check('joueur Seb rattaché au compte', !!(nf_jseb && nf_jseb.compte_id), JSON.stringify(nf_jseb && nf_jseb.compte_id));
+  nf_r = await del('/api/compte/amis/' + nf_r.data.amis[0].compte_id, { pin: null, useCookie: true });
+  nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });
+  check('retrait ami', nf_r.data.amis.length === 0, nf_r.status);
+  cookie = '';
+
+  // --- règles: bande, alternance, 403 casse/reprise ---
+  nf_t = (await api('/api/etat')).data.actif;
+  const nf_m = nf_t.matchs.find(m => m.etat === 'pret' && m.joueur1 && m.joueur2);
+  nf_r = await api(`/api/match/${nf_m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: nf_m.joueur1.id } });
+  check('saisie bloquée sans tirage à la bande', [403, 409].includes(nf_r.status), nf_r.status);
+  await post(`/api/admin/match/${nf_m.id}/lancer`, { table_id: null });
+  await api(`/api/match/${nf_m.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: nf_m.joueur1.id } });
+  let nf_mm = (await api('/api/etat')).data.actif.matchs.find(x => x.id === nf_m.id);
+  check('bande -> casseau = gagnant', nf_mm.casseur && nf_mm.casseur.id === nf_m.joueur1.id, JSON.stringify(nf_mm.casseur));
+  nf_r = await api(`/api/match/${nf_m.id}/runout`, { method: 'POST', pin: null, body: { joueur_id: nf_m.joueur1.id, kind: 'reprise' } });
+  check('casseur fait reprise -> 403', nf_r.status === 403, nf_r.status);
+  nf_r = await api(`/api/match/${nf_m.id}/runout`, { method: 'POST', pin: null, body: { joueur_id: nf_m.joueur2.id, kind: 'casse' } });
+  check('non-casseur fait casse -> 403', nf_r.status === 403, nf_r.status);
+  await api(`/api/match/${nf_m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: nf_m.joueur2.id } });
+  nf_mm = (await api('/api/etat')).data.actif.matchs.find(x => x.id === nf_m.id);
+  check('alternance après manche (casseur a changé)', nf_mm.casseur && nf_mm.casseur.id !== nf_m.joueur1.id, JSON.stringify(nf_mm.casseur));
+
+  // --- modale admin: table / joueurs / rouvrir ---
+  nf_r = await post(`/api/admin/match/${nf_m.id}/table`, { table_id: nf_t.tables[1].id });
+  check('changer table -> 200', nf_r.status === 200, nf_r.status);
+  nf_r = await post(`/api/admin/match/${nf_m.id}/table`, { table_id: 99999 });
+  check('table inconnue -> 400', nf_r.status === 400, nf_r.status);
+  for (let i = 0; i < nf_m.manches; i++) await api(`/api/match/${nf_m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: nf_m.joueur1.id } });
+  nf_r = await post(`/api/admin/match/${nf_m.id}/rouvrir`, {});
+  check('rouvrir avec aval propagé -> 409', nf_r.status === 409, nf_r.status);
+
+  const nf_autre = nf_t.joueurs.find(j => j.id !== nf_m.joueur1.id && j.id !== nf_m.joueur2.id);
+  nf_r = await post(`/api/admin/match/${nf_m.id}/joueurs`, { joueur1_id: nf_autre.id, joueur2_id: nf_m.joueur2.id });
+  check('changer joueur1 -> 200', nf_r.status === 200, nf_r.status);
+  nf_r = await post(`/api/admin/match/${nf_m.id}/joueurs`, { joueur1_id: nf_m.joueur2.id, joueur2_id: nf_m.joueur2.id });
+  check('même joueur x2 -> 400', nf_r.status === 400, nf_r.status);
+
+  // --- points + clôture coupe net ---
+  const nf_st = (await api('/api/etat')).data.actif.stats.classement.filter(p => p.joues > 0);
+  check('points présents dans le classement', nf_st.length > 0 && nf_st.every(p => p.points !== undefined), nf_st.length);
+  const nf_g = nf_st.find(p => p.gagnes > 0);
+  check('joueurs avec points >= 1', nf_st.some(p => p.points >= 1), 'nf_st=' + nf_st.length);
+  const nf_stG = (await api('/api/stats-joueurs')).data.joueurs;
+  check('stats globales ont points', nf_stG.every(p => p.points !== undefined), nf_stG.length);
+  // --- admin-data: PUT joueur + delete event ---
+  const nf_j0 = nf_t.joueurs[0];
+  nf_r = await put(`/api/admin/joueur/${nf_j0.id}`, { pseudo: 'RenamedBT' });
+  check('PUT joueur pseudo -> 200', nf_r.status === 200 && nf_r.data.joueur.pseudo === 'RenamedBT', nf_r.status);
+  nf_r = await put(`/api/admin/joueur/${nf_j0.id}`, { pseudo: 'Seb' });
+  check('PUT joueur pseudo pris -> 409', nf_r.status === 409, nf_r.status);
+  nf_r = await api(`/api/admin/match/${nf_m.id}/events`);
+  const nf_ev = nf_r.data.events.find(e => e.type === 'manche' || e.type === 'runout');
+  if (nf_ev) {
+    const nf_av = (await api('/api/etat')).data.actif.matchs.find(x => x.id === nf_m.id);
+    nf_r = await del(`/api/admin/match/${nf_m.id}/event/${nf_ev.id}`);
+    check('delete event recalcule le score (diminue)', nf_r.status === 200 && nf_r.data.match && (nf_r.data.match.score1 + nf_r.data.match.score2) < (nf_av.score1 + nf_av.score2), 'status=' + nf_r.status + ' ' + (nf_r.data.error || '') + ' ' + nf_av.score1 + '-' + nf_av.score2 + ' -> ' + (nf_r.data.match ? nf_r.data.match.score1 + '-' + nf_r.data.match.score2 : 'null'));
+    nf_r = await del(`/api/admin/match/${nf_m.id}/event/${nf_ev.id}`, { pin: null });
+    check('delete event sans PIN -> 401', nf_r.status === 401, nf_r.status);
+  }
+
+  nf_r = await post('/api/admin/terminer', {});
+  check('clôture -> 200', nf_r.status === 200, nf_r.status);
+  const nf_hist = (await api('/api/tournois')).data.tournois.find(h => h.nom === 'Batterie2');
+  check('clôture coupe net -> champion null', nf_hist && nf_hist.champion === null, JSON.stringify(nf_hist && nf_hist.champion));
+
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
@@ -306,6 +417,10 @@ async function nouveauTournoi(body) {
   md += `- Tirage (blancs/bye auto-gagnés + propagation, match vide, aléatoire crypto)\n- Matchs (lancer, table, +1/−1, runout casse, forfait, 403 externe)\n`;
   md += `- Mode auto (on/off persistant, ordre des tables préféré 3..8,1,2)\n- Tables dynamiques en cours (ajout, réduction, 409 si occupées, nom verrouillé)\n`;
   md += `- Double KO (liens LB/F, croisement anti-re-match sur tournoi complet, champion)\n- Stats (stats-joueurs avec titres distincts, fiche joueur, historique), QR code, journal d'audit\n`;
+  md += `- Amis (recherche, ajout 200/409/404/400, liste+statut, retrait, rattachement compte à l'inscription)\n`;
+  md += `- Règles match (bande ⚪, alternance, blocage saisie sans bande, 403 casse/reprise, modale admin table/joueurs/rouvrir-409)\n`;
+  md += `- Admin-data (PUT joueur 200/409, delete event + recalc, 401 sans PIN)\n`;
+  md += `- Points au classement (présents, gagnant >= 1) + clôture coupe net (champion null)\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);
