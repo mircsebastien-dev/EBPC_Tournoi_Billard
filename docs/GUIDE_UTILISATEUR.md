@@ -28,6 +28,9 @@
 4. **Dernier point** : une fenêtre de confirmation apparaît avec le score final et le gagnant → **Confirmer** ou **Modifier**.
 5. Le match est terminé quand un joueur atteint le « race to » (ex. 3).
 
+## 👥 Amis (suivi d'autres joueurs)
+Compte → section **Amis** : recherche un pseudo (Entrée) → ➕ Ajouter. Tu reçois une **notif push « match d'un ami »** quand son match commence (tap = card du match), et son **statut en direct** (🟢 en cours vs X (score, table), 🕐 programmé, 📝 inscrit, — hors tournoi) sur ton compte **et sur l'accueil** (panneau 👥 Amis). 🗑 pour retirer.
+
 ## Mot de passe oublié
 Compte → « Mot de passe oublié » → entre ton email → un lien de réinitialisation arrive par mail (valable 1 h) → choisis un nouveau mot de passe.
 
