@@ -16,7 +16,7 @@ document.getElementById("nav").append(nav(""));
 const main = document.getElementById("main");
 main.append(el("div", { class: "panel" },
   el("h2", {}, "Responsable du traitement"),
-  el("p", {}, el("a", { href: "/admin.html", style: "color:var(--pink-soft)" }, "Voir table de marque")),
+  el("p", {}, "Voir avec la table de marque du tournoi."),
   el("h2", {}, "Ce qu'on collecte"),
   el("ul", {},
     el("li", {}, "Compte joueur : pseudo, email, mot de passe (hashé scrypt+salt, jamais en clair)"),
