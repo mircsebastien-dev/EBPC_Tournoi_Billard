@@ -138,8 +138,8 @@ function render() {
     } else if (s.type === 'champion') {
       div.append(el('div', { class: 'tv-champion' }, `🏆 ${s.t.champion.pseudo}`), el('div', { class: 'tv-big', style: 'color:var(--muted)' }, 'Champion de la Pink City'));
     } else if (s.type === 'attente') {
-      const inscription = s.t && s.t.tournoi && s.t.tournoi.statut === 'inscription';
-      div.append(el('div', { class: 'tv-big' }, '🎱 ' + (inscription ? s.t.tournoi.nom : 'Le tournoi va bientôt commencer')));
+      const inscription = !s.t || !s.t.tournoi || s.t.tournoi.statut === 'inscription'; // aucun tournoi lancé = grand QR aussi
+      div.append(el('div', { class: 'tv-big' }, '🎱 ' + (inscription ? (s.t.tournoi.nom || 'Pink City Billard') : 'Le tournoi va bientôt commencer')));
       if (inscription) {
         // tournoi créé mais pas lancé: grand QR centré pour s'inscrire
         div.append(el('div', { class: 'tv-qr-big' },
