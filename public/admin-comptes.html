@@ -24,6 +24,13 @@ async function charger() {
   render(comptes);
 }
 
+function maskEmail(email) {
+  if (!email || !email.includes('@')) return email || '—';
+  const [local, domain] = email.split('@');
+  const m = local.length <= 2 ? local[0] + '•' : local.slice(0, 2) + '•'.repeat(Math.min(local.length - 2, 6));
+  return m + '@' + domain;
+}
+
 function render(comptes) {
   main.innerHTML = '';
   if (!adminPin) { renderAdminLogin(main); return; }
@@ -46,7 +53,7 @@ function render(comptes) {
       el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Sessions', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
       el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
         el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo),
-        el('td', { style: 'padding:6px 8px' }, c.email),
+        el('td', { style: 'padding:6px 8px', title: c.email }, maskEmail(c.email)),
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, (c.created_at || '').slice(0, 16).replace('T', ' ')),
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.last_login_at ? fmtDateHeureSql(c.last_login_at) : 'jamais'),
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.joueurs)),
