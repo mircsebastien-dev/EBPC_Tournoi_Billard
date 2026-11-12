@@ -50,7 +50,7 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 @keyframes fall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
 .tv-champion { font-size: clamp(40px, 9vw, 110px); font-weight: 800; background: linear-gradient(90deg, var(--gold), #fff); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .tv-qr-big { display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:18px; text-align:center; }
-.tv-qr-big img { width:min(460px,52vh); height:auto; background:#fff; padding:10px; border-radius:14px; }
+.tv-qr-big img { width:min(640px,68vh); height:auto; background:#fff; padding:10px; border-radius:14px; }
 </style>
 </head>
 <body class="tv">
@@ -143,7 +143,7 @@ function render() {
       if (inscription) {
         // tournoi créé mais pas lancé: grand QR centré pour s'inscrire
         div.append(el('div', { class: 'tv-qr-big' },
-          el('img', { src: '/api/qrcode.svg?text=' + encodeURIComponent(siteUrl), alt: 'QR code du site', width: 460, height: 460 }),
+          el('img', { src: '/api/qrcode.svg?text=' + encodeURIComponent(siteUrl), alt: 'QR code du site', width: 640, height: 640 }),
           el('div', { class: 'tv-big', style: 'font-size:clamp(18px,3.4vw,32px)' }, '📱 Scanne pour t\'inscrire'),
           el('div', { class: 'tv-big', style: 'color:var(--muted);font-size:clamp(14px,2.4vw,24px)' }, siteUrl.replace(/^https?:\/\//, ''))));
       } else {
