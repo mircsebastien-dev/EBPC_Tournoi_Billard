@@ -493,6 +493,9 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
   }
   try {
     const info = db.prepare('INSERT INTO joueur (tournoi_id, pseudo, tete_de_serie) VALUES (?, ?, ?)').run(t.id, pseudo, tds);
+    // si un compte existe avec ce pseudo -> on rattache le joueur au compte (feature amis/notifs)
+    const c = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
+    if (c) db.prepare('UPDATE joueur SET compte_id = ? WHERE id = ?').run(c.id, info.lastInsertRowid);
     logAudit('inscription', `joueur ${info.lastInsertRowid}`, null, { pseudo, tds });
     majEtBroadcast();
     res.json({ ok: true, id: Number(info.lastInsertRowid) });
