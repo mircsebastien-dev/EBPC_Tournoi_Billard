@@ -62,6 +62,16 @@ async function init() {
       el('div', { class: 'row', style: 'justify-content:center' },
         joueur_id ? el('a', { href: '/joueur.html?id=' + joueur_id }, el('button', { class: 'secondary' }, '📊 Ma fiche joueur')) : null,
         el('button', { class: 'danger', onclick: deconnexion }, 'Se déconnecter'))));
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px;text-align:center' },
+      el('button', { class: 'secondary', onclick: async () => {
+        try {
+          const r = await api('/api/compte/export', { pin: null });
+          const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+          const a = el('a', { href: URL.createObjectURL(blob), download: 'mes-donnees-ebpc.json' });
+          document.body.append(a); a.click(); a.remove();
+        } catch (e) { alert(e.message); }
+      } }, '📥 Exporter mes données (RGPD)'),
+      el('p', { class: 'muted small', style: 'margin-top:6px' }, 'Voir aussi : 🔒 Confidentialité (menu ☰)')));
     // panneau email
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
       el('h2', {}, '✉️ Email'),

@@ -224,6 +224,28 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     res.json({ comptes: rows.map(r => ({ id: r.id, pseudo: r.pseudo, moi: req.compte && r.id === req.compte.id })) });
   });
 
+  // RGPD: export de toutes les données du compte (JSON téléchargeable)
+  app.get('/api/compte/export', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const c = req.compte;
+    const joueurs = db.prepare(`SELECT tournoi_id, pseudo, statut, tete_de_serie, created_at FROM joueur WHERE compte_id = ?`).all(c.id);
+    const matchs = db.prepare(`
+      SELECT m.id, m.tournoi_id, m.bracket, m.tour, m.position, m.etat, m.score1, m.score2, m.manches, m.started_at, m.ended_at,
+             j1.pseudo joueur1, j2.pseudo joueur2, g.pseudo gagnant
+      FROM match m
+      LEFT JOIN joueur j1 ON j1.id = m.joueur1_id LEFT JOIN joueur j2 ON j2.id = m.joueur2_id LEFT JOIN joueur g ON g.id = m.gagnant_id
+      WHERE m.joueur1_id IN (SELECT id FROM joueur WHERE compte_id = ?) OR m.joueur2_id IN (SELECT id FROM joueur WHERE compte_id = ?)
+    `).all(c.id, c.id);
+    const events = db.prepare(`SELECT e.type, e.detail, e.created_at, m.tournoi_id FROM match_event e JOIN match m ON m.id = e.match_id WHERE e.joueur_id IN (SELECT id FROM joueur WHERE compte_id = ?)`).all(c.id);
+    const amis = db.prepare(`SELECT c2.pseudo ami, a.created_at FROM ami a JOIN compte c2 ON c2.id = a.ami_compte_id WHERE a.compte_id = ?`).all(c.id);
+    const mesAmis = db.prepare(`SELECT c2.pseudo ajoute_par, a.created_at FROM ami a JOIN compte c2 ON c2.id = a.compte_id WHERE a.ami_compte_id = ?`).all(c.id);
+    res.json({
+      export_date: new Date().toISOString(),
+      compte: { id: c.id, pseudo: c.pseudo, email: c.email, created_at: c.created_at, last_login_at: c.last_login_at },
+      joueurs, matchs, events, amis, ajoutes_par: mesAmis,
+    });
+  });
+
   app.post('/api/compte/deconnexion', (req, res) => {
     const cookies = parseCookies(req);
     const token = cookies[SESSION_COOKIE];

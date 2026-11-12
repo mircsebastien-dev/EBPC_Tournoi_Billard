@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🔒 Confidentialité — Tournoi EBPC</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top"><h1>🔒 Confidentialité & données</h1><div id="nav"></div></header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+document.getElementById("nav").append(nav(""));
+const main = document.getElementById("main");
+main.append(el("div", { class: "panel" },
+  el("h2", {}, "Responsable du traitement"),
+  el("p", {}, "EBPC — Pink City Billard, Le 147, 12 Rue des Amidonniers, 31000 Toulouse (contact via la table de marque)."),
+  el("h2", {}, "Ce qu'on collecte"),
+  el("ul", {},
+    el("li", {}, "Compte joueur : pseudo, email, mot de passe (hashé scrypt+salt, jamais en clair)"),
+    el("li", {}, "Tournoi : inscriptions, matchs, scores, événements, statistiques"),
+    el("li", {}, "Technique : cookie de session strictement nécessaire (HttpOnly, SameSite, Secure), préférences navigateur (localStorage : PIN admin mémorisé, joueur suivi, vue tableau)"),
+    el("li", {}, "Notifications push : uniquement si tu les actives (opt-in), abonnement révocable à tout moment")),
+  el("h2", {}, "Ce qu'on ne fait PAS"),
+  el("p", {}, "Aucun cookie de tracking/publicité, aucune revente de données, aucun partage à des tiers (sauf envoi d'emails via Resend pour la réinitialisation de mot de passe)."),
+  el("h2", {}, "Finalités & base légale"),
+  el("p", {}, "Faire fonctionner le tournoi (inscriptions, matchs, scores, classements, notifications) = exécution du service demandé. Les emails servent uniquement à la réinit du mot de passe. Les données sont conservées tant que le compte est actif ; les comptes inactifs 18 mois sont supprimés automatiquement."),
+  el("h2", {}, "Hébergement"),
+  el("p", {}, "Application hébergée sur Fly.io (société américaine) en région Paris (cdg), base SQLite sur volume. Un transfert hors UE peut exister côté infrastructure ; les données restent sous notre responsabilité."),
+  el("h2", {}, "Tes droits (RGPD)"),
+  el("ul", {},
+    el("li", {}, "📥 Accès/export : bouton « Exporter mes données » dans ton compte (JSON complet)"),
+    el("li", {}, "✏️ Rectification : changer pseudo/email dans le compte ; corrections admin possibles"),
+    el("li", {}, "🗑 Effacement : suppression du compte par l'admin (les matchs restent dans l'historique anonymisé du tournoi), purge auto 18 mois"),
+    el("li", {}, "🚫 Opposition : désactive les notifications push à tout moment")),
+  el("h2", {}, "Sécurité"),
+  el("p", {}, "Mots de passe hashés (scrypt + sel), sessions en cookie HttpOnly/SameSite/Secure, tokens de réinit hashés et valables 1 h, rate-limit sur connexion/inscription, PIN admin vérifié côté serveur. Contact en cas d'incident : via la table de marque.")));
+</script>
+</body>
+</html>
