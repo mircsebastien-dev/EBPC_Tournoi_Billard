@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-12T10:34:19.148Z
-- Base : http://127.0.0.1:3621
-- Résultat : **97 OK / 0 ÉCHEC** (1.8s)
+- Date : 2026-11-12T11:04:19.186Z
+- Base : http://127.0.0.1:3624
+- Résultat : **100 OK / 0 ÉCHEC** (2.9s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -88,10 +88,13 @@
 
 ## 9. Double KO: liens, croisement LB, anti-re-match
 
-| ✅ | LB2 existe (4 matchs) |  |
+| ✅ | DKO32: WB1=16, WB2=8, LB1=8, LB2=8, F=15 (8+4+2+1) |  |
+| ✅ | DKO32: 32 joueurs inscrits |  |
 | ✅ | tournoi DKO terminé |  |
 | ✅ | 0 re-match hors finale (croisement LB OK) |  |
 | ✅ | champion renseigné |  |
+| ✅ | DKO32: max points = 6 (finale F4, k=2) |  |
+| ✅ | DKO32: 2 finalistes à 6 pts (ex-aequo) |  |
 
 ## 10. Stats globales, QR code, audit
 

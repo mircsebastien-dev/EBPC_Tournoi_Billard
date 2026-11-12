@@ -251,15 +251,17 @@ async function nouveauTournoi(body) {
   // ---------- 9. DKO : croisement LB, pas de re-match ----------
   sec('9. Double KO: liens, croisement LB, anti-re-match');
   await del('/api/admin/tournoi');
-  await post('/api/admin/tournoi', { nom: 'DKO', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 8 });
-  await post('/api/admin/joueurs/simulation', { count: 16, prefix: 'J' });
+  await post('/api/admin/tournoi', { nom: 'DKO32', regle: 'blackball', taille: 32, format: 'double', dko_tours: 2, nb_tables: 8 });
+  await post('/api/admin/joueurs/simulation', { count: 32, prefix: 'J' });
   t = (await api('/api/etat')).data.actif;
   for (const j of t.joueurs) await post(`/api/admin/joueur/${j.id}/paiement`, { statut: 'paye' });
   await post('/api/admin/auto', { on: false }); // sinon auto lance tout seul et aucun match n'est 'pret'
   await post('/api/admin/tirage', {});
   t = (await api('/api/etat')).data.actif;
-  const lb2 = t.matchs.filter(m => m.bracket === 'LB' && m.tour === 2);
-  check('LB2 existe (4 matchs)', lb2.length === 4, lb2.length);
+  // structure DKO 32 / k=2 : WB1=16 matchs, WB2=8, LB1=8, LB2=4, F1=4 (1/8), F2=2 (quarts), F3=1 (demi)?? -> F: 8->4->2->1
+  const count = (b, tt) => t.matchs.filter(m => m.bracket === b && (tt == null || m.tour === tt)).length;
+  check('DKO32: WB1=16, WB2=8, LB1=8, LB2=8, F=15 (8+4+2+1)', count('WB', 1) === 16 && count('WB', 2) === 8 && count('LB', 1) === 8 && count('LB', 2) === 8 && count('F') === 15, `WB1=${count('WB',1)} WB2=${count('WB',2)} LB1=${count('LB',1)} LB2=${count('LB',2)} F=${count('F')}`);
+  check('DKO32: 32 joueurs inscrits', t.joueurs.length === 32, t.joueurs.length);
   // rejouer tout le tournoi et détecter les re-matchs hors finale
   const deja = new Set();
   let rematchs = 0;
@@ -282,6 +284,14 @@ async function nouveauTournoi(body) {
   check('tournoi DKO terminé', lastT.statut === 'termine', lastT.statut);
   check('0 re-match hors finale (croisement LB OK)', rematchs === 0, rematchs);
   check('champion renseigné', lastT.champion_id != null, lastT.champion_id);
+  const fullT = (await api('/api/tournois/' + lastT.id)).data.tournoi;
+  const stDKO = fullT.stats ? fullT.stats.classement : null;
+  if (stDKO) {
+    const maxPts = Math.max(...stDKO.map(p => p.points || 0));
+    check('DKO32: max points = 6 (finale F4, k=2)', maxPts === 6, maxPts);
+    const finalistes = stDKO.filter(p => p.points === 6).length;
+    check('DKO32: 2 finalistes à 6 pts (ex-aequo)', finalistes === 2, finalistes);
+  }
 
   // ---------- 10. Stats globales + QR + SSE ----------
   sec('10. Stats globales, QR code, audit');
