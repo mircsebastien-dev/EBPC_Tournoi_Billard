@@ -1,0 +1,132 @@
+# 📋 Cahier des charges / Spec fonctionnelle — EBPC Tournoi Billard (Pink City Billard)
+
+Application web de gestion de tournois de billard (blackball / ultimate) : inscriptions, tirage, tableaux (élimination directe ou double KO), saisie des scores en direct par les joueurs, affichage public (TV), statistiques, notifications push PWA, interface d'administration complète.
+
+- **URL prod** : https://ebpc-tournoi-billard.fly.dev
+- **Dépôt** : `mircsebastien-dev/EBPC_Tournoi_Billard` (branche prod `main`, branche de travail `vibe/tournoi-billard-8cbc6c`, tags de version ex. `v0.3`)
+- **Stack** : Node.js + Express, better-sqlite3 (SQLite sur volume), vanilla JS front (pas de framework), PWA (manifest + service worker + web-push), hébergement Fly.io
+
+---
+
+## 1. Rôles
+
+| Rôle | Accès | Identité |
+|---|---|---|
+| Visiteur | public | — |
+| Joueur invité | pages publiques + saisie score de ses matchs | pseudo choisi (localStorage) |
+| Joueur avec compte | + notifs push, amis, fiche perso, export RGPD | pseudo + email + mdp (session cookie) |
+| Admin (table de marque) | `/admin*.html` + routes `/api/admin/*` | code PIN (`ADMIN_PIN`), vérifié côté serveur à chaque requête |
+
+Un joueur invité qui crée un compte avec le **même pseudo** est rattaché automatiquement (création de compte, connexion, ET inscription admin si le compte existe déjà).
+
+---
+
+## 2. Tournois
+
+- Création admin : nom, règle (`blackball`/`ultimate`), taille (16/32/64), format (`simple` = élimination directe, `double` = DKO avec `dko_tours` tours de WB), nombre de tables, date/heure, lieu, têtes de série, ajustement auto de la taille au nombre de payés (puissance de 2)
+- **Un seul tournoi actif** à la fois (statuts : `inscription` → `en_cours` → `termine`)
+- Tables du tournoi (numéro 1..N), modifiables en cours (ajout/retrait, 409 si occupées)
+- **Mode auto** : ON/OFF persistant ; un match `pret` part seul sur une table libre, dans l'ordre des tables personnalisable (ex. `3,4,5,6,7,8,1,2`)
+- **Tables réservées** : setting `tables_reservees` (vide par défaut) — à partir des quarts (niveau calculé selon la taille), ces tables ne sont plus utilisées en auto
+- Distances (race to) par tour, éditables (défaut 3, seuil « jamais » ou tour spécial)
+- **Simulation** du tournoi complet (scores aléatoires) pour tests/démo
+- **Clôture** : « Terminer maintenant » = coupe net (aucun champion automatique, sauf choix explicite dans le select) ; fin normale = la finale déclare le champion
+
+## 3. Inscriptions
+
+- Admin : ajouter/supprimer un joueur, simuler N joueurs, marquer payé, tirage = uniquement les payés
+- Joueur : self-enroll par pseudo (invité) ou via compte
+- **Tirage au sort** crypto (crypto.randomInt) : appariement WB1 (serpentin + têtes de série), blancs (bye) répartis, bye = victoire auto + propagation
+
+## 4. Matchs
+
+- États : `prevu` → `pret` (2 joueurs connus) → `en_cours` (table attribuée) → `termine`/`forfait`
+- **Lancement** : manuel (modale admin : table choisie) ou auto
+- **Tirage à la bande** au lancement : panneau 🎲 sur la card, le gagnant reçoit la **⚪** et casse en premier ; **alternance stricte** ensuite à chaque manche (manche ou runout)
+- **Saisie par les joueurs** (card match, uniquement les 2 joueurs) :
+  - +1 manche / −1 corriger ; 💥 **casse ferme** réservée au ⚪, 🎯 **reprise ferme** à l'autre (boutons grisés + 403 serveur)
+  - **Saisie bloquée tant que le tirage à la bande n'est pas fait** (UI + 409 serveur)
+  - **Dernier point** (atteint race to) → modale de confirmation du score final avec « Modifier »
+- Forfait (admin ou arrêt), réouverture admin **409 si un match aval a commencé ou a reçu un joueur**
+- **Corrections admin** (modale « Gérer le match », clic sur card avec PIN) : changer les joueurs (WB/LB, blanc possible → bye auto), déplacer de table (409 si occupée, libérer = null), corriger le score (scores absolus), rouvrir, forfait. Audit logué.
+
+## 5. Bracket (génération, DKO)
+
+- WB tours, LB (`2k-2` tours en DKO k), F (tableau final)
+- Liens : gagnant WB t → WB t+1 ; perdant WB1 → LB1 ; perdant WB t → LB tour pair ; croisements LB par blocs de 4 (évite les re-matchs intra-groupe) ; dernier tour LB → F1 slot 2 en **rotation d'une demi-moitié** (moitiés opposées WB/LB)
+- **Anti-rematch strict jusqu'à la vraie finale** : à chaque propagation dans un match F (hors dernier tour), si les 2 joueurs se sont déjà joués → **swap auto** avec un autre match du même tour (logué `rematch_swap_f`) ; la vraie finale autorise le rematch
+- Propagation gagnant/perdant en cascade, byes auto
+
+## 6. Affichage public
+
+- **Accueil** : infos tournoi, inscription rapide, panneau **Amis** (si connecté), QR
+- **Tableau** (`/tableau.html`) : vue **bracket** (cartes resserrées, colonnes LB/finale étroites, SVG de liens, scroll horizontal mobile) ou **liste** (toggle, mémorisé, `?vue=`) ; « Aller au tour » (select) ; **filtre joueur** (préfixe, Entrée pour valider, focus conservé)
+- **TV** (`/tv.html`) : uniquement les matchs **en cours** (8/page, défilement), champion en fin ; **grand QR centré** (520px/60vh/92vw) quand aucun tournoi lancé ou phase inscription (petit QR coin masqué dans ce cas) ; overlay « tourne l'écran » sur grand écran portrait
+- **Joueur** (`/suivi.html`) : choisir son joueur (invité = uniquement joueurs sans compte) → ses matchs en cours/à venir
+- **Stats** (`/stats.html`) : classement global tous tournois (joués/gagnés/perdus/%/⭐points/manches/runouts/titres), **tri par points, rang ex-aequo (1,1,1,4…)** ; fiche joueur `/joueur.html?id=` (stats + historique, matchs en cours à part, matchs vs blanc exclus)
+- **Historique** (`/historique.html`, admin-historique) : tournois terminés en **liste de matchs par tour** + **surbrillance** d'un joueur (champ recherche, Entrée)
+- Mises à jour temps réel par **SSE** (`/api/events`, broadcast à chaque changement)
+
+## 7. Statistiques & points
+
+- Par tournoi (`calculerStats`) : joués/gagnés/perdus/%/série + résumé (durée moyenne, plus rapide/long, dernier gagnant)
+- **Points** (`pointsParTournoi`) = **profondeur max atteinte** (WB: n° tour ; DKO: F tour t = k+tour), un seul côté peuplé suffit (qualifié même si adversaire inconnu) ; **pas de bonus LB**
+- Matchs clôturés sans gagnant = ni joués ni perdus (fiche + global)
+- Classement trié par points, **ex-aequo** dans le panneau tournoi et /stats.html
+
+## 8. Comptes joueurs
+
+- Inscription/connexion (scrypt+salt, rate-limit 5/10min par IP), session cookie HttpOnly/SameSite/Secure 30 j (token hashé en BDD)
+- Réinit mdp par email (Resend, token hashé, 1 h, lien calculé depuis l'hôte — jamais `BASE_URL`)
+- Changement d'email (vérif unicité 409), changement de pseudo (admin), dernière connexion (`last_login_at`)
+- **Purge auto** des comptes inactifs > 18 mois (boot + toutes les heures)
+- **Amis** : table `ami`, recherche par pseudo (`/api/comptes/recherche`), ajout/suppression, statut live par ami (en cours vs X (score, table) / programmé / inscrit / hors tournoi) ; **push « match d'un ami »** au lancement pour les comptes amis ; section Amis dans le compte + panneau accueil
+- **RGPD** : page `/confidentialite.html` (lien nav), export JSON « mes données » (`/api/compte/export`), emails masqués dans l'admin-comptes, un seul cookie de session, localStorage = préférences uniquement
+
+## 9. Notifications push (PWA)
+
+- Installable (manifest : nom « Pink City Billard — Tournois », short_name « Tournoi EBPC », icônes 192/512 + apple-touch + **favicon.svg bille 8**)
+- iOS : **obligatoirement via Safari** → « Sur l'écran d'accueil », puis activer dans l'app
+- Push VAPID : « 🎱 À toi de jouer ! » au lancement (joueurs) + « 👥 Match d'un ami » (amis) ; **clic sur la notif → ouvre `/match.html?id=<match>` directement** (SW robuste : navigate+focus si onglet ouvert, openWindow URL absolue sinon, fallback accueil)
+- Abonnement stocké par compte, révocable
+
+## 10. Admin (table de marque)
+
+- `/admin.html` + PIN (vérifié serveur, 401 sinon) ; accès rapides : gérer tournoi, historique, journal d'audit, comptes, 🗄 Données, ⚙️ Guide admin
+- **`/admin-tournoi.html`** : config tournoi, inscriptions, tirage, auto, tables, distances, simulation, clôture
+- **`/admin-comptes.html`** : liste comptes (pseudo, email masqué, créé, dernière connexion, nb inscri. tournois, matchs, sessions), recherche (Entrée), ✏️ pseudo, 🔑 mdp (sessions invalidées), 🗑 supprimer (historique matchs conservé), audit
+- **`/admin-data.html`** (🗄 Données) : sélecteur de tournoi (actif **ou terminé** = corrections historiques), filtre pseudo (Entrée) ; onglets Matchs (liste + modale ⚙️ + 📜), Joueurs (éditer pseudo/statut, supprimer), Events (🗑 supprime un event → **score recalculé** → stats corrigées)
+- **`/admin-journal.html`** : 200 dernières actions admin
+- **`/admin-aide.html`** : guide admin in-app
+
+## 11. Modèle de données (SQLite, `/data/tournoi.db`)
+
+`tournoi`, `joueur`, `match` (bracket/tour/position, joueurs, scores, manches, gagnant, etat, table, liens suivant/perdant, casseau), `match_event` (lancement/bande/manche/runout/correction/forfait), `table_billard`, `distance_round`, `setting`, `compte` (+`last_login_at`, reset token hashé), `session`, `push_subscription`, `ami`, `audit_log`
+
+## 12. API (principales)
+
+- Public : `/api/etat` (SSE aussi), `/api/tournois`, `/api/tournois/:id`, `/api/stats-joueurs`, `/api/joueur/:id/stats|historique|matchs`, `/api/comptes/recherche`, `/api/qrcode.svg`, `/api/events` (SSE)
+- Joueur : `/api/match/:id/bande|manche|runout|retirer`, `/api/compte/*` (inscription, connexion, déconnexion, moi, email, amis, export, push subscribe)
+- Admin (PIN) : `/api/admin/*` (tournoi, joueur(s), paiement, tirage, auto, match lancer/table/joueurs/correction/rouvrir/forfait/events, terminer, simuler, comptes, compte pseudo/password/suppr, audit, data events, distances, tables)
+
+## 13. Sécurité
+
+- PIN admin vérifié serveur sur toutes les routes `/api/admin/*` (401)
+- mdp scrypt+salt ; sessions cookie HttpOnly/SameSite/Secure, token hashé ; réinit 1 h hashée ; rate-limit inscription/connexion/oubli
+- Saisie match réservée aux 2 joueurs (403), blocage sans bande (409), règles ⚪ (403)
+- Pas de cookie tiers/tracking ; emails masqués côté admin ; `Cache-Control: no-store` sur html/js/css
+
+## 14. Déploiement / hébergement / services
+
+- **Fly.io** : app `ebpc-tournoi-billard`, région `cdg`, **1 machine** `shared-cpu-1x` / **256 Mo** (SQLite = 1 seule machine écrivante — ne pas scaler en horizontal ; monter en vertical si besoin : `fly scale memory 512`), `auto_stop off`, volume `tournoi_data` (snapshoté) monté sur `/data`, `DB_PATH=/data/tournoi.db`, `PORT=3000`, listen `0.0.0.0`
+- **Secrets Fly** (jamais `BASE_URL`) : `ADMIN_PIN`, `RESEND_API_KEY`, `MAIL_FROM`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
+- **Emails** : Resend (réinit mdp) ; en dev sans clé, le lien est loggé
+- **Push** : VAPID (web-push), clés en secrets ; en dev, clés générées à la volée (log)
+- **Déploiement** : `fly deploy` depuis `main` (prod) → auto via CI GitHub ou manuel ; **branche de travail** `vibe/<slug>-8cbc6c` + PR ; **app de test** séparée (`ebpc-tournoi-billard-test`) : volume neuf ou restauré depuis snapshot prod (jamais partagé), secrets recopiés à la main (Fly ne les lit pas), PIN différent conseillé
+- **Snapshots** : `fly volumes snapshots list/create tournoi_data` pour backup/restauration
+- **Tests** : `BASE=http://127.0.0.1:PORT node test/batterie.js` → **100 tests** (`test/rapport.md`) couvrant sécurité PIN, tournois, comptes, matchs, DKO 32/2t (structure, anti-rematch, points), amis, admin-data, règles, clôture
+- **Monitoring** : `fly status`, `fly logs`, métriques mémoire pendant un tournoi
+
+## 15. Fichiers clés
+
+`src/server.js` (routes, SSE, stats), `src/matchs.js` (règles, propagation, corrections), `src/bracket.js` (génération WB/LB/F, liens), `src/comptes.js` (auth, amis, RGPD), `src/push.js` (VAPID, envois), `src/db.js` (schéma+migrations), `public/` (pages + common.js + sw.js + push-client.js), `test/batterie.js`, `docs/` (guides + cette spec)
