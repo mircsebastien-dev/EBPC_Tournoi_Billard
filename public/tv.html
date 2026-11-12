@@ -150,7 +150,12 @@ function render() {
         div.append(el('div', { class: 'tv-big', style: 'color:var(--muted);font-size:clamp(16px,3vw,28px)' }, 'En attente des matchs…'));
       }
     } else {
+      // aucun tournoi: grand QR centré aussi
       div.append(el('div', { class: 'tv-big' }, '🎱 Aucun tournoi pour le moment'));
+      div.append(el('div', { class: 'tv-qr-big' },
+        el('img', { src: '/api/qrcode.svg?text=' + encodeURIComponent(siteUrl), alt: 'QR code du site', width: 640, height: 640 }),
+        el('div', { class: 'tv-big', style: 'font-size:clamp(18px,3.4vw,32px)' }, '📱 Scanne pour ouvrir le site'),
+        el('div', { class: 'tv-big', style: 'color:var(--muted);font-size:clamp(14px,2.4vw,24px)' }, siteUrl.replace(/^https?:\/\//, ''))));
     }
     slidesEl.append(div);
     dotsEl.append(el('span', { class: i === slideIdx ? 'on' : '' }));
