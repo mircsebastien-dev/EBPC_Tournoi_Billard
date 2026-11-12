@@ -50,7 +50,7 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 @keyframes fall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
 .tv-champion { font-size: clamp(40px, 9vw, 110px); font-weight: 800; background: linear-gradient(90deg, var(--gold), #fff); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .tv-qr-big { display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:18px; text-align:center; }
-.tv-qr-big img { width:min(640px,68vh,92vw); height:auto; background:#fff; padding:10px; border-radius:14px; }
+.tv-qr-big img { width:min(520px,60vh,92vw); height:auto; background:#fff; padding:10px; border-radius:14px; }
 </style>
 </head>
 <body class="tv">
@@ -109,6 +109,11 @@ function render() {
   st.textContent = !t ? 'En attente' : t.tournoi.statut === 'en_cours' ? '🔴 EN DIRECT' : t.tournoi.statut === 'termine' ? '🏁 TERMINÉ' : 'Inscriptions';
   st.className = `badge ${t ? t.tournoi.statut : ''}`;
 
+  // petit QR en coin masqué quand le slide courant montre le grand QR centré
+  const cur = slides[slideIdx];
+  const showBigQr = cur && (cur.type === 'vide' || (cur.type === 'attente' && (!cur.t || !cur.t.tournoi || cur.t.tournoi.statut === 'inscription')));
+  const qrCoin = document.querySelector('.tv-qr');
+  if (qrCoin) qrCoin.style.display = showBigQr ? 'none' : '';
   slides.forEach((s, i) => {
     const div = el('div', { class: 'slide' + (i === slideIdx ? ' on' : '') });
     if (s.type === 'live-group') {
@@ -143,7 +148,7 @@ function render() {
       if (inscription) {
         // tournoi créé mais pas lancé: grand QR centré pour s'inscrire
         div.append(el('div', { class: 'tv-qr-big' },
-          el('img', { src: '/api/qrcode.svg?text=' + encodeURIComponent(siteUrl), alt: 'QR code du site', width: 640, height: 640 }),
+          el('img', { src: '/api/qrcode.svg?text=' + encodeURIComponent(siteUrl), alt: 'QR code du site', width: 520, height: 520 }),
           el('div', { class: 'tv-big', style: 'font-size:clamp(18px,3.4vw,32px)' }, '📱 Scanne pour t\'inscrire'),
           el('div', { class: 'tv-big', style: 'color:var(--muted);font-size:clamp(14px,2.4vw,24px)' }, siteUrl.replace(/^https?:\/\//, ''))));
       } else {
@@ -153,7 +158,7 @@ function render() {
       // aucun tournoi: grand QR centré aussi
       div.append(el('div', { class: 'tv-big' }, '🎱 Aucun tournoi pour le moment'));
       div.append(el('div', { class: 'tv-qr-big' },
-        el('img', { src: '/api/qrcode.svg?text=' + encodeURIComponent(siteUrl), alt: 'QR code du site', width: 640, height: 640 }),
+        el('img', { src: '/api/qrcode.svg?text=' + encodeURIComponent(siteUrl), alt: 'QR code du site', width: 520, height: 520 }),
         el('div', { class: 'tv-big', style: 'font-size:clamp(18px,3.4vw,32px)' }, '📱 Scanne pour ouvrir le site'),
         el('div', { class: 'tv-big', style: 'color:var(--muted);font-size:clamp(14px,2.4vw,24px)' }, siteUrl.replace(/^https?:\/\//, ''))));
     }
