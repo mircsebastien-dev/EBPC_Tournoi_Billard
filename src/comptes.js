@@ -167,6 +167,63 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     res.json({ ok: true, email });
   });
 
+  // ---- Amis ----
+  app.get('/api/compte/amis', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const rows = db.prepare(`
+      SELECT a.id, a.created_at, c.id compte_id, c.pseudo
+      FROM ami a JOIN compte c ON c.id = a.ami_compte_id
+      WHERE a.compte_id = ? ORDER BY c.pseudo COLLATE NOCASE
+    `).all(req.compte.id);
+    // statut de chaque ami dans le tournoi actif
+    const t = tournoiActif ? tournoiActif() : null;
+    const statuts = {};
+    if (t && t.statut !== 'termine') {
+      const matchs = db.prepare(`SELECT m.etat, m.table_id, m.score1, m.score2, m.bracket, m.tour, m.position,
+        j1.pseudo p1, j2.pseudo p2, m.gagnant_id, m.joueur1_id, m.joueur2_id
+        FROM match m JOIN joueur j1 ON j1.id = m.joueur1_id LEFT JOIN joueur j2 ON j2.id = m.joueur2_id
+        WHERE m.tournoi_id = ? AND m.joueur1_id IS NOT NULL`).all(t.id);
+      for (const a of rows) {
+        const js = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND compte_id = ?').all(t.id, a.compte_id);
+        const jids = js.map(x => x.id);
+        const mEnCours = matchs.find(m => (m.etat === 'en_cours') && jids.includes(m.joueur1_id) || (m.etat === 'en_cours') && m.joueur2_id && jids.includes(m.joueur2_id));
+        const mPret = matchs.find(m => (m.etat === 'pret') && (jids.includes(m.joueur1_id) || (m.joueur2_id && jids.includes(m.joueur2_id))));
+        const inscrit = jids.length > 0;
+        statuts[a.compte_id] = mEnCours ? { type: 'en_cours', vs: mEnCours.joueur1_id && jids.includes(mEnCours.joueur1_id) ? mEnCours.p2 : mEnCours.p1, score: mEnCours.score1 + '-' + mEnCours.score2, table: mEnCours.table_id }
+          : mPret ? { type: 'pret', vs: mPret.joueur1_id && jids.includes(mPret.joueur1_id) ? mPret.p2 : mPret.p1 }
+          : inscrit ? { type: 'inscrit' } : { type: 'hors_tournoi' };
+      }
+    }
+    res.json({ amis: rows.map(a => ({ ...a, statut: statuts[a.compte_id] || { type: 'hors_tournoi' } })) });
+  });
+
+  app.post('/api/compte/amis', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const pseudo = String(req.body.pseudo || '').trim();
+    const c = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
+    if (!c) return res.status(404).json({ error: 'Aucun compte avec ce pseudo' });
+    if (c.id === req.compte.id) return res.status(400).json({ error: 'Tu ne peux pas t\'ajouter toi-même' });
+    const existe = db.prepare('SELECT id FROM ami WHERE compte_id = ? AND ami_compte_id = ?').get(req.compte.id, c.id);
+    if (existe) return res.status(409).json({ error: 'Déjà dans tes amis' });
+    db.prepare('INSERT INTO ami (compte_id, ami_compte_id) VALUES (?, ?)').run(req.compte.id, c.id);
+    res.json({ ok: true, ami: { id: c.id, pseudo: c.pseudo } });
+  });
+
+  app.delete('/api/compte/amis/:compteId', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    db.prepare('DELETE FROM ami WHERE compte_id = ? AND ami_compte_id = ?').run(req.compte.id, Number(req.params.compteId));
+    res.json({ ok: true });
+  });
+
+  // recherche de comptes par pseudo (pseudos publics uniquement)
+  app.get('/api/comptes/recherche', (req, res) => {
+    const q = String(req.query.q || '').trim().toLowerCase();
+    if (q.length < 2) return res.json({ comptes: [] });
+    const rows = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo LIKE ? COLLATE NOCASE ORDER BY pseudo LIMIT 20')
+      .all(q + '%');
+    res.json({ comptes: rows.map(r => ({ id: r.id, pseudo: r.pseudo, moi: req.compte && r.id === req.compte.id })) });
+  });
+
   app.post('/api/compte/deconnexion', (req, res) => {
     const cookies = parseCookies(req);
     const token = cookies[SESSION_COOKIE];

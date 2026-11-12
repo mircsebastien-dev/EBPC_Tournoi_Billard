@@ -44,12 +44,32 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
       JOIN joueur j ON j.compte_id = s.compte_id
       WHERE j.id IN (?, ?) AND s.compte_id IS NOT NULL
     `).all(m.joueur1_id, m.joueur2_id);
+    // + les comptes qui ont un des 2 joueurs en ami
+    const subsAmis = db.prepare(`
+      SELECT s.endpoint, s.keys_json, c.pseudo ami_de FROM push_subscription s
+      JOIN ami a ON a.compte_id = s.compte_id
+      JOIN joueur j ON j.compte_id = a.ami_compte_id
+      JOIN compte c ON c.id = j.compte_id
+      WHERE j.id IN (?, ?) AND s.compte_id IS NOT NULL
+        AND s.compte_id NOT IN (SELECT compte_id FROM joueur WHERE id IN (?, ?))
+    `).all(m.joueur1_id, m.joueur2_id, m.joueur1_id, m.joueur2_id);
     const payload = JSON.stringify({
       title: '🎱 À toi de jouer !',
       body: `${pseudo1} vs ${pseudo2} — Table ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
       url: `/match.html?id=${m.id}`,
       tag: 'match-' + m.id,
     });
+    const payloadAmi = JSON.stringify({
+      title: '👥 Match d\'un ami en cours',
+      body: `${pseudo1} vs ${pseudo2} — Table ${tableNumero}`,
+      url: `/match.html?id=${m.id}`,
+      tag: 'ami-match-' + m.id,
+    });
+    for (const s of subsAmis) {
+      try {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payloadAmi);
+      } catch (e) {}
+    }
     for (const s of subs) {
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payload);

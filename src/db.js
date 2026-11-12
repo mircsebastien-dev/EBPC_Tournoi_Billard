@@ -60,6 +60,14 @@ CREATE TABLE IF NOT EXISTS compte (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS ami (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  compte_id INTEGER NOT NULL REFERENCES compte(id) ON DELETE CASCADE,
+  ami_compte_id INTEGER NOT NULL REFERENCES compte(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(compte_id, ami_compte_id)
+);
+
 CREATE TABLE IF NOT EXISTS session (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   token_hash TEXT NOT NULL UNIQUE,

@@ -94,10 +94,35 @@ async function inscrireCompte() {
   } catch (e) { alert(e.message); }
 }
 
+
+// panneau amis (si connecté): statut live des matchs des amis
+async function renderAmisPanel() {
+  let box = document.getElementById('amis-panel');
+  const s = (typeof state !== 'undefined' && state) || null;
+  if (!s || !s.compte) { if (box) box.remove(); return; }
+  if (!box) {
+    box = el('div', { class: 'panel', id: 'amis-panel' });
+    document.getElementById('main').append(box);
+  }
+  let amis = [];
+  try { amis = (await api('/api/compte/amis')).amis; } catch { amis = []; }
+  box.innerHTML = '';
+  box.append(el('h2', {}, '👥 Amis' + (amis.length ? ` (${amis.length})` : '')));
+  if (!amis.length) { box.append(el('p', { class: 'muted small' }, 'Aucun ami — ajoute-en depuis ton compte (👤).')); return; }
+  for (const a of amis) {
+    const st = a.statut || {};
+    const txt = { en_cours: `🟢 en cours vs ${st.vs || '?'} (${st.score}${st.table ? ' · table ' + st.table : ''})`, pret: `🕐 programmé vs ${st.vs || '?'}`, inscrit: '📝 inscrit au tournoi', hors_tournoi: '— hors tournoi' }[st.type] || '—';
+    box.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding:6px 0' },
+      el('div', { style: 'font-weight:700' }, a.pseudo),
+      el('span', { class: 'muted small' }, txt)));
+  }
+}
+
 async function init() {
   state = await api('/api/etat');
   render();
-  connecterSSE((s) => { state = s; render(); });
+  renderAmisPanel();
+connecterSSE((s) => { renderAmisPanel(); state = s; render(); });
 }
 init();
 </script>

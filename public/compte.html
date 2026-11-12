@@ -73,6 +73,50 @@ async function init() {
             alert('✅ Email mis à jour'); location.reload();
           } catch (e) { alert(e.message); }
         } }, 'Enregistrer')))));
+    // panneau amis
+    async function renderAmis() {
+      const box = document.getElementById('amis-box');
+      if (!box) return;
+      const { amis } = await api('/api/compte/amis');
+      box.innerHTML = '';
+      const inp = el('input', { id: 'ami-q', placeholder: '🔍 Rechercher un pseudo… (Entrée)', maxlength: 24, style: 'width:100%;max-width:280px' });
+      const res = el('div', { style: 'margin:6px 0' });
+      inp.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        res.innerHTML = '';
+        const q = inp.value.trim();
+        if (q.length < 2) return;
+        const { comptes } = await api('/api/comptes/recherche?q=' + encodeURIComponent(q));
+        for (const c of comptes) {
+          if (c.moi) continue;
+          const deja = amis.some(a => a.compte_id === c.id);
+          res.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding:4px 0' },
+            el('span', {}, c.pseudo),
+            deja ? el('span', { class: 'muted small' }, 'déjà ami') : el('button', { class: 'secondary', style: 'padding:3px 10px;font-size:12px', onclick: async () => {
+              try { await api('/api/compte/amis', { method: 'POST', body: JSON.stringify({ pseudo: c.pseudo }) }); renderAmis(); }
+              catch (err) { alert(err.message); }
+            } }, '➕ Ajouter')));
+        }
+        const f = document.getElementById('ami-q'); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+      });
+      box.append(inp, res);
+      if (!amis.length) { box.append(el('p', { class: 'muted small', style: 'margin-top:8px' }, 'Aucun ami pour le moment — recherche un pseudo ci-dessus.')); return; }
+      for (const a of amis) {
+        const st = a.statut || {};
+        const stTxt = { en_cours: `🟢 en cours vs ${st.vs || '?'} (${st.score}${st.table ? ' · table ' + st.table : ''})`, pret: `🕐 match programmé vs ${st.vs || '?'}`, inscrit: '📝 inscrit au tournoi', hors_tournoi: '— hors tournoi' }[st.type] || '—';
+        box.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding:6px 0' },
+          el('div', {}, el('div', { style: 'font-weight:700' }, '👤 ' + a.pseudo), el('div', { class: 'muted small' }, stTxt)),
+          el('button', { class: 'danger', style: 'padding:3px 10px;font-size:12px', onclick: async () => {
+            if (!confirm('Retirer ' + a.pseudo + ' de tes amis ?')) return;
+            await api('/api/compte/amis/' + a.compte_id, { method: 'DELETE' }); renderAmis();
+          } }, '🗑')));
+      }
+    }
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
+      el('h2', {}, '👥 Amis'),
+      el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence, et leur statut ici.'),
+      el('div', { id: 'amis-box' })));
+    renderAmis();
     // panneau notifications push
     const notifOk = await pushEstActif().catch(() => false);
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
