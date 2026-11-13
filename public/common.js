@@ -295,33 +295,48 @@ function drawBracketLinks(t) {
   svg.removeAttribute('viewBox');
   svg.innerHTML = '';
   const ns = 'http://www.w3.org/2000/svg';
+  // flèche pour les bouts de lien (onglets) : context-stroke = couleur du trait
+  const defs = document.createElementNS(ns, 'defs');
+  defs.innerHTML = '<marker id="pcb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker>';
+  svg.append(defs);
+  const drawPath = (d, cls, marker) => {
+    // halo (gros trait translucide) + trait fin coloré, pour être visible sur fond sombre
+    for (const haloMode of [true, false]) {
+      const p = document.createElementNS(ns, 'path');
+      p.setAttribute('d', d);
+      p.setAttribute('class', haloMode ? (cls ? cls + ' halo' : 'halo') : (cls || ''));
+      if (marker) p.setAttribute(marker, 'url(#pcb-arrow)');
+      svg.append(p);
+    }
+  };
   for (const m of t.matchs) {
     for (const targetId of [m.suivant_id, m.perdant_id]) {
       if (!targetId) continue;
       const a = bracket.querySelector(`[data-id="${m.id}"]`);
       const b = bracket.querySelector(`[data-id="${targetId}"]`);
-      if (!a || !b) continue;
-      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
-      const x1 = ra.right - rect.left, y1 = ra.top + ra.height / 2 - rect.top;
-      const x2 = rb.left - rect.left, y2 = rb.top + rb.height / 2 - rect.top;
-      const mx = (x1 + x2) / 2;
-      // lien en coude (orthogonal) : plus lisible qu'une courbe pour relier les cases
-      const d = `M ${x1} ${y1} H ${mx} V ${y2} H ${x2}`;
       const cible = t.matchs.find(x => x.id === targetId);
       let cls = cible ? 'to-' + cible.bracket.toLowerCase() : '';
       if (m.etat === 'en_cours') cls += ' live';
       else if (m.etat === 'termine' || m.etat === 'forfait') cls += ' done';
       else if (m.etat === 'prevu') cls += ' attente';
-      // halo (gros trait translucide) + trait fin coloré, pour être visible sur fond sombre
-      const halo = document.createElementNS(ns, 'path');
-      halo.setAttribute('d', d);
-      if (cls) halo.setAttribute('class', cls + ' halo');
-      else halo.setAttribute('class', 'halo');
-      svg.append(halo);
-      const p = document.createElementNS(ns, 'path');
-      p.setAttribute('d', d);
-      if (cls) p.setAttribute('class', cls);
-      svg.append(p);
+      if (a && b) {
+        const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+        const x1 = ra.right - rect.left, y1 = ra.top + ra.height / 2 - rect.top;
+        const x2 = rb.left - rect.left, y2 = rb.top + rb.height / 2 - rect.top;
+        const mx = (x1 + x2) / 2;
+        // lien en coude (orthogonal) : plus lisible qu'une courbe pour relier les cases
+        drawPath(`M ${x1} ${y1} H ${mx} V ${y2} H ${x2}`, cls);
+      } else if (a) {
+        // cible dans un onglet masqué : bout de lien vers la droite, avec flèche
+        const ra = a.getBoundingClientRect();
+        const x1 = ra.right - rect.left, y1 = ra.top + ra.height / 2 - rect.top;
+        drawPath(`M ${x1} ${y1} H ${x1 + 46}`, cls + ' stub', 'marker-end');
+      } else if (b) {
+        // source dans un onglet masqué : bout de lien depuis la gauche, avec flèche
+        const rb = b.getBoundingClientRect();
+        const x2 = rb.left - rect.left, y2 = rb.top + rb.height / 2 - rect.top;
+        drawPath(`M ${x2 - 46} ${y2} H ${x2}`, cls + ' stub', 'marker-start');
+      }
     }
   }
 }
