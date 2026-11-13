@@ -385,6 +385,15 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const ins = db.prepare('INSERT INTO distance_round (tournoi_id, round, manches) VALUES (?, ?, ?)');
   for (const r of rounds) ins.run(t.id, r.key, def[r.key]);
   logAudit('creation_tournoi', `tournoi ${t.id}`, null, req.body);
+  // notif push à tous les abonnés : inscriptions ouvertes (sans bloquer la réponse)
+  try {
+    push.envoyerTous({
+      title: '🎱 Nouveau tournoi — inscriptions ouvertes',
+      body: `« ${t.nom} » · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} joueurs · ${dateH}`,
+      url: '/',
+      tag: 'tournoi-' + t.id,
+    }).catch(() => {});
+  } catch {}
   majEtBroadcast();
   res.json({ ok: true, ...etatGlobal(req) });
 });

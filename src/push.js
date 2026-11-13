@@ -84,6 +84,27 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
   } catch (e) { console.error('[PUSH] notifierMatchLance:', e.message); }
 }
 
+// Notifie TOUS les comptes abonnés (ex: nouveau tournoi -> inscriptions ouvertes)
+async function envoyerTous(payloadObj) {
+  try {
+    getVapid();
+    const subs = db.prepare('SELECT endpoint, keys_json FROM push_subscription WHERE compte_id IS NOT NULL').all();
+    const payload = JSON.stringify(payloadObj);
+    let n = 0;
+    for (const s of subs) {
+      try {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payload);
+        n++;
+      } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); // abonnement mort
+        }
+      }
+    }
+    return n;
+  } catch (e) { console.error('[PUSH] envoyerTous:', e.message); return 0; }
+}
+
 function registerPushRoutes(app, { vueMatch }) {
   app.get('/api/push/vapid-public', (req, res) => res.json({ publicKey: publicKey() }));
   app.post('/api/push/subscribe', (req, res) => {
@@ -124,4 +145,4 @@ async function envoyerTestAmi(joueurId) {
   return { envoyes: n, ami_de: j.pseudo };
 }
 
-module.exports = { registerPushRoutes, notifierMatchLance, publicKey, envoyerTest, envoyerTestAmi };
+module.exports = { registerPushRoutes, notifierMatchLance, publicKey, envoyerTest, envoyerTestAmi, envoyerTous };
