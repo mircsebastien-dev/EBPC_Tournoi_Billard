@@ -89,21 +89,6 @@ main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20
         try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
         catch (e) { alert(e.message); }
       } }, '🧪 Tester')));
-    // mes matchs (inscriptions en cours / matchs joués)
-    const mm = await api('/api/compte/moi/matchs');
-    const t = (await api('/api/etat')).actif;
-    const mesInscriptions = t ? t.joueurs.filter(j => j.compte_id === compte.id) : [];
-    if (mesInscriptions.length) {
-      main.append(el('div', { class: 'panel' },
-        el('h2', {}, '📋 Mon inscription'),
-        ...mesInscriptions.map(j => el('p', {}, `✅Inscrit au tournoi « ${t.tournoi.nom} » en tant que ${j.pseudo} — statut : ${j.statut === 'paye' ? 'payé' : 'en attente'}`))));
-    }
-    if (mm.matchs && mm.matchs.length) {
-      main.append(el('div', { class: 'panel' },
-        el('h2', {}, '🎱 Mes matchs'),
-        el('div', { class: 'matchs-grid' }, mm.matchs.map(m => matchCard(m))))); // tous les matchs, pas de limite
-    }
-
     // panneau amis
     async function renderAmis() {
       const box = document.getElementById('amis-box');
@@ -148,6 +133,21 @@ main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20
       el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence, et leur statut ici.'),
       el('div', { id: 'amis-box' })));
     renderAmis();
+    // mes matchs (inscriptions en cours / matchs joués)
+    const mm = await api('/api/compte/moi/matchs');
+    const t = (await api('/api/etat')).actif;
+    const mesInscriptions = t ? t.joueurs.filter(j => j.compte_id === compte.id) : [];
+    if (mesInscriptions.length) {
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, '📋 Mon inscription'),
+        ...mesInscriptions.map(j => el('p', {}, `✅Inscrit au tournoi « ${t.tournoi.nom} » en tant que ${j.pseudo} — statut : ${j.statut === 'paye' ? 'payé' : 'en attente'}`))));
+    }
+    if (mm.matchs && mm.matchs.length) {
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, '🎱 Mes matchs'),
+        el('div', { class: 'matchs-grid' }, mm.matchs.map(m => matchCard(m))))); // tous les matchs, pas de limite
+    }
+
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px;text-align:center' },
       el('button', { class: 'secondary', onclick: async () => {
         try {
