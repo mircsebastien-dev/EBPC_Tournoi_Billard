@@ -158,12 +158,18 @@ function renderListe(container, t) {
     ...rounds.filter(r => r.bracket === 'F'),
   ];
   // layout calculé: y de chaque match = moyenne des y de ses matchs sources (escalier propre, aussi en LB)
-  const STEP = 90, CARDH = 78;
+  const STEP = 104, CARDH = 78, GAP = 14; // assez d'air entre les cards du tour 1
   const yOf = {};
   const allOrdered = ordered.flatMap(r => (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position));
   for (const m of allOrdered) {
     const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
     yOf[m.id] = feeders.length ? feeders.reduce((a, f) => a + (yOf[f.id] ?? f.position * STEP), 0) / feeders.length : m.position * STEP;
+  }
+  // résolution de collisions par colonne: jamais deux cards à moins de CARDH+GAP
+  for (const r of ordered) {
+    const col = (byKey[r.bracket + r.tour] || []).sort((a, b) => (yOf[a.id] - yOf[b.id]) || (a.position - b.position));
+    let prev = -Infinity;
+    for (const m of col) { yOf[m.id] = Math.max(yOf[m.id], prev + CARDH + GAP); prev = yOf[m.id]; }
   }
   for (const r of ordered) {
     const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position).filter(matchJoueur);
