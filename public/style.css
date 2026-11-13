@@ -254,4 +254,4 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
 }
 
 /* harmonisation globale: tous les boutons radius 1px */
-button, .btn-score, .btn-manche, .btn-bande { border-radius: 1px !important; }
+button, .btn-score, .btn-manche, .btn-bande, .nav-burger, .nav-login, a.btn, .chip-btn { border-radius: 1px !important; }
