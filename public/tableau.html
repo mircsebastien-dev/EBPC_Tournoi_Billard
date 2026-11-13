@@ -71,12 +71,6 @@ function scrollToRound1() {
   autoScrolled = true;
 }
 
-function feederLabel(t, src, kind) {
-  const r = t.rounds.find(rr => rr.bracket === src.bracket && rr.tour === src.tour);
-  const nom = r ? r.label : src.bracket + ' t' + src.tour;
-  return `${kind === 'perdant' ? 'perdant' : 'gagnant'} ${codeMatch(src)} (${nom})`;
-}
-
 function render() {
   main.innerHTML = '';
   const t = state && state.actif;
@@ -158,40 +152,25 @@ function renderListe(container, t) {
     ...rounds.filter(r => r.bracket === 'LB'),
     ...rounds.filter(r => r.bracket === 'F'),
   ];
-  // layout calculé: y de chaque match = moyenne des y de ses matchs sources (escalier propre, aussi en LB)
-  const STEP = 104, CARDH = 78, GAP = 14; // assez d'air entre les cards du tour 1
-  const yOf = {};
-  const allOrdered = ordered.flatMap(r => (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position));
-  for (const m of allOrdered) {
-    const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
-    yOf[m.id] = feeders.length ? feeders.reduce((a, f) => a + (yOf[f.id] ?? f.position * STEP), 0) / feeders.length : m.position * STEP;
-  }
-  // résolution de collisions par colonne: jamais deux cards à moins de CARDH+GAP
-  for (const r of ordered) {
-    const col = (byKey[r.bracket + r.tour] || []).sort((a, b) => (yOf[a.id] - yOf[b.id]) || (a.position - b.position));
-    let prev = -Infinity;
-    for (const m of col) { yOf[m.id] = Math.max(yOf[m.id], prev + CARDH + GAP); prev = yOf[m.id]; }
-  }
+  // flux simple : une card par match, gap fixe (l'escalier visuel est dans la vue bracket)
   for (const r of ordered) {
     const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position).filter(matchJoueur);
     if (!matchs.length) continue;
     const section = el('div', { class: 'round', id: 'col-' + r.bracket + r.tour },
       el('h3', {}, `${r.label} · race to ${r.manches}`),
       el('div', { class: 'liste-matchs' }));
-    const maxY = Math.max(...matchs.map(m => yOf[m.id] ?? m.position * STEP)) + CARDH;
-    section.lastChild.style.position = 'relative';
-    section.lastChild.style.height = maxY + 'px';
     for (const m of matchs) {
-      const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id)
-        .map(x => feederLabel(t, x, x.perdant_id === m.id ? 'perdant' : 'gagnant'));
-      const wrap = el('div', { style: `position:absolute;top:${Math.round(yOf[m.id] ?? m.position * STEP)}px;left:0;right:0` });
-      wrap.append(matchCard(m, {
-        // pas de onClick: matchCard ouvre l'éditeur inline si PIN admin en mémoire, sinon va sur /match.html
-        extra: m.etat === 'prevu' && feeders.length
-          ? el('div', { class: 'attente-detail' }, `⏳ attendu : ${feeders.join('  vs  ')}`)
-          : null,
+      // match attendu : chaque slot sans joueur affiche son match d'origine (comme dans le bracket)
+      const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
+      const srcOf = (slot) => {
+        const f = feeders.find(x => x.suivant_id === m.id && x.suivant_slot === slot) || feeders.find(x => x.perdant_id === m.id && x.perdant_slot === slot);
+        return f ? '▶ ' + (f.suivant_id === m.id ? 'gagnant' : 'perdant') + ' ' + codeMatch(f) : null;
+      };
+      // pas de onClick: matchCard ouvre l'éditeur inline si PIN admin en mémoire, sinon va sur /match.html
+      section.lastChild.append(matchCard(m, {
+        lbl1: m.joueur1 ? null : srcOf(1),
+        lbl2: m.joueur2 ? null : srcOf(2),
       }));
-      section.lastChild.append(wrap);
     }
     container.append(section);
   }
