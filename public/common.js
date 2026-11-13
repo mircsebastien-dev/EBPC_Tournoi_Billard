@@ -217,10 +217,15 @@ function renderBracket(container, t, opts = {}) {
     : r.bracket === 'WB' ? r.tour - 1
     : r.bracket === 'LB' ? r.tour
     : r.tour - 1;
+  let prevNb = 0, prevStep = 1;
   for (const g of groups) {
     const colCls = g.round.bracket === 'LB' ? 'lb' : g.round.bracket === 'F' ? 'finale' : 'wb';
     const col = el('div', { class: `bracket-col ${colCls}`, id: 'col-' + g.round.bracket + g.round.tour }, el('h3', {}, g.round.label + ' · race to ' + g.round.manches));
-    const step = Math.pow(2, levelOf(g.round));
+    // onglet seul : pas d'escalier imposé, le pas suit les vrais effectifs (ex. LB1=4, LB2=4 -> pas identique, pas d'escalier)
+    const step = singleTab
+      ? (prevNb ? Math.max(1, Math.round(prevStep * prevNb / g.matchs.length)) : 1)
+      : Math.pow(2, levelOf(g.round));
+    prevNb = g.matchs.length; prevStep = step;
     const lastTop = 40 + (g.matchs.length - 1) * step * SLOT_H + (step - 1) * SLOT_H / 2;
     col.style.height = (lastTop + NODE_H + 24) + 'px';
     col.style.justifyContent = 'flex-start';
@@ -308,8 +313,8 @@ function drawBracketLinks(t) {
   defs.innerHTML = '<marker id="pcb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker>';
   svg.append(defs);
   const drawPath = (d, cls, marker) => {
-    // halo (gros trait translucide) + trait fin coloré, pour être visible sur fond sombre
-    for (const haloMode of [true, false]) {
+    // trait fin coloré; halo (gros trait translucide) uniquement en live, sinon ça fait des "pâtés" quand les liens convergent
+    for (const haloMode of (/\blive\b/.test(cls) ? [true, false] : [false])) {
       const p = document.createElementNS(ns, 'path');
       p.setAttribute('d', d);
       p.setAttribute('class', haloMode ? (cls ? cls + ' halo' : 'halo') : (cls || ''));
