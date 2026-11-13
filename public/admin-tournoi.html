@@ -230,7 +230,7 @@ function renderTournoi(t) {
     const p = el('div', { class: 'panel' }, el('h2', {}, `🔴 En cours (${enCours.length})`));
     for (const m of enCours) {
       p.append(el('div', { class: 'match-admin' },
-        matchCard(m),
+        matchCard(m, { t }),
         el('div', { class: 'actions' },
           el('button', { class: 'secondary', onclick: () => corriger(m) }, 'Corriger'),
           el('button', { class: 'danger', onclick: () => forfait(m, m.joueur1.id) }, `${m.joueur1 ? m.joueur1.pseudo : ''} forfait`),

@@ -93,14 +93,30 @@ function codeMatch(m) {
   return `${String(m.bracket || '').toLowerCase()}${m.tour}-${String(m.position).padStart(3, '0')}`;
 }
 
+// libellés d'origine des slots manquants (ex: "gagnant wb1-001"), comme dans le bracket
+function feederLabels(t, m) {
+  const feeders = (t && t.matchs ? t.matchs : []).filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
+  const srcOf = (slot) => {
+    const f = feeders.find(x => x.suivant_id === m.id && x.suivant_slot === slot) || feeders.find(x => x.perdant_id === m.id && x.perdant_slot === slot);
+    return f ? (f.suivant_id === m.id ? 'gagnant' : 'perdant') + ' ' + codeMatch(f) : null;
+  };
+  return { lbl1: m.joueur1 ? null : srcOf(1), lbl2: m.joueur2 ? null : srcOf(2) };
+}
+
 function matchCard(m, opts = {}) {
   const j1g = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
   const j2g = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
+  let lbl1 = opts.lbl1, lbl2 = opts.lbl2;
+  if (opts.t && (lbl1 === undefined || lbl2 === undefined)) {
+    const fl = feederLabels(opts.t, m);
+    if (lbl1 === undefined) lbl1 = fl.lbl1;
+    if (lbl2 === undefined) lbl2 = fl.lbl2;
+  }
   const card = el('div', { class: 'match-card' + (m.etat === 'prevu' ? ' attente' : '') + (m.etat === 'en_cours' ? ' live' : '') + ((m.etat === 'termine' || m.etat === 'forfait') ? ' done' : '') + (opts.hit ? ' hit' : ''), 'data-match-id': m.id },
     el('div', { class: 'joueurs' },
-      el('span', { class: 'p p1' + (j1g ? ' gagnant' : '') + (!m.joueur1 && opts.lbl1 ? ' attente-j' : '') }, m.joueur1 ? m.joueur1.pseudo : (opts.lbl1 || '—')),
+      el('span', { class: 'p p1' + (j1g ? ' gagnant' : '') + (!m.joueur1 && lbl1 ? ' attente-j' : '') }, m.joueur1 ? m.joueur1.pseudo : (lbl1 || '—')),
       el('span', { class: 'score' }, `${m.score1} - ${m.score2}`),
-      el('span', { class: 'p p2' + (j2g ? ' gagnant' : '') + (!m.joueur2 && opts.lbl2 ? ' attente-j' : '') }, m.joueur2 ? m.joueur2.pseudo : (opts.lbl2 || '—'))),
+      el('span', { class: 'p p2' + (j2g ? ' gagnant' : '') + (!m.joueur2 && lbl2 ? ' attente-j' : '') }, m.joueur2 ? m.joueur2.pseudo : (lbl2 || '—'))),
     el('div', { class: 'meta' },
       el('span', { class: 'code-match' }, codeMatch(m)),
       badgeEtat(m.etat),

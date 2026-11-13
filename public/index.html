@@ -72,7 +72,7 @@ function render() {
   if (enCours.length > 0) {
     main.append(el('div', { class: 'panel' },
       el('h2', {}, `🔴 En direct (${enCours.length})`),
-      el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { onClick: () => location.href = `/match.html?id=${m.id}` })))));
+      el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { t, onClick: () => location.href = `/match.html?id=${m.id}` })))));
   }
 
   // lien discret vers le tableau complet
