@@ -23,6 +23,7 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 .tv-next-list { display: inline-flex; flex-direction: column; gap: 10px; text-align: left; transition: transform 0.8s ease; }
 .tv-next-list.scrolling { animation: tvscroll 12s linear infinite; }
 @keyframes tvscroll { 0% { transform: translateY(0); } 80% { transform: translateY(calc(-100% + 45vh)); } 100% { transform: translateY(calc(-100% + 45vh)); } }
+#tv-clock { position: fixed; top: 10px; right: 16px; z-index: 50; color: var(--muted); font-size: clamp(14px, 2vw, 22px); font-weight: 600; font-variant-numeric: tabular-nums; opacity: .8; pointer-events: none; }
 #rotate-overlay { display: none; position: fixed; inset: 0; z-index: 99; background: rgba(5,5,8,0.96); color: var(--text); flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; padding: 20px; }
 #rotate-overlay .big { font-size: clamp(40px, 10vw, 90px); }
 #rotate-overlay .small { color: var(--muted); font-size: clamp(16px, 3vw, 26px); }
@@ -60,6 +61,7 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
   <span id="statut" class="badge">—</span>
   <div id="nav"></div>
 </header>
+<div id="tv-clock"></div>
 <main id="slides"></main>
 <div class="tv-dots" id="dots"></div>
 <div class="tv-qr" title="Scanner pour ouvrir le site sur ton téléphone">
@@ -170,6 +172,13 @@ function render() {
   clearInterval(timer);
   if (slides.length > 1) timer = setInterval(() => { slideIdx = (slideIdx + 1) % slides.length; render(); }, SLIDE_MS);
 }
+
+// horloge discrète en coin
+(function heure() {
+  const elc = document.getElementById('tv-clock');
+  const maj = () => { if (elc) elc.textContent = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+  maj(); setInterval(maj, 10000);
+})();
 
 let prevTermine = new Set();
 let celTimer = null;
