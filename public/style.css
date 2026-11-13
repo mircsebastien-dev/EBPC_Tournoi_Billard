@@ -270,3 +270,7 @@ button, .btn-score, .btn-manche, .btn-bande, .nav-burger, .nav-login, a.btn, .ch
 #bracket-svg path.live { stroke: var(--pink) !important; }
 #bracket-svg path.done { stroke: rgba(62, 207, 142, 0.9) !important; }
 #bracket-svg path.attente { stroke: rgba(255, 209, 102, 0.75) !important; stroke-dasharray: 6 6; }
+
+/* bracket: toutes les cards même largeur */
+.bracket-col, .bracket .round { width: 230px; min-width: 230px; max-width: 230px; flex: 0 0 230px; }
+.bracket .match-card { width: 100%; box-sizing: border-box; }
