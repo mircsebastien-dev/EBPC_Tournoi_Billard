@@ -88,7 +88,7 @@ main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20
       el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
         try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
         catch (e) { alert(e.message); }
-      } }, '🧪 Tester')));
+      } }, 'Tester')));
     // panneau amis
     async function renderAmis() {
       const box = document.getElementById('amis-box');
@@ -156,7 +156,7 @@ main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20
           const a = el('a', { href: URL.createObjectURL(blob), download: 'mes-donnees-ebpc.json' });
           document.body.append(a); a.click(); a.remove();
         } catch (e) { alert(e.message); }
-      } }, '📥 Exporter mes données (RGPD)'),
+      } }, 'Exporter mes données (RGPD)'),
       el('p', { class: 'muted small', style: 'margin-top:6px' }, 'Voir aussi : 🔒 Confidentialité (menu ☰)')));
       } else {
     main.append(panelConnexion());
