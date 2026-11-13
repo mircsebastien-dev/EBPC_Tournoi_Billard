@@ -186,6 +186,11 @@ function retirerManche(matchId, joueurId) {
   const s2 = m.joueur2_id === joueurId ? Math.max(0, m.score2 - 1) : m.score2;
   db.prepare(`UPDATE match SET score1 = ?, score2 = ?, updated_at = datetime('now') WHERE id = ?`)
     .run(s1, s2, matchId);
+  // on inverse l'alternance du ⚪: le casseur redevient l'adversaire du casseur actuel
+  if (m.casseur_id != null) {
+    const precedent = m.casseur_id === m.joueur1_id ? m.joueur2_id : m.joueur1_id;
+    db.prepare("UPDATE match SET casseur_id = ?, updated_at = datetime('now') WHERE id = ?").run(precedent, matchId);
+  }
   insererEvent(matchId, joueurId, 'correction', { action: 'retirer_manche', score1: s1, score2: s2 });
   return matchById(matchId);
 }

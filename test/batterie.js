@@ -194,14 +194,15 @@ async function nouveauTournoi(body) {
   check('+1 manche J1', r.status === 200 && r.data.match.score1 === 1, JSON.stringify(r.data.match && r.data.match.score1));
   r = await api(`/api/match/${m0.id}/retirer`, { method: 'POST', pin: null, body: { joueur_id: j1 } });
   check('−1 manche J1', r.status === 200 && r.data.match.score1 === 0, r.status);
-  r = await api(`/api/match/${m0.id}/runout`, { method: 'POST', pin: null, body: { joueur_id: j2, kind: 'casse' } });
-  check('runout casse ferme J2 (+1)', r.status === 200 && r.data.match.score2 === 1, JSON.stringify(r.data.match && r.data.match.score2));
+  // après le −1, le ⚪ est revenu à J1 -> J2 ne peut faire qu'une reprise ferme
+  r = await api(`/api/match/${m0.id}/runout`, { method: 'POST', pin: null, body: { joueur_id: j2, kind: 'reprise' } });
+  check('runout reprise ferme J2 (+1)', r.status === 200 && r.data.match.score2 === 1, JSON.stringify(r.data.match && r.data.match.score2));
   // terminer le match par forfait de J2
   r = await post(`/api/admin/match/${m0.id}/forfait`, { joueur_id: j2 });
   check('forfait J2 -> match terminé, gagnant J1', r.status === 200 && r.data.match.etat === 'forfait' && r.data.match.gagnant_id === j1, JSON.stringify(r.data.match && r.data.match.etat));
   // stats runout
   r = await api(`/api/joueur/${j2}/stats`, { pin: null });
-  check('stats J2: runouts=1, casse=1', r.data.runouts === 1 && r.data.casse === 1, JSON.stringify({ runouts: r.data.runouts, casse: r.data.casse }));
+  check('stats J2: runouts=1, reprise=1, casse=0', r.data.runouts === 1 && r.data.reprise === 1 && r.data.casse === 0, JSON.stringify({ runouts: r.data.runouts, casse: r.data.casse, reprise: r.data.reprise }));
   r = await api(`/api/joueur/${j2}/historique`, { pin: null });
   check('historique J2: 1 ligne, défaite, score présent', r.data.historique.length === 1 && r.data.historique[0].victoire === false && typeof r.data.historique[0].moi === 'number', JSON.stringify(r.data.historique[0] && { v: r.data.historique[0].victoire, s: r.data.historique[0].moi + '-' + r.data.historique[0].lui }));
 
@@ -367,6 +368,9 @@ async function nouveauTournoi(body) {
   await api(`/api/match/${nf_m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: nf_m.joueur2.id } });
   nf_mm = (await api('/api/etat')).data.actif.matchs.find(x => x.id === nf_m.id);
   check('alternance après manche (casseur a changé)', nf_mm.casseur && nf_mm.casseur.id !== nf_m.joueur1.id, JSON.stringify(nf_mm.casseur));
+  nf_r = await api(`/api/match/${nf_m.id}/retirer`, { method: 'POST', pin: null, body: { joueur_id: nf_m.joueur2.id } });
+  nf_mm = (await api('/api/etat')).data.actif.matchs.find(x => x.id === nf_m.id);
+  check('retirer une manche -> ⚪ casseur revient à l\'état précédent', nf_r.status === 200 && nf_mm.casseur && nf_mm.casseur.id === nf_m.joueur1.id, JSON.stringify(nf_mm.casseur));
 
   // --- modale admin: table / joueurs / rouvrir ---
   nf_r = await post(`/api/admin/match/${nf_m.id}/table`, { table_id: nf_t.tables[1].id });
