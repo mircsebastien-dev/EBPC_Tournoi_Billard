@@ -75,6 +75,8 @@ async function init() {
             alert('✅ Email mis à jour'); location.reload();
           } catch (e) { alert(e.message); }
         } }, 'Enregistrer')))));
+    // panneau notifications push
+    const notifOk = await pushEstActif().catch(() => false);
     // panneau amis
     async function renderAmis() {
       const box = document.getElementById('amis-box');
@@ -119,8 +121,7 @@ async function init() {
       el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence, et leur statut ici.'),
       el('div', { id: 'amis-box' })));
     renderAmis();
-    // panneau notifications push
-    const notifOk = await pushEstActif().catch(() => false);
+
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px;text-align:center' },
       el('button', { class: 'secondary', onclick: async () => {
         try {
