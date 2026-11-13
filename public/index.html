@@ -50,7 +50,7 @@ function render() {
       main.append(el('div', { class: 'panel', style: 'text-align:center' },
         el('p', {}, `👤 Connecté en tant que `, el('b', {}, compte.pseudo), ` — `, el('a', { href: '/compte.html' }, 'gérer mon compte')),
         deja
-          ? el('p', { style: 'color:var(--green);font-weight:700' }, `✅ Déjà inscrit (${deja.statut === 'paye' ? 'payé' : 'en attente de paiement'})`)
+          ? el('p', { style: 'color:var(--green);font-weight:700' }, `✅ Inscrit (${deja.statut === 'paye' ? 'payé' : 'en attente de paiement'})`)
           : el('button', { style: 'width:100%;max-width:420px', onclick: inscrireCompte }, `M'inscrire à « ${tn.nom} » en tant que ${compte.pseudo}`)));
     } else {
       main.append(el('div', { class: 'panel', style: 'text-align:center' },
