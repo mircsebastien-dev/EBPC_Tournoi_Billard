@@ -50,7 +50,8 @@ function renderCreer() {
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 8, min: 1, max: 20 })),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'tds', type: 'checkbox', style: 'width:auto' }), 'Têtes de série')),
-      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', style: 'width:auto', checked: '' }), 'Ajuster auto la taille au nombre de payés'))),
+      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', style: 'width:auto', checked: '' }), 'Ajuster auto la taille au nombre de payés')),
+      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'notifpush', type: 'checkbox', style: 'width:auto', checked: '' }), '🔔 Notif push « inscriptions ouvertes »'))),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Distance spéciale à partir de'), el('select', { id: 'seuil' },
         el('option', { value: 'jamais' }, 'Jamais (3 partout)'), el('option', { value: 'quarts' }, 'Quarts'), el('option', { value: 'demis' }, 'Demis'), el('option', { value: 'finale' }, 'Finale seule'))),
@@ -69,7 +70,7 @@ function renderCreer() {
         nom: val('nom'), regle: val('regle'), taille: Number(val('taille')), format: val('format'), dko_tours: Number(val('dko')),
         tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
         ajustement_auto: document.getElementById('auto').checked, seuil_distance: val('seuil'), distance_speciale: Number(val('distspe')),
-        date_heure: val('dateheure'), lieu: val('lieu'),
+        date_heure: val('dateheure'), lieu: val('lieu'), notif_push: document.getElementById('notifpush').checked,
       })});
     } catch (e) { alert(e.message); }
   }
