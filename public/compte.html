@@ -77,19 +77,19 @@ async function init() {
         } }, 'Enregistrer')))));
     // panneau notifications push
     const notifOk = await pushEstActif().catch(() => false);
-main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
+const btnNotif = notifOk
+      ? el('button', { class: 'secondary', style: 'width:100%', onclick: async () => { try { await pushDesactiver(); alert('Notifications désactivées'); location.reload(); } catch (e) { alert(e.message); } } }, 'Désactiver')
+      : el('button', { style: 'width:100%', onclick: async () => { try { await pushActiver(); alert('Notifications activées !'); location.reload(); } catch (e) { alert(e.message); } } }, 'Activer les notifications');
+    const btnTest = el('button', { class: 'secondary', style: 'width:100%', onclick: async () => {
+      try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
+      catch (e) { alert(e.message); }
+    } }, 'Tester la notification');
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
       el('h2', {}, '🔔 Notifications'),
       el('p', { class: 'muted small' }, 'Reçois une notification push quand un de tes matchs est lancé (même écran verrouillé).'),
-      estIOS() && !estPWA() ? el('p', { class: 'muted small' }, '📲 Sur iPhone : ajoute d\'abord le site à l\'écran d\'accueil (Safari → Partager → « Sur l\'écran d\'accueil »), puis active les notifications.') : null,
-      el('div',
-        notifOk
-          ? el('button', { class: 'secondary', style: 'width:100%', onclick: async () => { try { await pushDesactiver(); alert('Notifications désactivées'); location.reload(); } catch (e) { alert(e.message); } } }, 'Désactiver')
-          : el('button', { style: 'width:100%', onclick: async () => { try { await pushActiver(); alert('Notifications activées !'); location.reload(); } catch (e) { alert(e.message); } } }, 'Activer les notifications')),
-      el('div', { style: 'margin-top:10px' },
-        el('button', { class: 'secondary', style: 'width:100%', onclick: async () => {
-          try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
-          catch (e) { alert(e.message); }
-        } }, 'Tester la notification'))));
+      estIOS() && !estPWA() ? el('p', { class: 'muted small' }, '📱 Sur iPhone : ajoute d\'abord le site à l\'écran d\'accueil (Safari → Partager → « Sur l\'écran d\'accueil »), puis active les notifications.') : null,
+      el('div', {}, btnNotif),
+      el('div', { style: 'margin-top:10px' }, btnTest)));
     // panneau amis
     async function renderAmis() {
       const box = document.getElementById('amis-box');
