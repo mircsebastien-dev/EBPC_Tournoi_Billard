@@ -206,17 +206,23 @@ function renderBracket(container, t, opts = {}) {
       const win1 = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
       const win2 = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
       const enAttente = m.etat === 'prevu';
+      // pour un match en attente, la place du joueur manquant affiche son match d'origine
+      const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
+      const fGagnant = feeders.find(x => x.suivant_id === m.id);
+      const fPerdant = feeders.find(x => x.perdant_id === m.id);
+      const lbl1 = m.joueur1 ? m.joueur1.pseudo : (fGagnant ? '▶ vainqueur #' + fGagnant.position + (fGagnant.joueur1 && fGagnant.joueur2 ? ` (${fGagnant.joueur1.pseudo}–${fGagnant.joueur2.pseudo})` : '') : '…');
+      const lbl2 = m.joueur2 ? m.joueur2.pseudo : (fPerdant ? '▶ perdant #' + fPerdant.position + (fPerdant.joueur1 && fPerdant.joueur2 ? ` (${fPerdant.joueur1.pseudo}–${fPerdant.joueur2.pseudo})` : '') : '…');
       const node = el('div', {
         class: 'node' + (m.etat === 'en_cours' ? ' live' : '') + ((m.etat === 'termine' || m.etat === 'forfait') ? ' done' : '') + (enAttente ? ' attente' : ''),
         'data-id': m.id,
       },
         el('div', { class: 'nj' + (win1 ? ' win' : '') + (!m.joueur1 ? ' attente-j' : '') },
-          el('span', {}, m.joueur1 ? m.joueur1.pseudo : '…'), el('span', { class: 'sc' }, String(m.score1))),
+          el('span', {}, lbl1), el('span', { class: 'sc' }, String(m.score1))),
         el('div', { class: 'nj' + (win2 ? ' win' : '') + (!m.joueur2 ? ' attente-j' : '') },
-          el('span', {}, m.joueur2 ? m.joueur2.pseudo : '…'), el('span', { class: 'sc' }, String(m.score2))),
+          el('span', {}, lbl2), el('span', { class: 'sc' }, String(m.score2))),
         el('div', { class: 'meta' },
           el('span', { class: 'code-match' }, codeMatch(m)),
-          enAttente ? el('span', { class: 'attente-tag' }, '⏳ attendu : ' + t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id).map(x => feederLabelBracket(t, x, x.perdant_id === m.id ? 'perdant' : 'vainqueur')).join(' vs ')) : null,
+          enAttente ? el('span', { class: 'attente-tag' }, '⏳ match attendu') : null,
           m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : null,
           (m.etat === 'termine' || m.etat === 'forfait') ? badgeEtat(m.etat) : null,
           m.table != null ? el('span', { class: 'table-badge' }, '🎱 Table ' + m.table) : null,
