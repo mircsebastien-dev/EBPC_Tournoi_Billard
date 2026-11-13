@@ -190,6 +190,12 @@ table.audit th { color: var(--muted); }
   header.top { flex-direction: column; align-items: flex-start; gap: 6px; }
   nav { width: 100%; overflow-x: auto; }
   .matchs-grid { grid-template-columns: 1fr; }
+  .match-card { padding: 10px 12px; }
+  .match-card .joueurs { gap: 6px; }
+  .match-card .joueurs .p { font-size: 14px; }
+  .match-card .joueurs .score { font-size: 16px; }
+  /* libellé d'attente: jamais tronqué, s'enroule si besoin */
+  .match-card .joueurs .p.attente-j { font-size: 12px; white-space: normal; overflow: visible; text-overflow: clip; }
 }
 
 .code-match { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-weight: 700; color: var(--pink-soft); background: rgba(214,51,108,.12); border: 1px solid rgba(214,51,108,.35); border-radius: 6px; padding: 1px 6px; letter-spacing: .5px; }
