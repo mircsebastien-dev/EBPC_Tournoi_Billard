@@ -173,6 +173,18 @@ function render() {
   if (slides.length > 1) timer = setInterval(() => { slideIdx = (slideIdx + 1) % slides.length; render(); }, SLIDE_MS);
 }
 
+// empêcher la mise en veille de l'écran TV (Screen Wake Lock)
+let wakeLock = null;
+async function garderAllume() {
+  if (!('wakeLock' in navigator)) return; // non supporté -> rien
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch { wakeLock = null; }
+}
+garderAllume();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !wakeLock) garderAllume(); });
+
 // horloge discrète en coin
 (function heure() {
   const elc = document.getElementById('tv-clock');
