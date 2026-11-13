@@ -12,6 +12,7 @@
 .bracket-col { display: block; min-width: 168px; position: relative; z-index: 1; }
 .bracket-col.lb, .bracket-col.finale { min-width: 150px; }
 .bracket-col h3 { position: sticky; top: 0; }
+.bracket-col.lb + .bracket-col.lb { margin-left: 24px; }
 .bracket-col h3 { text-align: center; margin-bottom: 8px; }
 .bracket-col.lb h3 { color: #ff8fb8; }
 .bracket-col.wb h3 { color: var(--pink-soft); }
@@ -108,14 +109,6 @@ function render() {
     setTimeout(scrollToRound1, 150);
     setTimeout(scrollToRound1, 600);
   } else renderListe(main, t);
-  // légende en bas de page
-  main.append(el('div', { class: 'legend legend-bottom' },
-    el('span', { class: 'chip' }, '⬅ Loser bracket en miroir (tour 1 collé au WB, lecture droite→gauche)'),
-    el('span', { class: 'chip' }, 'Tours 1, 2… (WB) au centre'),
-    el('span', { class: 'chip' }, '🏁 Tableau final à droite'),
-    el('span', { class: 'chip' }, 'Rose = en cours'),
-    el('span', { class: 'chip' }, 'Vert = joué'),
-    el('span', { class: 'chip' }, '⏳ pointillé = match attendu')));
 }
 
 function switchView(mode) {
