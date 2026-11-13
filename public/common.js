@@ -148,6 +148,8 @@ function connecterSSE(onUpdate) {
 function confirmer(msg) { return window.confirm(msg); }
 
 /* ===== Bracket visuel partagé (tableau.html actif + tournoi.html archivé) ===== */
+let bracketTab = (typeof localStorage !== 'undefined' && localStorage.getItem('ebpc_bracket_tab')) || 'tout';
+
 function renderBracket(container, t, opts = {}) {
   const rounds = t.rounds;
   const byKey = {};
@@ -162,7 +164,16 @@ function renderBracket(container, t, opts = {}) {
     ...rounds.filter(r => r.bracket === 'WB'),
     ...rounds.filter(r => r.bracket === 'F'),
   ];
-  const groups = ordered.map(r => ({ round: r, matchs: byKey[r.bracket + r.tour] || [] })).filter(g => g.matchs.length > 0);
+  let groups = ordered.map(r => ({ round: r, matchs: byKey[r.bracket + r.tour] || [] })).filter(g => g.matchs.length > 0);
+  if (bracketTab !== 'tout') groups = groups.filter(g => g.round.bracket === bracketTab);
+
+  const hasLB = rounds.some(r => r.bracket === 'LB');
+  const tabs = [['tout', 'Tout'], ['WB', 'WB'], ...(hasLB ? [['LB', 'LB']] : []), ['F', 'Finale']];
+  const tabBar = el('div', { class: 'view-switch', style: 'margin-bottom:10px' },
+    ...tabs.map(([k2, label]) => el('button', {
+      class: bracketTab === k2 ? '' : 'secondary',
+      onclick: () => { bracketTab = k2; try { localStorage.setItem('ebpc_bracket_tab', k2); } catch {} if (typeof render === 'function') render(); },
+    }, label)));
 
   const wrap = el('div', { class: 'bracket-scroll' });
   const bracket = el('div', { class: 'bracket', id: 'bracket' });
@@ -225,6 +236,7 @@ function renderBracket(container, t, opts = {}) {
     bracket.append(col);
   }
   wrap.append(bracket);
+  container.append(tabBar);
   container.append(wrap);
   if (opts.drawLinks !== false) {
     // redraws robustes (iOS charge lentement, layout tardif)
