@@ -5,8 +5,6 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'tournoi.db');
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('busy_timeout = 5000');
-// purge auto du journal d'audit > 90 jours
-try { db.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')").run(); } catch (e) { console.error('purge audit:', e.message); }
 db.pragma('foreign_keys = ON');
 
 db.exec(`
@@ -140,6 +138,9 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `);
+
+// purge auto du journal d'audit > 90 jours (après création du schéma)
+try { db.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')").run(); } catch (e) { console.error('purge audit:', e.message); }
 
 const joueurCols = db.prepare('PRAGMA table_info(joueur)').all().map(c => c.name);
 if (!joueurCols.includes('statut')) {

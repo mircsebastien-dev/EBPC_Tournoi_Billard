@@ -16,6 +16,9 @@ async function api(path, { method = 'GET', body, pin = PIN } = {}) {
 
 async function jouerMatchComplet(m) {
   await api(`/api/admin/match/${m.id}/lancer`, { method: 'POST', body: { table_id: null } });
+  // tirage à la bande obligatoire avant toute saisie (409 sinon)
+  const cur = (await api('/api/etat')).data.actif.matchs.find(x => x.id === m.id);
+  if (cur && cur.casseur == null) await api(`/api/match/${m.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m.joueur1.id } });
   const target = m.manches;
   const j1 = m.joueur1.id;
   for (let i = 0; i < target; i++) {

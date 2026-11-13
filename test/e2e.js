@@ -17,6 +17,12 @@ async function api(path, { method = 'GET', body, pin = PIN } = {}) {
   return { status: res.status, data };
 }
 
+async function bandeSiBesoin(matchId, joueurId) {
+  const t = (await api('/api/etat')).data.actif;
+  const cur = t && t.matchs.find(x => x.id === matchId);
+  if (cur && cur.casseur == null) await api(`/api/match/${matchId}/bande`, { method: 'POST', pin: null, body: { joueur_id: joueurId } });
+}
+
 async function main() {
   console.log('== 1. Création tournoi (double KO 2 tours, 16 joueurs) ==');
   let r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Test Cup', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 4 } });
@@ -97,6 +103,7 @@ async function main() {
   check('lancement 200', r.status === 200, r.data);
   check('état en_cours', r.data.match.etat === 'en_cours');
   const j1 = m.joueur1.id, j2 = m.joueur2.id;
+  await bandeSiBesoin(m.id, j1);
   check('m a bien 2 joueurs', !!m.joueur1 && !!m.joueur2, m);
   r = await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: j1 } });
   check('manche J1', r.status === 200 && r.data.match.score1 === 1, r.data);
@@ -114,6 +121,7 @@ async function main() {
   if (mC) {
     await api(`/api/admin/match/${mC.id}/lancer`, { method: 'POST', body: { table_id: null } });
     const a1 = mC.joueur1.id, a2 = mC.joueur2.id;
+    await bandeSiBesoin(mC.id, a1);
     r = await api(`/api/match/${mC.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: a1 } });
     check('manche pour soi', r.status === 200 && r.data.match.score1 === 1, r.data);
     r = await api(`/api/match/${mC.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: a2 } });
@@ -176,16 +184,15 @@ async function main() {
   check('match reste terminé avec nouveau gagnant', mApres.etat === 'termine' && mApres.gagnant_id === j2, mApres);
   const suivantA = (await api('/api/etat')).data.actif.matchs.find(mm => mm.id === mApres.suivant_id);
   check('match suivant vidé du gagnant annulé', suivantA && ![suivantA.joueur1?.id, suivantA.joueur2?.id].includes(j1), suivantA);
+  // règle métier (0481e69) : réouverture interdite si un match aval a reçu un joueur -> 409
   r = await api(`/api/admin/match/${m.id}/rouvrir`, { method: 'POST', body: {} });
-  check('rouvrir 200', r.status === 200, r.data);
-  check('match rouvert en_cours, gagnant null', r.data.match.etat === 'en_cours' && r.data.match.gagnant_id == null, r.data.match);
+  check('rouvrir avec aval propagé -> 409', r.status === 409, r.data);
   r = await api(`/api/admin/match/${m.id}/rouvrir`, { method: 'POST', pin: '9999', body: {} });
   check('rouvrir protégé PIN (401)', r.status === 401, r.status);
-  // reset du score à 0-0 via correction, puis rejeu complet
-  await api(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: { score1: 0, score2: 0, manches: 3, motif: 'reset avant rejeu' } });
-  for (let i = 0; i < 3; i++) await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: j1 } });
+  // retour au score d'origine via correction (pas de rejoue possible sans rouvrir)
+  await api(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: { score1: 3, score2: 0, manches: 3, motif: 'retour 3-0' } });
   const mRe = (await api('/api/etat')).data.actif.matchs.find(mm => mm.id === m.id);
-  check('match rejoué 3-0', mRe.etat === 'termine' && mRe.score1 === 3 && mRe.gagnant_id === j1, mRe);
+  check('match corrigé 3-0, gagnant J1', mRe.etat === 'termine' && mRe.score1 === 3 && mRe.gagnant_id === j1, mRe);
 
   console.log('== 7. Forfait ==');
   const pret = (await api('/api/etat')).data.actif.matchs.find(mm => mm.etat === 'pret' && mm.joueur1 && mm.joueur2);
@@ -248,6 +255,13 @@ async function main() {
   const t9 = (await api('/api/etat')).data.actif;
   check('wb1 passé à 7 (matchs non joués)', t9.matchs.filter(m => m.tour === 1).every(m => m.manches === 7));
   check('autres tours inchangés', t9.matchs.filter(m => m.tour === 3).every(m => m.manches === 5));
+  const m9 = t9.matchs.find(mm => mm.etat === 'pret' && mm.joueur1 && mm.joueur2);
+  if (m9) {
+    await api(`/api/admin/match/${m9.id}/lancer`, { method: 'POST', body: { table_id: null } });
+    await bandeSiBesoin(m9.id, m9.joueur1.id);
+    for (let i = 0; i < m9.manches; i++) await api(`/api/match/${m9.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: m9.joueur1.id } });
+  }
+  check('1 match joué avant clôture manuelle', !!m9);
   const champId = t9.joueurs[0].id;
   r = await api('/api/admin/terminer', { method: 'POST', body: { champion_id: champId } });
   check('terminer manuellement 200', r.status === 200, r.data);
@@ -370,18 +384,20 @@ async function main() {
     check(`DKO ${taille} k=${k} : dernier LB (tour ${maxLB}) -> F tour 1`, lbLast.every(m => m.suivant_id && f1ids.has(m.suivant_id)));
     const r = await api('/api/admin/simuler', { method: 'POST', body: {} });
     check(`DKO ${taille} k=${k} : simulé jusqu'au bout (${r.data.statut}, champion ${r.data.champion})`, r.data.statut === 'termine' && !!r.data.champion);
-    // miroir horizontal : LB tour max -> F1 position nbF1 - p + 1 (jamais la même position que le WB k)
+    // rotation d'une demi-moitié (bb9e78a) : LB dernier tour p -> F1 position ((p-1+demi)%nbF1)+1,
+    // chaque F1 reçoit exactement 1 WBk (slot 1) + 1 dernier-LB (slot 2), sans conflit
     const nbF1 = f1ids.size;
+    const demi = Math.floor(nbF1 / 2) || 1;
     const wbk = t.matchs.filter(m => m.bracket === 'WB' && m.tour === k);
     const wbkTargets = new Set(wbk.map(m => m.suivant_id));
     const lbTargets = lbLast.map(m => m.suivant_id);
-    const positionsF1 = f1.map(m => m.id + ':' + m.position).join(',');
-    const miroirOK = lbLast.every((m, i) => {
+    const rotationOK = lbLast.every((m, i) => {
       const posCible = t.matchs.find(x => x.id === m.suivant_id)?.position;
-      return posCible === nbF1 - (i + 1) + 1;
+      return posCible === ((i + demi) % nbF1) + 1;
     });
-    check(`DKO ${taille} k=${k} : LB entre en bas du tableau final (miroir, pos ${nbF1}-p+1)`, miroirOK, { lbTargets, positionsF1 });
-    check(`DKO ${taille} k=${k} : aucun F1 ne reçoit 2x le même côté (pas de conflit WB/LB)`, lbTargets.every(id => wbkTargets.has(id) ? t.matchs.find(x => x.id === id) : true));
+    check(`DKO ${taille} k=${k} : LB entre dans le tableau final en rotation de demi-moitié (pos ((p-1+${demi})%${nbF1})+1)`, rotationOK, { lbTargets, nbF1 });
+    const distinctOK = new Set(lbTargets).size === lbTargets.length && lbTargets.every(id => f1ids.has(id));
+    check(`DKO ${taille} k=${k} : chaque dernier-LB cible un F1 distinct (slot 2), chaque WBk un F1 distinct (slot 1)`, distinctOK && new Set(wbkTargets).size === wbk.length && [...wbkTargets].every(id => f1ids.has(id)), { lbTargets, wbkTargets: [...wbkTargets] });
   }
 
   console.log('== 9g. LB en race to 2 par défaut ==');

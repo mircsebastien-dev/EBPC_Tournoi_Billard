@@ -726,6 +726,7 @@ app.post('/api/admin/simuler', requireAdmin, (req, res) => {
     `).get(t.id);
     if (!m) break;
     M.lancerMatch(m.id, null);
+    if (m.casseur_id == null) M.setBande(m.id, m.joueur1_id); // tirage à la bande requis avant toute saisie
     const gagnant = Math.random() < 0.5 ? m.joueur1_id : m.joueur2_id;
     for (let i = 0; i < m.manches; i++) M.declarerManche(m.id, gagnant);
     joues++;
