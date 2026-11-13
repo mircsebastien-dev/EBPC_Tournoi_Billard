@@ -103,7 +103,7 @@ function render() {
       el('button', { class: viewMode === 'bracket' ? '' : 'secondary', onclick: () => switchView('bracket') }, 'Bracket'),
       el('button', { class: viewMode === 'liste' ? '' : 'secondary', onclick: () => switchView('liste') }, 'Liste'))));
   if (viewMode === 'bracket') {
-    renderBracket(main, t, { hideLinksOnTout: true });
+    renderBracket(main, t, { linksOnlyTab: 'F' });
     requestAnimationFrame(scrollToRound1);
     setTimeout(scrollToRound1, 150);
     setTimeout(scrollToRound1, 600);

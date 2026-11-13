@@ -284,9 +284,9 @@ function renderBracket(container, t, opts = {}) {
   container.append(wrap);
   if (opts.drawLinks !== false) {
     // redraws robustes (iOS charge lentement, layout tardif)
-    // pas de liens sur l'onglet "tout" : visibles uniquement sur les onglets WB / LB / F
+    // liens uniquement sur l'onglet demandé (ex. 'F') : ailleurs, on ne dessine rien
     const redraw = () => {
-      if (opts.hideLinksOnTout && bracketTab === 'tout') { svg.innerHTML = ''; return; }
+      if (opts.linksOnlyTab && bracketTab !== opts.linksOnlyTab) { svg.innerHTML = ''; return; }
       drawBracketLinks(t);
     };
     requestAnimationFrame(redraw);
