@@ -150,6 +150,11 @@ function confirmer(msg) { return window.confirm(msg); }
 /* ===== Bracket visuel partagé (tableau.html actif + tournoi.html archivé) ===== */
 let bracketTab = (typeof localStorage !== 'undefined' && localStorage.getItem('ebpc_bracket_tab')) || 'tout';
 
+function feederLabelBracket(t, src, kind) {
+  const nom = src.joueur1 && src.joueur2 ? `${src.joueur1.pseudo}–${src.joueur2.pseudo}` : (src.joueur1 || src.joueur2 || {}).pseudo || '…';
+  return `${kind === 'perdant' ? 'perdant' : 'vainqueur'} #${src.position} (${nom})`;
+}
+
 function renderBracket(container, t, opts = {}) {
   const rounds = t.rounds;
   const byKey = {};
@@ -211,7 +216,7 @@ function renderBracket(container, t, opts = {}) {
           el('span', {}, m.joueur2 ? m.joueur2.pseudo : '…'), el('span', { class: 'sc' }, String(m.score2))),
         el('div', { class: 'meta' },
           el('span', { class: 'code-match' }, codeMatch(m)),
-          enAttente ? el('span', { class: 'attente-tag' }, '⏳ match attendu') : null,
+          enAttente ? el('span', { class: 'attente-tag' }, '⏳ attendu : ' + t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id).map(x => feederLabelBracket(t, x, x.perdant_id === m.id ? 'perdant' : 'vainqueur')).join(' vs ')) : null,
           m.etat === 'en_cours' ? el('span', { class: 'live-dot' }, '● LIVE') : null,
           (m.etat === 'termine' || m.etat === 'forfait') ? badgeEtat(m.etat) : null,
           m.table != null ? el('span', { class: 'table-badge' }, '🎱 Table ' + m.table) : null,
