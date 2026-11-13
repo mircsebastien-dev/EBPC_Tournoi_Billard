@@ -255,3 +255,18 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
 
 /* harmonisation globale: tous les boutons radius 1px */
 button, .btn-score, .btn-manche, .btn-bande, .nav-burger, .nav-login, a.btn, .chip-btn { border-radius: 1px !important; }
+
+/* ===== Bracket: alignement strict ===== */
+.bracket .match-card { height: 78px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+.bracket .liste-matchs { display: flex; flex-direction: column; gap: 12px; }
+/* liens en coude, couleur par bracket cible */
+#bracket-svg path.to-lb { stroke: rgba(217, 184, 120, 0.85); }
+#bracket-svg path.to-f { stroke: rgba(214, 51, 108, 0.9); }
+#bracket-svg path.to-wb { stroke: rgba(236, 238, 242, 0.55); }
+#bracket-svg path.to-lb.halo { stroke: rgba(217,184,120,.15); }
+#bracket-svg path.to-f.halo { stroke: rgba(214,51,108,.15); }
+#bracket-svg path.to-wb.halo { stroke: rgba(236,238,242,.10); }
+
+#bracket-svg path.live { stroke: var(--pink) !important; }
+#bracket-svg path.done { stroke: rgba(62, 207, 142, 0.9) !important; }
+#bracket-svg path.attente { stroke: rgba(255, 209, 102, 0.75) !important; stroke-dasharray: 6 6; }

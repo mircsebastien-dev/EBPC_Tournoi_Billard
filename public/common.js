@@ -258,11 +258,13 @@ function drawBracketLinks(t) {
       const x1 = ra.right - rect.left, y1 = ra.top + ra.height / 2 - rect.top;
       const x2 = rb.left - rect.left, y2 = rb.top + rb.height / 2 - rect.top;
       const mx = (x1 + x2) / 2;
-      const d = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
-      let cls = '';
-      if (m.etat === 'en_cours') cls = 'live';
-      else if (m.etat === 'termine' || m.etat === 'forfait') cls = 'done';
-      else if (m.etat === 'prevu') cls = 'attente';
+      // lien en coude (orthogonal) : plus lisible qu'une courbe pour relier les cases
+      const d = `M ${x1} ${y1} H ${mx} V ${y2} H ${x2}`;
+      const cible = t.matchs.find(x => x.id === targetId);
+      let cls = cible ? 'to-' + cible.bracket.toLowerCase() : '';
+      if (m.etat === 'en_cours') cls += ' live';
+      else if (m.etat === 'termine' || m.etat === 'forfait') cls += ' done';
+      else if (m.etat === 'prevu') cls += ' attente';
       // halo (gros trait translucide) + trait fin coloré, pour être visible sur fond sombre
       const halo = document.createElementNS(ns, 'path');
       halo.setAttribute('d', d);
