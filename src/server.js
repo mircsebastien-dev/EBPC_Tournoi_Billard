@@ -788,6 +788,12 @@ app.delete('/api/admin/match/:id/event/:eventId', requireAdmin, (req, res) => {
   res.json({ ok: true, match: vueMatch(m) });
 });
 
+app.delete('/api/admin/audit', requireAdmin, (req, res) => {
+  const info = db.prepare('DELETE FROM audit_log').run();
+  logAudit('audit_purge', 'journal vidé', null, { supprimes: info.changes });
+  res.json({ ok: true, supprimes: info.changes });
+});
+
 app.get('/api/admin/audit', requireAdmin, (req, res) => {
   const rows = db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200').all();
   res.json({ audit: rows });

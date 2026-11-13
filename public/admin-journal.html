@@ -22,7 +22,15 @@ const main = document.getElementById('main');
 async function render() {
   main.innerHTML = '';
   if (!adminPin) { renderAdminLogin(main); return; }
-  main.append(el('div', { class: 'panel' }, el('div', { class: 'hero-title' }, '📜 Journal d\'audit'), el('div', { id: 'audit' }, 'Chargement…')));
+  main.append(el('div', { class: 'panel' },
+  el('div', { class: 'row', style: 'justify-content:space-between;align-items:center' },
+    el('div', { class: 'hero-title' }, '📜 Journal d\'audit'),
+    el('button', { class: 'danger', onclick: async () => {
+      if (!confirm('Vider tout le journal d\'audit ? (irréversible)')) return;
+      const r = await adminApi('/api/admin/audit', { method: 'DELETE' });
+      alert('🗑 ' + r.supprimes + ' entrées supprimées'); location.reload();
+    } }, 'Vider le journal')),
+  el('div', { id: 'audit' }, 'Chargement…')));
   try {
     const { audit } = await adminApi('/api/admin/audit');
     const box = document.getElementById('audit');
