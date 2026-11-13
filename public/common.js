@@ -208,11 +208,11 @@ function renderBracket(container, t, opts = {}) {
   const GAP = 10;
   const SLOT_H = NODE_H + GAP; // 118 : hauteur d'un slot de base
   // Le WB tour 1 (au centre) est la référence resserrée (level 0) ; l'escalier s'ouvre
-  // vers la droite (WB2, WB3, F...) et vers la gauche en miroir (LB1, LB2...).
-  const k = t.tournoi.format === 'double' ? t.tournoi.dko_tours : 0;
+  // vers la droite (WB2, WB3...) et vers la gauche en miroir (LB1, LB2...).
+  // le tableau final a son propre escalier compact (sinon espacement 2^k entre matchs de F1)
   const levelOf = (r) => r.bracket === 'WB' ? r.tour - 1
     : r.bracket === 'LB' ? r.tour
-    : k + r.tour - 1;
+    : r.tour - 1;
   for (const g of groups) {
     const colCls = g.round.bracket === 'LB' ? 'lb' : g.round.bracket === 'F' ? 'finale' : 'wb';
     const col = el('div', { class: `bracket-col ${colCls}`, id: 'col-' + g.round.bracket + g.round.tour }, el('h3', {}, g.round.label + ' · race to ' + g.round.manches));
