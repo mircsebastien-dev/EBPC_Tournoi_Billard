@@ -114,9 +114,9 @@ function matchCard(m, opts = {}) {
   }
   const card = el('div', { class: 'match-card' + (m.etat === 'prevu' ? ' attente' : '') + (m.etat === 'en_cours' ? ' live' : '') + ((m.etat === 'termine' || m.etat === 'forfait') ? ' done' : '') + (opts.hit ? ' hit' : ''), 'data-match-id': m.id },
     el('div', { class: 'joueurs' },
-      el('span', { class: 'p p1' + (j1g ? ' gagnant' : '') + (!m.joueur1 && lbl1 ? ' attente-j' : '') }, m.joueur1 ? m.joueur1.pseudo : (lbl1 || '—')),
+      el('span', { class: 'p p1' + (j1g ? ' gagnant' : '') + (!m.joueur1 ? (lbl1 ? ' attente-j' : ' blanc') : '') }, m.joueur1 ? m.joueur1.pseudo : (lbl1 || 'blanc')),
       el('span', { class: 'score' }, `${m.score1} - ${m.score2}`),
-      el('span', { class: 'p p2' + (j2g ? ' gagnant' : '') + (!m.joueur2 && lbl2 ? ' attente-j' : '') }, m.joueur2 ? m.joueur2.pseudo : (lbl2 || '—'))),
+      el('span', { class: 'p p2' + (j2g ? ' gagnant' : '') + (!m.joueur2 ? (lbl2 ? ' attente-j' : ' blanc') : '') }, m.joueur2 ? m.joueur2.pseudo : (lbl2 || 'blanc'))),
     el('div', { class: 'meta' },
       el('span', { class: 'code-match' }, codeMatch(m)),
       badgeEtat(m.etat),
@@ -239,7 +239,7 @@ function renderBracket(container, t, opts = {}) {
       const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
       const srcOf = (slot) => {
         const f = feeders.find(x => x.suivant_id === m.id && x.suivant_slot === slot) || feeders.find(x => x.perdant_id === m.id && x.perdant_slot === slot);
-        if (!f) return '…';
+        if (!f) return 'blanc';
         const kind = f.suivant_id === m.id ? 'gagnant' : 'perdant';
         return kind + ' ' + codeMatch(f); // max 15 caractères (ex: "gagnant wb1-001")
       };
