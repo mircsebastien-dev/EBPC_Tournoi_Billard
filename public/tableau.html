@@ -81,7 +81,7 @@ function render() {
     return;
   }
   main.append(el('div', { class: 'panel' },
-    el('div', { class: 'hero-title' }, `🗺 Tableau — ${t.tournoi.nom}`),
+    el('div', { class: 'hero-title' }, `Tableau — ${t.tournoi.nom}`),
     el('p', { class: 'hero-sub' }, `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? 'double KO ' + t.tournoi.dko_tours + ' tours + tableau final' : 'élimination directe'}`),
     el('div', { class: 'round-nav' },
       el('label', { class: 'muted small', style: 'align-self:center' }, 'Aller au tour :'),
