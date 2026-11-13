@@ -101,6 +101,7 @@ label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 5px
 .match-card:hover { border-color: rgba(214,51,108,.5); }
 .match-card .joueurs { display: flex; flex-direction: column; gap: 6px; }
 .match-card .j { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 600; }
+.match-card .j:last-child { flex-direction: row-reverse; }
 .match-card .j .score {
   font-variant-numeric: tabular-nums; font-weight: 800; font-size: 18px;
   color: var(--pink-soft); min-width: 26px; text-align: right; font-weight: 700;
