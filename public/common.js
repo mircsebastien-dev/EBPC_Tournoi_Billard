@@ -210,8 +210,8 @@ function renderBracket(container, t, opts = {}) {
       const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
       const fGagnant = feeders.find(x => x.suivant_id === m.id);
       const fPerdant = feeders.find(x => x.perdant_id === m.id);
-      const lbl1 = m.joueur1 ? m.joueur1.pseudo : (fGagnant ? '▶ vainqueur #' + fGagnant.position + (fGagnant.joueur1 && fGagnant.joueur2 ? ` (${fGagnant.joueur1.pseudo}–${fGagnant.joueur2.pseudo})` : '') : '…');
-      const lbl2 = m.joueur2 ? m.joueur2.pseudo : (fPerdant ? '▶ perdant #' + fPerdant.position + (fPerdant.joueur1 && fPerdant.joueur2 ? ` (${fPerdant.joueur1.pseudo}–${fPerdant.joueur2.pseudo})` : '') : '…');
+      const lbl1 = m.joueur1 ? m.joueur1.pseudo : (fGagnant ? '▶ vainqueur match ' + codeMatch(fGagnant) : '…');
+      const lbl2 = m.joueur2 ? m.joueur2.pseudo : (fPerdant ? '▶ perdant match ' + codeMatch(fPerdant) : '…');
       const node = el('div', {
         class: 'node' + (m.etat === 'en_cours' ? ' live' : '') + ((m.etat === 'termine' || m.etat === 'forfait') ? ' done' : '') + (enAttente ? ' attente' : ''),
         'data-id': m.id,
