@@ -60,8 +60,8 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 ## 6. Affichage public
 
 - **Accueil** : infos tournoi, inscription rapide, panneau **Amis** (si connecté), QR
-- **Tableau** (`/tableau.html`) : vue **bracket** (cartes resserrées, colonnes LB/finale étroites, SVG de liens, scroll horizontal mobile) ou **liste** (toggle, mémorisé, `?vue=`) ; « Aller au tour » (select) ; **filtre joueur** (préfixe, Entrée pour valider, focus conservé)
-- **TV** (`/tv.html`) : uniquement les matchs **en cours** (8/page, défilement), champion en fin ; **grand QR centré** (520px/60vh/92vw) quand aucun tournoi lancé ou phase inscription (petit QR coin masqué dans ce cas) ; overlay « tourne l'écran » sur grand écran portrait
+- **Tableau** (`/tableau.html`) : vue **bracket** avec **onglets Tout / WB / LB / Finale** (mémorisés), layout escalier calculé (chaque match centré sur la moyenne de ses sources, espacement min garanti), liens en coudes colorés par bracket, cartes 230 px fixes ; vue **liste** (cartes resserrées, colonnes LB/finale étroites, SVG de liens, scroll horizontal mobile) ou **liste** (toggle, mémorisé, `?vue=`) ; « Aller au tour » (select) ; **filtre joueur** (préfixe, Entrée pour valider, focus conservé)
+- **TV** (`/tv.html`) : uniquement les matchs **en cours**, champion en fin ; **grand QR centré**, **horloge en cours** (haut droite, sous le bandeau), **Screen Wake Lock** (anti veille écran) ; (520px/60vh/92vw) quand aucun tournoi lancé ou phase inscription (petit QR coin masqué dans ce cas) ; overlay « tourne l'écran » sur grand écran portrait
 - **Joueur** (`/suivi.html`) : choisir son joueur (invité = uniquement joueurs sans compte) → ses matchs en cours/à venir
 - **Stats** (`/stats.html`) : classement global tous tournois (joués/gagnés/perdus/%/⭐points/manches/runouts/titres), **tri par points, rang ex-aequo (1,1,1,4…)** ; fiche joueur `/joueur.html?id=` (stats + historique, matchs en cours à part, matchs vs blanc exclus)
 - **Historique** (`/historique.html`, admin-historique) : tournois terminés en **liste de matchs par tour** + **surbrillance** d'un joueur (champ recherche, Entrée)
@@ -87,6 +87,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 
 - Installable (manifest : nom « Pink City Billard — Tournois », short_name « Tournoi EBPC », icônes 192/512 + apple-touch + **favicon.svg bille 8**)
 - iOS : **obligatoirement via Safari** → « Sur l'écran d'accueil », puis activer dans l'app
+- **Tests push manuels** : `POST /api/push/test` (bouton « Tester la notification » dans le compte) + `POST /api/admin/push-test-ami {joueur_id}` (bouton admin)
 - Push VAPID : « 🎱 À toi de jouer ! » au lancement (joueurs) + « 👥 Match d'un ami » (amis) ; **clic sur la notif → ouvre `/match.html?id=<match>` directement** (SW robuste : navigate+focus si onglet ouvert, openWindow URL absolue sinon, fallback accueil)
 - Abonnement stocké par compte, révocable
 
@@ -110,6 +111,9 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - Admin (PIN) : `/api/admin/*` (tournoi, joueur(s), paiement, tirage, auto, match lancer/table/joueurs/correction/rouvrir/forfait/events, terminer, simuler, comptes, compte pseudo/password/suppr, audit, data events, distances, tables)
 
 ## 13. Sécurité
+- Headers : CSP (`script-src 'self' 'unsafe-inline'`), X-Frame-Options DENY, nosniff, Referrer-Policy
+- SQLite WAL + busy_timeout 5 s ; SSE broadcast léger `{changed}` + re-fetch client
+- Boutons radius 1 px uniformes ; thème sombre « charbon + rose profond #d6336c »
 
 - PIN admin vérifié serveur sur toutes les routes `/api/admin/*` (401)
 - mdp scrypt+salt ; sessions cookie HttpOnly/SameSite/Secure, token hashé ; réinit 1 h hashée ; rate-limit inscription/connexion/oubli
