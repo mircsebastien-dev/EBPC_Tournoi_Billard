@@ -133,9 +133,11 @@ function pointsParTournoi(tournoiId) {
 }
 
 function calculerStats(tournoiId) {
+  // un match contre blanc (bye: un côté NULL) ne compte ni comme joué, ni gagné, ni perdu
   const rows = db.prepare(`
     SELECT joueur1_id j1, joueur2_id j2, gagnant_id, etat, started_at, ended_at, bracket, tour
     FROM match WHERE tournoi_id = ? AND etat IN ('termine', 'forfait') AND gagnant_id IS NOT NULL
+      AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL
   `).all(tournoiId);
   // matchs avec 2 joueurs (pour le calcul des points: dernier tour WB/F + passage en LB)
   const matchsJoues = db.prepare(`SELECT joueur1_id j1, joueur2_id j2, bracket, tour FROM match WHERE tournoi_id = ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat != 'annule'`).all(tournoiId);
