@@ -157,21 +157,34 @@ function renderListe(container, t) {
     ...rounds.filter(r => r.bracket === 'LB'),
     ...rounds.filter(r => r.bracket === 'F'),
   ];
+  // layout calculé: y de chaque match = moyenne des y de ses matchs sources (escalier propre, aussi en LB)
+  const STEP = 90, CARDH = 78;
+  const yOf = {};
+  const allOrdered = ordered.flatMap(r => (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position));
+  for (const m of allOrdered) {
+    const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
+    yOf[m.id] = feeders.length ? feeders.reduce((a, f) => a + (yOf[f.id] ?? f.position * STEP), 0) / feeders.length : m.position * STEP;
+  }
   for (const r of ordered) {
     const matchs = (byKey[r.bracket + r.tour] || []).sort((a, b) => a.position - b.position).filter(matchJoueur);
     if (!matchs.length) continue;
     const section = el('div', { class: 'round', id: 'col-' + r.bracket + r.tour },
       el('h3', {}, `${r.label} · race to ${r.manches}`),
       el('div', { class: 'liste-matchs' }));
+    const maxY = Math.max(...matchs.map(m => yOf[m.id] ?? m.position * STEP)) + CARDH;
+    section.lastChild.style.position = 'relative';
+    section.lastChild.style.height = maxY + 'px';
     for (const m of matchs) {
       const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id)
         .map(x => feederLabel(t, x, x.perdant_id === m.id ? 'perdant' : 'vainqueur'));
-      section.lastChild.append(matchCard(m, {
+      const wrap = el('div', { style: `position:absolute;top:${Math.round(yOf[m.id] ?? m.position * STEP)}px;left:0;right:0` });
+      wrap.append(matchCard(m, {
         // pas de onClick: matchCard ouvre l'éditeur inline si PIN admin en mémoire, sinon va sur /match.html
         extra: m.etat === 'prevu' && feeders.length
           ? el('div', { class: 'attente-detail' }, `⏳ attendu : ${feeders.join('  vs  ')}`)
           : null,
       }));
+      section.lastChild.append(wrap);
     }
     container.append(section);
   }
