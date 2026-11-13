@@ -702,6 +702,13 @@ app.post('/api/admin/terminer', requireAdmin, (req, res) => {
   res.json({ ok: true, ...etatGlobal(req) });
 });
 
+app.post('/api/admin/push-test-ami', requireAdmin, async (req, res) => {
+  const { envoyerTestAmi } = require('./push');
+  const r = await envoyerTestAmi(Number(req.body.joueur_id));
+  if (r.error) return res.status(404).json(r);
+  res.json({ ok: true, ...r });
+});
+
 app.post('/api/admin/simuler', requireAdmin, (req, res) => {
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });

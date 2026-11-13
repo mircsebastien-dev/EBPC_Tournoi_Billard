@@ -98,4 +98,30 @@ function registerPushRoutes(app, { vueMatch }) {
   });
 }
 
-module.exports = { registerPushRoutes, notifierMatchLance, publicKey };
+// --- tests manuels de push (sans tournoi) ---
+async function envoyerTest(compteId) {
+  getVapid();
+  const subs = db.prepare('SELECT endpoint, keys_json FROM push_subscription WHERE compte_id = ?').all(compteId);
+  const payload = JSON.stringify({ title: '🔔 Test de notification', body: 'Si tu vois ça, le push marche !', url: '/compte.html', tag: 'test-' + Date.now() });
+  let n = 0;
+  for (const s of subs) { try { await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payload); n++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); } }
+  return { envoyes: n, subs: subs.length };
+}
+// simule le push "match d'un ami" pour un joueur donné (envoie à tous les comptes qui l'ont en ami)
+async function envoyerTestAmi(joueurId) {
+  getVapid();
+  const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(joueurId);
+  if (!j) return { error: 'joueur introuvable' };
+  const subs = db.prepare(`
+    SELECT s.endpoint, s.keys_json FROM push_subscription s
+    JOIN ami a ON a.compte_id = s.compte_id
+    JOIN joueur j ON j.compte_id = a.ami_compte_id
+    WHERE j.id = ? AND s.compte_id IS NOT NULL
+  `).all(joueurId);
+  const payload = JSON.stringify({ title: "👥 Match d'un ami en cours (TEST)", body: `${j.pseudo} est en match — ceci est une notification de test`, url: '/', tag: 'test-ami-' + Date.now() });
+  let n = 0;
+  for (const s of subs) { try { await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payload); n++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); } }
+  return { envoyes: n, ami_de: j.pseudo };
+}
+
+module.exports = { registerPushRoutes, notifierMatchLance, publicKey, envoyerTest, envoyerTestAmi };

@@ -246,6 +246,13 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     });
   });
 
+  app.post('/api/push/test', async (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const { envoyerTest } = require('./push');
+    const r = await envoyerTest(req.compte.id);
+    res.json({ ok: true, ...r });
+  });
+
   app.post('/api/compte/deconnexion', (req, res) => {
     const cookies = parseCookies(req);
     const token = cookies[SESSION_COOKIE];
