@@ -202,7 +202,9 @@ function renderBracket(container, t, opts = {}) {
 
   const wrap = el('div', { class: 'bracket-scroll' });
   const bracket = el('div', { class: 'bracket', id: 'bracket' });
-  const svg = el('svg', { id: 'bracket-svg' });
+  // VRAI élément SVG (createElementNS) : el('svg') créerait un élément HTML inconnu, les <path> ne rendraient jamais
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('id', 'bracket-svg');
   bracket.append(svg);
   const NODE_H = 84; // hauteur d'un nœud de match (carte resserrée)
   const GAP = 10;
@@ -275,7 +277,11 @@ function renderBracket(container, t, opts = {}) {
   container.append(wrap);
   if (opts.drawLinks !== false) {
     // redraws robustes (iOS charge lentement, layout tardif)
-    const redraw = () => drawBracketLinks(t);
+    // pas de liens sur l'onglet "tout" : visibles uniquement sur les onglets WB / LB / F
+    const redraw = () => {
+      if (opts.hideLinksOnTout && bracketTab === 'tout') { svg.innerHTML = ''; return; }
+      drawBracketLinks(t);
+    };
     requestAnimationFrame(redraw);
     [60, 300, 800, 1500].forEach(ms => setTimeout(redraw, ms));
     window.addEventListener('load', redraw, { once: true });
