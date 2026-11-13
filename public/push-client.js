@@ -7,7 +7,7 @@ async function pushInit() {
   if (!document.querySelector('link[rel="apple-touch-icon"]')) {
     const a = document.createElement('link'); a.rel = 'apple-touch-icon'; a.href = '/apple-touch-icon.png'; document.head.appendChild(a);
   }
-  const m = document.createElement('meta'); m.name = 'theme-color'; m.content = '#ff2e88'; document.head.appendChild(m);
+  const m = document.createElement('meta'); m.name = 'theme-color'; m.content = '#c9a15f'; document.head.appendChild(m);
   if (!('serviceWorker' in navigator)) return;
   try { await navigator.serviceWorker.register('/sw.js'); } catch (e) { console.warn('SW:', e.message); }
 }
