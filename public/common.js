@@ -133,9 +133,9 @@ function grouperParRound(matchs, rounds) {
 
 function connecterSSE(onUpdate) {
   const src = new EventSource('/api/events');
-  src.addEventListener('update', (e) => {
+  src.addEventListener('update', async () => {
     try {
-      const s = JSON.parse(e.data);
+      const s = await api('/api/etat', { pin: null }); // payload SSE léger -> re-fetch état complet
       // le broadcast global ne contient pas le compte de la session -> on le réinjecte
       if (s && !s.compte && compteCourant) s.compte = compteCourant;
       onUpdate(s);

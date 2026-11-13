@@ -9,6 +9,14 @@ const QRCode = require('qrcode');
 const push = require('./push');
 
 const app = express();
+// headers de sécurité
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'");
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -317,7 +325,7 @@ function majEtBroadcast() {
     notifierAutoLances(t.id, avant);
     if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances });
   }
-  broadcast('update', etatGlobal(null));
+  broadcast('update', { changed: true, at: Date.now() }); // payload léger: le client re-fetch /api/etat
 }
 
 app.post('/api/admin/auto', requireAdmin, (req, res) => {

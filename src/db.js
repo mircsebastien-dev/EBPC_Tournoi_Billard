@@ -4,6 +4,7 @@ const path = require('path');
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'tournoi.db');
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
+db.pragma('busy_timeout = 5000');
 db.pragma('foreign_keys = ON');
 
 db.exec(`
