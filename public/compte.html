@@ -137,7 +137,7 @@ async function init() {
       el('div', { class: 'row', style: 'justify-content:center' },
         notifOk
           ? el('button', { class: 'secondary', onclick: async () => { try { await pushDesactiver(); alert('Notifications désactivées'); location.reload(); } catch (e) { alert(e.message); } } }, 'Désactiver')
-          : el('button', { onclick: async () => { try { await pushActiver(); alert('Notifications activées !'); location.reload(); } catch (e) { alert(e.message); } } }, '🔔 Activer les notifications')),
+          : el('button', { onclick: async () => { try { await pushActiver(); alert('Notifications activées !'); location.reload(); } catch (e) { alert(e.message); } } }, 'Activer les notifications')),
       el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
         try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
         catch (e) { alert(e.message); }

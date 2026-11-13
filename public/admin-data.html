@@ -72,8 +72,8 @@ function renderMatchs(t) {
     tr.append(TD(m.etat));
     tr.append(TD(m.table != null ? "T" + m.table : "—"));
     const tdA = el("td", { style: "padding:4px 6px" });
-    const bEdit = el("button", { class: "secondary", style: "padding:3px 8px;font-size:12px", onclick: () => openMatchEditor(m, charger, { joueurs: t.joueurs, tables: t.tables }) }, "⚙️");
-    const bEv = el("button", { class: "secondary", style: "padding:3px 8px;font-size:12px;margin-left:4px", onclick: () => { onglet = "events"; charger().then(() => { const s = document.getElementById("ev-match"); if (s) { s.value = String(m.id); s.dispatchEvent(new Event("change")); } }); } }, "📜");
+    const bEdit = el("button", { class: "secondary", style: "padding:3px 8px;font-size:12px", onclick: () => openMatchEditor(m, charger, { joueurs: t.joueurs, tables: t.tables }) }, "");
+    const bEv = el("button", { class: "secondary", style: "padding:3px 8px;font-size:12px;margin-left:4px", onclick: () => { onglet = "events"; charger().then(() => { const s = document.getElementById("ev-match"); if (s) { s.value = String(m.id); s.dispatchEvent(new Event("change")); } }); } }, "");
     tdA.append(bEdit, bEv);
     tr.append(tdA);
     tbody.append(tr);

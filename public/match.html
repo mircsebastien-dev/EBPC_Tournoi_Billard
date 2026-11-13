@@ -63,8 +63,8 @@ function render() {
           el('h3', {}, '🎲 Tirage à la bande'),
           el('p', { class: 'muted small' }, 'Chaque joueur fait rouler une bille sur le tapis : le plus proche de la bande remporte le tirage et casse en premier (⚪).'),
           el('div', { class: 'row', style: 'justify-content:center' },
-            el('button', { onclick: () => api(`/api/match/${m.id}/bande`, { method: 'POST', body: JSON.stringify({ joueur_id: m.joueur1.id }) }).then(() => location.reload()).catch(e => alert(e.message)) }, `🎱 ${m.joueur1.pseudo} casse`),
-            el('button', { class: 'secondary', onclick: () => api(`/api/match/${m.id}/bande`, { method: 'POST', body: JSON.stringify({ joueur_id: m.joueur2.id }) }).then(() => location.reload()).catch(e => alert(e.message)) }, `🎱 ${m.joueur2.pseudo} casse`)))
+            el('button', { onclick: () => api(`/api/match/${m.id}/bande`, { method: 'POST', body: JSON.stringify({ joueur_id: m.joueur1.id }) }).then(() => location.reload()).catch(e => alert(e.message)) }, `${m.joueur1.pseudo} casse`),
+            el('button', { class: 'secondary', onclick: () => api(`/api/match/${m.id}/bande`, { method: 'POST', body: JSON.stringify({ joueur_id: m.joueur2.id }) }).then(() => location.reload()).catch(e => alert(e.message)) }, `${m.joueur2.pseudo} casse`)))
       : null,
     peutJouer && moi && adv && m.casseur ? el('div', { class: 'score-actions' },
       // aligné avec le scoreboard : joueur1 à gauche, joueur2 à droite

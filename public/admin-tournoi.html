@@ -81,7 +81,7 @@ function renderPanneauAuto() {
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🤖 Gestion automatique'),
     el('p', { class: 'muted small' }, 'Lance automatiquement le prochain match dès qu\'un match se termine (priorité : Tour 1, puis LB1#1, WB2#1, LB2#1…).'),
-    el('button', { id: 'btn-auto', onclick: toggleAuto }, 'Mode auto : ' + (autoOn ? 'ACTIF ✅' : 'inactif')),
+    el('button', { id: 'btn-auto', onclick: toggleAuto }, 'Mode auto : ' + (autoOn ? 'ACTIF ' : 'inactif')),
     el('div', { class: 'row', style: 'margin-top:10px' },
       el('div', { style: 'flex:1 1 auto' },
         el('label', {}, 'Ordre des tables (mode auto)'),
@@ -113,7 +113,7 @@ function renderInscriptions(t) {
     el('div', { class: 'liste-joueurs', style: 'margin-top:10px' },
       t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? '#' + j.tete_de_serie + ' ' : ''}${j.pseudo}`,
         j.statut === 'paye'
-          ? el('button', { class: 'secondary', onclick: () => paiement(j, 'en_attente') }, 'payé → annuler')
+          ? el('button', { class: 'secondary', onclick: () => paiement(j, 'en_attente') }, 'payé annuler')
           : el('button', { onclick: () => paiement(j, 'paye') }, 'marquer payé'),
         el('button', { class: 'danger', onclick: async () => { if (confirmer(`Retirer ${j.pseudo} ?`)) { try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); } } } }, ''))))));
 
@@ -133,7 +133,7 @@ function renderInscriptions(t) {
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'secondary', onclick: sauverDistances }, 'Enregistrer'))));
 
   main.append(el('div', { class: 'panel' },
-    el('button', { onclick: tirage, disabled: t.joueurs.filter(j => j.statut === 'paye').length < 2 ? '' : null, style: 'width:100%' }, `🎲 Lancer le tirage (${t.joueurs.filter(j => j.statut === 'paye').length} payés)`),
+    el('button', { onclick: tirage, disabled: t.joueurs.filter(j => j.statut === 'paye').length < 2 ? '' : null, style: 'width:100%' }, `Lancer le tirage (${t.joueurs.filter(j => j.statut === 'paye').length} payés)`),
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'danger', style: 'width:100%', onclick: supprimer }, 'Supprimer le tournoi'))));
 
   function toLocalInput(dh) {
@@ -242,7 +242,7 @@ function renderTournoi(t) {
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🗺 Voir / éditer les matchs'),
     el('p', { class: 'muted small' }, 'Clique sur un match du tableau pour lancer, corriger le score, déclarer un forfait ou rouvrir — sans quitter le tableau.'),
-    el('a', { href: '/tableau.html' }, el('button', { class: 'secondary' }, 'Ouvrir le tableau 🗺'))));
+    el('a', { href: '/tableau.html' }, el('button', { class: 'secondary' }, 'Ouvrir le tableau '))));
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🎬 Simulation'),
