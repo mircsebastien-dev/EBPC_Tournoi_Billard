@@ -89,12 +89,12 @@ function codeMatch(m) {
 function matchCard(m, opts = {}) {
   const j1g = m.gagnant_id && m.joueur1 && m.gagnant_id === m.joueur1.id;
   const j2g = m.gagnant_id && m.joueur2 && m.gagnant_id === m.joueur2.id;
-  const card = el('div', { class: 'match-card' + (m.etat === 'prevu' ? ' attente' : '') + (opts.hit ? ' hit' : ''), 'data-match-id': m.id },
+  const card = el('div', { class: 'match-card' + (m.etat === 'prevu' ? ' attente' : '') + ((m.etat === 'termine' || m.etat === 'forfait') ? ' done' : '') + (opts.hit ? ' hit' : ''), 'data-match-id': m.id },
     el('div', { class: 'joueurs' },
-      el('div', { class: 'j' },
+      el('div', { class: 'j' + (j1g ? ' gagnant' : '') },
         el('span', { class: (!m.joueur1 && opts.lbl1) ? 'attente-j' : '' }, m.joueur1 ? m.joueur1.pseudo : (opts.lbl1 || '—')),
         el('span', { class: 'score' }, String(m.score1))),
-      el('div', { class: 'j' },
+      el('div', { class: 'j' + (j2g ? ' gagnant' : '') },
         el('span', { class: (!m.joueur2 && opts.lbl2) ? 'attente-j' : '' }, m.joueur2 ? m.joueur2.pseudo : (opts.lbl2 || '—')),
         el('span', { class: 'score' }, String(m.score2)))),
     el('div', { class: 'meta' },

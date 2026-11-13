@@ -108,6 +108,7 @@ label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 5px
 .match-card .j.gagnant { color: var(--green); }
 .match-card .j.gagnant .score { color: var(--green); }
 .match-card .j .attente-j { color: var(--muted); font-style: italic; font-weight: 400; }
+.match-card.done { border-color: rgba(46, 230, 168, 0.55); }
 .match-card .meta { margin-top: 8px; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .live-dot { color: var(--red); animation: blink 1s infinite; font-weight: 800; }
 .table-badge {
