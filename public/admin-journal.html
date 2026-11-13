@@ -24,7 +24,7 @@ async function render() {
   if (!adminPin) { renderAdminLogin(main); return; }
   main.append(el('div', { class: 'panel' },
   el('div', { class: 'row', style: 'justify-content:space-between;align-items:center' },
-    el('div', { class: 'hero-title' }, '📜 Journal d\'audit'),
+    el('div', { class: 'hero-title' }, 'Journal d\'audit'),
     el('button', { class: 'danger', onclick: async () => {
       if (!confirm('Vider tout le journal d\'audit ? (irréversible)')) return;
       const r = await adminApi('/api/admin/audit', { method: 'DELETE' });

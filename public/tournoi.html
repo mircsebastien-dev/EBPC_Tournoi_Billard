@@ -85,7 +85,7 @@ async function init() {
     const data = await api(`/api/tournois/${tournoiId}`);
     const t = data.tournoi;
     main.append(el('div', { class: 'panel' },
-      el('div', { class: 'hero-title' }, `🗂 ${t.tournoi.nom}`),
+      el('div', { class: 'hero-title' }, `${t.tournoi.nom}`),
       el('p', { class: 'hero-sub' },
         `${t.tournoi.created_at.slice(0, 10)} · ${t.tournoi.regle} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? 'DKO ' + t.tournoi.dko_tours : 'élim. directe'} · ${t.matchs.length} matchs`),
       t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, `🏆 Champion : ${t.champion.pseudo}`) : null,

@@ -22,7 +22,7 @@ async function init() {
   main.innerHTML = '';
   const { joueurs } = await api('/api/stats-joueurs');
   main.append(el('div', { class: 'panel' },
-    el('div', { class: 'hero-title' }, '📊 Statistiques joueurs (tous les tournois)'),
+    el('div', { class: 'hero-title' }, 'Statistiques joueurs (tous les tournois)'),
     el('p', { class: 'muted' }, `${joueurs.length} joueurs recensés`)));
   if (joueurs.length === 0) {
     main.append(el('div', { class: 'panel', style: 'text-align:center' }, el('p', { class: 'muted' }, 'Aucune statistique pour le moment.')));

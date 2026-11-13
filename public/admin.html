@@ -24,7 +24,7 @@ function render() {
   if (!adminPin) { renderAdminLogin(main); return; }
   const t = adminTournoiActif();
   main.append(el('div', { class: 'panel' },
-    el('div', { class: 'hero-title' }, '🔐 Espace table de marque'),
+    el('div', { class: 'hero-title' }, 'Espace table de marque'),
     el('p', { class: 'muted' }, t
       ? `Tournoi en cours : « ${t.tournoi.nom} » (${t.tournoi.statut === 'inscription' ? 'inscriptions ouvertes' : 'en cours'}, ${t.joueurs.length} inscrits, ${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués)`
       : 'Aucun tournoi actif pour le moment.')));

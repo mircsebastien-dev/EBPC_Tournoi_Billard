@@ -41,7 +41,7 @@ function render(comptes) {
   main.append(el('div', { class: 'panel', style: 'padding:10px 14px;margin-bottom:12px' }, input));
   const rows = comptes.filter(c => !filtre || c.pseudo.toLowerCase().includes(filtre) || (c.email || '').toLowerCase().includes(filtre));
   main.append(el('div', { class: 'panel' },
-    el('div', { class: 'hero-title' }, `👤 ${rows.length} compte(s)`),
+    el('div', { class: 'hero-title' }, `${rows.length} compte(s)`),
     rows.length === 0 ? el('p', { class: 'muted' }, 'Aucun compte.') :
     el('table', { style: 'width:100%;border-collapse:collapse' },
       el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Sessions', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),

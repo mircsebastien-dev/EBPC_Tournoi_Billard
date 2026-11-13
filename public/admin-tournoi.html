@@ -37,7 +37,7 @@ function renderCreer() {
       el('a', { href: '/admin-historique.html' }, el('button', { class: 'secondary' }, 'Ouvrir l\'historique'))));
   }
   main.append(el('div', { class: 'panel' },
-    el('div', { class: 'hero-title' }, '🎱 Nouveau tournoi'),
+    el('div', { class: 'hero-title' }, 'Nouveau tournoi'),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
       el('div', {}, el('label', {}, '📅 Date et heure'), el('input', { id: 'dateheure', type: 'datetime-local', value: (function(){ const d = new Date(); d.setHours(20,0,0,0); let add = (2 - d.getDay() + 7) % 7; if (add === 0 && d <= new Date()) add = 7; d.setDate(d.getDate() + add); const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; })() })),
@@ -101,7 +101,7 @@ function renderPanneauAuto() {
 function renderInscriptions(t) {
   const tn = t.tournoi;
   main.append(el('div', { class: 'panel' },
-    el('div', { class: 'hero-title' }, `⚙️ ${tn.nom} — inscriptions`),
+    el('div', { class: 'hero-title' }, `${tn.nom} — inscriptions`),
     el('p', { class: 'hero-sub' }, `${tn.taille} max · ${t.joueurs.length} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés · ${t.tables.length} tables`),
     el('div', { class: 'row', style: 'margin-top:10px' },
       el('div', {}, el('label', {}, '📅 Date et heure'), el('input', { id: 'edit-dateheure', type: 'datetime-local', value: toLocalInput(tn.date_heure) })),
@@ -188,7 +188,7 @@ function renderInscriptions(t) {
 function renderTournoi(t) {
   const tn = t.tournoi;
   main.append(el('div', { class: 'panel' },
-    el('div', { class: 'hero-title' }, `⚙️ ${tn.nom}`),
+    el('div', { class: 'hero-title' }, `${tn.nom}`),
     el('p', { class: 'hero-sub' }, `${tn.regle} · ${tn.taille} joueurs · ${tn.format === 'double' ? 'DKO ' + tn.dko_tours + ' tours' : 'élim. directe'} · ${t.tables.length} tables · ${t.joueurs.length} inscrits`),
     el('div', { class: 'row' },
       el('span', { class: 'chip' }, `${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués`)),
