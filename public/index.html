@@ -103,7 +103,9 @@ async function renderAmisPanel() {
   if (!s || !s.compte) { if (box) box.remove(); return; }
   if (!box) {
     box = el('div', { class: 'panel', id: 'amis-panel' });
-    document.getElementById('main').append(box);
+    const main = document.getElementById('main');
+    const direct = [...main.children].find(c => c.querySelector && c.querySelector('h2') && c.querySelector('h2').textContent.includes('En direct'));
+    if (direct) main.insertBefore(box, direct); else main.append(box); // amis juste au-dessus des matchs
   }
   let amis = [];
   try { amis = (await api('/api/compte/amis')).amis; } catch { amis = []; }

@@ -13,7 +13,7 @@
   --gold: #d9b878;
   --green: #3ecf8e;
   --red: #e5484d;
-  --radius: 6px;
+  --radius: 1px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { scroll-behavior: smooth; }
@@ -252,3 +252,6 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
   #bracket { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .round { min-width: 220px; }
 }
+
+/* harmonisation globale: tous les boutons radius 1px */
+button, .btn-score, .btn-manche, .btn-bande { border-radius: 1px !important; }
