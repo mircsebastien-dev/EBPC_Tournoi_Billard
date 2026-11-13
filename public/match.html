@@ -115,8 +115,8 @@ function confirmerFin(targetId, pseudo, nvScore, autreScore, isRunout, kind) {
     el('p', { style: 'font-weight:800;font-size:18px' }, `🏆 ${gagnant} remporte le match`),
     el('p', { class: 'muted small' }, 'Vérifie le score sur la table avant de confirmer.'),
     el('div', { class: 'row', style: 'justify-content:center;margin-top:12px' },
-      el('button', { onclick: async () => { overlay.remove(); await envoyer(targetId, true, isRunout, kind); } }, '✅ Confirmer le score'),
-      el('button', { class: 'secondary', onclick: () => overlay.remove() }, '✏️ Modifier (annuler ce point)')));
+      el('button', { onclick: async () => { overlay.remove(); await envoyer(targetId, true, isRunout, kind); } }, 'Confirmer le score'),
+      el('button', { class: 'secondary', onclick: () => overlay.remove() }, 'Modifier (annuler ce point)')));
   overlay.append(box);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
   document.body.append(overlay);

@@ -81,7 +81,7 @@ function renderPanneauAuto() {
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🤖 Gestion automatique'),
     el('p', { class: 'muted small' }, 'Lance automatiquement le prochain match dès qu\'un match se termine (priorité : Tour 1, puis LB1#1, WB2#1, LB2#1…).'),
-    el('button', { id: 'btn-auto', onclick: toggleAuto }, '🤖 Mode auto : ' + (autoOn ? 'ACTIF ✅' : 'inactif')),
+    el('button', { id: 'btn-auto', onclick: toggleAuto }, 'Mode auto : ' + (autoOn ? 'ACTIF ✅' : 'inactif')),
     el('div', { class: 'row', style: 'margin-top:10px' },
       el('div', { style: 'flex:1 1 auto' },
         el('label', {}, 'Ordre des tables (mode auto)'),
@@ -113,9 +113,9 @@ function renderInscriptions(t) {
     el('div', { class: 'liste-joueurs', style: 'margin-top:10px' },
       t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? '#' + j.tete_de_serie + ' ' : ''}${j.pseudo}`,
         j.statut === 'paye'
-          ? el('button', { class: 'secondary', onclick: () => paiement(j, 'en_attente') }, '✅ payé → annuler')
-          : el('button', { onclick: () => paiement(j, 'paye') }, '💰 marquer payé'),
-        el('button', { class: 'danger', onclick: async () => { if (confirmer(`Retirer ${j.pseudo} ?`)) { try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); } } } }, '✕'))))));
+          ? el('button', { class: 'secondary', onclick: () => paiement(j, 'en_attente') }, 'payé → annuler')
+          : el('button', { onclick: () => paiement(j, 'paye') }, 'marquer payé'),
+        el('button', { class: 'danger', onclick: async () => { if (confirmer(`Retirer ${j.pseudo} ?`)) { try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); } } } }, ''))))));
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🎲 Mode simulation'),
@@ -231,7 +231,7 @@ function renderTournoi(t) {
       p.append(el('div', { class: 'match-admin' },
         matchCard(m),
         el('div', { class: 'actions' },
-          el('button', { class: 'secondary', onclick: () => corriger(m) }, '✏️ Corriger'),
+          el('button', { class: 'secondary', onclick: () => corriger(m) }, 'Corriger'),
           el('button', { class: 'danger', onclick: () => forfait(m, m.joueur1.id) }, `${m.joueur1 ? m.joueur1.pseudo : ''} forfait`),
           el('button', { class: 'danger', onclick: () => forfait(m, m.joueur2.id) }, `${m.joueur2 ? m.joueur2.pseudo : ''} forfait`))));
     }
@@ -255,7 +255,7 @@ function renderTournoi(t) {
     el('p', { class: 'muted small' }, 'Termine le tournoi immédiatement (même si la finale n\'a pas été jouée). Les tableaux restent en ligne.'),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Champion (optionnel)'), el('select', { id: 'champion' }, el('option', { value: '' }, '— aucun (coupe net) —'), t.joueurs.map(j => el('option', { value: j.id, ...(t.champion && t.champion.id === j.id ? { selected: '' } : {}) }, j.pseudo)))),
-      el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'danger', onclick: terminer }, '🏁 Terminer le tournoi maintenant')))));
+      el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'danger', onclick: terminer }, 'Terminer le tournoi maintenant')))));
 
   async function sauverDistances() {
     const distances = {};

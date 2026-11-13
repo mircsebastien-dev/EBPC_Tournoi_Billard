@@ -36,7 +36,7 @@ function render() {
         el('div', { style: 'font-weight:800;font-size:18px' }, h.nom),
         el('div', { class: 'muted small' }, `${h.created_at.slice(0, 10)} · ${h.regle} · ${h.nb_joueurs} joueurs · ${h.nb_matchs} matchs · ${h.format === 'double' ? 'DKO ' + h.dko_tours : 'élim. directe'}${h.champion ? ` · 🏆 ${h.champion}` : ''}`)),
       el('div', { class: 'actions' },
-        el('a', { href: `/tournoi.html?id=${h.id}` }, el('button', { class: 'secondary' }, '👁 Voir')),
+        el('a', { href: `/tournoi.html?id=${h.id}` }, el('button', { class: 'secondary' }, 'Voir')),
         el('button', { class: 'danger', onclick: async () => {
           if (!confirmer(`Supprimer « ${h.nom} » de l'historique ?`)) return;
           try { await adminApi(`/api/admin/tournoi/${h.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); }

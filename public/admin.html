@@ -31,20 +31,20 @@ function render() {
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '📌 Accès rapide'),
     el('div', { class: 'row' },
-      el('a', { href: '/admin-tournoi.html' }, el('button', {}, t ? `⚙️ Gérer le tournoi « ${t.tournoi.nom} »` : '⚙️ Configurer / gérer le tournoi')),
+      el('a', { href: '/admin-tournoi.html' }, el('button', {}, t ? `⚙️ Gérer le tournoi « ${t.tournoi.nom} »` : 'Configurer / gérer le tournoi')),
       el('a', { href: '/admin-historique.html' }, el('button', { class: 'secondary' }, `🗂 Historique (${adminState.historique.length})`)),
-      el('a', { href: '/admin-journal.html' }, el('button', { class: 'secondary' }, '📜 Journal d\'audit')),
-      el('a', { href: '/admin-comptes.html' }, el('button', { class: 'secondary' }, '👤 Comptes joueurs')),
-      el('a', { href: '/admin-aide.html' }, el('button', { class: 'secondary' }, '⚙️ Guide admin')),
-      el('a', { href: '/admin-data.html' }, el('button', { class: 'secondary' }, '🗄 Données')))));
+      el('a', { href: '/admin-journal.html' }, el('button', { class: 'secondary' }, 'Journal d\'audit')),
+      el('a', { href: '/admin-comptes.html' }, el('button', { class: 'secondary' }, 'Comptes joueurs')),
+      el('a', { href: '/admin-aide.html' }, el('button', { class: 'secondary' }, 'Guide admin')),
+      el('a', { href: '/admin-data.html' }, el('button', { class: 'secondary' }, 'Données')))));
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🔗 Liens publics'),
     el('div', { class: 'row' },
-      el('a', { href: '/' }, el('button', { class: 'secondary' }, '🏠 Accueil')),
-      el('a', { href: '/tableau.html' }, el('button', { class: 'secondary' }, '🗺 Tableau')),
-      el('a', { href: '/tv.html' }, el('button', { class: 'secondary' }, '📺 TV')),
-      el('a', { href: '/stats.html' }, el('button', { class: 'secondary' }, '📊 Stats')),
-      el('a', { href: '/historique.html' }, el('button', { class: 'secondary' }, '🗂 Historique public')))));
+      el('a', { href: '/' }, el('button', { class: 'secondary' }, 'Accueil')),
+      el('a', { href: '/tableau.html' }, el('button', { class: 'secondary' }, 'Tableau')),
+      el('a', { href: '/tv.html' }, el('button', { class: 'secondary' }, 'TV')),
+      el('a', { href: '/stats.html' }, el('button', { class: 'secondary' }, 'Stats')),
+      el('a', { href: '/historique.html' }, el('button', { class: 'secondary' }, 'Historique public')))));
   main.append(el('div', { class: 'panel' },
     el('button', { class: 'danger', onclick: () => { localStorage.removeItem('ebpc_admin_pin'); location.reload(); } }, 'Se déconnecter')));
 }

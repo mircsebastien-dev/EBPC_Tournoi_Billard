@@ -40,15 +40,15 @@ function fmtDuree(s) {
 
 function nav(active) {
   const links = [
-    ['/', 'home', '🏠 Tournoi'],
-    ['/tableau.html', 'tableau', '🗺️ Tableau'],
-    ['/tv.html', 'tv', '📺 TV'],
-    ['/suivi.html', 'joueur', '🎱 Joueur'],
-    ['/stats.html', 'stats', '📊 Stats'],
-    ['/historique.html', 'hist', '🗂 Historique'],
-    ['/admin.html', 'admin', '⚙️ Table de marque'],
-    ['/aide.html', 'aide', '❓ Aide'],
-    ['/confidentialite.html', '', '🔒 Confidentialité'],
+    ['/', 'home', 'Tournoi'],
+    ['/tableau.html', 'tableau', 'Tableau'],
+    ['/tv.html', 'tv', 'TV'],
+    ['/suivi.html', 'joueur', 'Joueur'],
+    ['/stats.html', 'stats', 'Stats'],
+    ['/historique.html', 'hist', 'Historique'],
+    ['/admin.html', 'admin', 'Table de marque'],
+    ['/aide.html', 'aide', 'Aide'],
+    ['/confidentialite.html', '', 'Confidentialité'],
   ];
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
   // dropdown + scrim dans le BODY (hors du header sticky) pour un z-index fiable sur iOS
