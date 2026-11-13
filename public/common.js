@@ -27,6 +27,13 @@ function el(tag, attrs = {}, ...children) {
   return e;
 }
 
+function maskEmail(email) {
+  if (!email || !email.includes('@')) return email || '—';
+  const [local, domain] = email.split('@');
+  const m = local.length <= 2 ? local[0] + '•' : local.slice(0, 2) + '•'.repeat(Math.min(local.length - 2, 6));
+  return m + '@' + domain;
+}
+
 function badgeEtat(etat) {
   const labels = { prevu: 'Prévu', pret: 'Prêt', en_cours: 'En cours', termine: 'Terminé', forfait: 'Forfait' };
   return el('span', { class: `badge ${etat}` }, labels[etat] || etat);

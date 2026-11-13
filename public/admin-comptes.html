@@ -25,13 +25,6 @@ async function charger() {
   render(comptes);
 }
 
-function maskEmail(email) {
-  if (!email || !email.includes('@')) return email || '—';
-  const [local, domain] = email.split('@');
-  const m = local.length <= 2 ? local[0] + '•' : local.slice(0, 2) + '•'.repeat(Math.min(local.length - 2, 6));
-  return m + '@' + domain;
-}
-
 function render(comptes) {
   main.innerHTML = '';
   if (!adminPin) { renderAdminLogin(main); return; }
