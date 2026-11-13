@@ -208,10 +208,14 @@ function renderBracket(container, t, opts = {}) {
       const enAttente = m.etat === 'prevu';
       // pour un match en attente, la place du joueur manquant affiche son match d'origine
       const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
-      const fGagnant = feeders.find(x => x.suivant_id === m.id);
-      const fPerdant = feeders.find(x => x.perdant_id === m.id);
-      const lbl1 = m.joueur1 ? m.joueur1.pseudo : (fGagnant ? '▶ vainqueur match ' + codeMatch(fGagnant) : '…');
-      const lbl2 = m.joueur2 ? m.joueur2.pseudo : (fPerdant ? '▶ perdant match ' + codeMatch(fPerdant) : '…');
+      const srcOf = (slot) => {
+        const f = feeders.find(x => x.suivant_id === m.id && x.suivant_slot === slot) || feeders.find(x => x.perdant_id === m.id && x.perdant_slot === slot);
+        if (!f) return '…';
+        const kind = f.suivant_id === m.id ? 'vainqueur' : 'perdant';
+        return '▶ ' + kind + ' match ' + codeMatch(f);
+      };
+      const lbl1 = m.joueur1 ? m.joueur1.pseudo : srcOf(1);
+      const lbl2 = m.joueur2 ? m.joueur2.pseudo : srcOf(2);
       const node = el('div', {
         class: 'node' + (m.etat === 'en_cours' ? ' live' : '') + ((m.etat === 'termine' || m.etat === 'forfait') ? ' done' : '') + (enAttente ? ' attente' : ''),
         'data-id': m.id,
