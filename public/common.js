@@ -195,7 +195,7 @@ function renderBracket(container, t, opts = {}) {
   if (singleTab) groups = groups.filter(g => g.round.bracket === bracketTab);
 
   const hasLB = rounds.some(r => r.bracket === 'LB');
-  const tabs = [['tout', 'Tout'], ['WB', 'WB'], ...(hasLB ? [['LB', 'LB']] : []), ['F', 'Finale']];
+  const tabs = [['tout', 'Tout'], ['WB', 'WB'], ...(hasLB ? [['LB', 'LB']] : []), ['F', 'Phase finale']];
   const tabBar = el('div', { class: 'view-switch', style: 'margin-bottom:10px' },
     ...tabs.map(([k2, label]) => el('button', {
       class: bracketTab === k2 ? '' : 'secondary',
@@ -344,12 +344,8 @@ function drawBracketLinks(t) {
         const ra = a.getBoundingClientRect();
         const x1 = ra.right - rect.left, y1 = ra.top + ra.height / 2 - rect.top;
         drawPath(`M ${x1} ${y1} H ${x1 + 46}`, cls + ' stub', 'marker-end');
-      } else if (b) {
-        // source dans un onglet masqué : bout de lien depuis la gauche, avec flèche
-        const rb = b.getBoundingClientRect();
-        const x2 = rb.left - rect.left, y2 = rb.top + rb.height / 2 - rect.top;
-        drawPath(`M ${x2 - 46} ${y2} H ${x2}`, cls + ' stub', 'marker-start');
       }
+      // pas de bout de lien à gauche (source masquée) : sinon les flèches entrantes s'empilent en artefact sur le bord gauche
     }
   }
 }
