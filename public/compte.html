@@ -85,10 +85,11 @@ main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20
         notifOk
           ? el('button', { class: 'secondary', onclick: async () => { try { await pushDesactiver(); alert('Notifications désactivées'); location.reload(); } catch (e) { alert(e.message); } } }, 'Désactiver')
           : el('button', { onclick: async () => { try { await pushActiver(); alert('Notifications activées !'); location.reload(); } catch (e) { alert(e.message); } } }, 'Activer les notifications')),
-      el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
-        try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
-        catch (e) { alert(e.message); }
-      } }, 'Tester')));
+      el('div', { style: 'margin-top:10px' },
+        el('button', { class: 'secondary', style: 'width:100%', onclick: async () => {
+          try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
+          catch (e) { alert(e.message); }
+        } }, 'Tester la notification'))));
     // panneau amis
     async function renderAmis() {
       const box = document.getElementById('amis-box');
