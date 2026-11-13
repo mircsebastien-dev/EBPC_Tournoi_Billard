@@ -73,7 +73,7 @@ function scrollToRound1() {
 function feederLabel(t, src, kind) {
   const r = t.rounds.find(rr => rr.bracket === src.bracket && rr.tour === src.tour);
   const nom = r ? r.label : src.bracket + ' t' + src.tour;
-  return `${kind === 'perdant' ? 'perdant' : 'vainqueur'} du match #${src.position} (${nom})`;
+  return `${kind === 'perdant' ? 'perdant' : 'gagnant'} ${codeMatch(src)} (${nom})`;
 }
 
 function render() {
@@ -182,7 +182,7 @@ function renderListe(container, t) {
     section.lastChild.style.height = maxY + 'px';
     for (const m of matchs) {
       const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id)
-        .map(x => feederLabel(t, x, x.perdant_id === m.id ? 'perdant' : 'vainqueur'));
+        .map(x => feederLabel(t, x, x.perdant_id === m.id ? 'perdant' : 'gagnant'));
       const wrap = el('div', { style: `position:absolute;top:${Math.round(yOf[m.id] ?? m.position * STEP)}px;left:0;right:0` });
       wrap.append(matchCard(m, {
         // pas de onClick: matchCard ouvre l'éditeur inline si PIN admin en mémoire, sinon va sur /match.html

@@ -101,7 +101,9 @@ function vueMatch(m) {
     etat: m.etat,
     table: m.table_id ? M.tableNumero(m.table_id) : null,
     suivant_id: m.suivant_id,
+    suivant_slot: m.suivant_slot,
     perdant_id: m.perdant_id,
+    perdant_slot: m.perdant_slot,
     started_at: m.started_at,
     ended_at: m.ended_at,
     duree_s: (m.started_at && m.ended_at)
