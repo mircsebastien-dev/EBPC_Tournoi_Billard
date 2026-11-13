@@ -164,7 +164,7 @@ function renderListe(container, t) {
       const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
       const srcOf = (slot) => {
         const f = feeders.find(x => x.suivant_id === m.id && x.suivant_slot === slot) || feeders.find(x => x.perdant_id === m.id && x.perdant_slot === slot);
-        return f ? '▶ ' + (f.suivant_id === m.id ? 'gagnant' : 'perdant') + ' ' + codeMatch(f) : null;
+        return f ? (f.suivant_id === m.id ? 'gagnant' : 'perdant') + ' ' + codeMatch(f) : null; // max 15 caractères
       };
       // pas de onClick: matchCard ouvre l'éditeur inline si PIN admin en mémoire, sinon va sur /match.html
       section.lastChild.append(matchCard(m, {

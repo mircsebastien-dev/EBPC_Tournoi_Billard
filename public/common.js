@@ -209,7 +209,7 @@ function renderBracket(container, t, opts = {}) {
         const f = feeders.find(x => x.suivant_id === m.id && x.suivant_slot === slot) || feeders.find(x => x.perdant_id === m.id && x.perdant_slot === slot);
         if (!f) return '…';
         const kind = f.suivant_id === m.id ? 'gagnant' : 'perdant';
-        return '▶ ' + kind + ' ' + codeMatch(f);
+        return kind + ' ' + codeMatch(f); // max 15 caractères (ex: "gagnant wb1-001")
       };
       const lbl1 = m.joueur1 ? m.joueur1.pseudo : srcOf(1);
       const lbl2 = m.joueur2 ? m.joueur2.pseudo : srcOf(2);

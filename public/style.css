@@ -104,7 +104,7 @@ label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 5px
 .match-card .joueurs .p2 { text-align: right; }
 .match-card .joueurs .score { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 18px; color: var(--pink-soft); text-align: center; }
 .match-card .joueurs .p.gagnant { color: var(--green); }
-.match-card .joueurs .p.attente-j { color: var(--muted); font-style: italic; font-weight: 400; }
+.match-card .joueurs .p.attente-j { color: var(--muted); font-style: italic; font-weight: 400; font-size: 13px; }
 .match-card.done { border-color: rgba(46, 230, 168, 0.55); }
 .match-card.live { border-color: var(--red); box-shadow: 0 0 0 2px rgba(229, 72, 77, 0.45), 0 0 14px rgba(229, 72, 77, 0.3); }
 .match-card .meta { margin-top: 8px; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
