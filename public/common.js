@@ -183,14 +183,16 @@ function renderBracket(container, t, opts = {}) {
     (byKey[k] = byKey[k] || []).push(m);
   }
   for (const k in byKey) byKey[k].sort((a, b) => a.position - b.position);
+  const singleTab = bracketTab !== 'tout';
   // Loser bracket en miroir : le tour 1 est collé au WB (lecture du LB de droite à gauche)
-  const ordered = [
+  let ordered = [
     ...rounds.filter(r => r.bracket === 'LB').reverse(),
     ...rounds.filter(r => r.bracket === 'WB'),
     ...rounds.filter(r => r.bracket === 'F'),
   ];
+  if (singleTab) ordered = rounds.filter(r => r.bracket === bracketTab); // onglet seul : tours dans l'ordre naturel
   let groups = ordered.map(r => ({ round: r, matchs: byKey[r.bracket + r.tour] || [] })).filter(g => g.matchs.length > 0);
-  if (bracketTab !== 'tout') groups = groups.filter(g => g.round.bracket === bracketTab);
+  if (singleTab) groups = groups.filter(g => g.round.bracket === bracketTab);
 
   const hasLB = rounds.some(r => r.bracket === 'LB');
   const tabs = [['tout', 'Tout'], ['WB', 'WB'], ...(hasLB ? [['LB', 'LB']] : []), ['F', 'Finale']];
@@ -209,10 +211,10 @@ function renderBracket(container, t, opts = {}) {
   const NODE_H = 84; // hauteur d'un nœud de match (carte resserrée)
   const GAP = 10;
   const SLOT_H = NODE_H + GAP; // 118 : hauteur d'un slot de base
-  // Le WB tour 1 (au centre) est la référence resserrée (level 0) ; l'escalier s'ouvre
-  // vers la droite (WB2, WB3...) et vers la gauche en miroir (LB1, LB2...).
-  // le tableau final a son propre escalier compact (sinon espacement 2^k entre matchs de F1)
-  const levelOf = (r) => r.bracket === 'WB' ? r.tour - 1
+  // Onglet "tout" : escalier global (WB resserré au centre, LB en miroir, F compact).
+  // Onglet seul (WB/LB/F) : escalier compact par bracket, tours dans l'ordre naturel.
+  const levelOf = (r) => singleTab ? r.tour - 1
+    : r.bracket === 'WB' ? r.tour - 1
     : r.bracket === 'LB' ? r.tour
     : r.tour - 1;
   for (const g of groups) {
