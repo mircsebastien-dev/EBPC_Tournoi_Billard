@@ -62,7 +62,7 @@ async function init() {
       el('p', { class: 'muted' }, 'Connecté'),
       el('div', { class: 'row', style: 'justify-content:center' },
         joueur_id ? el('a', { href: '/joueur.html?id=' + joueur_id }, el('button', { class: 'secondary' }, 'Ma fiche joueur')) : null,
-        el('button', { class: 'danger', onclick: deconnexion }, 'Se déconnecter'))));
+        el('button', { class: 'danger', onclick: () => { if (confirm('Se déconnecter ?')) deconnexion(); } }, 'Se déconnecter'))));
     
     // panneau email
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
