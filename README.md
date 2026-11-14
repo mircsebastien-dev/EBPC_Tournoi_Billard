@@ -24,6 +24,12 @@ Design **« Eight Ball Pink City »** : thème sombre noir profond avec accents 
 - **Tirage aléatoire** ou avec **têtes de série**
 - **Saisie live** des manches par les 2 joueurs (écran dédié par match), validation serveur (race to N)
 - **Table de marque** (code PIN) : lancer les matchs, assigner une **table libre automatiquement** ou manuellement, corriger les scores, déclarer un forfait — chaque action est journalisée (audit)
+- **Rollback point-in-time** : chaque action admin prend un **snapshot** du tournoi actif (table `audit_snapshot`, 200 max par tournoi, purge auto > 90 j) → dans le **journal d'audit**, « ⏪ Restaurer à ce point » restaure le tournoi actif à l'état exact de l'événement (transaction atomique, fonctionne même avec des matchs en cours : scores remis à 0, tables libérées)
+- **Confirmation par code re-saisi** (`confirm_pin`) obligatoire pour **toute action admin destructive** (suppression tournoi / compte / événement de match, vidage du journal, rollback) via une modale à mot de passe masqué — seule la désinscription d'un joueur en est exempte
+- **Notif push « 🎱 Nouveau tournoi — inscriptions ouvertes »** envoyée à tous les abonnés à la création d'un tournoi (switch sur le formulaire de création, **actif par défaut**)
+- **Slots explicites** dans les tableaux : tant que les joueurs d'un match ne sont pas connus, les cartes affichent « gagnant wb1-001 » / « perdant lb2-003 » / « blanc » (une ligne par slot)
+- **Byes exclus du classement** : un match contre blanc ne compte ni gagné ni perdu dans les stats
+- **Email masqué** sur la page compte du joueur
 - **Spectateurs** : accueil public + **page TV** (`/tv.html`) rafraîchie en temps réel (SSE), castable sur TV
 - Un seul tournoi actif à la fois
 
@@ -46,6 +52,9 @@ Variables d'environnement :
 | `PORT` | `3000` | Port d'écoute |
 | `ADMIN_PIN` | `0000` | Code PIN de la table de marque (**à changer en production**) |
 | `DB_PATH` | `./tournoi.db` | Chemin du fichier SQLite |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | générées à la volée en dev | Clés web-push (**secrets en prod**, sinon les notifs ne marchent pas d'un déploiement à l'autre) |
+| `VAPID_SUBJECT` | `mailto:admin@…` | Sujet VAPID (contact) |
+| `RESEND_API_KEY` / `MAIL_FROM` | — | Envoi des emails (réinit mot de passe) ; en dev le lien est juste loggé |
 
 Pages :
 
@@ -59,7 +68,26 @@ Pages :
 | `/historique.html` | Liste des tournois terminés (consultation + suppression admin) |
 | `/tournoi.html?id=<id>` | Détail d'un tournoi archivé (tableau, stats, classement) |
 | `/stats.html` | Statistiques joueurs all-time (tous tournois) |
+| `/joueur.html?id=<id>` | Fiche joueur (stats + historique de ses matchs) |
+| `/aide.html` | Aide joueur (inscription, push, saisie des scores…) |
+| `/compte.html` | Compte joueur (email masqué, amis, notifs, export RGPD) |
+| `/confidentialite.html` | Confidentialité / RGPD |
 | `/admin.html` | Table de marque (PIN requis) + gestion de l'historique |
+| `/admin-tournoi.html` | Création/config du tournoi, inscriptions, tirage, tables, distances |
+| `/admin-journal.html` | Journal d'audit (500 entrées) + **rollback point-in-time** |
+| `/admin-comptes.html` / `/admin-data.html` / `/admin-historique.html` | Comptes, données (matchs/joueurs/events), historique |
+| `/admin-aide.html` | Guide admin in-app |
+
+## Tests
+
+```bash
+PORT=4100 DB_PATH=/tmp/t.db ADMIN_PIN=0000 node src/server.js &   # serveur frais
+BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js    # 120 checks → test/rapport.md
+BASE=http://127.0.0.1:4100 node test/e2e.js                        # structure DKO, SSE…
+BASE=http://127.0.0.1:4100 node test/fullrun.js                    # simulations complètes 16/32 joueurs
+node test/push-unit.js                                             # push (web-push mocké), sans serveur
+node test/purge-unit.js                                            # purge audit/snapshots > 90 j au boot, sans serveur
+```
 
 ## Déploiement sur un VPS (recommandé, ~5 €/mois)
 
@@ -143,17 +171,19 @@ Dans tous les cas : `PORT` est fourni automatiquement par la plateforme, ne le f
 ## Architecture
 
 ```
-public/          pages (accueil, TV, suivi, match, admin) + common.js
+public/          pages (accueil, TV, tableau, suivi, match, admin, aide) + common.js
 src/
-  db.js          schéma SQLite + audit
+  db.js          schéma SQLite + audit_log + audit_snapshot (purge > 90 j au boot)
   bracket.js     génération des tableaux (simple / double KO partiel / final)
   matchs.js      logique métier : manches, byes, propagation, forfaits, corrections
-  server.js      API REST + SSE + PIN admin
+  comptes.js     auth, sessions, amis, RGPD
+  push.js        VAPID + web-push (à toi de jouer, ami, inscriptions ouvertes)
+  server.js      API REST + SSE + PIN admin (+ confirm_pin sur actions destructives + rollback)
 ```
 
 - Le score d'un match est dérivé de la table `match_event` (événements immuables) : chaque manche déclarée est un événement, les corrections admin aussi.
 - Temps réel : **SSE** (`GET /api/events`), un seul flux pour tous les clients.
-- Sécurité : PIN admin en header `X-Admin-Pin` (hash SHA-256 côté serveur) ; joueurs et spectateurs sans authentification, saisie validée serveur (joueur bien dans le match, match en cours, race to N).
+- Sécurité : PIN admin en header `X-Admin-Pin` (hash SHA-256 côté serveur) + **re-saisie du code (`confirm_pin`) pour toute action destructive** ; joueurs et spectateurs sans authentification, saisie validée serveur (joueur bien dans le match, match en cours, race to N).
 
 ## Licence
 

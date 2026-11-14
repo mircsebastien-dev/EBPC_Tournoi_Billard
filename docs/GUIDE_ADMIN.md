@@ -6,8 +6,9 @@ Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly). Toutes l
 
 ## 1. Créer le tournoi (`/admin-tournoi.html`)
 
-- Nom, règle (Blackball), taille (16/32/64), format : **élimination directe** ou **double KO** (préciser le nombre de tours DKO), nombre de tables, date/heure, lieu, têtes de série
+- Nom, règle (blackball/ultimate), taille (16/32/64/128), format : **élimination directe** ou **double KO** (préciser le nombre de tours DKO), nombre de tables, date/heure, lieu, têtes de série
 - **Ajustement auto** : la taille se réduit automatiquement au nombre de joueurs payés (puissance de 2)
+- Switch **🔔 Notif push « inscriptions ouvertes »** (coché par défaut) : à la création, tous les comptes abonnés reçoivent une notif push « 🎱 Nouveau tournoi — inscriptions ouvertes »
 - Un seul tournoi actif à la fois
 - ⚠️ **Tables réservées** : vide par défaut (aucune réservation). Remplir ex. `1,2` pour réserver des tables à partir des quarts
 - Une fois créé (statut `inscription`) : la **TV affiche un grand QR code centré** pour que les joueurs s'inscrivent depuis leur téléphone
@@ -66,9 +67,18 @@ Points = **profondeur atteinte** (WB: n° de tour; en DKO, F tour t = k+tour), *
 - Recherche pseudo/email (Entrée), actions : ✏️ pseudo, 🔑 mdp, 🗑 supprimer (détache les joueurs — l'historique des matchs est conservé — supprime sessions/push, logué audit)
 - **Purge auto** : comptes sans connexion depuis **18 mois** supprimés au boot + toutes les heures
 
-## 8. Journal d'audit (`/admin-journal.html`)
+## 8. Journal d'audit + rollback point-in-time (`/admin-journal.html`)
 
-Toutes les actions admin (créations, lancements, changements joueurs/table, rouvrir, forfaits, suppressions de comptes, swaps anti-rematch…) — 200 dernières entrées.
+Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11 vs P07 (table 3) » —, changements joueurs/table, rouvrir, forfaits, suppressions, swaps anti-rematch…) — **500 dernières entrées**.
+
+- Chaque entrée a un **snapshot** du tournoi actif (`has_snapshot`) : table `audit_snapshot`, **200 snapshots max par tournoi**, **purge auto > 90 jours** au boot
+- Bouton **⏪ Restaurer à ce point** (1re colonne) : restaure le tournoi actif à l'état exact de l'événement via `POST /api/admin/tournoi/rollback {audit_id}` — **transaction atomique** (tout ou rien, FK différées), fonctionne **même avec des matchs en cours** (scores remis à 0, tables libérées, événements supprimés), 409 si le snapshot concerne un autre tournoi, 404 si pas de snapshot. Le rollback est lui-même logué. La page se re-rend en place (zoom/scroll conservés)
+
+### 🔐 Confirmation par code re-saisi (actions destructives)
+
+Toute action admin qui **supprime des données** exige le **code PIN re-saisi** dans le body (`confirm_pin`, 401 sinon), via une **modale à mot de passe masqué** — pas seulement la session déjà ouverte :
+- `DELETE /api/admin/tournoi` (tournoi actif), `DELETE /api/admin/tournoi/:id`, `DELETE /api/admin/compte/:id`, `DELETE /api/admin/match/:id/event/:id`, `DELETE /api/admin/audit` (vidage), `POST /api/admin/tournoi/rollback`
+- **Seule exception** : `DELETE /api/admin/joueur/:id` (désinscription d'un joueur) ne demande pas le code
 
 ## 9. Outils divers
 
@@ -80,7 +90,12 @@ Toutes les actions admin (créations, lancements, changements joueurs/table, rou
 ## 10. Tests & déploiement
 
 ```bash
-BASE=http://127.0.0.1:PORT node test/batterie.js   # 63 checks → test/rapport.md
+# serveur frais sur DB temporaire, puis:
+BASE=http://127.0.0.1:PORT node test/batterie.js   # 120 checks → test/rapport.md (rollback, confirm_pin, slots, byes…)
+BASE=http://127.0.0.1:PORT node test/e2e.js         # structure DKO, distances LB, SSE
+BASE=http://127.0.0.1:PORT node test/fullrun.js     # simulations complètes (16/32 joueurs, simple + DKO)
+node test/push-unit.js                              # push « inscriptions ouvertes » (web-push mocké) + cleanup 410/404
+node test/purge-unit.js                             # purge auto audit_log/audit_snapshot > 90 j au boot
 ```
 
 Fly.io : secrets `ADMIN_PIN`, `RESEND_API_KEY`, `MAIL_FROM`, `VAPID_*` (ne JAMAIS définir `BASE_URL`) ; volume `tournoi_data` sur `/data` ; snapshots dans Volumes → Snapshots pour restaurer.

@@ -16,11 +16,11 @@ document.getElementById("nav").append(nav("admin"));
 const main = document.getElementById("main");
 main.append(el("div", { class: "panel" },
   el("h2", {}, "1. Créer le tournoi"),
-  el("p", {}, "/admin-tournoi.html → nom, règle, taille (16/32/64), format (élim. directe / double KO + nb tours), nb tables, date. Ajustement auto à la taille des payés. Tables réservées: vide par défaut. En phase inscription, la TV montre un grand QR centré pour s'inscrire."),
+  el("p", {}, "/admin-tournoi.html → nom, règle, taille (16/32/64/128), format (élim. directe / double KO + nb tours), nb tables, date. Ajustement auto à la taille des payés. Tables réservées: vide par défaut. En phase inscription, la TV montre un grand QR centré pour s'inscrire. Switch 🔔 « Notif push « inscriptions ouvertes » (coché par défaut) : à la création, un push « 🎱 Nouveau tournoi — inscriptions ouvertes » est envoyé à tous les comptes abonnés."),
   el("h2", {}, "2. Inscriptions"),
   el("p", {}, "Ajouter / simuler / payer / supprimer. Seuls les payés sont tirés. Un invité qui crée un compte avec le même pseudo est rattaché auto (reçoit les pushs). Pseudo/mdp oublié → /admin-comptes.html (✏️ pseudo, 🔑 mdp)."),
   el("h2", {}, "3. Tirage"),
-  el("p", {}, "Bouton Tirage: appariements aléatoires crypto, byes répartis. ⚠️ Fige le bracket: plus de retour en arrière."),
+  el("p", {}, "Bouton Tirage: appariements aléatoires crypto, byes répartis. ⚠️ Fige le bracket (retour en arrière possible uniquement par rollback point-in-time via le journal d'audit, voir §7)."),
   el("h2", {}, "4. Lancer les matchs"),
   el("p", {}, "Mode auto ON = départ auto sur table libre (ordre personnalisable). Manuel: clic sur une card (PIN) → modale. Tirage à la bande ⚪ sur la card, puis alternance à chaque manche. Joueurs: seul le ⚪ fait « casse ferme », l'autre « reprise ferme » (grisé + 403). Dernier point = confirmation obligatoire."),
   el("h2", {}, "5. Interventions en cours (clic card avec PIN → modale ⚙️)"),
@@ -36,9 +36,9 @@ main.append(el("div", { class: "panel" },
   el("h2", {}, "6. Clôturer"),
   el("p", {}, "« Terminer maintenant » = coupe net, aucun champion auto (sauf choix explicite dans le select). Fin normale = champion auto via la finale. Historique ensuite en liste + recherche/surbrillance joueur."),
   el("h2", {}, "7. Comptes & audit"),
-  el("p", {}, "/admin-comptes.html: liste (dernière connexion, inscri., matchs, sessions), ✏️ pseudo, 🔑 mdp, 🗑 supprimer (historique matchs conservé). Purge auto des comptes inactifs > 18 mois. /admin-journal.html: toutes les actions admin."),
+  el("p", {}, "/admin-comptes.html: liste (dernière connexion, inscri., matchs, sessions), ✏️ pseudo, 🔑 mdp, 🗑 supprimer (historique matchs conservé). Purge auto des comptes inactifs > 18 mois. /admin-journal.html: 500 dernières actions admin, lancements lisibles (« wb1-001 — P11 vs P07 (table 3) »). Chaque entrée snapshotée a un bouton ⏪ « Restaurer à ce point » : rollback point-in-time du tournoi actif (transaction atomique, fonctionne même avec un match en cours → remis à 0-0, table libérée ; 409 si autre tournoi, 404 sans snapshot ; logué lui-même). 🔐 Toute action destructive (suppression tournoi/compte/event, vidage du journal, rollback) exige le code PIN re-saisi (modale masquée, `confirm_pin`) — sauf la désinscription d'un joueur."),
   el("h2", {}, "8. Tests & déploiement"),
-  el("p", {}, "Batterie: BASE=http://127.0.0.1:PORT node test/batterie.js (63 checks). Fly: secrets ADMIN_PIN, RESEND_API_KEY, MAIL_FROM, VAPID_* (jamais BASE_URL); volume tournoi_data sur /data; snapshots dans Volumes."),
+  el("p", {}, "Batterie: BASE=http://127.0.0.1:PORT node test/batterie.js (120 checks → test/rapport.md) + test/e2e.js + test/fullrun.js ; sans serveur : node test/push-unit.js (push mocké), node test/purge-unit.js (purge > 90 j). Fly: secrets ADMIN_PIN, RESEND_API_KEY, MAIL_FROM, VAPID_* (jamais BASE_URL); volume tournoi_data sur /data; snapshots dans Volumes."),
   el("p", { class: "muted small", style: "margin-top:16px" }, "Version complète: docs/GUIDE_ADMIN.md dans le dépôt GitHub.")));
 </script>
 </body>
