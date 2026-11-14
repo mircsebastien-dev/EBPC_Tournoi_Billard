@@ -200,6 +200,10 @@ async function nouveauTournoi(body) {
   // terminer le match par forfait de J2
   r = await post(`/api/admin/match/${m0.id}/forfait`, { joueur_id: j2 });
   check('forfait J2 -> match terminé, gagnant J1', r.status === 200 && r.data.match.etat === 'forfait' && r.data.match.gagnant_id === j1, JSON.stringify(r.data.match && r.data.match.etat));
+  r = await post(`/api/admin/match/${m0.id}/forfait`, { joueur_id: 9999 });
+  check('forfait joueur hors match -> 400 (pas de 500 FK)', r.status === 400, r.status + ' ' + JSON.stringify(r.data.error));
+  r = await post(`/api/admin/match/${m0.id}/forfait`, {});
+  check('forfait sans joueur_id -> 400', r.status === 400, r.status);
   // stats runout
   r = await api(`/api/joueur/${j2}/stats`, { pin: null });
   check('stats J2: runouts=1, reprise=1, casse=0', r.data.runouts === 1 && r.data.reprise === 1 && r.data.casse === 0, JSON.stringify({ runouts: r.data.runouts, casse: r.data.casse, reprise: r.data.reprise }));
@@ -226,6 +230,14 @@ async function nouveauTournoi(body) {
   t = (await api('/api/etat')).data.actif;
   const t2 = t.matchs.filter(m => m.bracket === 'WB' && m.tour === 2 && m.etat === 'en_cours').map(m => m.table).sort();
   check('tour 2 lancé sur T3,T4,T5,T6 (ordre pref 3,4,5,6...)', JSON.stringify(t2) === '[3,4,5,6]', JSON.stringify(t2));
+  // régression "req is not defined": finir un match du tour 2 déclenche un auto-lancement (tour 3) logué dans majEtBroadcast -> la requête doit rester 200
+  const mT2 = t.matchs.find(m => m.bracket === 'WB' && m.tour === 2 && m.etat === 'en_cours');
+  await api(`/api/match/${mT2.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: mT2.joueur1.id } });
+  let lastSt = null;
+  for (let i = 0; i < mT2.manches; i++) { const rr = await api(`/api/match/${mT2.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: mT2.joueur1.id } }); lastSt = rr.status; }
+  check('manche provoquant un auto-lancement -> 200 (régression req is not defined)', lastSt === 200, 'dernier status=' + lastSt);
+  r = await api('/api/admin/audit?q=auto_lancement');
+  check('auto_lancement bien logué (avec club_id)', r.data.audit.length > 0 && r.data.audit.every(a => a.club_id != null), 'nb=' + r.data.audit.length);
   r = await post('/api/admin/auto', { on: false });
   r = await api('/api/etat');
   check('auto OFF persistant', r.data.auto === false, r.data.auto);

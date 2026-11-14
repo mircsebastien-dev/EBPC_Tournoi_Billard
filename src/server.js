@@ -441,7 +441,7 @@ function majEtBroadcast() {
       const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
       const lances = M.autoLancer(t.id);
       notifierAutoLances(t.id, avant);
-      if (lances > 0) logAuditReq(req, 'auto_lancement', `tournoi ${t.id}`, null, { lances, matchs: codesLances(t.id, avant) }, c.id);
+      if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances, matchs: codesLances(t.id, avant) }, c.id); // pas de req ici: logAudit direct avec le club
     }
   }
   broadcast('update', { changed: true, at: Date.now() }); // payload léger: le client re-fetch /api/etat
@@ -823,8 +823,14 @@ app.post('/api/admin/match/:id/rouvrir', requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/match/:id/forfait', requireAdmin, (req, res) => {
-  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
-  const m = M.declarerForfait(Number(req.params.id), Number(req.body.joueur_id));
+  const mid = Number(req.params.id);
+  const m0 = matchDuClub(req, mid);
+  if (!m0) return res.status(404).json({ error: "Match introuvable" }); // isolation club
+  const jid = Number(req.body.joueur_id);
+  if (!jid || (m0.joueur1_id !== jid && m0.joueur2_id !== jid)) {
+    return res.status(400).json({ error: 'joueur_id requis (doit être l\'un des 2 joueurs du match)' });
+  }
+  const m = M.declarerForfait(mid, jid);
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });
