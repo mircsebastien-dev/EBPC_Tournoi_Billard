@@ -15,6 +15,10 @@ const adminCompteP = api('/api/compte/moi').then(() => {
   adminCompte = (typeof compteCourant !== 'undefined' && compteCourant && compteCourant.role === 'admin') ? compteCourant : null;
 }).catch(() => { adminCompte = null; });
 
+function estSessionAdmin() {
+  return !!(adminCompte || (typeof compteCourant !== 'undefined' && compteCourant && compteCourant.role === 'admin'));
+}
+
 function verrouillerAdmin() {
   adminPin = '';
   localStorage.removeItem('ebpc_admin_pin');
@@ -37,6 +41,7 @@ async function adminApi(path, opts = {}) {
 async function adminInit(onUpdate) {
   await adminCompteP;
   adminState = await api('/api/etat');
+  if (!adminCompte && estSessionAdmin()) adminCompte = compteCourant; // /api/etat renvoie aussi le rôle
   if (!adminPin && !adminCompte) return false;
   connecterSSE((s) => { adminState = s; if (onUpdate) onUpdate(s); });
   return true;
@@ -88,7 +93,7 @@ function demanderPin(label) {
 }
 async function adminApiDestructif(path, opts, label) {
   const body = opts && opts.body ? JSON.parse(opts.body) : {};
-  if (!adminCompte) { // session d'un compte admin = déjà authentifié : pas de re-saisie du PIN
+  if (!estSessionAdmin()) { // session d'un compte admin = déjà authentifié : pas de re-saisie du PIN
     const pin = await demanderPin(label || 'cette suppression');
     if (!pin) throw new Error('Annulé : code non saisi');
     body.confirm_pin = pin;
@@ -98,7 +103,7 @@ async function adminApiDestructif(path, opts, label) {
 
 function adminNav(active) {
   const n = nav(active === 'admin-home' ? 'admin' : active);
-  if (adminCompte) n.append(el('span', { class: 'chip', style: 'margin-left:8px' }, '👤 ' + adminCompte.pseudo + ' (admin)'));
+  if (estSessionAdmin()) n.append(el('span', { class: 'chip', style: 'margin-left:8px' }, '👤 ' + (adminCompte || compteCourant).pseudo + ' (admin)'));
   // verrouillage manuel de la table de marque (efface le PIN mémorisé)
   n.append(el('button', {
     class: 'secondary', type: 'button', style: 'padding:4px 10px;font-size:12px;margin-left:8px',

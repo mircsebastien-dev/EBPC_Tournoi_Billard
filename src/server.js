@@ -308,7 +308,7 @@ function etatGlobal(req) {
     table_pref: getSetting('table_pref') || '',
     tables_reservees: getSetting('tables_reservees') || '',
     reservees_tour: getSetting('reservees_tour') || '',
-    compte: req && req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo } : null,
+    compte: req && req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo, role: req.compte.role || 'user' } : null,
   };
 }
 
@@ -316,7 +316,7 @@ app.get('/api/etat', (req, res) => {
   const tournoiId = req.query.tournoi_id ? Number(req.query.tournoi_id) : null;
   if (tournoiId) {
     const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(tournoiId);
-    return res.json({ tournoi: vueTournoiComplet(t), historique: vueTournoiListe().filter(x => x.statut === 'termine'), compte: req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo } : null });
+    return res.json({ tournoi: vueTournoiComplet(t), historique: vueTournoiListe().filter(x => x.statut === 'termine'), compte: req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo, role: req.compte.role || 'user' } : null });
   }
   res.json(etatGlobal(req));
 });
