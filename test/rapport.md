@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-14T15:14:11.573Z
-- Base : http://127.0.0.1:4101
-- Résultat : **120 OK / 0 ÉCHEC** (2.7s)
+- Date : 2026-11-14T15:39:22.724Z
+- Base : http://127.0.0.1:4112
+- Résultat : **125 OK / 0 ÉCHEC** (6.0s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -125,6 +125,14 @@
 | ✅ | DELETE tournoi avec bon code -> 200 |  |
 | ✅ | désinscription joueur SANS confirm_pin -> 200 (exempté) |  |
 
+## 12. Anti brute-force PIN admin (429 après N échecs, lockout même pour le bon code, déblocage après délai)
+
+| ✅ | après plusieurs mauvais PIN -> 429 |  |
+| ✅ | message 429 avec délai restant |  |
+| ✅ | pendant le lockout, même le bon PIN -> 429 |  |
+| ✅ | après le délai, le bon PIN repasse -> 200 |  |
+| ✅ | nouvel échec après déblocage -> 401 (compteur remis à zéro par le succès) |  |
+
 ## Amis, admin-data, règles, points, clôture
 
 | ✅ | création Batterie2 |  |
@@ -180,3 +188,4 @@
 - Admin-data (PUT joueur 200/409, delete event + recalc, 401 sans PIN)
 - Points au classement (présents, gagnant >= 1) + clôture coupe net (champion null)
 - Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué, rollback avec match en cours -> pret 0-0 + table libérée) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit
+- Anti brute-force PIN admin (section 12, si TEST_BRUTEFORCE=1: 429 après N échecs par IP, lockout même pour le bon code, déblocage après délai, compteur remis à zéro au succès)

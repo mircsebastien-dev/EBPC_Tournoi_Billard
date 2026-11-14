@@ -55,6 +55,9 @@ Variables d'environnement :
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | générées à la volée en dev | Clés web-push (**secrets en prod**, sinon les notifs ne marchent pas d'un déploiement à l'autre) |
 | `VAPID_SUBJECT` | `mailto:admin@…` | Sujet VAPID (contact) |
 | `RESEND_API_KEY` / `MAIL_FROM` | — | Envoi des emails (réinit mot de passe) ; en dev le lien est juste loggé |
+| `PIN_MAX_ESSAIS` | `10` | Anti brute-force : nb max d'échecs PIN admin par IP dans la fenêtre avant lockout |
+| `PIN_FENETRE_MS` | `600000` (10 min) | Fenêtre glissante de comptage des échecs PIN |
+| `PIN_BLOCAGE_MS` | `600000` (10 min) | Durée du lockout (même le bon code est refusé, HTTP 429) |
 
 Pages :
 
@@ -183,7 +186,8 @@ src/
 
 - Le score d'un match est dérivé de la table `match_event` (événements immuables) : chaque manche déclarée est un événement, les corrections admin aussi.
 - Temps réel : **SSE** (`GET /api/events`), un seul flux pour tous les clients.
-- Sécurité : PIN admin en header `X-Admin-Pin` (hash SHA-256 côté serveur) + **re-saisie du code (`confirm_pin`) pour toute action destructive** ; joueurs et spectateurs sans authentification, saisie validée serveur (joueur bien dans le match, match en cours, race to N).
+- Sécurité : PIN admin en header `X-Admin-Pin` (hash SHA-256 côté serveur) + **re-saisie du code (`confirm_pin`) pour toute action destructive** + **anti brute-force** (après `PIN_MAX_ESSAIS` échecs par IP → lockout `PIN_BLOCAGE_MS`, HTTP 429 même pour le bon code ; compteur remis à zéro en cas de succès) ; joueurs et spectateurs sans authentification, saisie validée serveur (joueur bien dans le match, match en cours, race to N).
+- Feuille de route produit (idées multi-club, poules, ELO…) : `docs/ROADMAP.md`
 
 ## Licence
 

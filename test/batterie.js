@@ -367,6 +367,29 @@ async function nouveauTournoi(body) {
   check('désinscription joueur SANS confirm_pin -> 200 (exempté)', r.status === 200, r.status);
   await del('/api/admin/tournoi').catch(() => {});
 
+  // ---------- 12. Anti brute-force PIN admin (uniquement si TEST_BRUTEFORCE=1 ; lancer le serveur avec
+  // PIN_MAX_ESSAIS / PIN_FENETRE_MS / PIN_BLOCAGE_MS petits, ex. PIN_MAX_ESSAIS=4 PIN_FENETRE_MS=1500 PIN_BLOCAGE_MS=2000) ----------
+  if (process.env.TEST_BRUTEFORCE === '1') {
+    sec('12. Anti brute-force PIN admin (429 après N échecs, lockout même pour le bon code, déblocage après délai)');
+    const maxEssais = Number(process.env.PIN_MAX_ESSAIS || 10);
+    const blocageMs = Number(process.env.PIN_BLOCAGE_MS || 600000);
+    let got429 = null, tries = 0;
+    while (tries < maxEssais + 5 && !got429) {
+      tries++;
+      const rr = await api('/api/admin/audit', { pin: 'faux-' + Date.now() + '-' + tries });
+      if (rr.status === 429) got429 = rr;
+    }
+    check('après plusieurs mauvais PIN -> 429', !!got429, `tries=${tries}`);
+    check('message 429 avec délai restant', !!got429 && /réessaie|s/i.test(got429.data.error || ''), got429 && got429.data.error);
+    r = await api('/api/admin/audit', { pin: PIN });
+    check('pendant le lockout, même le bon PIN -> 429', r.status === 429, r.status);
+    await new Promise(res => setTimeout(res, blocageMs + 1200));
+    r = await api('/api/admin/audit', { pin: PIN });
+    check('après le délai, le bon PIN repasse -> 200', r.status === 200, r.status);
+    r = await api('/api/admin/audit', { pin: 'faux-apres-' + Date.now() });
+    check('nouvel échec après déblocage -> 401 (compteur remis à zéro par le succès)', r.status === 401, r.status);
+  }
+
   // ---------- rapport ----------
 
 
@@ -497,6 +520,7 @@ async function nouveauTournoi(body) {
   md += `- Admin-data (PUT joueur 200/409, delete event + recalc, 401 sans PIN)\n`;
   md += `- Points au classement (présents, gagnant >= 1) + clôture coupe net (champion null)\n`;
   md += `- Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué, rollback avec match en cours -> pret 0-0 + table libérée) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit\n`;
+  md += `- Anti brute-force PIN admin (section 12, si TEST_BRUTEFORCE=1: 429 après N échecs par IP, lockout même pour le bon code, déblocage après délai, compteur remis à zéro au succès)\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);

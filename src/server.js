@@ -35,22 +35,59 @@ function broadcast(event, data) {
   }
 }
 
+// ---------- anti brute-force sur le code PIN admin ----------
+// fenêtre glissante d'échecs par IP + lockout temporaire (même le bon code est refusé pendant le lockout)
+const pinAttempts = new Map(); // ip -> { echecs: number[], bloqueJusqua: number }
+const PIN_MAX_ESSAIS = Number(process.env.PIN_MAX_ESSAIS || 10);
+const PIN_FENETRE_MS = Number(process.env.PIN_FENETRE_MS || 10 * 60 * 1000);
+const PIN_BLOCAGE_MS = Number(process.env.PIN_BLOCAGE_MS || 10 * 60 * 1000);
+function ipClient(req) {
+  const xf = req.headers['x-forwarded-for'];
+  return (xf ? String(xf).split(',')[0].trim() : '') || req.ip || 'local';
+}
+function pinBloque(ip) {
+  const now = Date.now();
+  const e = pinAttempts.get(ip);
+  if (!e) return null;
+  if (e.bloqueJusqua > now) return `Trop de tentatives de code admin, réessaie dans ${Math.ceil((e.bloqueJusqua - now) / 1000)}s`;
+  return null;
+}
+function pinEchec(ip) {
+  const now = Date.now();
+  const e = pinAttempts.get(ip) || { echecs: [], bloqueJusqua: 0 };
+  e.echecs = e.echecs.filter(t => now - t < PIN_FENETRE_MS);
+  e.echecs.push(now);
+  if (e.echecs.length >= PIN_MAX_ESSAIS) {
+    e.bloqueJusqua = now + PIN_BLOCAGE_MS;
+    console.warn(`[SECU] lockout PIN admin pour ${ip} (${PIN_MAX_ESSAIS} échecs) pendant ${PIN_BLOCAGE_MS / 1000}s`);
+  }
+  if (pinAttempts.size > 10000) pinAttempts.clear(); // garde-fou mémoire
+  pinAttempts.set(ip, e);
+}
+function verifierPinAdmin(req, pin) {
+  const ip = ipClient(req);
+  const bloque = pinBloque(ip);
+  if (bloque) return { bloque: true, message: bloque };
+  const hash = crypto.createHash('sha256').update(String(pin || '')).digest('hex');
+  if (hash !== getSetting('admin_pin_hash')) { pinEchec(ip); return { ok: false }; }
+  pinAttempts.delete(ip); // succès -> compteur remis à zéro
+  return { ok: true };
+}
+
 function requireAdmin(req, res, next) {
   const pin = req.headers['x-admin-pin'] || req.query.pin || (req.body && req.body.pin);
-  const hash = crypto.createHash('sha256').update(String(pin || '')).digest('hex');
-  if (hash !== getSetting('admin_pin_hash')) {
-    return res.status(401).json({ error: 'PIN administrateur invalide' });
-  }
+  const r = verifierPinAdmin(req, pin);
+  if (r.bloque) return res.status(429).json({ error: r.message });
+  if (!r.ok) return res.status(401).json({ error: 'PIN administrateur invalide' });
   next();
 }
 
 // geste admin destructif : exige le code re-saisi dans le body (confirm_pin), pas juste la session
 function requireConfirmPin(req, res, next) {
   const pin = req.body && req.body.confirm_pin;
-  const hash = crypto.createHash('sha256').update(String(pin || '')).digest('hex');
-  if (hash !== getSetting('admin_pin_hash')) {
-    return res.status(401).json({ error: 'Code administrateur requis pour confirmer cette suppression' });
-  }
+  const r = verifierPinAdmin(req, pin);
+  if (r.bloque) return res.status(429).json({ error: r.message });
+  if (!r.ok) return res.status(401).json({ error: 'Code administrateur requis pour confirmer cette suppression' });
   next();
 }
 

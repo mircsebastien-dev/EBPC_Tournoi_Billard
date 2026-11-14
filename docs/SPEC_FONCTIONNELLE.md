@@ -119,7 +119,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - SQLite WAL + busy_timeout 5 s ; SSE broadcast léger `{changed}` + re-fetch client
 - Boutons radius 1 px uniformes ; thème sombre « charbon + rose profond #d6336c »
 
-- PIN admin vérifié serveur sur toutes les routes `/api/admin/*` (401)
+- PIN admin vérifié serveur sur toutes les routes `/api/admin/*` (401) + **anti brute-force** : `PIN_MAX_ESSAIS` (10) échecs max par IP (via `x-forwarded-for` puis `req.ip`) dans `PIN_FENETRE_MS` (10 min) → lockout `PIN_BLOCAGE_MS` (10 min) avec **429 même pour le bon code** ; succès = compteur remis à zéro. S'applique à `X-Admin-Pin` (header/query/body) **et** à `confirm_pin`. Test : section 12 de la batterie, active si `TEST_BRUTEFORCE=1` (serveur lancé avec les 3 variables petites)
 - mdp scrypt+salt ; sessions cookie HttpOnly/SameSite/Secure, token hashé ; réinit 1 h hashée ; rate-limit inscription/connexion/oubli
 - Saisie match réservée aux 2 joueurs (403), blocage sans bande (409), règles ⚪ (403)
 - Pas de cookie tiers/tracking ; emails masqués côté admin ; `Cache-Control: no-store` sur html/js/css
@@ -136,8 +136,9 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
   - `BASE=http://127.0.0.1:PORT node test/batterie.js` → **120 checks** (`test/rapport.md`) : sécurité PIN + confirm_pin, tournois, comptes, matchs, DKO, amis, règles, **rollback point-in-time (401/404/200, état restauré, match en cours → pret 0-0 + table libérée)**, slots API, byes exclus du classement, lancements lisibles
   - `BASE=… node test/e2e.js` (structure DKO 32 k=2/k=3, distances LB race-to-2, SSE) · `BASE=… node test/fullrun.js` (simulations complètes 16/32 joueurs simple + DKO)
   - `node test/push-unit.js` (push `envoyerTous` avec web-push mocké via `require.cache` : payload « inscriptions ouvertes », cleanup 410/404, 500 conservé) · `node test/purge-unit.js` (purge au boot `audit_log`/`audit_snapshot` > 90 j, test en 2 processus)
+  - anti brute-force PIN : `TEST_BRUTEFORCE=1 PIN_MAX_ESSAIS=4 PIN_FENETRE_MS=1500 PIN_BLOCAGE_MS=2000` (côté serveur ET côté batterie) active la section 12 (429 après N échecs, lockout même pour le bon code, déblocage après délai)
 - **Monitoring** : `fly status`, `fly logs`, métriques mémoire pendant un tournoi
 
 ## 15. Fichiers clés
 
-`src/server.js` (routes, SSE, stats, confirm_pin, rollback), `src/matchs.js` (règles, propagation, corrections, ⚪ sur retirer), `src/bracket.js` (génération WB/LB/F, liens), `src/comptes.js` (auth, amis, RGPD), `src/push.js` (VAPID, `envoyerTous`, envois), `src/db.js` (schéma + migrations + `logAudit` + snapshots + purge), `public/` (pages + common.js [rendu bracket/liste/cartes] + sw.js + push-client.js), `test/` (batterie.js, e2e.js, fullrun.js, push-unit.js, purge-unit.js, rapport.md), `docs/` (guides + cette spec)
+`src/server.js` (routes, SSE, stats, confirm_pin, rollback), `src/matchs.js` (règles, propagation, corrections, ⚪ sur retirer), `src/bracket.js` (génération WB/LB/F, liens), `src/comptes.js` (auth, amis, RGPD), `src/push.js` (VAPID, `envoyerTous`, envois), `src/db.js` (schéma + migrations + `logAudit` + snapshots + purge), `public/` (pages + common.js [rendu bracket/liste/cartes] + sw.js + push-client.js), `test/` (batterie.js, e2e.js, fullrun.js, push-unit.js, purge-unit.js, rapport.md), `docs/` (guides + cette spec + **ROADMAP.md** : idées produit — multi-club, poules, ELO, arbitre, shot clock…)
