@@ -123,6 +123,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - mdp scrypt+salt ; sessions cookie HttpOnly/SameSite/Secure, token hashé ; réinit 1 h hashée ; rate-limit inscription/connexion/oubli
 - Saisie match réservée aux 2 joueurs (403), blocage sans bande (409), règles ⚪ (403)
 - Pas de cookie tiers/tracking ; emails masqués côté admin ; `Cache-Control: no-store` sur html/js/css
+- **Robustesse** : middleware d'erreur global JSON (`entity.parse.failed` → 400, `entity.too.large` → 413, 404 JSON sur `/api/*`) ; `/api/health` (`SELECT 1` + uptime, 503 si BDD KO) ; `process.on('unhandledRejection'/'uncaughtException')` logués sans crash (écritures SQLite synchrones, WAL cohérent) ; arrêt propre SIGTERM/SIGINT (SSE `bye` + `server.close` + `db.close`, garde-fou 3 s) ; `synchronous=FULL` ; body limité à 256 ko ; pseudo nettoyé (contrôle retirés, max 40) ; PIN jamais en query string ; XSS impossible (front 100 % `createTextNode`)
 
 ## 14. Déploiement / hébergement / services
 
@@ -133,7 +134,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - **Déploiement** : push sur `main` → déploiement auto Fly depuis GitHub (prod `ebpc-tournoi-billard`) ; **app de test** séparée (`ebpc-tournoi-billard-test`) : volume neuf ou restauré depuis snapshot prod (jamais partagé), secrets recopiés à la main (Fly ne les lit pas), PIN différent conseillé
 - **Snapshots volume** : `fly volumes snapshots list/create tournoi_data` pour backup/restauration
 - **Tests** (serveur frais sur DB temporaire : `PORT=xxxx DB_PATH=/tmp/x.db ADMIN_PIN=0000 node src/server.js`) :
-  - `BASE=http://127.0.0.1:PORT node test/batterie.js` → **120 checks** (`test/rapport.md`) : sécurité PIN + confirm_pin, tournois, comptes, matchs, DKO, amis, règles, **rollback point-in-time (401/404/200, état restauré, match en cours → pret 0-0 + table libérée)**, slots API, byes exclus du classement, lancements lisibles
+  - `BASE=http://127.0.0.1:PORT node test/batterie.js` → **135 checks** (`test/rapport.md`) : sécurité PIN + confirm_pin, tournois, comptes, matchs, DKO, amis, règles, **rollback point-in-time (401/404/200, état restauré, match en cours → pret 0-0 + table libérée)**, slots API, byes exclus du classement, lancements lisibles, **robustesse (section 13 : health, 400/413/404 JSON, id NaN, pseudo tronqué/nettoyé, injection SQL, 20 manches parallèles sans 500 ni double comptage)**
   - `BASE=… node test/e2e.js` (structure DKO 32 k=2/k=3, distances LB race-to-2, SSE) · `BASE=… node test/fullrun.js` (simulations complètes 16/32 joueurs simple + DKO)
   - `node test/push-unit.js` (push `envoyerTous` avec web-push mocké via `require.cache` : payload « inscriptions ouvertes », cleanup 410/404, 500 conservé) · `node test/purge-unit.js` (purge au boot `audit_log`/`audit_snapshot` > 90 j, test en 2 processus)
   - anti brute-force PIN : `TEST_BRUTEFORCE=1 PIN_MAX_ESSAIS=4 PIN_FENETRE_MS=1500 PIN_BLOCAGE_MS=2000` (côté serveur ET côté batterie) active la section 12 (429 après N échecs, lockout même pour le bon code, déblocage après délai)

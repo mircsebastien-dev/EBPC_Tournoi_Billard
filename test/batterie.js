@@ -401,6 +401,49 @@ async function nouveauTournoi(body) {
     check('nouvel échec après déblocage -> 401 (compteur remis à zéro par le succès)', r.status === 401, r.status);
   }
 
+  // ---------- 13. Robustesse (erreurs JSON, validation entrées, concurrence, health) ----------
+  sec('13. Robustesse: health, 404/400/413 JSON, validation entrées, concurrence manches');
+  await del('/api/admin/tournoi').catch(() => {});
+  r = await post('/api/admin/tournoi', { nom: 'Robust', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
+  check('création tournoi Robust', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  await post('/api/admin/joueurs/simulation', { count: 12, prefix: 'R' }); // 12 pour laisser de la place aux tests de pseudo
+  // tests d'entrées en phase inscription (avant le tirage)
+  r = await api('/api/health', { pin: null });
+  check('/api/health -> 200 ok + db ok', r.status === 200 && r.data.ok === true && r.data.db === 'ok', JSON.stringify(r.data));
+  r = await api('/api/rien-du-tout', { pin: null });
+  check('route API inconnue -> 404 JSON', r.status === 404 && !!r.data.error, r.status);
+  let rr = await fetch(BASE + '/api/admin/joueur', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': PIN }, body: '{oops' });
+  const rrJson = await rr.json().catch(() => ({}));
+  check('JSON malformé -> 400 JSON (pas HTML)', rr.status === 400 && !!rrJson.error, rr.status + ' ' + JSON.stringify(rrJson).slice(0, 80));
+  r = await api('/api/admin/match/abc/events');
+  check('id non numérique -> pas de 500', r.status !== 500, r.status);
+  r = await post('/api/admin/joueur', { pseudo: 'X'.repeat(500) });
+  let t13 = (await api('/api/etat')).data.actif;
+  let j13 = t13.joueurs.find(j => j.id === r.data.id);
+  check('pseudo 500 chars -> tronqué à 40', r.status === 200 && !!(j13 && j13.pseudo.length === 40), r.status + ' len=' + (j13 && j13.pseudo.length));
+  r = await post('/api/admin/joueur', { pseudo: "'; DROP TABLE joueur;--" });
+  check('pseudo injection SQL -> 200 (paramétré), pas d\'erreur', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  t13 = (await api('/api/etat')).data.actif;
+  check('table joueur intacte après tentative d\'injection', !!(t13 && t13.joueurs.length >= 12), t13 && t13.joueurs.length);
+  r = await post('/api/admin/joueur', { pseudo: 'A\nB\tC' });
+  j13 = (await api('/api/etat')).data.actif.joueurs.find(j => j.id === r.data.id);
+  check('pseudo avec caractères de contrôle -> nettoyé', r.status === 200 && !!(j13 && !/[\x00-\x1f\x7f]/.test(j13.pseudo)), JSON.stringify(j13 && j13.pseudo));
+  rr = await fetch(BASE + '/api/admin/joueur', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': PIN }, body: JSON.stringify({ pseudo: 'Y'.repeat(300 * 1024) }) });
+  check('body > 256ko -> 413 JSON', rr.status === 413, rr.status);
+  await post('/api/admin/tirage', {});
+  // concurrence: 20 manches en parallèle sur le même match -> aucune 500, score cohérent
+  t13 = (await api('/api/etat')).data.actif;
+  const m13 = t13.matchs.find(m => m.etat === 'pret' && m.joueur1 && m.joueur2);
+  await post(`/api/admin/match/${m13.id}/lancer`, { table_id: null });
+  await api(`/api/match/${m13.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m13.joueur1.id } });
+  const resps = await Promise.all(Array.from({ length: 20 }, () => api(`/api/match/${m13.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: m13.joueur1.id } })));
+  check('20 manches en parallèle -> aucune 500', resps.every(x => x.status !== 500), resps.map(x => x.status).join(','));
+  const cur13 = (await api('/api/etat')).data.actif.matchs.find(x => x.id === m13.id);
+  const ev13 = (await api(`/api/admin/match/${m13.id}/events`)).data.events.filter(e => e.type === 'manche' || e.type === 'runout');
+  check('concurrence: score == nb events manche (pas de double comptage)', cur13.score1 + cur13.score2 === ev13.length, `${cur13.score1}-${cur13.score2} vs ${ev13.length} events`);
+  check('concurrence: match terminé proprement à la distance', cur13.etat === 'termine' && cur13.score1 === m13.manches, `${cur13.etat} ${cur13.score1}-${cur13.score2} manches=${m13.manches}`);
+  await del('/api/admin/tournoi').catch(() => {});
+
   // ---------- rapport ----------
 
 
@@ -533,6 +576,7 @@ async function nouveauTournoi(body) {
   md += `- Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué, rollback avec match en cours -> pret 0-0 + table libérée) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit\n`;
   md += `- Anti brute-force PIN admin (section 12, si TEST_BRUTEFORCE=1: 429 après N échecs par IP, lockout même pour le bon code, déblocage après délai, compteur remis à zéro au succès)\n`;
   md += `- Anti-rematch: changement manuel de joueurs vers une paire déjà jouée -> 409 hors finale (section 11) ; simu complète randomisée avec invariant anti-rematch après chaque mutation: test/simu-invariants.js\n`;
+  md += `- Robustesse (section 13): /api/health, 404 JSON routes inconnues, 400 JSON malformé, 413 body >256ko, id NaN -> 404, pseudo tronqué/nettoyé, injection SQL sans effet, 20 manches en parallèle sans 500 ni double comptage\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);

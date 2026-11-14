@@ -8,6 +8,10 @@ const comptes = require('./comptes');
 const QRCode = require('qrcode');
 const push = require('./push');
 
+// robustesse process: on logue sans crasher (écritures SQLite synchrones + WAL = état toujours cohérent)
+process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e));
+process.on('uncaughtException', (e) => console.error('[uncaughtException]', e));
+
 const app = express();
 // headers de sécurité
 app.use((req, res, next) => {
@@ -17,8 +21,13 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'");
   next();
 });
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '256kb' })); // body > 256ko -> 413 (géré par le middleware d'erreur)
+app.use(express.urlencoded({ extended: true, limit: '256kb' }));
+
+// nettoie un pseudo: retire les caractères de contrôle, trim, tronque
+function cleanPseudo(v, max = 40) {
+  return String(v || '').replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, max);
+}
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_PIN = process.env.ADMIN_PIN || '0000';
@@ -75,7 +84,8 @@ function verifierPinAdmin(req, pin) {
 }
 
 function requireAdmin(req, res, next) {
-  const pin = req.headers['x-admin-pin'] || req.query.pin || (req.body && req.body.pin);
+  // PAS de req.query.pin: le PIN dans l'URL fuirait dans les logs des proxies
+  const pin = req.headers['x-admin-pin'] || (req.body && req.body.pin);
   const r = verifierPinAdmin(req, pin);
   if (r.bloque) return res.status(429).json({ error: r.message });
   if (!r.ok) return res.status(401).json({ error: 'PIN administrateur invalide' });
@@ -563,7 +573,7 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi ouvert aux inscriptions (le précédent doit être terminé et le prochain créé)' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
-  const pseudo = String(req.body.pseudo || '').trim().slice(0, 40);
+  const pseudo = cleanPseudo(req.body.pseudo, 40);
   if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
   const count = db.prepare('SELECT COUNT(*) c FROM joueur WHERE tournoi_id = ?').get(t.id).c;
   if (count >= t.taille) return res.status(409).json({ error: `Tableau complet (${t.taille} joueurs max)` });
@@ -617,7 +627,7 @@ app.post('/api/joueur', (req, res) => {
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi ouvert aux inscriptions — attendez que le tournoi en cours soit terminé et que le prochain soit créé' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
-  const pseudo = String(req.body.pseudo || '').trim().slice(0, 40);
+  const pseudo = cleanPseudo(req.body.pseudo, 40);
   if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
   const count = db.prepare('SELECT COUNT(*) c FROM joueur WHERE tournoi_id = ?').get(t.id).c;
   if (count >= t.taille) return res.status(409).json({ error: `Tableau complet (${t.taille} joueurs max)` });
@@ -648,7 +658,7 @@ app.put('/api/admin/joueur/:id', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const j = db.prepare('SELECT * FROM joueur WHERE id = ?').get(id);
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
-  const pseudo = String(req.body.pseudo || '').trim();
+  const pseudo = cleanPseudo(req.body.pseudo, 40);
   if (pseudo.length >= 2) {
     const pris = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND id != ?').get(j.tournoi_id, pseudo, id);
     if (pris) return res.status(409).json({ error: 'Pseudo déjà pris dans ce tournoi' });
@@ -1034,11 +1044,25 @@ app.get('/api/qrcode.svg', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'QR invalide' }); }
 });
 
+// health check (monitoring Fly/Render): vérifie que la BDD répond
+app.get('/api/health', (req, res) => {
+  try {
+    db.prepare('SELECT 1').get();
+    res.json({ ok: true, db: 'ok', uptime_s: Math.round(process.uptime()) });
+  } catch (e) {
+    res.status(503).json({ ok: false, db: e.message });
+  }
+});
+
 app.use('/api', (req, res) => res.status(404).json({ error: 'Route inconnue' }));
 
+// middleware d'erreur global: toujours du JSON, jamais une page HTML d'erreur
 app.use((err, req, res, next) => {
-  const status = err.status || 500;
-  if (status === 500) console.error(err);
+  if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON invalide' });
+  if (err && err.type === 'entity.too.large') return res.status(413).json({ error: 'Body trop volumineux (max 256ko)' });
+  const status = err.status || err.statusCode || 500;
+  if (status >= 500) console.error(err);
+  if (res.headersSent) return next(err);
   res.status(status).json({ error: err.message || 'Erreur serveur' });
 });
 
@@ -1049,11 +1073,27 @@ if (typeof comptes.purgerComptesInactifs === 'function') {
 }
 
 if (require.main === module) {
-  app.listen(PORT, '0.0.0.0', () => { // 0.0.0.0 obligatoire sur Fly/Render sinon 'instance refused connection'
+  const server = app.listen(PORT, '0.0.0.0', () => { // 0.0.0.0 obligatoire sur Fly/Render sinon 'instance refused connection'
     console.log(`EBPC Tournoi Billard démarré sur 0.0.0.0:${PORT}`);
     // JAMAIS de log du PIN en clair (fuite dans les logs Fly/Render)
     console.log(process.env.ADMIN_PIN ? 'PIN admin: défini via ADMIN_PIN (secret)' : 'PIN admin: non défini, valeur par défaut active -> définis ADMIN_PIN !');
   });
+  // arrêt propre (SIGTERM Fly au deploy, SIGINT local): on ferme les flux SSE puis la BDD
+  let arretEnCours = false;
+  function arretPropre(signal) {
+    if (arretEnCours) return;
+    arretEnCours = true;
+    console.log(`[${signal}] arrêt propre…`);
+    for (const c of clients) { try { c.write('event: bye\ndata: {}\n\n'); c.end(); } catch {} }
+    clients.clear();
+    server.close(() => {
+      try { db.close(); } catch {}
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 3000).unref(); // garde-fou si des connexions restent ouvertes
+  }
+  process.on('SIGTERM', () => arretPropre('SIGTERM'));
+  process.on('SIGINT', () => arretPropre('SIGINT'));
 }
 
 module.exports = { app, broadcast };

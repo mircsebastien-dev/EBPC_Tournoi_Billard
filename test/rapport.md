@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-14T16:46:49.943Z
-- Base : http://127.0.0.1:4141
-- Résultat : **122 OK / 0 ÉCHEC** (2.7s)
+- Date : 2026-11-14T17:47:32.435Z
+- Base : http://127.0.0.1:4164
+- Résultat : **135 OK / 0 ÉCHEC** (5.4s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -127,6 +127,22 @@
 | ✅ | DELETE tournoi avec bon code -> 200 |  |
 | ✅ | désinscription joueur SANS confirm_pin -> 200 (exempté) |  |
 
+## 13. Robustesse: health, 404/400/413 JSON, validation entrées, concurrence manches
+
+| ✅ | création tournoi Robust |  |
+| ✅ | /api/health -> 200 ok + db ok |  |
+| ✅ | route API inconnue -> 404 JSON |  |
+| ✅ | JSON malformé -> 400 JSON (pas HTML) |  |
+| ✅ | id non numérique -> pas de 500 |  |
+| ✅ | pseudo 500 chars -> tronqué à 40 |  |
+| ✅ | pseudo injection SQL -> 200 (paramétré), pas d'erreur |  |
+| ✅ | table joueur intacte après tentative d'injection |  |
+| ✅ | pseudo avec caractères de contrôle -> nettoyé |  |
+| ✅ | body > 256ko -> 413 JSON |  |
+| ✅ | 20 manches en parallèle -> aucune 500 |  |
+| ✅ | concurrence: score == nb events manche (pas de double comptage) |  |
+| ✅ | concurrence: match terminé proprement à la distance |  |
+
 ## Amis, admin-data, règles, points, clôture
 
 | ✅ | création Batterie2 |  |
@@ -184,3 +200,4 @@
 - Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué, rollback avec match en cours -> pret 0-0 + table libérée) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit
 - Anti brute-force PIN admin (section 12, si TEST_BRUTEFORCE=1: 429 après N échecs par IP, lockout même pour le bon code, déblocage après délai, compteur remis à zéro au succès)
 - Anti-rematch: changement manuel de joueurs vers une paire déjà jouée -> 409 hors finale (section 11) ; simu complète randomisée avec invariant anti-rematch après chaque mutation: test/simu-invariants.js
+- Robustesse (section 13): /api/health, 404 JSON routes inconnues, 400 JSON malformé, 413 body >256ko, id NaN -> 404, pseudo tronqué/nettoyé, injection SQL sans effet, 20 manches en parallèle sans 500 ni double comptage
