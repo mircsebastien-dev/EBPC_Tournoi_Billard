@@ -91,9 +91,37 @@ function demanderPin(label) {
     input.focus();
   });
 }
+// Confirmation légère pour une session admin (déjà authentifiée par mdp) :
+// modale demandant de saisir un mot court, sans le PIN. Retourne le mot si exact, sinon null.
+function demanderConfirmationTexte(label, mot) {
+  return new Promise((resolve) => {
+    const input = el('input', { type: 'text', placeholder: mot, maxlength: mot.length, autocomplete: 'off', autocapitalize: 'characters' });
+    const fermer = (v) => { overlay.remove(); resolve(v); };
+    const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+    overlay.append(el('div', { class: 'panel', style: 'max-width:360px;width:92%' },
+      el('h3', {}, '⚠️ Confirmation requise'),
+      el('p', { class: 'muted small' }, label),
+      el('p', { class: 'small' }, 'Saisis ', el('b', {}, mot), ' pour confirmer :'),
+      input,
+      el('div', { class: 'row', style: 'margin-top:12px;justify-content:flex-end' },
+        el('button', { class: 'secondary', onclick: () => fermer(null) }, 'Annuler'),
+        el('button', { style: 'margin-left:8px', onclick: () => fermer(input.value.trim() === mot ? mot : null) }, 'Confirmer'))));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(null); });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') fermer(input.value.trim() === mot ? mot : null); });
+    document.body.append(overlay);
+    input.focus();
+  });
+}
+
+const MOT_CONFIRMATION = 'SUPPRIMER';
+
 async function adminApiDestructif(path, opts, label) {
   const body = opts && opts.body ? JSON.parse(opts.body) : {};
-  if (!estSessionAdmin()) { // session d'un compte admin = déjà authentifié : pas de re-saisie du PIN
+  if (estSessionAdmin()) {
+    // session d'un compte admin (déjà authentifiée par mdp) : pas de PIN, mais saisie du mot de confirmation
+    const saisie = await demanderConfirmationTexte(label || 'cette suppression', MOT_CONFIRMATION);
+    if (saisie !== MOT_CONFIRMATION) throw new Error('Annulé : mot de confirmation non saisi');
+  } else {
     const pin = await demanderPin(label || 'cette suppression');
     if (!pin) throw new Error('Annulé : code non saisi');
     body.confirm_pin = pin;

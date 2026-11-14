@@ -65,7 +65,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | 27 | i18n (EN au moins) | M | ⬜ |
 | 28 | Accessibilité : contraste, taille de police réglable, navigation clavier | S-M | ⬜ |
 | 29 | PWA offline : la card match consultable sans réseau (vérifier ce que cache `sw.js`) | S-M | ⬜ |
-| 30 | **Rôles compte (`user`/`admin`)** : session admin = accès `/api/admin/*` sans PIN + exempte de `confirm_pin` sur les destructifs ; PIN conservé en fallback ; bootstrap 1er admin via `ADMIN_EMAIL`/`ADMIN_PASSWORD`, promotion via `POST /api/admin/compte/:id/role` ; pages admin sans PIN si session admin | M | ✅ fait |
+| 30 | **Rôles compte (`user`/`admin`)** : session admin = accès `/api/admin/*` sans PIN + exempte de `confirm_pin` sur les destructifs (mais modale front demandant de saisir `SUPPRIMER`) ; PIN conservé en fallback ; bootstrap 1er admin via `ADMIN_EMAIL`/`ADMIN_PASSWORD`, promotion via `POST /api/admin/compte/:id/role` ; pages admin sans PIN si session admin | M | ✅ fait |
 
 ---
 

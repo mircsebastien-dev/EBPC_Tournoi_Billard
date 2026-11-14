@@ -86,7 +86,7 @@ Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11
 Toute action admin qui **supprime des données** exige le **code PIN re-saisi** dans le body (`confirm_pin`, 401 sinon), via une **modale à mot de passe masqué** — pas seulement la session déjà ouverte :
 - `DELETE /api/admin/tournoi` (tournoi actif), `DELETE /api/admin/tournoi/:id`, `DELETE /api/admin/compte/:id`, `DELETE /api/admin/match/:id/event/:id`, `DELETE /api/admin/audit` (vidage), `POST /api/admin/tournoi/rollback`
 - **Seule exception** : `DELETE /api/admin/joueur/:id` (désinscription d'un joueur) ne demande pas le code
-- Une **session de compte `admin`** est dispensée de `confirm_pin` (la session suffit) ; sinon le code re-saisi est obligatoire
+- Une **session de compte `admin`** est dispensée de `confirm_pin` (le PIN n'est pas redemandé), mais une **modale de confirmation par saisie du mot `SUPPRIMER`** reste obligatoire ; sinon le code re-saisi est obligatoire
 
 ## 9. Outils divers
 

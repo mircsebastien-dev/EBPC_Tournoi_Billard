@@ -678,6 +678,8 @@ async function nouveauTournoi(body) {
   // session user + PIN + confirm_pin correct -> 200
   r = await apiC('/api/admin/tournoi', lSeb.cookie, { method: 'DELETE', body: { confirm_pin: PIN }, pin: PIN });
   check('DELETE tournoi avec PIN + confirm_pin correct -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  const acjs16 = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-common.js'), 'utf8');
+  check('front: modale confirmation par mot court (SUPPRIMER) pour session admin sur actions destructives', acjs16.includes('demanderConfirmationTexte') && acjs16.includes("MOT_CONFIRMATION = 'SUPPRIMER'"), '');
   await del('/api/admin/tournoi').catch(() => {});
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
