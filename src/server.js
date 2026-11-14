@@ -330,6 +330,14 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => { clearInterval(ping); clients.delete(res); });
 });
 
+function codeMatchRow(r) {
+  return `${String(r.bracket || '').toLowerCase()}${r.tour}-${String(r.position).padStart(3, '0')}`;
+}
+function codesLances(tid, avant) {
+  return db.prepare("SELECT id, bracket, tour, position FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(tid)
+    .filter(r => !avant.has(r.id)).map(codeMatchRow);
+}
+
 function majEtBroadcast() {
   M.rafraichirPrets();
   const t = tournoiActif();
@@ -337,7 +345,7 @@ function majEtBroadcast() {
     const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
     const lances = M.autoLancer(t.id);
     notifierAutoLances(t.id, avant);
-    if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances });
+    if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances, matchs: codesLances(t.id, avant) });
   }
   broadcast('update', { changed: true, at: Date.now() }); // payload léger: le client re-fetch /api/etat
 }
@@ -365,7 +373,7 @@ app.post('/api/admin/auto', requireAdmin, (req, res) => {
       const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
     const lances = M.autoLancer(t.id);
     notifierAutoLances(t.id, avant);
-      if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances, declencheur: 'activation' });
+      if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances, declencheur: 'activation', matchs: codesLances(t.id, avant) });
     }
   }
   majEtBroadcast();
@@ -662,7 +670,9 @@ app.post('/api/admin/tirage', requireAdmin, (req, res) => {
 app.post('/api/admin/match/:id/lancer', requireAdmin, (req, res) => {
   const tableId = req.body.table_id != null ? Number(req.body.table_id) : null;
   const m = M.lancerMatch(Number(req.params.id), tableId);
-  logAudit('lancement_match', `match ${m.id}`, null, { table: m.table_id ? M.tableNumero(m.table_id) : null });
+  const p1 = m.joueur1_id ? M.pseudo(m.joueur1_id) : 'blanc';
+  const p2 = m.joueur2_id ? M.pseudo(m.joueur2_id) : 'blanc';
+  logAudit('lancement_match', `${codeMatchRow(m)} — ${p1} vs ${p2}`, null, { table: m.table_id ? M.tableNumero(m.table_id) : null });
   majEtBroadcast();
   // notif push "à toi de jouer" (fire and forget)
   try {
@@ -825,7 +835,7 @@ app.delete('/api/admin/audit', requireAdmin, requireConfirmPin, (req, res) => {
 app.get('/api/admin/audit', requireAdmin, (req, res) => {
   const rows = db.prepare(`
     SELECT a.*, EXISTS(SELECT 1 FROM audit_snapshot s WHERE s.audit_id = a.id) AS has_snapshot
-    FROM audit_log a ORDER BY a.id DESC LIMIT 200
+    FROM audit_log a ORDER BY a.id DESC LIMIT 500
   `).all();
   res.json({ audit: rows });
 });

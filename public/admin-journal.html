@@ -39,7 +39,7 @@ async function render() {
     box.innerHTML = '';
     box.append(el('table', { class: 'audit' },
       el('tr', {}, el('th', {}, ''), el('th', {}, 'Date'), el('th', {}, 'Action'), el('th', {}, 'Cible'), el('th', {}, 'Détails')),
-      ...audit.slice(0, 200).map(a => el('tr', {},
+      ...audit.slice(0, 500).map(a => el('tr', {},
         el('td', {}, a.has_snapshot ? el('button', {
           class: 'secondary', style: 'padding:3px 8px;font-size:12px',
           onclick: async () => {
