@@ -306,6 +306,55 @@ async function nouveauTournoi(body) {
   r = await api('/api/admin/audit', { pin: PIN });
   check('journal audit lisible', r.status === 200, r.status);
 
+  // ---------- 11. Rollback (snapshots) + confirm_pin + slots + byes classement ----------
+  sec('11. Rollback point-in-time, confirm_pin sur suppressions, snapshots audit');
+  await del('/api/admin/tournoi').catch(() => {});
+  r = await post('/api/admin/tournoi', { nom: 'RB', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
+  check('création tournoi RB (notif_push=false accepté)', r.status === 200, r.data && r.data.error);
+  await post('/api/admin/joueurs/simulation', { count: 16, prefix: 'P' });
+  r = await post('/api/admin/tirage', {});
+  check('tirage RB', r.status === 200, r.status);
+  let t11 = (await api('/api/etat')).data.actif;
+  const prevu = t11.matchs.find(m => m.etat === 'prevu');
+  const feeder = prevu && t11.matchs.find(x => x.suivant_id === prevu.id || x.perdant_id === prevu.id);
+  check('slots exposés dans /api/etat (suivant_slot/perdant_slot)', !!feeder && (feeder.suivant_slot === 1 || feeder.suivant_slot === 2 || feeder.perdant_slot === 1 || feeder.perdant_slot === 2), feeder && JSON.stringify({ s: feeder.suivant_slot, p: feeder.perdant_slot }));
+  check('classement: byes exclus (joues=0 juste après tirage)', t11.stats.resume.joues === 0, t11.stats.resume.joues);
+  const m11 = t11.matchs.find(m => m.etat === 'pret' && m.joueur1 && m.joueur2);
+  await post(`/api/admin/match/${m11.id}/lancer`, { table_id: null });
+  await api(`/api/match/${m11.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m11.joueur1.id } });
+  for (let i = 0; i < m11.manches; i++) await api(`/api/match/${m11.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: m11.joueur1.id } });
+  t11 = (await api('/api/etat')).data.actif;
+  check('match joué 3-0 avant rollback', t11.matchs.find(x => x.id === m11.id).etat === 'termine', t11.matchs.find(x => x.id === m11.id).etat);
+  let audit = (await api('/api/admin/audit')).data.audit;
+  const evTirage = audit.find(a => a.action === 'tirage');
+  check('audit: événement tirage a un snapshot (has_snapshot)', !!evTirage && evTirage.has_snapshot === 1, evTirage && evTirage.has_snapshot);
+  const evLancement = audit.find(a => a.action === 'lancement_match');
+  check('audit: lancement lisible (code match + "vs")', !!evLancement && /vs/.test(evLancement.cible || ''), evLancement && evLancement.cible);
+  r = await api('/api/admin/tournoi', { method: 'DELETE', body: {} });
+  check('DELETE tournoi sans confirm_pin -> 401', r.status === 401, r.status);
+  r = await api('/api/admin/tournoi', { method: 'DELETE', body: { confirm_pin: 'mauvais' } });
+  check('DELETE tournoi mauvais code -> 401', r.status === 401, r.status);
+  r = await post('/api/admin/tournoi/rollback', { audit_id: evTirage.id });
+  check('rollback sans confirm_pin -> 401', r.status === 401, r.status);
+  r = await post('/api/admin/tournoi/rollback', { audit_id: 99999999, confirm_pin: PIN });
+  check('rollback audit_id inconnu -> 404', r.status === 404, r.status);
+  r = await post('/api/admin/tournoi/rollback', { audit_id: evTirage.id, confirm_pin: PIN });
+  check('rollback avec bon code -> 200', r.status === 200, r.data && r.data.error);
+  t11 = (await api('/api/etat')).data.actif;
+  const mRet = t11.matchs.find(x => x.id === m11.id);
+  check('après rollback: match revenu à pret 0-0', mRet.etat === 'pret' && mRet.score1 === 0 && mRet.score2 === 0, `${mRet.etat} ${mRet.score1}-${mRet.score2}`);
+  audit = (await api('/api/admin/audit')).data.audit;
+  check('rollback logué dans l\'audit', audit.some(a => a.action === 'rollback'));
+  r = await api('/api/admin/tournoi', { method: 'DELETE', body: { confirm_pin: PIN } });
+  check('DELETE tournoi avec bon code -> 200', r.status === 200, r.status);
+  await post('/api/admin/tournoi', { nom: 'RB2', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2 });
+  await post('/api/admin/joueur', { pseudo: 'Temp' });
+  t11 = (await api('/api/etat')).data.actif;
+  const jt = t11.joueurs.find(x => x.pseudo === 'Temp');
+  r = await api(`/api/admin/joueur/${jt.id}`, { method: 'DELETE', body: {} });
+  check('désinscription joueur SANS confirm_pin -> 200 (exempté)', r.status === 200, r.status);
+  await del('/api/admin/tournoi').catch(() => {});
+
   // ---------- rapport ----------
 
 
@@ -435,6 +484,7 @@ async function nouveauTournoi(body) {
   md += `- Règles match (bande ⚪, alternance, blocage saisie sans bande, 403 casse/reprise, modale admin table/joueurs/rouvrir-409)\n`;
   md += `- Admin-data (PUT joueur 200/409, delete event + recalc, 401 sans PIN)\n`;
   md += `- Points au classement (présents, gagnant >= 1) + clôture coupe net (champion null)\n`;
+  md += `- Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);
