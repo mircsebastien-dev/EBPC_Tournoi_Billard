@@ -116,7 +116,10 @@ async function renderAmisPanel() {
     const st = a.statut || {};
     const txt = { en_cours: `🟢 en cours vs ${st.vs || '?'} (${st.score}${st.table ? ' · table ' + st.table : ''})`, pret: `🕐 programmé vs ${st.vs || '?'}`, inscrit: '📝 inscrit au tournoi', hors_tournoi: '— hors tournoi' }[st.type] || '—';
     box.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding:6px 0' },
-      el('div', { style: 'font-weight:700' }, a.pseudo),
+      // clic sur le nom -> fiche joueur (si l'ami est inscrit au tournoi actif)
+      a.joueur_id
+        ? el('a', { href: `/joueur.html?id=${a.joueur_id}`, title: `Fiche de ${a.pseudo}`, style: 'color:inherit;font-weight:700;text-decoration:none' }, a.pseudo, ' ›')
+        : el('div', { style: 'font-weight:700' }, a.pseudo),
       el('span', { class: 'muted small' }, txt)));
   }
 }

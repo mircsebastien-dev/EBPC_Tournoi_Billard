@@ -88,7 +88,7 @@ Pages :
 
 ```bash
 PORT=4100 DB_PATH=/tmp/t.db ADMIN_PIN=0000 node src/server.js &   # serveur frais
-BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js    # 195 checks → test/rapport.md
+BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js    # 197 checks → test/rapport.md
 BASE=http://127.0.0.1:4100 node test/e2e.js                        # structure DKO, SSE…
 BASE=http://127.0.0.1:4100 node test/fullrun.js                    # simulations complètes 16/32 joueurs
 node test/push-unit.js                                             # push (web-push mocké), sans serveur

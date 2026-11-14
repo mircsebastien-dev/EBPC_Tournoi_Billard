@@ -125,7 +125,9 @@ const btnNotif = notifOk
         const st = a.statut || {};
         const stTxt = { en_cours: `🟢 en cours vs ${st.vs || '?'} (${st.score}${st.table ? ' · table ' + st.table : ''})`, pret: `🕐 match programmé vs ${st.vs || '?'}`, inscrit: '📝 inscrit au tournoi', hors_tournoi: '— hors tournoi' }[st.type] || '—';
         box.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding:6px 0' },
-          el('div', {}, el('div', { style: 'font-weight:700' }, '👤 ' + a.pseudo), el('div', { class: 'muted small' }, stTxt)),
+          el('div', {}, a.joueur_id
+            ? el('a', { href: `/joueur.html?id=${a.joueur_id}`, title: `Fiche de ${a.pseudo}`, style: 'color:inherit;text-decoration:none' }, el('div', { style: 'font-weight:700' }, '👤 ' + a.pseudo, ' ›'))
+            : el('div', { style: 'font-weight:700' }, '👤 ' + a.pseudo), el('div', { class: 'muted small' }, stTxt)),
           el('button', { class: 'danger', style: 'padding:3px 10px;font-size:12px', onclick: async () => {
             if (!confirm('Retirer ' + a.pseudo + ' de tes amis ?')) return;
             await api('/api/compte/amis/' + a.compte_id, { method: 'DELETE' }); renderAmis();

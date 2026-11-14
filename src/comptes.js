@@ -201,7 +201,10 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
           : inscrit ? { type: 'inscrit' } : { type: 'hors_tournoi' };
       }
     }
-    res.json({ amis: rows.map(a => ({ ...a, statut: statuts[a.compte_id] || { type: 'hors_tournoi' } })) });
+    res.json({ amis: rows.map(a => {
+      const js = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND compte_id = ?').all(t ? t.id : -1, a.compte_id);
+      return { ...a, joueur_id: js.length ? js[0].id : null, statut: statuts[a.compte_id] || { type: 'hors_tournoi' } };
+    }) });
   });
 
   app.post('/api/compte/amis', (req, res) => {

@@ -572,6 +572,9 @@ async function nouveauTournoi(body) {
   nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });
   check('liste amis = 1 (Seb)', nf_r.status === 200 && nf_r.data.amis.length === 1 && nf_r.data.amis[0].pseudo === 'Seb', nf_r.status);
   check('ami a un statut de tournoi', ['pret', 'en_cours', 'inscrit'].includes(nf_r.data.amis[0].statut.type), nf_r.data.amis[0].statut.type);
+  check('ami inscrit expose joueur_id (lien fiche joueur)', typeof nf_r.data.amis[0].joueur_id === 'number', JSON.stringify(nf_r.data.amis[0].joueur_id));
+  const idxHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  check('front: panneau amis page tournoi -> clic nom renvoie /joueur.html?id=', idxHtml.includes('/joueur.html?id=${a.joueur_id}'), '');
   nf_t = (await api('/api/etat')).data.actif;
   const nf_jseb = nf_t.joueurs.find(j => j.pseudo === 'Seb');
   check('joueur Seb rattaché au compte', !!(nf_jseb && nf_jseb.compte_id), JSON.stringify(nf_jseb && nf_jseb.compte_id));
