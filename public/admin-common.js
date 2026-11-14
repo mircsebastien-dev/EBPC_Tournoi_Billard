@@ -44,12 +44,27 @@ function renderAdminLogin(main) {
 }
 
 // Geste admin destructif : exige le code re-saisi à la volée (pas seulement la session mémorisée)
+// Modale avec champ password -> caractères masqués
 function demanderPin(label) {
-  const pin = prompt('🔐 Code administrateur pour confirmer : ' + label);
-  return pin && pin.trim() ? pin.trim() : null;
+  return new Promise((resolve) => {
+    const input = el('input', { type: 'password', placeholder: 'Code PIN', inputmode: 'numeric', maxlength: 8, autocomplete: 'off' });
+    const fermer = (v) => { overlay.remove(); resolve(v); };
+    const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+    overlay.append(el('div', { class: 'panel', style: 'max-width:360px;width:92%' },
+      el('h3', {}, '🔐 Confirmation requise'),
+      el('p', { class: 'muted small' }, label),
+      input,
+      el('div', { class: 'row', style: 'margin-top:12px;justify-content:flex-end' },
+        el('button', { class: 'secondary', onclick: () => fermer(null) }, 'Annuler'),
+        el('button', { style: 'margin-left:8px', onclick: () => fermer(input.value.trim() || null) }, 'Confirmer'))));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(null); });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') fermer(input.value.trim() || null); });
+    document.body.append(overlay);
+    input.focus();
+  });
 }
 async function adminApiDestructif(path, opts, label) {
-  const pin = demanderPin(label || 'cette suppression');
+  const pin = await demanderPin(label || 'cette suppression');
   if (!pin) throw new Error('Annulé : code non saisi');
   const body = opts && opts.body ? JSON.parse(opts.body) : {};
   body.confirm_pin = pin;

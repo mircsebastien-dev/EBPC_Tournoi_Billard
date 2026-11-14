@@ -587,7 +587,7 @@ app.post('/api/joueur', (req, res) => {
   }
 });
 
-app.delete('/api/admin/joueur/:id', requireAdmin, requireConfirmPin, (req, res) => {
+app.delete('/api/admin/joueur/:id', requireAdmin, (req, res) => { // désinscription: pas de re-confirmation PIN (routine, phase inscription uniquement)
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé' });
