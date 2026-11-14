@@ -27,8 +27,10 @@ async function render() {
     el('div', { class: 'hero-title' }, 'Journal d\'audit'),
     el('button', { class: 'danger', onclick: async () => {
       if (!confirm('Vider tout le journal d\'audit ? (irréversible)')) return;
-      const r = await adminApi('/api/admin/audit', { method: 'DELETE' });
-      alert('🗑 ' + r.supprimes + ' entrées supprimées'); location.reload();
+      try {
+        const r = await adminApiDestructif('/api/admin/audit', { method: 'DELETE' }, 'vider tout le journal d\'audit');
+        alert('🗑 ' + r.supprimes + ' entrées supprimées'); location.reload();
+      } catch (e) { alert(e.message); }
     } }, 'Vider le journal')),
   el('div', { id: 'audit' }, 'Chargement…')));
   try {
@@ -36,10 +38,20 @@ async function render() {
     const box = document.getElementById('audit');
     box.innerHTML = '';
     box.append(el('table', { class: 'audit' },
-      el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Action'), el('th', {}, 'Cible'), el('th', {}, 'Détails')),
+      el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Action'), el('th', {}, 'Cible'), el('th', {}, 'Détails'), el('th', {}, '')),
       ...audit.slice(0, 200).map(a => el('tr', {},
         el('td', {}, a.created_at), el('td', {}, a.action), el('td', {}, a.cible || ''),
-        el('td', { class: 'small muted' }, `${a.avant || ''} → ${a.apres || ''}`)))));
+        el('td', { class: 'small muted' }, `${a.avant || ''} → ${a.apres || ''}`),
+        el('td', {}, a.has_snapshot ? el('button', {
+          class: 'secondary', style: 'padding:3px 8px;font-size:12px',
+          onclick: async () => {
+            if (!confirm(`Restaurer le tournoi actif à l'état de cet événement (#${a.id} — ${a.action}) ?\nLe contenu actuel du tournoi sera remplacé.`)) return;
+            try {
+              await adminApiDestructif('/api/admin/tournoi/rollback', { method: 'POST', body: JSON.stringify({ audit_id: a.id }) }, `restaurer le tournoi à l'événement #${a.id} (${a.action})`);
+              alert('✅ Tournoi restauré'); location.reload();
+            } catch (e) { alert(e.message); }
+          },
+        }, '⏪ Restaurer à ce point') : null)))));
   } catch (e) {
     document.getElementById('audit').textContent = e.message;
   }

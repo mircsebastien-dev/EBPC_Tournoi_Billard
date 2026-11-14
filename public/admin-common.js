@@ -43,6 +43,19 @@ function renderAdminLogin(main) {
   input.focus();
 }
 
+// Geste admin destructif : exige le code re-saisi à la volée (pas seulement la session mémorisée)
+function demanderPin(label) {
+  const pin = prompt('🔐 Code administrateur pour confirmer : ' + label);
+  return pin && pin.trim() ? pin.trim() : null;
+}
+async function adminApiDestructif(path, opts, label) {
+  const pin = demanderPin(label || 'cette suppression');
+  if (!pin) throw new Error('Annulé : code non saisi');
+  const body = opts && opts.body ? JSON.parse(opts.body) : {};
+  body.confirm_pin = pin;
+  return adminApi(path, { ...(opts || {}), body: JSON.stringify(body) });
+}
+
 function adminNav(active) {
   return nav(active === 'admin-home' ? 'admin' : active);
 }

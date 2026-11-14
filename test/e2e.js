@@ -1,4 +1,5 @@
 const BASE = process.env.BASE || 'http://127.0.0.1:3457';
+const delAdmin = (p, extra) => api(p, { method: 'DELETE', body: { confirm_pin: PIN, ...(extra || {}) } });
 const PIN = '0000';
 
 let failures = 0;
@@ -34,10 +35,10 @@ async function main() {
   check('date_heure renseignée par défaut', !!t1.date_heure && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(t1.date_heure), t1.date_heure);
   check('c\'est un mardi à 20h00', new Date(t1.date_heure.replace(' ', 'T') + 'Z').getUTCDay() === 2 && t1.date_heure.endsWith('20:00'), t1.date_heure);
   check('lieu par défaut = Le 147 Toulouse', t1.lieu === 'Le 147, 12 Rue des Amidonniers 31000 Toulouse', t1.lieu);
-  r = await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await delAdmin('/api/admin/tournoi');
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'AvecDate', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, date_heure: '2026-12-25 21:30', lieu: 'Salle test' } });
   check('date/lieu personnalisés retenus', r.data.actif.tournoi.date_heure === '2026-12-25 21:30' && r.data.actif.tournoi.lieu === 'Salle test', r.data.actif.tournoi);
-  await api('/api/admin/tournoi', { method: 'DELETE' });
+  await delAdmin('/api/admin/tournoi');
   await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Test Cup', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 4 } });
 
   r = await api('/api/admin/tournoi', { method: 'PUT', body: { nom: 'Test Cup', date_heure: '2026-12-31 19:45', lieu: 'Chez Marco' } });
@@ -203,7 +204,7 @@ async function main() {
   }
 
   console.log('== 8. Tournoi simple 16 (vérif structure) ==');
-  r = await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await delAdmin('/api/admin/tournoi');
   check('suppression', r.status === 200);
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Simple', regle: 'ultimate', taille: 16, format: 'simple', nb_tables: 2 } });
   for (let i = 1; i <= 16; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `P${i}` } });
@@ -217,7 +218,7 @@ async function main() {
   check('aucun LB en simple', ts.matchs.every(m => m.bracket === 'WB'));
 
   console.log('== 8b. Ajustement auto : 5 payés sur max 128 -> tableau de 8 ==');
-  await api('/api/admin/tournoi', { method: 'DELETE' });
+  await delAdmin('/api/admin/tournoi');
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Auto', regle: 'blackball', taille: 128, format: 'simple', nb_tables: 2, ajustement_auto: true } });
   for (let i = 1; i <= 5; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `A${i}` } });
   for (const j of (await api('/api/etat')).data.actif.joueurs) {
@@ -229,7 +230,7 @@ async function main() {
   const wb1b = r.data.actif.matchs.filter(m => m.tour === 1);
   check('WB tour1 = 4 matchs (8 joueurs)', wb1b.length === 4, wb1b.length);
   check('tous les matchs en race to 3 par défaut', r.data.actif.matchs.every(m => m.manches === 3));
-  await api('/api/admin/tournoi', { method: 'DELETE' });
+  await delAdmin('/api/admin/tournoi');
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Fixe', regle: 'blackball', taille: 32, format: 'simple', nb_tables: 2, ajustement_auto: false } });
   for (let i = 1; i <= 5; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `B${i}` } });
   for (const j of (await api('/api/etat')).data.actif.joueurs) {
@@ -239,7 +240,7 @@ async function main() {
   check('sans ajustement auto, taille reste 32 (byes)', r.data.actif.tournoi.taille === 32, r.data.actif.tournoi.taille);
 
   console.log('== 9a. Seuil de distance (demis -> 5) + maj à chaud + terminer manuellement ==');
-  await api('/api/admin/tournoi', { method: 'DELETE' });
+  await delAdmin('/api/admin/tournoi');
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Seuils', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, seuil_distance: 'demis', distance_speciale: 5 } });
   for (let i = 1; i <= 16; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `S${i}` } });
   for (const j of (await api('/api/etat')).data.actif.joueurs) {
@@ -295,7 +296,7 @@ async function main() {
   r = await api('/api/stats-joueurs');
   const d1 = r.data.joueurs.find(j => j.pseudo === 'D1');
   check('stats all-time agrègent les 2 tournois', !!d1 && d1.tournois >= 1, d1);
-  r = await api(`/api/admin/tournoi/${histId}`, { method: 'DELETE' });
+  r = await delAdmin(`/api/admin/tournoi/${histId}`);
   check('suppression d\'un tournoi de l\'historique', r.status === 200, r.data);
   histL = (await api('/api/etat')).data.historique;
   check('historique passé à 1', histL.length === 1, histL.length);
@@ -333,7 +334,7 @@ async function main() {
   check('les inscrits du tournoi A ne sont pas dans B', !ja.includes('CycleB1') && !etat.data.actif.joueurs.some(j => j.pseudo === 'CycleA1'), { ja });
 
   console.log('== 9d. Mode simulation : joueurs fictifs en masse, payés ==');
-  await api('/api/admin/tournoi', { method: 'DELETE' });
+  await delAdmin('/api/admin/tournoi');
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Simu Test', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2 } });
   r = await api('/api/admin/joueurs/simulation', { method: 'POST', body: { count: 16, prefix: 'Bot' } });
   check('simulation 200', r.status === 200, r.data);
@@ -351,7 +352,7 @@ async function main() {
   check('tirage OK avec 16 simulés', r.status === 200 && r.data.actif.matchs.filter(m => m.tour === 1).length === 8);
 
   console.log('== 9e. Simuler tout le tournoi (jusqu\'au champion) ==');
-  r = await api('/api/admin/tournoi', { method: 'DELETE' });
+  r = await delAdmin('/api/admin/tournoi');
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'SimuTotale', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 2 } });
   r = await api('/api/admin/joueurs/simulation', { method: 'POST', body: { count: 16, prefix: 'Bot' } });
   await api('/api/admin/tirage', { method: 'POST', body: {} });
@@ -373,7 +374,7 @@ async function main() {
 
   console.log('== 9f. Câblage DKO : le dernier tour du loser bracket réintègre le tableau final ==');
   for (const [taille, k] of [[16, 1], [16, 2], [16, 3], [32, 2], [32, 3]]) {
-    await api('/api/admin/tournoi', { method: 'DELETE' }).catch(() => {});
+    await delAdmin('/api/admin/tournoi').catch(() => {});
     await api('/api/admin/tournoi', { method: 'POST', body: { nom: `DKO${taille}k${k}`, regle: 'blackball', taille, format: 'double', dko_tours: k, nb_tables: 4 } });
     await api('/api/admin/joueurs/simulation', { method: 'POST', body: { count: taille, prefix: 'P' } });
     await api('/api/admin/tirage', { method: 'POST', body: {} });
@@ -401,7 +402,7 @@ async function main() {
   }
 
   console.log('== 9g. LB en race to 2 par défaut ==');
-  await api('/api/admin/tournoi', { method: 'DELETE' });
+  await delAdmin('/api/admin/tournoi');
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'LB2', regle: 'blackball', taille: 16, format: 'double', dko_tours: 2, nb_tables: 4 } });
   await api('/api/admin/joueurs/simulation', { method: 'POST', body: { count: 16, prefix: 'P' } });
   await api('/api/admin/tirage', { method: 'POST', body: {} });

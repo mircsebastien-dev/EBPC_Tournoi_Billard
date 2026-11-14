@@ -93,7 +93,7 @@ function renderJoueurs(t) {
     } }, "💾");
     const bDel = el("button", { class: "danger", style: "padding:3px 8px;font-size:12px;margin-left:4px", onclick: async () => {
       if (!confirm("Supprimer le joueur « " + j.pseudo + " » ?")) return;
-      try { await adminApi("/api/admin/joueur/" + j.id, { method: "DELETE" }); charger(); } catch (e) { alert(e.message); }
+      try { await adminApiDestructif("/api/admin/joueur/" + j.id, { method: "DELETE" }, "supprimer le joueur « " + j.pseudo + " »"); charger(); } catch (e) { alert(e.message); }
     } }, "🗑");
     return el("tr", { style: "border-top:1px solid var(--line)" },
       el("td", { style: "padding:4px 6px" }, inp),
@@ -121,7 +121,7 @@ async function renderEvents(t) {
         const d = ev.detail ? JSON.parse(ev.detail) : {};
         const bDel = ev.type === "bande" ? null : el("button", { class: "danger", style: "padding:3px 8px;font-size:12px", onclick: async () => {
           if (!confirm("Supprimer cet événement ? Le score sera recalculé.")) return;
-          try { await adminApi(`/api/admin/match/${sel.value}/event/${ev.id}`, { method: "DELETE" }); loadEv(); charger(); }
+          try { await adminApiDestructif(`/api/admin/match/${sel.value}/event/${ev.id}`, { method: "DELETE" }, "supprimer l'événement #" + ev.id + " (recalcul du score)"); loadEv(); charger(); }
           catch (e) { alert(e.message); }
         } }, "🗑");
         list.append(el("div", { class: "row", style: "justify-content:space-between;border-top:1px solid var(--line);padding:6px 0" },

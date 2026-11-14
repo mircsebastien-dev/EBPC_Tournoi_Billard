@@ -39,7 +39,7 @@ function render() {
         el('a', { href: `/tournoi.html?id=${h.id}` }, el('button', { class: 'secondary' }, 'Voir')),
         el('button', { class: 'danger', onclick: async () => {
           if (!confirmer(`Supprimer « ${h.nom} » de l'historique ?`)) return;
-          try { await adminApi(`/api/admin/tournoi/${h.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); }
+          try { await adminApiDestructif(`/api/admin/tournoi/${h.id}`, { method: 'DELETE' }, `supprimer le tournoi archivé « ${h.nom} »`); } catch (e) { alert(e.message); }
         } }, '🗑 Supprimer')));
     main.append(carte);
   }

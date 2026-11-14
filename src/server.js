@@ -44,6 +44,16 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// geste admin destructif : exige le code re-saisi dans le body (confirm_pin), pas juste la session
+function requireConfirmPin(req, res, next) {
+  const pin = req.body && req.body.confirm_pin;
+  const hash = crypto.createHash('sha256').update(String(pin || '')).digest('hex');
+  if (hash !== getSetting('admin_pin_hash')) {
+    return res.status(401).json({ error: 'Code administrateur requis pour confirmer cette suppression' });
+  }
+  next();
+}
+
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   next();
@@ -402,7 +412,7 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   res.json({ ok: true, ...etatGlobal(req) });
 });
 
-app.delete('/api/admin/tournoi', requireAdmin, (req, res) => {
+app.delete('/api/admin/tournoi', requireAdmin, requireConfirmPin, (req, res) => {
   const id = (tournoiActif() || {}).id;
   if (!id) return res.status(404).json({ error: 'Aucun tournoi' });
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(id);
@@ -413,13 +423,14 @@ app.delete('/api/admin/tournoi', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM joueur WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM table_billard WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM distance_round WHERE tournoi_id = ?').run(id);
+  db.prepare('DELETE FROM audit_snapshot WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM tournoi WHERE id = ?').run(id);
   logAudit('suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut }, null);
   majEtBroadcast();
   res.json({ ok: true });
 });
 
-app.delete('/api/admin/tournoi/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/tournoi/:id', requireAdmin, requireConfirmPin, (req, res) => {
   const id = Number(req.params.id);
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(id);
   if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
@@ -429,6 +440,7 @@ app.delete('/api/admin/tournoi/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM joueur WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM table_billard WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM distance_round WHERE tournoi_id = ?').run(id);
+  db.prepare('DELETE FROM audit_snapshot WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM tournoi WHERE id = ?').run(id);
   logAudit('suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut }, null);
   majEtBroadcast();
@@ -575,7 +587,7 @@ app.post('/api/joueur', (req, res) => {
   }
 });
 
-app.delete('/api/admin/joueur/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/joueur/:id', requireAdmin, requireConfirmPin, (req, res) => {
   const t = tournoiActif();
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé' });
@@ -786,7 +798,7 @@ app.post('/api/admin/compte/:id/password', requireAdmin, (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
-app.delete('/api/admin/compte/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/compte/:id', requireAdmin, requireConfirmPin, (req, res) => {
   const id = Number(req.params.id);
   const c = comptes.supprimerCompte(id);
   if (!c) return res.status(404).json({ error: 'Compte introuvable' });
@@ -797,22 +809,64 @@ app.delete('/api/admin/compte/:id', requireAdmin, (req, res) => {
 app.get('/api/admin/match/:id/events', requireAdmin, (req, res) => {
   res.json({ events: M.listerEvents(Number(req.params.id)) });
 });
-app.delete('/api/admin/match/:id/event/:eventId', requireAdmin, (req, res) => {
+app.delete('/api/admin/match/:id/event/:eventId', requireAdmin, requireConfirmPin, (req, res) => {
   const m = M.supprimerEventAdmin(Number(req.params.id), Number(req.params.eventId));
   logAudit('event_supprime', `match #${req.params.id} event #${req.params.eventId}`, null, {});
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });
 
-app.delete('/api/admin/audit', requireAdmin, (req, res) => {
+app.delete('/api/admin/audit', requireAdmin, requireConfirmPin, (req, res) => {
   const info = db.prepare('DELETE FROM audit_log').run();
   logAudit('audit_purge', 'journal vidé', null, { supprimes: info.changes });
   res.json({ ok: true, supprimes: info.changes });
 });
 
 app.get('/api/admin/audit', requireAdmin, (req, res) => {
-  const rows = db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200').all();
+  const rows = db.prepare(`
+    SELECT a.*, EXISTS(SELECT 1 FROM audit_snapshot s WHERE s.audit_id = a.id) AS has_snapshot
+    FROM audit_log a ORDER BY a.id DESC LIMIT 200
+  `).all();
   res.json({ audit: rows });
+});
+
+// Rollback point-in-time : restaure le tournoi actif à l'état du snapshot d'un événement d'audit
+app.post('/api/admin/tournoi/rollback', requireAdmin, requireConfirmPin, (req, res) => {
+  const auditId = Number(req.body.audit_id);
+  const snap = db.prepare('SELECT * FROM audit_snapshot WHERE audit_id = ?').get(auditId);
+  if (!snap) return res.status(404).json({ error: 'Aucun snapshot pour cet événement' });
+  const actif = tournoiActif();
+  if (!actif || actif.id !== snap.tournoi_id) {
+    return res.status(409).json({ error: 'Seul le tournoi actif peut être restauré (ce snapshot concerne un autre tournoi)' });
+  }
+  const data = JSON.parse(snap.payload);
+  const tid = snap.tournoi_id;
+  const reinsert = (table, rows) => {
+    if (!rows || !rows.length) return;
+    const cols = Object.keys(rows[0]);
+    const ins = db.prepare(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`);
+    for (const r of rows) ins.run(...cols.map(c => r[c]));
+  };
+  // transaction atomique : tout ou rien, ordre des FK respecté
+  const tx = db.transaction(() => {
+    db.pragma('defer_foreign_keys = ON'); // match.suivant_id/perdant_id sont des auto-références: vérifiées au COMMIT
+    db.prepare('DELETE FROM match_event WHERE match_id IN (SELECT id FROM match WHERE tournoi_id = ?)').run(tid);
+    db.prepare('DELETE FROM match WHERE tournoi_id = ?').run(tid);
+    db.prepare('DELETE FROM distance_round WHERE tournoi_id = ?').run(tid);
+    db.prepare('DELETE FROM table_billard WHERE tournoi_id = ?').run(tid);
+    db.prepare('DELETE FROM joueur WHERE tournoi_id = ?').run(tid);
+    db.prepare('DELETE FROM tournoi WHERE id = ?').run(tid);
+    reinsert('tournoi', [data.tournoi]);
+    reinsert('joueur', data.joueurs);
+    reinsert('table_billard', data.tables);
+    reinsert('distance_round', data.distances);
+    reinsert('match', data.matchs);
+    reinsert('match_event', data.events);
+  });
+  tx();
+  logAudit('rollback', `tournoi ${tid} restauré à l'événement #${auditId}`, null, { audit_id: auditId, taken_at: snap.taken_at });
+  majEtBroadcast();
+  res.json({ ok: true, ...etatGlobal(req) });
 });
 
 // Tirage à la bande: déclare qui casse en premier (joueur du match ou admin)

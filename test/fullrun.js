@@ -29,7 +29,7 @@ async function jouerMatchComplet(m) {
 async function main() {
   for (const [taille, format, k] of [[16, 'double', 2], [16, 'simple', 0], [32, 'double', 1], [32, 'double', 3]]) {
     console.log(`== Tournoi ${taille} joueurs, format=${format}${format === 'double' ? ` k=${k}` : ''} ==`);
-    if ((await api('/api/etat')).data.actif) await api('/api/admin/tournoi', { method: 'DELETE' });
+    if ((await api('/api/etat')).data.actif) await api('/api/admin/tournoi', { method: 'DELETE', body: { confirm_pin: PIN } });
     let r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: `T${taille}${format}${k}`, regle: 'blackball', taille, format, dko_tours: k, nb_tables: 4 } });
     check('création', r.status === 200, r.data);
     for (let i = 1; i <= taille; i++) await api('/api/admin/joueur', { method: 'POST', body: { pseudo: `P${i}` } });

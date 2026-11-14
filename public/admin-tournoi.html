@@ -116,7 +116,7 @@ function renderInscriptions(t) {
         j.statut === 'paye'
           ? el('button', { class: 'secondary', onclick: () => paiement(j, 'en_attente') }, 'payé annuler')
           : el('button', { onclick: () => paiement(j, 'paye') }, 'marquer payé'),
-        el('button', { class: 'danger', onclick: async () => { if (confirmer(`Retirer ${j.pseudo} ?`)) { try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); } } } }, ''))))));
+        el('button', { class: 'danger', onclick: async () => { if (confirmer(`Retirer ${j.pseudo} ?`)) { try { await adminApiDestructif(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }, `retirer le joueur ${j.pseudo}`); } catch (e) { alert(e.message); } } } }, ''))))));
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🎲 Mode simulation'),
@@ -179,7 +179,7 @@ function renderInscriptions(t) {
   }
   async function supprimer() {
     if (!confirmer('Supprimer le tournoi et TOUT son contenu ?')) return;
-    try { await adminApi('/api/admin/tournoi', { method: 'DELETE' }); } catch (e) { alert(e.message); }
+    try { await adminApiDestructif('/api/admin/tournoi', { method: 'DELETE' }, 'supprimer le tournoi actif et tout son contenu'); } catch (e) { alert(e.message); }
   }
   renderPanneauAuto();
 }

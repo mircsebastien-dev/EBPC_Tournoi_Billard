@@ -29,7 +29,7 @@ async function api(p, { method = 'GET', body, pin = PIN, useCookie = false } = {
   return { status: r.status, data: await r.json().catch(() => ({})), headers: r.headers };
 }
 const post = (p, body, opts) => api(p, { method: 'POST', body, ...opts });
-const del = (p, opts) => api(p, { method: 'DELETE', ...opts });
+const del = (p, opts = {}) => { const o = { method: 'DELETE', ...opts }; if (p.startsWith('/api/admin') && !o.body) o.body = { confirm_pin: PIN }; return api(p, o); };
 const put = (p, body, opts) => api(p, { method: 'PUT', body, ...opts });
 
 async function jouerMatch(m, gagnantId, opts = {}) {

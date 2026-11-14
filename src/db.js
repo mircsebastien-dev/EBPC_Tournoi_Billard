@@ -137,10 +137,24 @@ CREATE TABLE IF NOT EXISTS audit_log (
   apres TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- snapshots du tournoi actif, un par événement d'audit (rollback point-in-time)
+CREATE TABLE IF NOT EXISTS audit_snapshot (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  audit_id INTEGER NOT NULL REFERENCES audit_log(id) ON DELETE CASCADE,
+  tournoi_id INTEGER NOT NULL,
+  taken_at TEXT NOT NULL DEFAULT (datetime('now')),
+  payload TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_snapshot_audit ON audit_snapshot(audit_id);
+CREATE INDEX IF NOT EXISTS idx_audit_snapshot_tournoi ON audit_snapshot(tournoi_id);
 `);
 
-// purge auto du journal d'audit > 90 jours (après création du schéma)
-try { db.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')").run(); } catch (e) { console.error('purge audit:', e.message); }
+// purge auto du journal d'audit > 90 jours (après création du schéma) + snapshots idem
+try {
+  db.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')").run();
+  db.prepare("DELETE FROM audit_snapshot WHERE taken_at < datetime('now', '-90 days')").run();
+} catch (e) { console.error('purge audit:', e.message); }
 
 const joueurCols = db.prepare('PRAGMA table_info(joueur)').all().map(c => c.name);
 if (!joueurCols.includes('statut')) {
@@ -236,11 +250,31 @@ function getSetting(key) {
   return row ? row.value : null;
 }
 
+// snapshot de l'état complet du tournoi actif, indexé sur l'événement d'audit
+function snapshotTournoiActif(auditId) {
+  try {
+    const t = db.prepare("SELECT * FROM tournoi WHERE statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1").get();
+    if (!t) return;
+    const payload = JSON.stringify({
+      tournoi: t,
+      joueurs: db.prepare('SELECT * FROM joueur WHERE tournoi_id = ? ORDER BY id').all(t.id),
+      matchs: db.prepare('SELECT * FROM match WHERE tournoi_id = ? ORDER BY id').all(t.id),
+      events: db.prepare('SELECT * FROM match_event WHERE match_id IN (SELECT id FROM match WHERE tournoi_id = ?) ORDER BY id').all(t.id),
+      distances: db.prepare('SELECT * FROM distance_round WHERE tournoi_id = ? ORDER BY round').all(t.id),
+      tables: db.prepare('SELECT * FROM table_billard WHERE tournoi_id = ? ORDER BY numero').all(t.id),
+    });
+    db.prepare('INSERT INTO audit_snapshot (audit_id, tournoi_id, payload) VALUES (?, ?, ?)').run(auditId, t.id, payload);
+    // on garde seulement les 200 derniers snapshots du tournoi (évite que la BDD grossisse sans fin)
+    db.prepare('DELETE FROM audit_snapshot WHERE tournoi_id = ? AND id NOT IN (SELECT id FROM audit_snapshot WHERE tournoi_id = ? ORDER BY id DESC LIMIT 200)').run(t.id, t.id);
+  } catch (e) { console.error('snapshot:', e.message); }
+}
+
 function logAudit(action, cible, avant, apres) {
-  db.prepare('INSERT INTO audit_log (action, cible, avant, apres) VALUES (?, ?, ?, ?)')
+  const info = db.prepare('INSERT INTO audit_log (action, cible, avant, apres) VALUES (?, ?, ?, ?)')
     .run(action, cible != null ? String(cible) : null,
       avant != null ? JSON.stringify(avant) : null,
       apres != null ? JSON.stringify(apres) : null);
+  snapshotTournoiActif(Number(info.lastInsertRowid));
 }
 
 module.exports = { db, setSetting, getSetting, logAudit };

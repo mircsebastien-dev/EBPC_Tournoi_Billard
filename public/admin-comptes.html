@@ -68,7 +68,7 @@ function render(comptes) {
           } }, '🔑 mdp'),
           el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px', onclick: async () => {
             if (!confirm(`Supprimer le compte « ${c.pseudo} » ?\nLes joueurs rattachés sont détachés (l'historique des matchs est conservé), les sessions et abonnements push sont supprimés.`)) return;
-            try { await adminApi(`/api/admin/compte/${c.id}`, { method: 'DELETE' }); charger(); }
+            try { await adminApiDestructif(`/api/admin/compte/${c.id}`, { method: 'DELETE' }, `supprimer le compte « ${c.pseudo} »`); charger(); }
             catch (e) { alert(e.message); }
           } }, '🗑 Supprimer'))))))));
 }
