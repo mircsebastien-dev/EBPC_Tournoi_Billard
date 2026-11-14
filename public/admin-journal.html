@@ -38,10 +38,8 @@ async function render() {
     const box = document.getElementById('audit');
     box.innerHTML = '';
     box.append(el('table', { class: 'audit' },
-      el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Action'), el('th', {}, 'Cible'), el('th', {}, 'Détails'), el('th', {}, '')),
+      el('tr', {}, el('th', {}, ''), el('th', {}, 'Date'), el('th', {}, 'Action'), el('th', {}, 'Cible'), el('th', {}, 'Détails')),
       ...audit.slice(0, 200).map(a => el('tr', {},
-        el('td', {}, a.created_at), el('td', {}, a.action), el('td', {}, a.cible || ''),
-        el('td', { class: 'small muted' }, `${a.avant || ''} → ${a.apres || ''}`),
         el('td', {}, a.has_snapshot ? el('button', {
           class: 'secondary', style: 'padding:3px 8px;font-size:12px',
           onclick: async () => {
@@ -51,7 +49,9 @@ async function render() {
               alert('✅ Tournoi restauré'); location.reload();
             } catch (e) { alert(e.message); }
           },
-        }, '⏪ Restaurer à ce point') : null)))));
+        }, '⏪ Restaurer à ce point') : null),
+        el('td', {}, a.created_at), el('td', {}, a.action), el('td', {}, a.cible || ''),
+        el('td', { class: 'small muted' }, `${a.avant || ''} → ${a.apres || ''}`)))));
   } catch (e) {
     document.getElementById('audit').textContent = e.message;
   }
