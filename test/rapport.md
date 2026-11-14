@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-13T12:55:00.575Z
-- Base : http://127.0.0.1:3657
-- Résultat : **100 OK / 0 ÉCHEC** (2.7s)
+- Date : 2026-11-14T15:14:11.573Z
+- Base : http://127.0.0.1:4101
+- Résultat : **120 OK / 0 ÉCHEC** (2.7s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -66,9 +66,9 @@
 | ✅ | manche par externe -> 403 |  |
 | ✅ | +1 manche J1 |  |
 | ✅ | −1 manche J1 |  |
-| ✅ | runout casse ferme J2 (+1) |  |
+| ✅ | runout reprise ferme J2 (+1) |  |
 | ✅ | forfait J2 -> match terminé, gagnant J1 |  |
-| ✅ | stats J2: runouts=1, casse=1 |  |
+| ✅ | stats J2: runouts=1, reprise=1, casse=0 |  |
 | ✅ | historique J2: 1 ligne, défaite, score présent |  |
 
 ## 7. Mode auto + préférence de tables
@@ -103,6 +103,28 @@
 | ✅ | QR svg 200 + svg valide |  |
 | ✅ | journal audit lisible |  |
 
+## 11. Rollback point-in-time, confirm_pin sur suppressions, snapshots audit
+
+| ✅ | création tournoi RB (notif_push=false accepté) |  |
+| ✅ | tirage RB |  |
+| ✅ | slots exposés dans /api/etat (suivant_slot/perdant_slot) |  |
+| ✅ | classement: byes exclus (joues=0 juste après tirage) |  |
+| ✅ | match joué 3-0 avant rollback |  |
+| ✅ | audit: événement tirage a un snapshot (has_snapshot) |  |
+| ✅ | audit: lancement lisible (code match + "vs") |  |
+| ✅ | DELETE tournoi sans confirm_pin -> 401 |  |
+| ✅ | DELETE tournoi mauvais code -> 401 |  |
+| ✅ | rollback sans confirm_pin -> 401 |  |
+| ✅ | rollback audit_id inconnu -> 404 |  |
+| ✅ | rollback avec bon code -> 200 |  |
+| ✅ | après rollback: match revenu à pret 0-0 |  |
+| ✅ | rollback logué dans l'audit |  |
+| ✅ | match en cours 1-0 sur table avant rollback |  |
+| ✅ | rollback avec match en cours -> 200 |  |
+| ✅ | après rollback (match en cours): pret 0-0, table libérée |  |
+| ✅ | DELETE tournoi avec bon code -> 200 |  |
+| ✅ | désinscription joueur SANS confirm_pin -> 200 (exempté) |  |
+
 ## Amis, admin-data, règles, points, clôture
 
 | ✅ | création Batterie2 |  |
@@ -125,6 +147,7 @@
 | ✅ | casseur fait reprise -> 403 |  |
 | ✅ | non-casseur fait casse -> 403 |  |
 | ✅ | alternance après manche (casseur a changé) |  |
+| ✅ | retirer une manche -> ⚪ casseur revient à l'état précédent |  |
 | ✅ | changer table -> 200 |  |
 | ✅ | table inconnue -> 400 |  |
 | ✅ | rouvrir avec aval propagé -> 409 |  |
@@ -156,3 +179,4 @@
 - Règles match (bande ⚪, alternance, blocage saisie sans bande, 403 casse/reprise, modale admin table/joueurs/rouvrir-409)
 - Admin-data (PUT joueur 200/409, delete event + recalc, 401 sans PIN)
 - Points au classement (présents, gagnant >= 1) + clôture coupe net (champion null)
+- Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué, rollback avec match en cours -> pret 0-0 + table libérée) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit

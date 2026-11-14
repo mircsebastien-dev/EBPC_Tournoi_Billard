@@ -345,6 +345,18 @@ async function nouveauTournoi(body) {
   check('après rollback: match revenu à pret 0-0', mRet.etat === 'pret' && mRet.score1 === 0 && mRet.score2 === 0, `${mRet.etat} ${mRet.score1}-${mRet.score2}`);
   audit = (await api('/api/admin/audit')).data.audit;
   check('rollback logué dans l\'audit', audit.some(a => a.action === 'rollback'));
+  // rollback avec un match EN COURS (lancé + 1 manche + table assignée)
+  await post(`/api/admin/match/${m11.id}/lancer`, { table_id: t11.tables[0].id });
+  await api(`/api/match/${m11.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m11.joueur1.id } });
+  await api(`/api/match/${m11.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: m11.joueur1.id } });
+  t11 = (await api('/api/etat')).data.actif;
+  const mEC = t11.matchs.find(x => x.id === m11.id);
+  check('match en cours 1-0 sur table avant rollback', mEC.etat === 'en_cours' && mEC.score1 === 1 && mEC.score2 === 0 && !!mEC.table, `${mEC.etat} ${mEC.score1}-${mEC.score2} table=${mEC.table}`);
+  r = await post('/api/admin/tournoi/rollback', { audit_id: evTirage.id, confirm_pin: PIN });
+  check('rollback avec match en cours -> 200', r.status === 200, r.data && r.data.error);
+  t11 = (await api('/api/etat')).data.actif;
+  const mRet2 = t11.matchs.find(x => x.id === m11.id);
+  check('après rollback (match en cours): pret 0-0, table libérée', mRet2.etat === 'pret' && mRet2.score1 === 0 && mRet2.score2 === 0 && !mRet2.table, `${mRet2.etat} ${mRet2.score1}-${mRet2.score2} table=${mRet2.table}`);
   r = await api('/api/admin/tournoi', { method: 'DELETE', body: { confirm_pin: PIN } });
   check('DELETE tournoi avec bon code -> 200', r.status === 200, r.status);
   await post('/api/admin/tournoi', { nom: 'RB2', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2 });
@@ -484,7 +496,7 @@ async function nouveauTournoi(body) {
   md += `- Règles match (bande ⚪, alternance, blocage saisie sans bande, 403 casse/reprise, modale admin table/joueurs/rouvrir-409)\n`;
   md += `- Admin-data (PUT joueur 200/409, delete event + recalc, 401 sans PIN)\n`;
   md += `- Points au classement (présents, gagnant >= 1) + clôture coupe net (champion null)\n`;
-  md += `- Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit\n`;
+  md += `- Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué, rollback avec match en cours -> pret 0-0 + table libérée) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);
