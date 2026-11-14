@@ -37,6 +37,12 @@ async function envoyerMail({ to, subject, text, html }) {
 
 // ---------- rate limit basique en mémoire ----------
 const rl = new Map();
+// IP réelle derrière un proxy (Fly/Render): x-forwarded-for en premier, sinon req.ip = IP du proxy
+// (sinon tous les clients partageraient la même clé de rate-limit)
+function ipClient(req) {
+  const xf = req.headers['x-forwarded-for'];
+  return (xf ? String(xf).split(',')[0].trim() : '') || req.ip || 'local';
+}
 function rateLimit(cle, max, fenetreMs) {
   const now = Date.now();
   const arr = (rl.get(cle) || []).filter(t => now - t < fenetreMs);
@@ -115,7 +121,7 @@ function rattacherJoueursAnonymes(compteId, pseudo, tournoiActif) {
 function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueMatch }) {
   // inscription compte
   app.post('/api/compte/inscription', (req, res) => {
-    const ip = req.ip || 'local';
+    const ip = ipClient(req);
     if (!rateLimit('insc:' + ip, 5, 10 * 60 * 1000)) return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 10 min' });
     const pseudo = String(req.body.pseudo || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
@@ -138,7 +144,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
 
   // connexion
   app.post('/api/compte/connexion', (req, res) => {
-    const ip = req.ip || 'local';
+    const ip = ipClient(req);
     if (!rateLimit('conn:' + ip, 10, 10 * 60 * 1000)) return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 10 min' });
     const pseudo = String(req.body.pseudo || '').trim();
     const password = req.body.password;
@@ -281,7 +287,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
 
   // mot de passe oublié -> mail avec lien de réinit
   app.post('/api/compte/oubli', async (req, res) => {
-    const ip = req.ip || 'local';
+    const ip = ipClient(req);
     if (!rateLimit('oubli:' + ip, 3, 60 * 60 * 1000)) return res.status(429).json({ error: 'Trop de demandes, réessaie plus tard' });
     const email = String(req.body.email || '').trim().toLowerCase();
     if (!validerEmail(email)) return res.status(400).json({ error: 'Email invalide' });

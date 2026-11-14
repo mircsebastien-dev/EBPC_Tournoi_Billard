@@ -188,6 +188,7 @@ src/
 - Le score d'un match est dérivé de la table `match_event` (événements immuables) : chaque manche déclarée est un événement, les corrections admin aussi.
 - Temps réel : **SSE** (`GET /api/events`), un seul flux pour tous les clients.
 - Sécurité : PIN admin en header `X-Admin-Pin` uniquement (jamais en query string, hash SHA-256 côté serveur) + **re-saisie du code (`confirm_pin`) pour toute action destructive** + **anti brute-force** (après `PIN_MAX_ESSAIS` échecs par IP → lockout `PIN_BLOCAGE_MS`, HTTP 429 même pour le bon code ; compteur remis à zéro en cas de succès) ; joueurs et spectateurs sans authentification, saisie validée serveur (joueur bien dans le match, match en cours, race to N).
+- **Session table de marque limitée à 8 h** : le PIN mémorisé expire (re-saisie obligatoire) + bouton **🔒 Verrouiller** dans le menu admin pour l'effacer ; rate-limit des comptes keyé sur `x-forwarded-for` (IP réelle derrière le proxy Fly).
 - **Robustesse** : middleware d'erreur global 100 % JSON (400 JSON malformé, 413 body > 256 ko, 404 JSON sur `/api/*`), `/api/health` (check BDD pour le monitoring), `unhandledRejection`/`uncaughtException` logués sans crash, arrêt propre SIGTERM/SIGINT (SSE fermés + `db.close()`), SQLite `synchronous=FULL` + WAL + `busy_timeout`, entrées nettoyées (pseudo tronqué à 40 caractères sans caractères de contrôle, toutes les requêtes paramétrées), XSS impossible côté front (`createTextNode` partout).
 - Feuille de route produit (idées multi-club, poules, ELO…) : `docs/ROADMAP.md`
 

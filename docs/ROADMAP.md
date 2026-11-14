@@ -12,9 +12,9 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | # | Idée | Effort | Statut |
 |---|---|---|---|
 | 1 | **Anti brute-force PIN admin** : fenêtre glissante d'échecs par IP + lockout temporaire (même le bon code refusé pendant le lockout, 429). Env : `PIN_MAX_ESSAIS` (10), `PIN_FENETRE_MS` (10 min), `PIN_BLOCAGE_MS` (10 min). S'applique à `X-Admin-Pin` **et** `confirm_pin`. | S | ✅ fait |
-| 2 | **Session admin à durée limitée** : déconnexion manuelle de la table de marque + expiration du PIN en localStorage (ex. 8 h) | S | ⬜ |
+| 2 | **Session admin à durée limitée** : bouton 🔒 Verrouiller + expiration du PIN mémorisé après 8 h (`ADMIN_SESSION_MS`, `ebpc_admin_pin_since`) | S | ✅ fait |
 | 3 | **Export / import JSON du tournoi** (tournoi + joueurs + matchs + events) : bouton admin « Exporter », endpoint « Importer » pour rejouer un tournoi ailleurs. Complète le rollback point-in-time | M | ⬜ |
-| 4 | Rate-limit existant côté comptes (`insc:`/`conn:`/`oubli:`) à keyer aussi sur `x-forwarded-for` (derrière Fly, `req.ip` = IP du proxy) | S | ⬜ |
+| 4 | Rate-limit côté comptes (`insc:`/`conn:`/`oubli:`) keyé sur `x-forwarded-for` via `ipClient(req)` (derrière Fly, `req.ip` = IP du proxy sinon tout le monde partage la même clé) | S | ✅ fait |
 
 ## 👥 Côté joueurs
 

@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-14T17:47:32.435Z
-- Base : http://127.0.0.1:4164
-- Résultat : **135 OK / 0 ÉCHEC** (5.4s)
+- Date : 2026-11-14T17:58:12.993Z
+- Base : http://127.0.0.1:4170
+- Résultat : **139 OK / 0 ÉCHEC** (5.6s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -143,6 +143,13 @@
 | ✅ | concurrence: score == nb events manche (pas de double comptage) |  |
 | ✅ | concurrence: match terminé proprement à la distance |  |
 
+## 14. Rate-limit comptes keyé sur X-Forwarded-For + session admin 8h (front)
+
+| ✅ | 10 mauvaises connexions XFF 9.9.9.9 -> 401, la 11e -> 429 |  |
+| ✅ | sans XFF (IP réelle 127.0.0.1) -> pas locké par le bucket 9.9.9.9 (401) |  |
+| ✅ | front: expiration session admin 8h (ADMIN_SESSION_MS + ebpc_admin_pin_since) |  |
+| ✅ | front: bouton Verrouiller + effacement du PIN mémorisé |  |
+
 ## Amis, admin-data, règles, points, clôture
 
 | ✅ | création Batterie2 |  |
@@ -201,3 +208,4 @@
 - Anti brute-force PIN admin (section 12, si TEST_BRUTEFORCE=1: 429 après N échecs par IP, lockout même pour le bon code, déblocage après délai, compteur remis à zéro au succès)
 - Anti-rematch: changement manuel de joueurs vers une paire déjà jouée -> 409 hors finale (section 11) ; simu complète randomisée avec invariant anti-rematch après chaque mutation: test/simu-invariants.js
 - Robustesse (section 13): /api/health, 404 JSON routes inconnues, 400 JSON malformé, 413 body >256ko, id NaN -> 404, pseudo tronqué/nettoyé, injection SQL sans effet, 20 manches en parallèle sans 500 ni double comptage
+- Lot sécurité 1 (section 14): rate-limit comptes keyé sur x-forwarded-for (429 après 10 échecs sur une IP proxy, IP réelle non lockée) + session admin 8h avec bouton Verrouiller (front)

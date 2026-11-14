@@ -1,6 +1,21 @@
 /* Commun à toutes les pages admin : PIN, appels API, état global, SSE */
+const ADMIN_SESSION_MS = 8 * 60 * 60 * 1000; // session table de marque: 8h, puis re-saisie du code PIN
 let adminPin = String(localStorage.getItem('ebpc_admin_pin') || '');
+let adminPinSince = Number(localStorage.getItem('ebpc_admin_pin_since') || 0);
+if (adminPin && adminPinSince && Date.now() - adminPinSince > ADMIN_SESSION_MS) {
+  // session expirée: on efface le PIN mémorisé (il faudra le ressaisir)
+  adminPin = '';
+  localStorage.removeItem('ebpc_admin_pin');
+  localStorage.removeItem('ebpc_admin_pin_since');
+}
 let adminState = null;
+
+function verrouillerAdmin() {
+  adminPin = '';
+  localStorage.removeItem('ebpc_admin_pin');
+  localStorage.removeItem('ebpc_admin_pin_since');
+  location.reload();
+}
 
 function adminHeaders(extra = {}) {
   return { 'Content-Type': 'application/json', ...(adminPin ? { 'X-Admin-Pin': adminPin } : {}), ...extra };
@@ -9,7 +24,7 @@ function adminHeaders(extra = {}) {
 async function adminApi(path, opts = {}) {
   const res = await fetch(path, { headers: adminHeaders(), ...opts });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) { adminPin = ''; localStorage.removeItem('ebpc_admin_pin'); throw new Error('PIN invalide'); }
+  if (res.status === 401) { adminPin = ''; localStorage.removeItem('ebpc_admin_pin'); localStorage.removeItem('ebpc_admin_pin_since'); throw new Error('PIN invalide'); }
   if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
   return data;
 }
@@ -33,6 +48,7 @@ function renderAdminLogin(main) {
       if (r.status === 401) { alert('❌ PIN invalide'); adminPin = ''; input.value = ''; input.focus(); return; }
     } catch (e) { alert('❌ PIN invalide'); return; }
     localStorage.setItem('ebpc_admin_pin', adminPin);
+    localStorage.setItem('ebpc_admin_pin_since', String(Date.now()));
     location.reload();
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') entrer(); });
@@ -72,7 +88,14 @@ async function adminApiDestructif(path, opts, label) {
 }
 
 function adminNav(active) {
-  return nav(active === 'admin-home' ? 'admin' : active);
+  const n = nav(active === 'admin-home' ? 'admin' : active);
+  // verrouillage manuel de la table de marque (efface le PIN mémorisé)
+  n.append(el('button', {
+    class: 'secondary', type: 'button', style: 'padding:4px 10px;font-size:12px;margin-left:8px',
+    title: 'Effacer le code mémorisé (sera redemandé à la prochaine action admin)',
+    onclick: () => { if (confirm('Verrouiller la table de marque ? Le code PIN sera redemandé.')) verrouillerAdmin(); },
+  }, '🔒 Verrouiller'));
+  return n;
 }
 
 function adminTournoiActif() { return adminState && adminState.actif; }

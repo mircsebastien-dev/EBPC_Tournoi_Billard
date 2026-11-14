@@ -444,6 +444,30 @@ async function nouveauTournoi(body) {
   check('concurrence: match terminé proprement à la distance', cur13.etat === 'termine' && cur13.score1 === m13.manches, `${cur13.etat} ${cur13.score1}-${cur13.score2} manches=${m13.manches}`);
   await del('/api/admin/tournoi').catch(() => {});
 
+  // ---------- 14. Lot sécurité 1: rate-limit comptes via x-forwarded-for + session admin limitée ----------
+  sec('14. Rate-limit comptes keyé sur X-Forwarded-For + session admin 8h (front)');
+  // 10 mauvaises connexions depuis une IP "proxy" fictive -> la 11e doit être 429
+  let statuts = [];
+  for (let i = 0; i < 11; i++) {
+    const rr2 = await fetch(BASE + '/api/compte/connexion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '9.9.9.9' },
+      body: JSON.stringify({ pseudo: 'Seb', password: 'faux-' + i }),
+    });
+    statuts.push(rr2.status);
+  }
+  check('10 mauvaises connexions XFF 9.9.9.9 -> 401, la 11e -> 429', statuts.slice(0, 10).every(s => s === 401) && statuts[10] === 429, statuts.join(','));
+  const rr3 = await fetch(BASE + '/api/compte/connexion', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pseudo: 'Seb', password: 'faux-sans-xff' }),
+  });
+  check('sans XFF (IP réelle 127.0.0.1) -> pas locké par le bucket 9.9.9.9 (401)', rr3.status === 401, rr3.status);
+  // session admin: expiration 8h + bouton verrouiller dans admin-common.js
+  const acjs = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-common.js'), 'utf8');
+  check('front: expiration session admin 8h (ADMIN_SESSION_MS + ebpc_admin_pin_since)', acjs.includes('ADMIN_SESSION_MS') && acjs.includes('ebpc_admin_pin_since'), '');
+  check('front: bouton Verrouiller + effacement du PIN mémorisé', acjs.includes('Verrouiller') && acjs.includes('verrouillerAdmin'), '');
+
   // ---------- rapport ----------
 
 
@@ -577,6 +601,7 @@ async function nouveauTournoi(body) {
   md += `- Anti brute-force PIN admin (section 12, si TEST_BRUTEFORCE=1: 429 après N échecs par IP, lockout même pour le bon code, déblocage après délai, compteur remis à zéro au succès)\n`;
   md += `- Anti-rematch: changement manuel de joueurs vers une paire déjà jouée -> 409 hors finale (section 11) ; simu complète randomisée avec invariant anti-rematch après chaque mutation: test/simu-invariants.js\n`;
   md += `- Robustesse (section 13): /api/health, 404 JSON routes inconnues, 400 JSON malformé, 413 body >256ko, id NaN -> 404, pseudo tronqué/nettoyé, injection SQL sans effet, 20 manches en parallèle sans 500 ni double comptage\n`;
+  md += `- Lot sécurité 1 (section 14): rate-limit comptes keyé sur x-forwarded-for (429 après 10 échecs sur une IP proxy, IP réelle non lockée) + session admin 8h avec bouton Verrouiller (front)\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);

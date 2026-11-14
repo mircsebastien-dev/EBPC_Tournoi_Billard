@@ -119,6 +119,8 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - SQLite WAL + busy_timeout 5 s ; SSE broadcast léger `{changed}` + re-fetch client
 - Boutons radius 1 px uniformes ; thème sombre « charbon + rose profond #d6336c »
 
+- **Session admin 8 h** : le PIN en localStorage expire (`ebpc_admin_pin_since`, `ADMIN_SESSION_MS = 8h`) + bouton 🔒 Verrouiller (efface le PIN mémorisé) ; re-saisie obligatoire ensuite
+- Rate-limit comptes (`insc:`/`conn:`/`oubli:`) keyé sur `x-forwarded-for` via `ipClient(req)` (derrière proxy, `req.ip` = IP du proxy)
 - PIN admin vérifié serveur sur toutes les routes `/api/admin/*` (401) + **anti brute-force** : `PIN_MAX_ESSAIS` (10) échecs max par IP (via `x-forwarded-for` puis `req.ip`) dans `PIN_FENETRE_MS` (10 min) → lockout `PIN_BLOCAGE_MS` (10 min) avec **429 même pour le bon code** ; succès = compteur remis à zéro. S'applique à `X-Admin-Pin` (header/query/body) **et** à `confirm_pin`. Test : section 12 de la batterie, active si `TEST_BRUTEFORCE=1` (serveur lancé avec les 3 variables petites)
 - mdp scrypt+salt ; sessions cookie HttpOnly/SameSite/Secure, token hashé ; réinit 1 h hashée ; rate-limit inscription/connexion/oubli
 - Saisie match réservée aux 2 joueurs (403), blocage sans bande (409), règles ⚪ (403)

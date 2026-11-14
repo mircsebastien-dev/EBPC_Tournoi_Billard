@@ -2,6 +2,8 @@
 
 Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly). Toutes les routes `/api/admin/*` exigent le PIN (401 sinon). Seules les données publiques (tableau, TV, stats, historique) sont visibles sans PIN.
 
+**Session limitée à 8 h** : le code mémorisé expire après 8 h (re-saisie obligatoire) ; bouton **🔒 Verrouiller** dans le menu admin pour effacer immédiatement le code mémorisé.
+
 **Anti brute-force** : après `PIN_MAX_ESSAIS` (10 par défaut) mauvais codes soumis depuis la même IP dans `PIN_FENETRE_MS` (10 min), l'IP est lockée `PIN_BLOCAGE_MS` (10 min) — **même le bon code reçoit 429** pendant le lockout. S'applique au header `X-Admin-Pin` **et** au `confirm_pin`. Un code correct remet le compteur à zéro. Variables d'env ajustables (voir README).
 
 ---
