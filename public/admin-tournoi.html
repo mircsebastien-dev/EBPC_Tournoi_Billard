@@ -27,6 +27,37 @@ function render() {
   if (!t) renderCreer(t);
   else if (t.tournoi.statut === 'inscription') renderInscriptions(t);
   else renderTournoi(t);
+  renderIo(t);
+}
+
+/* ---------- Export / import JSON (backup, rejouer ailleurs) ---------- */
+async function exporterJson() {
+  try {
+    const res = await fetch('/api/admin/tournoi/export', { headers: adminHeaders() });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || ('Erreur ' + res.status)); }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = el('a', { href: url, download: 'tournoi-export.json' });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) { alert(e.message); }
+}
+async function importerJson(file) {
+  try {
+    const payload = JSON.parse(await file.text());
+    await adminApiDestructif('/api/admin/tournoi/import', { method: 'POST', body: JSON.stringify({ payload, replace: true }) }, `importer le tournoi "${(payload && payload.tournoi && payload.tournoi.nom) || 'inconnu'}" (remplace le tournoi actif s'il y en a un)`);
+    alert('✅ Tournoi importé');
+    await adminInit(render); render();
+  } catch (e) { alert(e.message); }
+}
+function renderIo(t) {
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, '💾 Sauvegarde (export / import JSON)'),
+    el('p', { class: 'muted small' }, 'Exporte le tournoi actif en JSON (backup, rejouer ailleurs), ou importe un export (remplace le tournoi actif — code PIN re-demandé).'),
+    el('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' },
+      t ? el('button', { class: 'secondary', onclick: exporterJson }, '📥 Exporter le tournoi actif') : null,
+      el('button', { class: 'secondary', onclick: () => document.getElementById('fichier-import').click() }, '📤 Importer un JSON'),
+      el('input', { id: 'fichier-import', type: 'file', accept: 'application/json,.json', style: 'display:none', onchange: (e) => { const f = e.target.files[0]; if (f) importerJson(f); e.target.value = ''; } }))));
 }
 
 /* ---------- Création ---------- */

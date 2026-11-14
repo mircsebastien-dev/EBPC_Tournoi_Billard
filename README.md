@@ -24,6 +24,7 @@ Design **« Eight Ball Pink City »** : thème sombre noir profond avec accents 
 - **Tirage aléatoire** ou avec **têtes de série**
 - **Saisie live** des manches par les 2 joueurs (écran dédié par match), validation serveur (race to N)
 - **Table de marque** (code PIN) : lancer les matchs, assigner une **table libre automatiquement** ou manuellement, corriger les scores, déclarer un forfait — chaque action est journalisée (audit)
+- **Export / import JSON du tournoi** (boutons 💾 table de marque) + **diff affiché avant chaque rollback** + **filtres du journal d'audit** (texte + action)
 - **Rollback point-in-time** : chaque action admin prend un **snapshot** du tournoi actif (table `audit_snapshot`, 200 max par tournoi, purge auto > 90 j) → dans le **journal d'audit**, « ⏪ Restaurer à ce point » restaure le tournoi actif à l'état exact de l'événement (transaction atomique, fonctionne même avec des matchs en cours : scores remis à 0, tables libérées)
 - **Confirmation par code re-saisi** (`confirm_pin`) obligatoire pour **toute action admin destructive** (suppression tournoi / compte / événement de match, vidage du journal, rollback) via une modale à mot de passe masqué — seule la désinscription d'un joueur en est exempte
 - **Notif push « 🎱 Nouveau tournoi — inscriptions ouvertes »** envoyée à tous les abonnés à la création d'un tournoi (switch sur le formulaire de création, **actif par défaut**)
@@ -85,7 +86,7 @@ Pages :
 
 ```bash
 PORT=4100 DB_PATH=/tmp/t.db ADMIN_PIN=0000 node src/server.js &   # serveur frais
-BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js    # 135 checks → test/rapport.md
+BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js    # 155 checks → test/rapport.md
 BASE=http://127.0.0.1:4100 node test/e2e.js                        # structure DKO, SSE…
 BASE=http://127.0.0.1:4100 node test/fullrun.js                    # simulations complètes 16/32 joueurs
 node test/push-unit.js                                             # push (web-push mocké), sans serveur

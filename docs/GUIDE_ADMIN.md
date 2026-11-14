@@ -77,8 +77,9 @@ Points = **profondeur atteinte** (WB: n° de tour; en DKO, F tour t = k+tour), *
 
 Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11 vs P07 (table 3) » —, changements joueurs/table, rouvrir, forfaits, suppressions, swaps anti-rematch…) — **500 dernières entrées**.
 
+- Filtres : champ texte (`?q=`, dans action/cible/détails) + champ action exacte (`?action=`), Entrée pour valider
 - Chaque entrée a un **snapshot** du tournoi actif (`has_snapshot`) : table `audit_snapshot`, **200 snapshots max par tournoi**, **purge auto > 90 jours** au boot
-- Bouton **⏪ Restaurer à ce point** (1re colonne) : restaure le tournoi actif à l'état exact de l'événement via `POST /api/admin/tournoi/rollback {audit_id}` — **transaction atomique** (tout ou rien, FK différées), fonctionne **même avec des matchs en cours** (scores remis à 0, tables libérées, événements supprimés), 409 si le snapshot concerne un autre tournoi, 404 si pas de snapshot. Le rollback est lui-même logué. La page se re-rend en place (zoom/scroll conservés)
+- Bouton **⏪ Restaurer à ce point** (1re colonne) : affiche d'abord le **diff** (`GET /api/admin/tournoi/rollback/diff?audit_id=…` : matchs modifiés/ajoutés/supprimés, joueurs, statut, champion) dans la confirmation, puis demande le code PIN, puis restaure via `POST /api/admin/tournoi/rollback {audit_id, confirm_pin}` — **transaction atomique** (tout ou rien, FK différées), fonctionne **même avec des matchs en cours** (scores remis à 0, tables libérées, événements supprimés), 409 si le snapshot concerne un autre tournoi, 404 si pas de snapshot. Le rollback est lui-même logué. La page se re-rend en place (zoom/scroll conservés)
 
 ### 🔐 Confirmation par code re-saisi (actions destructives)
 
@@ -97,7 +98,7 @@ Toute action admin qui **supprime des données** exige le **code PIN re-saisi** 
 
 ```bash
 # serveur frais sur DB temporaire, puis:
-BASE=http://127.0.0.1:PORT node test/batterie.js   # 122 checks → test/rapport.md (rollback, confirm_pin, slots, byes, rematch 409…)
+BASE=http://127.0.0.1:PORT node test/batterie.js   # 155 checks → test/rapport.md (rollback, confirm_pin, slots, byes, rematch 409, robustesse, export/import, diff, filtres…)
 BASE=http://127.0.0.1:PORT [NO_MANUEL=1] [SEED=…] node test/simu-invariants.js   # simus randomisées 32j DKO k=1/2/3 + 32j simple + 16j, interventions admin aléatoires, invariant anti-rematch après chaque mutation
 BASE=http://127.0.0.1:PORT node test/e2e.js         # structure DKO, distances LB, SSE
 BASE=http://127.0.0.1:PORT node test/fullrun.js     # simulations complètes (16/32 joueurs, simple + DKO)

@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-14T17:58:12.993Z
-- Base : http://127.0.0.1:4170
-- Résultat : **139 OK / 0 ÉCHEC** (5.6s)
+- Date : 2026-11-14T18:26:04.205Z
+- Base : http://127.0.0.1:4186
+- Résultat : **155 OK / 0 ÉCHEC** (5.9s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -150,6 +150,25 @@
 | ✅ | front: expiration session admin 8h (ADMIN_SESSION_MS + ebpc_admin_pin_since) |  |
 | ✅ | front: bouton Verrouiller + effacement du PIN mémorisé |  |
 
+## 15. Export/import JSON tournoi, diff avant rollback, filtre du journal
+
+| ✅ | création tournoi ExpImp |  |
+| ✅ | tirage ExpImp |  |
+| ✅ | export -> 200, payload complet (tournoi+16 joueurs+matchs+events) |  |
+| ✅ | diff rollback -> 200 avec resume |  |
+| ✅ | diff: le match joué apparaît modifié |  |
+| ✅ | audit?action=tirage -> uniquement des tirages |  |
+| ✅ | audit?q=ExpImp -> au moins la création, tout filtré côté serveur |  |
+| ✅ | import sans confirm_pin -> 401 |  |
+| ✅ | import mauvais confirm_pin -> 401 |  |
+| ✅ | import JSON invalide -> 400 |  |
+| ✅ | import valide -> 200, tournoi recréé (FK remappées, validées au COMMIT) |  |
+| ✅ | import: 16 joueurs et tous les matchs présents |  |
+| ✅ | import: match en cours conservé (score 1-0) |  |
+| ✅ | import: lien suivant_id valide |  |
+| ✅ | import avec actif sans replace -> 409 |  |
+| ✅ | export?id= -> 200 |  |
+
 ## Amis, admin-data, règles, points, clôture
 
 | ✅ | création Batterie2 |  |
@@ -209,3 +228,4 @@
 - Anti-rematch: changement manuel de joueurs vers une paire déjà jouée -> 409 hors finale (section 11) ; simu complète randomisée avec invariant anti-rematch après chaque mutation: test/simu-invariants.js
 - Robustesse (section 13): /api/health, 404 JSON routes inconnues, 400 JSON malformé, 413 body >256ko, id NaN -> 404, pseudo tronqué/nettoyé, injection SQL sans effet, 20 manches en parallèle sans 500 ni double comptage
 - Lot sécurité 1 (section 14): rate-limit comptes keyé sur x-forwarded-for (429 après 10 échecs sur une IP proxy, IP réelle non lockée) + session admin 8h avec bouton Verrouiller (front)
+- Lot fiabilité admin (section 15): export JSON du tournoi, import avec remap des ids + FK validées au COMMIT (401 sans/bon confirm_pin, 400 invalide, 409 si actif sans replace), diff avant rollback (resume + matchs modifiés), filtre du journal ?q=/?action=

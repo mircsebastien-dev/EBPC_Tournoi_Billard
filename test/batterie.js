@@ -468,6 +468,59 @@ async function nouveauTournoi(body) {
   check('front: expiration session admin 8h (ADMIN_SESSION_MS + ebpc_admin_pin_since)', acjs.includes('ADMIN_SESSION_MS') && acjs.includes('ebpc_admin_pin_since'), '');
   check('front: bouton Verrouiller + effacement du PIN mémorisé', acjs.includes('Verrouiller') && acjs.includes('verrouillerAdmin'), '');
 
+  // ---------- 15. Lot fiabilité admin: export/import JSON, diff avant rollback, filtre audit ----------
+  sec('15. Export/import JSON tournoi, diff avant rollback, filtre du journal');
+  await del('/api/admin/tournoi').catch(() => {});
+  r = await post('/api/admin/tournoi', { nom: 'ExpImp', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
+  check('création tournoi ExpImp', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  await post('/api/admin/joueurs/simulation', { count: 16, prefix: 'E' });
+  r = await post('/api/admin/tirage', {});
+  check('tirage ExpImp', r.status === 200, r.status);
+  let t15 = (await api('/api/etat')).data.actif;
+  const m15 = t15.matchs.find(m => m.etat === 'pret' && m.joueur1 && m.joueur2);
+  await post(`/api/admin/match/${m15.id}/lancer`, { table_id: null });
+  await api(`/api/match/${m15.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m15.joueur1.id } });
+  await api(`/api/match/${m15.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: m15.joueur1.id } });
+  // export
+  r = await api('/api/admin/tournoi/export');
+  check('export -> 200, payload complet (tournoi+16 joueurs+matchs+events)', r.status === 200 && r.data.tournoi && r.data.tournoi.nom === 'ExpImp' && r.data.joueurs.length === 16 && r.data.matchs.length > 0 && Array.isArray(r.data.events), r.status);
+  const exportPayload = r.data;
+  // diff avant rollback (événement tirage)
+  const audit15 = (await api('/api/admin/audit')).data.audit;
+  const evTirage15 = audit15.find(a => a.action === 'tirage');
+  r = await api(`/api/admin/tournoi/rollback/diff?audit_id=${evTirage15.id}`);
+  check('diff rollback -> 200 avec resume', r.status === 200 && !!(r.data.resume && r.data.resume.matchs_modifies >= 1), r.status + ' ' + JSON.stringify(r.data.resume || r.data.error));
+  check('diff: le match joué apparaît modifié', r.status === 200 && r.data.modifies.some(m => m.id === m15.id), '');
+  // filtres audit
+  r = await api('/api/admin/audit?action=tirage');
+  check('audit?action=tirage -> uniquement des tirages', r.status === 200 && r.data.audit.length >= 1 && r.data.audit.every(a => a.action === 'tirage'), r.status);
+  r = await api('/api/admin/audit?q=ExpImp');
+  check('audit?q=ExpImp -> au moins la création, tout filtré côté serveur', r.status === 200 && r.data.audit.length >= 1, r.status + ' n=' + (r.data.audit || []).length);
+  // import
+  await del('/api/admin/tournoi').catch(() => {});
+  r = await post('/api/admin/tournoi/import', { payload: exportPayload, replace: true });
+  check('import sans confirm_pin -> 401', r.status === 401, r.status);
+  r = await post('/api/admin/tournoi/import', { payload: exportPayload, replace: true, confirm_pin: 'mauvais' });
+  check('import mauvais confirm_pin -> 401', r.status === 401, r.status);
+  r = await post('/api/admin/tournoi/import', { payload: { foo: 1 }, replace: true, confirm_pin: PIN });
+  check('import JSON invalide -> 400', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  r = await post('/api/admin/tournoi/import', { payload: exportPayload, replace: true, confirm_pin: PIN });
+  check('import valide -> 200, tournoi recréé (FK remappées, validées au COMMIT)', r.status === 200 && r.data.actif && r.data.actif.tournoi.nom === 'ExpImp', r.status + ' ' + (r.data.error || ''));
+  if (r.status === 200) {
+    const t15b = (await api('/api/etat')).data.actif;
+    check('import: 16 joueurs et tous les matchs présents', t15b.joueurs.length === 16 && t15b.matchs.length === exportPayload.matchs.length, `${t15b.joueurs.length}j ${t15b.matchs.length}m vs ${exportPayload.matchs.length}m`);
+    const m15b = t15b.matchs.find(m => m.etat === 'en_cours' && m.joueur1 && m.joueur2);
+    check('import: match en cours conservé (score 1-0)', !!(m15b && m15b.score1 + m15b.score2 === 1), m15b && `${m15b.score1}-${m15b.score2}`);
+    check('import: lien suivant_id valide', !m15b.suivant_id || !!t15b.matchs.find(x => x.id === m15b.suivant_id), '');
+    // import avec tournoi actif et SANS replace -> 409
+    r = await post('/api/admin/tournoi/import', { payload: exportPayload, confirm_pin: PIN });
+    check('import avec actif sans replace -> 409', r.status === 409, r.status);
+    // export par id (même tournoi)
+    r = await api(`/api/admin/tournoi/export?id=${r.data.tournoi_id || t15b.tournoi.id}`);
+    check('export?id= -> 200', r.status === 200 && r.data.tournoi.nom === 'ExpImp', r.status);
+  }
+  await del('/api/admin/tournoi').catch(() => {});
+
   // ---------- rapport ----------
 
 
@@ -602,6 +655,7 @@ async function nouveauTournoi(body) {
   md += `- Anti-rematch: changement manuel de joueurs vers une paire déjà jouée -> 409 hors finale (section 11) ; simu complète randomisée avec invariant anti-rematch après chaque mutation: test/simu-invariants.js\n`;
   md += `- Robustesse (section 13): /api/health, 404 JSON routes inconnues, 400 JSON malformé, 413 body >256ko, id NaN -> 404, pseudo tronqué/nettoyé, injection SQL sans effet, 20 manches en parallèle sans 500 ni double comptage\n`;
   md += `- Lot sécurité 1 (section 14): rate-limit comptes keyé sur x-forwarded-for (429 après 10 échecs sur une IP proxy, IP réelle non lockée) + session admin 8h avec bouton Verrouiller (front)\n`;
+  md += `- Lot fiabilité admin (section 15): export JSON du tournoi, import avec remap des ids + FK validées au COMMIT (401 sans/bon confirm_pin, 400 invalide, 409 si actif sans replace), diff avant rollback (resume + matchs modifiés), filtre du journal ?q=/?action=\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);

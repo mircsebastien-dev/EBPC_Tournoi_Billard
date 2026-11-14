@@ -880,11 +880,16 @@ app.delete('/api/admin/audit', requireAdmin, requireConfirmPin, (req, res) => {
 });
 
 app.get('/api/admin/audit', requireAdmin, (req, res) => {
-  const rows = db.prepare(`
-    SELECT a.*, EXISTS(SELECT 1 FROM audit_snapshot s WHERE s.audit_id = a.id) AS has_snapshot
-    FROM audit_log a ORDER BY a.id DESC LIMIT 500
-  `).all();
-  res.json({ audit: rows });
+  // filtres optionnels: ?q= (texte dans action/cible/avant/apres) et ?action= (action exacte)
+  const q = String(req.query.q || '').trim().slice(0, 80);
+  const action = String(req.query.action || '').trim().slice(0, 60);
+  let sql = `SELECT a.*, EXISTS(SELECT 1 FROM audit_snapshot s WHERE s.audit_id = a.id) AS has_snapshot FROM audit_log a`;
+  const where = [], params = [];
+  if (q) { where.push('(a.action LIKE ? OR a.cible LIKE ? OR a.avant LIKE ? OR a.apres LIKE ?)'); const like = `%${q}%`; params.push(like, like, like, like); }
+  if (action) { where.push('a.action = ?'); params.push(action); }
+  if (where.length) sql += ' WHERE ' + where.join(' AND ');
+  sql += ' ORDER BY a.id DESC LIMIT 500';
+  res.json({ audit: db.prepare(sql).all(...params), q, action });
 });
 
 // Rollback point-in-time : restaure le tournoi actif à l'état du snapshot d'un événement d'audit
@@ -924,6 +929,160 @@ app.post('/api/admin/tournoi/rollback', requireAdmin, requireConfirmPin, (req, r
   logAudit('rollback', `tournoi ${tid} restauré à l'événement #${auditId}`, null, { audit_id: auditId, taken_at: snap.taken_at });
   majEtBroadcast();
   res.json({ ok: true, ...etatGlobal(req) });
+});
+
+// ---------- Export / import JSON d'un tournoi (backup + rejouer ailleurs) ----------
+function payloadTournoi(tid) {
+  return {
+    app: 'ebpc-tournoi-billard', version: 1, exported_at: new Date().toISOString(),
+    tournoi: db.prepare('SELECT * FROM tournoi WHERE id = ?').get(tid),
+    joueurs: db.prepare('SELECT * FROM joueur WHERE tournoi_id = ? ORDER BY id').all(tid),
+    matchs: db.prepare('SELECT * FROM match WHERE tournoi_id = ? ORDER BY id').all(tid),
+    events: db.prepare('SELECT * FROM match_event WHERE match_id IN (SELECT id FROM match WHERE tournoi_id = ?) ORDER BY id').all(tid),
+    distances: db.prepare('SELECT * FROM distance_round WHERE tournoi_id = ? ORDER BY round').all(tid),
+    tables: db.prepare('SELECT * FROM table_billard WHERE tournoi_id = ? ORDER BY numero').all(tid),
+  };
+}
+
+app.get('/api/admin/tournoi/export', requireAdmin, (req, res) => {
+  const t = req.query.id ? db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(req.query.id)) : tournoiActif();
+  if (!t) return res.status(404).json({ error: 'Tournoi introuvable (ou aucun tournoi actif)' });
+  res.setHeader('Content-Disposition', `attachment; filename="tournoi-${t.id}-${String(t.nom).replace(/[^\w-]+/g, '_')}.json"`);
+  res.json(payloadTournoi(t.id));
+});
+
+// Import: recrée un tournoi depuis un export JSON. Si un tournoi est actif -> exige replace=true + confirm_pin.
+app.post('/api/admin/tournoi/import', requireAdmin, requireConfirmPin, (req, res) => {
+  const p = req.body && req.body.payload && typeof req.body.payload === 'object' ? req.body.payload : req.body;
+  const t = p && p.tournoi;
+  const err400 = (m) => res.status(400).json({ error: m });
+  if (!t || typeof t.nom !== 'string' || !t.nom) return err400('Export invalide (tournoi.nom manquant)');
+  if (!['blackball', 'ultimate'].includes(t.regle)) return err400('Export invalide (règle)');
+  if (![16, 32, 64, 128].includes(Number(t.taille))) return err400('Export invalide (taille)');
+  if (!['simple', 'double'].includes(t.format)) return err400('Export invalide (format)');
+  for (const k of ['joueurs', 'matchs', 'events', 'distances', 'tables']) if (p[k] != null && !Array.isArray(p[k])) return err400(`Export invalide (${k} doit être un tableau)`);
+  const joueurs = p.joueurs || [], matchs = p.matchs || [], events = p.events || [], distances = p.distances || [], tables = p.tables || [];
+  const actif = tournoiActif();
+  if (actif && req.body.replace !== true) {
+    return res.status(409).json({ error: `Un tournoi est actif (${actif.nom}). Envoyez replace=true + confirm_pin pour le remplacer par l'import.`, actif_id: actif.id });
+  }
+  // remap des ids (le tournoi importé reçoit de nouveaux ids, on recopie les FK)
+  const mapJ = new Map(), mapM = new Map(), mapT = new Map();
+  // validation préalable des références (évite un 500 FK au COMMIT): toute ref doit exister dans l'export
+  const refs = [];
+  for (const m of matchs) for (const c of ['joueur1_id', 'joueur2_id', 'gagnant_id', 'casseur_id']) if (m[c] != null) refs.push(['joueur', m[c]]);
+  for (const m of matchs) { if (m.table_id != null) refs.push(['table', m.table_id]); if (m.suivant_id != null) refs.push(['match', m.suivant_id]); if (m.perdant_id != null) refs.push(['match', m.perdant_id]); }
+  for (const e of events) { if (e.match_id != null) refs.push(['match', e.match_id]); if (e.joueur_id != null) refs.push(['joueur', e.joueur_id]); }
+  if (t.champion_id != null) refs.push(['joueur', t.champion_id]);
+  const setJ = new Set(joueurs.map(j => j.id)), setM = new Set(matchs.map(m => m.id)), setT = new Set(tables.map(tb => tb.id));
+  const casses = refs.filter(([k, v]) => (k === 'joueur' ? !setJ.has(v) : k === 'match' ? !setM.has(v) : !setT.has(v)));
+  if (casses.length) return err400(`Export invalide: ${casses.length} référence(s) cassée(s) (ex: ${casses[0][0]} #${casses[0][1]})`);
+  const tx = db.transaction(() => {
+    db.pragma('defer_foreign_keys = ON');
+    if (actif) {
+      db.prepare('UPDATE tournoi SET champion_id = NULL WHERE id = ?').run(actif.id);
+      db.prepare('DELETE FROM match_event WHERE match_id IN (SELECT id FROM match WHERE tournoi_id = ?)').run(actif.id);
+      db.prepare('DELETE FROM match WHERE tournoi_id = ?').run(actif.id);
+      db.prepare('DELETE FROM joueur WHERE tournoi_id = ?').run(actif.id);
+      db.prepare('DELETE FROM table_billard WHERE tournoi_id = ?').run(actif.id);
+      db.prepare('DELETE FROM distance_round WHERE tournoi_id = ?').run(actif.id);
+      db.prepare('DELETE FROM audit_snapshot WHERE tournoi_id = ?').run(actif.id);
+      db.prepare('DELETE FROM tournoi WHERE id = ?').run(actif.id);
+    }
+    const tCols = Object.keys(t).filter(c => c !== 'id');
+    const newTid = db.prepare(`INSERT INTO tournoi (${tCols.join(',')}) VALUES (${tCols.map(() => '?').join(',')})`).run(...tCols.map(c => t[c])).lastInsertRowid;
+    for (const j of joueurs) {
+      const cols = Object.keys(j).filter(c => c !== 'id' && c !== 'tournoi_id');
+      const nj = db.prepare(`INSERT INTO joueur (tournoi_id, ${cols.join(',')}) VALUES (?, ${cols.map(() => '?').join(',')})`).run(newTid, ...cols.map(c => j[c]));
+      mapJ.set(j.id, Number(nj.lastInsertRowid));
+    }
+    for (const tb of tables) {
+      const cols = Object.keys(tb).filter(c => c !== 'id' && c !== 'tournoi_id');
+      const nt = db.prepare(`INSERT INTO table_billard (tournoi_id, ${cols.join(',')}) VALUES (?, ${cols.map(() => '?').join(',')})`).run(newTid, ...cols.map(c => tb[c]));
+      mapT.set(tb.id, Number(nt.lastInsertRowid));
+    }
+    const mapId = (v, map) => (v == null ? null : (map.get(v) != null ? map.get(v) : v));
+    // 1re passe: insère les matchs SANS les liens self-FK (suivant_id/perdant_id), en remplissant mapM
+    for (const m of matchs) {
+      const cols = Object.keys(m).filter(c => c !== 'id' && c !== 'suivant_id' && c !== 'perdant_id');
+      const vals = cols.map(c => {
+        if (c === 'tournoi_id') return newTid;
+        if (['joueur1_id', 'joueur2_id', 'gagnant_id', 'casseur_id'].includes(c)) return mapId(m[c], mapJ);
+        if (c === 'table_id') return mapId(m[c], mapT);
+        return m[c];
+      });
+      const nm = db.prepare(`INSERT INTO match (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...vals);
+      mapM.set(m.id, Number(nm.lastInsertRowid));
+    }
+    // 2e passe: liens self-FK, maintenant que tous les matchs (et leur mapM) existent
+    for (const m of matchs) {
+      if (m.suivant_id == null && m.perdant_id == null) continue;
+      db.prepare('UPDATE match SET suivant_id = ?, perdant_id = ? WHERE id = ?')
+        .run(mapId(m.suivant_id, mapM), mapId(m.perdant_id, mapM), mapM.get(m.id));
+    }
+    for (const e of events) {
+      const cols = Object.keys(e).filter(c => c !== 'id');
+      const vals = cols.map(c => {
+        if (c === 'match_id') return mapId(e[c], mapM);
+        if (c === 'joueur_id') return mapId(e[c], mapJ);
+        return e[c];
+      });
+      db.prepare(`INSERT INTO match_event (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...vals);
+    }
+    for (const d of distances) {
+      db.prepare('INSERT INTO distance_round (tournoi_id, round, manches) VALUES (?, ?, ?)').run(newTid, d.round, d.manches);
+    }
+    // champion_id après coup (les joueurs sont insérés)
+    if (t.champion_id != null && mapJ.has(t.champion_id)) {
+      db.prepare('UPDATE tournoi SET champion_id = ? WHERE id = ?').run(mapJ.get(t.champion_id), newTid);
+    }
+    // sécurité: aucune FK cassée avant le COMMIT (sinon rollback + 400 explicite au lieu d'un 500)
+    const vios = db.prepare('PRAGMA foreign_key_check').all();
+    if (vios.length) { const e = new Error('Export invalide: références cassées: ' + vios.slice(0, 5).map(v => `${v.table}#${v.rowid} -> ${v.parent}`).join(', ')); e.status = 400; throw e; }
+    return newTid;
+  });
+  const newTid = tx();
+  logAudit('import_tournoi', `tournoi importé -> #${newTid} (${t.nom})`, null, { nom: t.nom, joueurs: joueurs.length, matchs: matchs.length, remplace: !!actif });
+  majEtBroadcast();
+  res.json({ ok: true, tournoi_id: Number(newTid), ...etatGlobal(req) });
+});
+
+// ---------- Diff avant rollback: ce qui va changer si on restaure à cet événement ----------
+app.get('/api/admin/tournoi/rollback/diff', requireAdmin, (req, res) => {
+  const auditId = Number(req.query.audit_id);
+  const snap = db.prepare('SELECT * FROM audit_snapshot WHERE audit_id = ?').get(auditId);
+  if (!snap) return res.status(404).json({ error: 'Aucun snapshot pour cet événement' });
+  const actif = tournoiActif();
+  if (!actif || actif.id !== snap.tournoi_id) return res.status(409).json({ error: 'Seul le tournoi actif peut être comparé (ce snapshot concerne un autre tournoi)' });
+  const data = JSON.parse(snap.payload);
+  const cur = db.prepare('SELECT * FROM match WHERE tournoi_id = ?').all(actif.id);
+  const snapM = new Map(data.matchs.map(m => [m.id, m]));
+  const curM = new Map(cur.map(m => [m.id, m]));
+  const cmp = ['etat', 'score1', 'score2', 'joueur1_id', 'joueur2_id', 'gagnant_id', 'table_id', 'manches'];
+  const modifies = [];
+  for (const m of cur) {
+    const s = snapM.get(m.id);
+    if (!s) continue;
+    if (cmp.some(c => s[c] !== m[c])) {
+      modifies.push({
+        id: m.id, code: `${String(m.bracket).toLowerCase()}${m.tour}-${String(m.position).padStart(3, '0')}`,
+        avant: Object.fromEntries(cmp.map(c => [c, s[c]])), apres: Object.fromEntries(cmp.map(c => [c, m[c]])),
+      });
+    }
+  }
+  const ajoutes = cur.filter(m => !snapM.has(m.id)).map(m => ({ id: m.id, code: `${String(m.bracket).toLowerCase()}${m.tour}-${String(m.position).padStart(3, '0')}` }));
+  const supprimes = data.matchs.filter(m => !curM.has(m.id)).map(m => ({ id: m.id, code: `${String(m.bracket).toLowerCase()}${m.tour}-${String(m.position).padStart(3, '0')}` }));
+  const jAv = data.joueurs.length, jAp = db.prepare('SELECT COUNT(*) c FROM joueur WHERE tournoi_id = ?').get(actif.id).c;
+  res.json({
+    audit_id: auditId, taken_at: snap.taken_at,
+    resume: {
+      matchs_modifies: modifies.length, matchs_ajoutes: ajoutes.length, matchs_supprimes: supprimes.length,
+      joueurs_avant: jAv, joueurs_apres: jAp,
+      statut_avant: data.tournoi.statut, statut_apres: actif.statut,
+      champion_avant: data.tournoi.champion_id, champion_apres: actif.champion_id,
+    },
+    modifies: modifies.slice(0, 100), ajoutes, supprimes,
+  });
 });
 
 // Tirage à la bande: déclare qui casse en premier (joueur du match ou admin)

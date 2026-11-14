@@ -18,12 +18,39 @@
 <script>
 document.getElementById('nav').append(nav('admin'));
 const main = document.getElementById('main');
+let filtreQ = '', filtreAction = '';
+
+// Rollback avec diff préalable: montre ce qui va changer AVANT de demander le code PIN
+async function confirmerRollback(a) {
+  let diff = null;
+  try { diff = await adminApi(`/api/admin/tournoi/rollback/diff?audit_id=${a.id}`); } catch (e) { diff = { error: e.message }; }
+  const r = diff && diff.resume;
+  const lignes = [`Événement #${a.id} (${a.action}) du ${a.created_at}`, ''];
+  if (r) {
+    lignes.push(`Matchs modifiés: ${r.matchs_modifies} · ajoutés: ${r.matchs_ajoutes} · supprimés: ${r.matchs_supprimes}`);
+    lignes.push(`Joueurs: ${r.joueurs_avant} -> ${r.joueurs_apres} · statut: ${r.statut_avant} -> ${r.statut_apres}`);
+    if (r.champion_avant !== r.champion_apres) lignes.push(`Champion: ${r.champion_avant} -> ${r.champion_apres}`);
+    if (diff.modifies && diff.modifies.length) {
+      lignes.push('', 'Exemples de matchs modifiés:');
+      for (const m of diff.modifies.slice(0, 8)) lignes.push(` ${m.code}: ${m.avant.etat} ${m.avant.score1}-${m.avant.score2} -> ${m.apres.etat} ${m.apres.score1}-${m.apres.score2}`);
+    }
+  } else lignes.push('Diff indisponible: ' + (diff && diff.error));
+  lignes.push('', 'Le contenu actuel du tournoi sera remplacé.');
+  if (!confirm(`Restaurer le tournoi actif à l'état de cet événement ?\n\n` + lignes.join('\n'))) return;
+  try {
+    await adminApiDestructif('/api/admin/tournoi/rollback', { method: 'POST', body: JSON.stringify({ audit_id: a.id }) }, `restaurer le tournoi à l'événement #${a.id} (${a.action})`);
+    alert('✅ Tournoi restauré');
+    const y = window.scrollY; // re-render en place: conserve zoom et position de scroll (pas de location.reload)
+    await render();
+    window.scrollTo(0, y);
+  } catch (e) { alert(e.message); }
+}
 
 async function render() {
   main.innerHTML = '';
   if (!adminPin) { renderAdminLogin(main); return; }
   main.append(el('div', { class: 'panel' },
-  el('div', { class: 'row', style: 'justify-content:space-between;align-items:center' },
+  el('div', { class: 'row', style: 'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px' },
     el('div', { class: 'hero-title' }, 'Journal d\'audit'),
     el('button', { class: 'danger', onclick: async () => {
       if (!confirm('Vider tout le journal d\'audit ? (irréversible)')) return;
@@ -33,26 +60,31 @@ async function render() {
         await render();
       } catch (e) { alert(e.message); }
     } }, 'Vider le journal')),
+  // filtres: texte libre + action exacte (Entrée pour valider)
+  el('div', { class: 'row', style: 'margin:10px 0;gap:8px;flex-wrap:wrap' },
+    (() => { const inp = el('input', { id: 'f-q', placeholder: 'Rechercher (action, cible, détails)…', value: filtreQ, style: 'flex:1 1 220px' });
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { filtreQ = inp.value.trim(); render(); } });
+      return inp; })(),
+    (() => { const inp = el('input', { id: 'f-action', placeholder: 'Action exacte (ex: tirage)', value: filtreAction, style: 'flex:1 1 160px' });
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { filtreAction = inp.value.trim(); render(); } });
+      return inp; })(),
+    el('button', { class: 'secondary', onclick: () => { const q = document.getElementById('f-q'); const ac = document.getElementById('f-action'); filtreQ = (q ? q.value : '').trim(); filtreAction = (ac ? ac.value : '').trim(); render(); } }, 'Filtrer'),
+    (filtreQ || filtreAction) ? el('button', { class: 'secondary', onclick: () => { filtreQ = ''; filtreAction = ''; render(); } }, '✖ Tout afficher') : null),
   el('div', { id: 'audit' }, 'Chargement…')));
   try {
-    const { audit } = await adminApi('/api/admin/audit');
+    const qs = new URLSearchParams();
+    if (filtreQ) qs.set('q', filtreQ);
+    if (filtreAction) qs.set('action', filtreAction);
+    const { audit } = await adminApi('/api/admin/audit' + (qs.toString() ? '?' + qs.toString() : ''));
     const box = document.getElementById('audit');
     box.innerHTML = '';
-    box.append(el('table', { class: 'audit' },
+    box.append(el('p', { class: 'muted small' }, `${audit.length} entrée(s)` + (filtreQ || filtreAction ? ` — filtre ${[filtreQ && `texte="${filtreQ}"`, filtreAction && `action="${filtreAction}"`].filter(Boolean).join(' ')}` : '')),
+    el('table', { class: 'audit' },
       el('tr', {}, el('th', {}, ''), el('th', {}, 'Date'), el('th', {}, 'Action'), el('th', {}, 'Cible'), el('th', {}, 'Détails')),
       ...audit.slice(0, 500).map(a => el('tr', {},
         el('td', {}, a.has_snapshot ? el('button', {
           class: 'secondary', style: 'padding:3px 8px;font-size:12px',
-          onclick: async () => {
-            if (!confirm(`Restaurer le tournoi actif à l'état de cet événement (#${a.id} — ${a.action}) ?\nLe contenu actuel du tournoi sera remplacé.`)) return;
-            try {
-              await adminApiDestructif('/api/admin/tournoi/rollback', { method: 'POST', body: JSON.stringify({ audit_id: a.id }) }, `restaurer le tournoi à l'événement #${a.id} (${a.action})`);
-              alert('✅ Tournoi restauré');
-              const y = window.scrollY; // re-render en place: conserve zoom et position de scroll (pas de location.reload)
-              await render();
-              window.scrollTo(0, y);
-            } catch (e) { alert(e.message); }
-          },
+          onclick: () => confirmerRollback(a),
         }, '⏪ Restaurer à ce point') : null),
         el('td', {}, a.created_at), el('td', {}, a.action), el('td', {}, a.cible || ''),
         el('td', { class: 'small muted' }, `${a.avant || ''} → ${a.apres || ''}`)))));

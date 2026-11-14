@@ -13,7 +13,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 |---|---|---|---|
 | 1 | **Anti brute-force PIN admin** : fenêtre glissante d'échecs par IP + lockout temporaire (même le bon code refusé pendant le lockout, 429). Env : `PIN_MAX_ESSAIS` (10), `PIN_FENETRE_MS` (10 min), `PIN_BLOCAGE_MS` (10 min). S'applique à `X-Admin-Pin` **et** `confirm_pin`. | S | ✅ fait |
 | 2 | **Session admin à durée limitée** : bouton 🔒 Verrouiller + expiration du PIN mémorisé après 8 h (`ADMIN_SESSION_MS`, `ebpc_admin_pin_since`) | S | ✅ fait |
-| 3 | **Export / import JSON du tournoi** (tournoi + joueurs + matchs + events) : bouton admin « Exporter », endpoint « Importer » pour rejouer un tournoi ailleurs. Complète le rollback point-in-time | M | ⬜ |
+| 3 | **Export / import JSON du tournoi** : `GET /api/admin/tournoi/export` (téléchargement) + `POST /api/admin/tournoi/import` (remap des ids en 2 passes, FK checkées, `replace=true` + confirm_pin si tournoi actif) — boutons 💾 dans la table de marque | M | ✅ fait |
 | 4 | Rate-limit côté comptes (`insc:`/`conn:`/`oubli:`) keyé sur `x-forwarded-for` via `ipClient(req)` (derrière Fly, `req.ip` = IP du proxy sinon tout le monde partage la même clé) | S | ✅ fait |
 
 ## 👥 Côté joueurs
@@ -51,8 +51,8 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 
 | # | Idée | Effort | Statut |
 |---|---|---|---|
-| 21 | **Filtre / recherche dans le journal d'audit** (500 entrées : par action, cible, date) | S | ⬜ |
-| 22 | **Diff avant rollback** : comparer snapshot cible vs état courant (« 3 matchs remis à 0, 1 table libérée ») avant confirmation | M | ⬜ |
+| 21 | **Filtre / recherche dans le journal d'audit** : `GET /api/admin/audit?q=…&action=…` + champs de filtre dans la page journal (Entrée pour valider) | S | ✅ fait |
+| 22 | **Diff avant rollback** : `GET /api/admin/tournoi/rollback/diff?audit_id=…` (resume: matchs modifiés/ajoutés/supprimés, joueurs, statut, champion + exemples) affiché dans la confirmation avant le code PIN | M | ✅ fait |
 | 23 | **Import CSV de joueurs + invitations mail** avec lien magique de connexion (Resend déjà branché ; rattachement auto au pseudo déjà en place) | M | ⬜ |
 | 24 | Export PDF/CSV du tournoi (classement, matchs, stats) pour l'affiche officielle | S-M | ⬜ |
 
