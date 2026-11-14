@@ -1,6 +1,7 @@
 // Comptes joueurs : pseudo + email + mot de passe (scrypt), sessions cookie, réinit par mail (Resend)
 const crypto = require('crypto');
 const { db, logAudit } = require('./db');
+const logAuditC = (req, ...a) => logAudit(...a, req && req.club ? req.club.id : undefined);
 
 const SESSION_COOKIE = 'ebpc_session';
 const SESSION_JOURS = 30;
@@ -109,9 +110,9 @@ function validerPassword(p) {
 // ---------- routes ----------
 
 // Rattache les joueurs anonymes du tournoi actif au même pseudo -> compte (création de compte ou connexion)
-function rattacherJoueursAnonymes(compteId, pseudo, tournoiActif) {
+function rattacherJoueursAnonymes(compteId, pseudo, tournoiActif, clubId) {
   if (!tournoiActif) return;
-  const t = tournoiActif();
+  const t = tournoiActif(clubId);
   if (t && (t.statut === 'inscription' || t.statut === 'en_cours')) {
     db.prepare('UPDATE joueur SET compte_id = ? WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND compte_id IS NULL')
       .run(compteId, t.id, pseudo);
@@ -134,11 +135,11 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     const salt = nouveauSalt();
     const info = db.prepare(`INSERT INTO compte (pseudo, email, pass_hash, salt, last_login_at) VALUES (?, ?, ?, ?, datetime('now'))`)
       .run(pseudo, email, hashPassword(password, salt), salt);
-    rattacherJoueursAnonymes(info.lastInsertRowid, pseudo, tournoiActif);
+    rattacherJoueursAnonymes(info.lastInsertRowid, pseudo, tournoiActif, req.club ? req.club.id : undefined);
     const compte = db.prepare('SELECT id, pseudo, email FROM compte WHERE id = ?').get(info.lastInsertRowid);
     const token = creerSession(compte.id);
     setSessionCookie(res, token, SESSION_JOURS);
-    logAudit('compte_cree', `compte ${compte.id}`, null, { pseudo: compte.pseudo });
+    logAuditC(req, 'compte_cree', `compte ${compte.id}`, null, { pseudo: compte.pseudo });
     res.status(201).json({ ok: true, compte: comptePublic(compte) });
   });
 
@@ -152,13 +153,13 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!c || !verifierPassword(password, c.salt, c.pass_hash)) {
       return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect' });
     }
-    rattacherJoueursAnonymes(c.id, c.pseudo, tournoiActif);
+    rattacherJoueursAnonymes(c.id, c.pseudo, tournoiActif, req.club ? req.club.id : undefined);
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     const token = creerSession(c.id);
     setSessionCookie(res, token, SESSION_JOURS);
-    logAudit('compte_connexion', `compte ${c.id}`, null, { pseudo: c.pseudo });
+    logAuditC(req, 'compte_connexion', `compte ${c.id}`, null, { pseudo: c.pseudo });
     res.json({ ok: true, compte: comptePublic(c) });
   });
 
@@ -182,7 +183,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
       WHERE a.compte_id = ? ORDER BY c.pseudo COLLATE NOCASE
     `).all(req.compte.id);
     // statut de chaque ami dans le tournoi actif
-    const t = tournoiActif ? tournoiActif() : null;
+    const t = tournoiActif ? tournoiActif(req.club ? req.club.id : undefined) : null;
     const statuts = {};
     if (t && t.statut !== 'termine') {
       const matchs = db.prepare(`SELECT m.etat, m.table_id, m.score1, m.score2, m.bracket, m.tour, m.position,
@@ -308,7 +309,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
         html: `<p>Bonjour <b>${c.pseudo}</b>,</p><p>Tu as demandé à réinitialiser ton mot de passe. Clique sur ce lien (valable 1h) :</p><p><a href="${link}">${link}</a></p><p>Si tu n'es pas à l'origine de la demande, ignore ce mail.</p>`,
       });
       if (!process.env.RESEND_API_KEY) devLink = link; // visible en dev/test uniquement
-      logAudit('compte_oubli', `compte ${c.id}`, null, { pseudo: c.pseudo });
+      logAuditC(req, 'compte_oubli', `compte ${c.id}`, null, { pseudo: c.pseudo });
     }
     res.json({ ok: true, message: 'Si un compte existe pour cet email, un lien de réinitialisation vient d\'être envoyé.', dev_reset_link: devLink });
   });
@@ -329,14 +330,14 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     const newToken = creerSession(c.id);
     setSessionCookie(res, newToken, SESSION_JOURS);
-    logAudit('compte_reinit', `compte ${c.id}`, null, { pseudo: c.pseudo });
+    logAuditC(req, 'compte_reinit', `compte ${c.id}`, null, { pseudo: c.pseudo });
     res.json({ ok: true, compte: { id: c.id, pseudo: c.pseudo } });
   });
 
   // self-enrollment au tournoi actif avec le pseudo du compte
   app.post('/api/tournoi/inscrire', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Crée un compte ou connecte-toi d\'abord (pseudo + email + mot de passe)' });
-    const t = tournoiActif();
+    const t = tournoiActif(req.club ? req.club.id : undefined);
     if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
     if (t.statut !== 'inscription') return res.status(409).json({ error: 'Les inscriptions sont fermées (tournoi lancé)' });
     if (t.taille && t.nb_inscrits >= t.taille) return res.status(409).json({ error: 'Tournoi complet' });
@@ -347,13 +348,13 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     const anon = db.prepare('SELECT * FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE').get(t.id, req.compte.pseudo);
     if (anon) {
       db.prepare('UPDATE joueur SET compte_id = ? WHERE id = ?').run(req.compte.id, anon.id);
-      logAudit('inscription', `joueur ${anon.id}`, null, { compte: req.compte.pseudo, rattache: true });
+      logAuditC(req, 'inscription', `joueur ${anon.id}`, null, { compte: req.compte.pseudo, rattache: true });
       majEtBroadcast();
       return res.json({ ok: true, rattache: true, joueur: { id: anon.id, pseudo: anon.pseudo, statut: anon.statut } });
     }
     const info = db.prepare('INSERT INTO joueur (tournoi_id, pseudo, statut, compte_id) VALUES (?, ?, ?, ?)')
       .run(t.id, req.compte.pseudo, 'en_attente', req.compte.id);
-    logAudit('inscription', `joueur ${info.lastInsertRowid}`, null, { compte: req.compte.pseudo });
+    logAuditC(req, 'inscription', `joueur ${info.lastInsertRowid}`, null, { compte: req.compte.pseudo });
     majEtBroadcast();
     res.status(201).json({ ok: true, joueur: { id: Number(info.lastInsertRowid), pseudo: req.compte.pseudo, statut: 'en_attente' } });
   });

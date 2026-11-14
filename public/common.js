@@ -1,9 +1,19 @@
 const API = '';
 
+// multi-club: ?club=<slug> dans l'URL est mémorisé et envoyé en header X-Club sur tous les appels API
+const CLUB_KEY = 'ebpc_club';
+try {
+  const c = new URLSearchParams(location.search).get('club');
+  if (c) localStorage.setItem(CLUB_KEY, c);
+} catch {}
+function clubHeaders() {
+  try { const c = localStorage.getItem(CLUB_KEY); return c ? { 'X-Club': c } : {}; } catch { return {}; }
+}
+
 let compteCourant = null; // mémo du compte connecté (le broadcast SSE ne le renvoie pas)
 async function api(path, opts = {}) {
   const res = await fetch(API + path, {
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...clubHeaders(), ...(opts.headers || {}) },
     ...opts,
   });
   const data = await res.json().catch(() => ({}));

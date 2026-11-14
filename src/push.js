@@ -24,11 +24,11 @@ function getVapid() {
 
 function publicKey() { return getVapid().publicKey; }
 
-function subscribe(compteId, subscription) {
+function subscribe(compteId, subscription, clubId) {
   if (!subscription || !subscription.endpoint || !subscription.keys) throw new Error('Subscription invalide');
-  db.prepare(`INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, ?, ?)
-              ON CONFLICT(endpoint) DO UPDATE SET compte_id = excluded.compte_id, keys_json = excluded.keys_json`)
-    .run(compteId, subscription.endpoint, JSON.stringify(subscription.keys));
+  db.prepare(`INSERT INTO push_subscription (compte_id, club_id, endpoint, keys_json) VALUES (?, ?, ?, ?)
+              ON CONFLICT(endpoint) DO UPDATE SET compte_id = excluded.compte_id, club_id = excluded.club_id, keys_json = excluded.keys_json`)
+    .run(compteId, clubId != null ? clubId : null, subscription.endpoint, JSON.stringify(subscription.keys));
 }
 
 function unsubscribe(compteId, endpoint) {
@@ -84,11 +84,14 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
   } catch (e) { console.error('[PUSH] notifierMatchLance:', e.message); }
 }
 
-// Notifie TOUS les comptes abonnés (ex: nouveau tournoi -> inscriptions ouvertes)
-async function envoyerTous(payloadObj) {
+// Notifie les comptes abonnés (ex: nouveau tournoi -> inscriptions ouvertes).
+// clubId optionnel: si fourni, seuls les abonnements du club visé reçoivent le push (multi-club).
+async function envoyerTous(payloadObj, clubId) {
   try {
     getVapid();
-    const subs = db.prepare('SELECT endpoint, keys_json FROM push_subscription WHERE compte_id IS NOT NULL').all();
+    const subs = clubId != null
+      ? db.prepare('SELECT endpoint, keys_json FROM push_subscription WHERE compte_id IS NOT NULL AND club_id = ?').all(clubId)
+      : db.prepare('SELECT endpoint, keys_json FROM push_subscription WHERE compte_id IS NOT NULL').all();
     const payload = JSON.stringify(payloadObj);
     let n = 0;
     for (const s of subs) {
@@ -109,7 +112,7 @@ function registerPushRoutes(app, { vueMatch }) {
   app.get('/api/push/vapid-public', (req, res) => res.json({ publicKey: publicKey() }));
   app.post('/api/push/subscribe', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
-    try { subscribe(req.compte.id, req.body.subscription); } catch (e) { return res.status(400).json({ error: e.message }); }
+    try { subscribe(req.compte.id, req.body.subscription, req.club ? req.club.id : null); } catch (e) { return res.status(400).json({ error: e.message }); }
     res.json({ ok: true });
   });
   app.post('/api/push/unsubscribe', (req, res) => {

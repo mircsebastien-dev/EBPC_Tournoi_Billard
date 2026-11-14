@@ -19,10 +19,10 @@ function check(name, cond, detail = '') {
 }
 
 let cookie = '';
-async function api(p, { method = 'GET', body, pin = PIN, useCookie = false } = {}) {
+async function api(p, { method = 'GET', body, pin = PIN, useCookie = false, club = null } = {}) {
   const r = await fetch(BASE + p, {
     method,
-    headers: { 'Content-Type': 'application/json', ...(pin ? { 'X-Admin-Pin': pin } : {}), ...(useCookie && cookie ? { Cookie: cookie } : {}) },
+    headers: { 'Content-Type': 'application/json', ...(pin ? { 'X-Admin-Pin': pin } : {}), ...(useCookie && cookie ? { Cookie: cookie } : {}), ...(club ? { 'X-Club': club } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   const sc = r.headers.get('set-cookie'); if (sc) cookie = sc.split(';')[0];
@@ -681,6 +681,59 @@ async function nouveauTournoi(body) {
   const acjs16 = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-common.js'), 'utf8');
   check('front: modale confirmation par mot court (SUPPRIMER) pour session admin sur actions destructives', acjs16.includes('demanderConfirmationTexte') && acjs16.includes("MOT_CONFIRMATION = 'SUPPRIMER'"), '');
   await del('/api/admin/tournoi').catch(() => {});
+
+  // ---------- 17. Multi-club: req.club (X-Club/?club=), backfill, isolation ----------
+  sec('17. Multi-club: club par défaut, création club, isolation par X-Club/?club=');
+  r = await api('/api/clubs', { pin: null });
+  check('GET /api/clubs -> club par défaut ebpc', r.status === 200 && r.data.clubs.some(c => c.slug === 'ebpc'), JSON.stringify(r.data.clubs));
+  r = await api('/api/etat', { pin: null });
+  check('etat expose le club courant', r.status === 200 && r.data.club && r.data.club.slug === 'ebpc', JSON.stringify(r.data.club));
+  r = await post('/api/admin/tournoi', { nom: 'ClubA', regle: 'blackball', taille: 16, format: 'simple', notif_push: false });
+  check('création tournoi ClubA (club défaut)', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  const idA = r.data.actif && r.data.actif.tournoi.id;
+  check('tournoi ClubA rattaché au club par défaut (club_id=1)', r.data.actif && r.data.actif.tournoi.club_id === 1, String(r.data.actif && r.data.actif.tournoi.club_id));
+  r = await post('/api/admin/club', { slug: 'clubb', nom: 'Club B' });
+  check('POST /api/admin/club clubb -> 200', r.status === 200 && r.data.club && r.data.club.slug === 'clubb', r.status + ' ' + (r.data.error || ''));
+  const clubBId = r.data.club && r.data.club.id;
+  r = await post('/api/admin/club', { slug: 'clubb', nom: 'X' });
+  check('club slug doublon -> 409', r.status === 409, r.status);
+  r = await post('/api/admin/club', { slug: '!!', nom: 'X' });
+  check('club slug invalide -> 400', r.status === 400, r.status);
+  r = await api('/api/etat', { pin: null, club: 'inconnu' });
+  check('club inconnu (X-Club) -> 404', r.status === 404, r.status);
+  r = await api('/api/etat?club=inconnu2', { pin: null });
+  check('club inconnu (?club=) -> 404', r.status === 404, r.status);
+  r = await post('/api/admin/tournoi', { nom: 'ClubB-T', regle: 'blackball', taille: 16, format: 'simple', notif_push: false }, { club: 'clubb' });
+  check('création tournoi ClubB-T dans clubb (X-Club)', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/etat', { pin: null, club: 'clubb' });
+  check('etat clubb: actif = ClubB-T, club.slug=clubb', !!(r.data.actif && r.data.actif.tournoi.nom === 'ClubB-T' && r.data.club.slug === 'clubb'), JSON.stringify(r.data.club));
+  r = await api('/api/etat', { pin: null });
+  check('etat club défaut: actif reste ClubA (pas ClubB-T)', !!(r.data.actif && r.data.actif.tournoi.nom === 'ClubA'), r.data.actif && r.data.actif.tournoi.nom);
+  r = await api(`/api/tournois/${idA}`, { pin: null, club: 'clubb' });
+  check('tournoi du club A invisible depuis clubb -> 404', r.status === 404, r.status);
+  r = await api(`/api/admin/tournoi/${idA}`, { method: 'DELETE', club: 'clubb', body: { confirm_pin: PIN } });
+  check('suppression tournoi club A depuis clubb -> 404', r.status === 404, r.status);
+  r = await api(`/api/tournois/${idA}`, { pin: null });
+  check('tournoi A existe toujours après la tentative cross-club', r.status === 200, r.status);
+  // isolation sur un match: tirage dans ClubA, puis events du match vus depuis clubb
+  await post('/api/admin/joueurs/simulation', { count: 16, prefix: 'A' });
+  r = await post('/api/admin/tirage', {});
+  check('tirage ClubA', r.status === 200, r.status);
+  const mA = (await api('/api/etat')).data.actif.matchs.find(m => m.joueur1 && m.joueur2);
+  r = await api(`/api/admin/match/${mA.id}/events`);
+  check('events match A depuis club défaut -> 200', r.status === 200, r.status);
+  r = await api(`/api/admin/match/${mA.id}/events`, { club: 'clubb' });
+  check('events match A depuis clubb -> 404 (isolation)', r.status === 404, r.status);
+  r = await api(`/api/match/${mA.id}/manche`, { method: 'POST', pin: null, club: 'clubb', body: { joueur_id: mA.joueur1.id } });
+  check('saisie manche match A depuis clubb -> 404 (isolation)', r.status === 404, r.status);
+  // audit scopé par club
+  r = await api('/api/admin/audit', { club: 'clubb' });
+  check('audit clubb: toutes les entrées appartiennent à clubb', r.data.audit.length > 0 && r.data.audit.every(a => a.club_id === clubBId), 'nb=' + r.data.audit.length);
+  r = await api('/api/admin/audit', {});
+  check('audit club défaut: toutes les entrées club_id=1', r.data.audit.every(a => a.club_id === 1), 'nb=' + r.data.audit.length);
+  // nettoyage
+  await del('/api/admin/tournoi', { club: 'clubb' }).catch(() => {});
+  await del('/api/admin/tournoi').catch(() => {});
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
@@ -708,6 +761,7 @@ async function nouveauTournoi(body) {
   md += `- Lot sécurité 1 (section 14): rate-limit comptes keyé sur x-forwarded-for (429 après 10 échecs sur une IP proxy, IP réelle non lockée) + session admin 8h avec bouton Verrouiller (front)\n`;
   md += `- Lot fiabilité admin (section 15): export JSON du tournoi, import avec remap des ids + FK validées au COMMIT (401 sans/bon confirm_pin, 400 invalide, 409 si actif sans replace), diff avant rollback (resume + matchs modifiés), filtre du journal ?q=/?action=\n`;
   md += `- Rôles (section 16): compte role=admin -> session suffit pour requireAdmin ET confirm_pin (destructif); sinon PIN requis (401 sans), confirm_pin requis sur destructifs; POST /api/admin/compte/:id/role (admin/user, 400 invalide)\n`;
+  md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);

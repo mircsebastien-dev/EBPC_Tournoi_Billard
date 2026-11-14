@@ -14,8 +14,20 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+-- multi-club: un club = un client (son PIN, son thème, ses tournois). Le 1er club (slug par défaut) reprend tout l'existant.
+CREATE TABLE IF NOT EXISTS club (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  nom TEXT NOT NULL,
+  pin_hash TEXT,
+  theme_json TEXT,
+  actif INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS tournoi (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id INTEGER REFERENCES club(id),
   nom TEXT NOT NULL,
   regle TEXT NOT NULL CHECK (regle IN ('blackball', 'ultimate')),
   taille INTEGER NOT NULL CHECK (taille IN (4, 8, 16, 32, 64, 128)),
@@ -83,6 +95,7 @@ CREATE INDEX IF NOT EXISTS idx_session_compte ON session(compte_id);
 CREATE TABLE IF NOT EXISTS push_subscription (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   compte_id INTEGER NOT NULL REFERENCES compte(id),
+  club_id INTEGER REFERENCES club(id),
   endpoint TEXT NOT NULL UNIQUE,
   keys_json TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -132,6 +145,7 @@ CREATE TABLE IF NOT EXISTS match_event (
 
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id INTEGER REFERENCES club(id),
   action TEXT NOT NULL,
   cible TEXT,
   avant TEXT,
@@ -144,6 +158,7 @@ CREATE TABLE IF NOT EXISTS audit_snapshot (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   audit_id INTEGER NOT NULL REFERENCES audit_log(id) ON DELETE CASCADE,
   tournoi_id INTEGER NOT NULL,
+  club_id INTEGER REFERENCES club(id),
   taken_at TEXT NOT NULL DEFAULT (datetime('now')),
   payload TEXT NOT NULL
 );
@@ -244,6 +259,36 @@ if (matchCols.length > 0) {
     db.exec('ALTER TABLE match ADD COLUMN casseur_id INTEGER REFERENCES joueur(id)');
 }
 
+// ---------- multi-club: migrations club_id + club par défaut + backfill ----------
+const CLUB_DEFAULT_SLUG = String(process.env.CLUB_DEFAULT_SLUG || 'ebpc').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30) || 'ebpc';
+const CLUB_DEFAULT_NAME = String(process.env.CLUB_DEFAULT_NAME || 'EBPC — Pink City Billard').slice(0, 80);
+function clubParDefaut() {
+  let c = db.prepare('SELECT * FROM club ORDER BY id LIMIT 1').get();
+  if (!c) {
+    const info = db.prepare('INSERT INTO club (slug, nom) VALUES (?, ?)').run(CLUB_DEFAULT_SLUG, CLUB_DEFAULT_NAME);
+    c = db.prepare('SELECT * FROM club WHERE id = ?').get(Number(info.lastInsertRowid));
+  }
+  return c;
+}
+function clubParSlug(slug) {
+  return db.prepare('SELECT * FROM club WHERE slug = ? COLLATE NOCASE').get(String(slug || '').trim().toLowerCase()) || null;
+}
+if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'club_id'))
+  db.exec('ALTER TABLE tournoi ADD COLUMN club_id INTEGER REFERENCES club(id)');
+if (!db.prepare("PRAGMA table_info(audit_log)").all().some(c => c.name === 'club_id'))
+  db.exec('ALTER TABLE audit_log ADD COLUMN club_id INTEGER REFERENCES club(id)');
+if (!db.prepare("PRAGMA table_info(audit_snapshot)").all().some(c => c.name === 'club_id'))
+  db.exec('ALTER TABLE audit_snapshot ADD COLUMN club_id INTEGER REFERENCES club(id)');
+if (!db.prepare("PRAGMA table_info(push_subscription)").all().some(c => c.name === 'club_id'))
+  db.exec('ALTER TABLE push_subscription ADD COLUMN club_id INTEGER REFERENCES club(id)');
+{
+  const defId = clubParDefaut().id;
+  db.prepare('UPDATE tournoi SET club_id = ? WHERE club_id IS NULL').run(defId);
+  db.prepare('UPDATE audit_log SET club_id = ? WHERE club_id IS NULL').run(defId);
+  db.prepare('UPDATE audit_snapshot SET club_id = COALESCE((SELECT t.club_id FROM tournoi t WHERE t.id = audit_snapshot.tournoi_id), ?) WHERE club_id IS NULL').run(defId);
+  db.prepare('UPDATE push_subscription SET club_id = ? WHERE club_id IS NULL').run(defId);
+}
+
 function setSetting(key, value) {
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
     .run(key, String(value));
@@ -254,9 +299,11 @@ function getSetting(key) {
 }
 
 // snapshot de l'état complet du tournoi actif, indexé sur l'événement d'audit
-function snapshotTournoiActif(auditId) {
+function snapshotTournoiActif(auditId, clubId) {
   try {
-    const t = db.prepare("SELECT * FROM tournoi WHERE statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1").get();
+    const t = clubId != null
+      ? db.prepare("SELECT * FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1").get(clubId)
+      : db.prepare("SELECT * FROM tournoi WHERE statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1").get();
     if (!t) return;
     const payload = JSON.stringify({
       tournoi: t,
@@ -266,18 +313,20 @@ function snapshotTournoiActif(auditId) {
       distances: db.prepare('SELECT * FROM distance_round WHERE tournoi_id = ? ORDER BY round').all(t.id),
       tables: db.prepare('SELECT * FROM table_billard WHERE tournoi_id = ? ORDER BY numero').all(t.id),
     });
-    db.prepare('INSERT INTO audit_snapshot (audit_id, tournoi_id, payload) VALUES (?, ?, ?)').run(auditId, t.id, payload);
+    db.prepare('INSERT INTO audit_snapshot (audit_id, tournoi_id, club_id, payload) VALUES (?, ?, ?, ?)').run(auditId, t.id, t.club_id != null ? t.club_id : clubParDefaut().id, payload);
     // on garde seulement les 200 derniers snapshots du tournoi (évite que la BDD grossisse sans fin)
     db.prepare('DELETE FROM audit_snapshot WHERE tournoi_id = ? AND id NOT IN (SELECT id FROM audit_snapshot WHERE tournoi_id = ? ORDER BY id DESC LIMIT 200)').run(t.id, t.id);
   } catch (e) { console.error('snapshot:', e.message); }
 }
 
-function logAudit(action, cible, avant, apres) {
-  const info = db.prepare('INSERT INTO audit_log (action, cible, avant, apres) VALUES (?, ?, ?, ?)')
+function logAudit(action, cible, avant, apres, clubId) {
+  if (clubId == null) clubId = clubParDefaut().id;
+  const info = db.prepare('INSERT INTO audit_log (action, cible, avant, apres, club_id) VALUES (?, ?, ?, ?, ?)')
     .run(action, cible != null ? String(cible) : null,
       avant != null ? JSON.stringify(avant) : null,
-      apres != null ? JSON.stringify(apres) : null);
-  snapshotTournoiActif(Number(info.lastInsertRowid));
+      apres != null ? JSON.stringify(apres) : null,
+      clubId);
+  snapshotTournoiActif(Number(info.lastInsertRowid), clubId);
 }
 
-module.exports = { db, setSetting, getSetting, logAudit };
+module.exports = { db, setSetting, getSetting, logAudit, clubParDefaut, clubParSlug };

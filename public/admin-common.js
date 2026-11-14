@@ -27,7 +27,7 @@ function verrouillerAdmin() {
 }
 
 function adminHeaders(extra = {}) {
-  return { 'Content-Type': 'application/json', ...(adminPin ? { 'X-Admin-Pin': adminPin } : {}), ...extra };
+  return { 'Content-Type': 'application/json', ...(typeof clubHeaders === 'function' ? clubHeaders() : {}), ...(adminPin ? { 'X-Admin-Pin': adminPin } : {}), ...extra };
 }
 
 async function adminApi(path, opts = {}) {
@@ -55,7 +55,7 @@ function renderAdminLogin(main) {
     if (!adminPin) return;
     // vérifier le PIN côté serveur AVANT d'entrer (sinon n'importe quel code "passe" visuellement)
     try {
-      const r = await fetch('/api/admin/audit', { headers: { 'X-Admin-Pin': adminPin } });
+      const r = await fetch('/api/admin/audit', { headers: { ...clubHeaders(), 'X-Admin-Pin': adminPin } });
       if (r.status === 401) { alert('❌ PIN invalide'); adminPin = ''; input.value = ''; input.focus(); return; }
     } catch (e) { alert('❌ PIN invalide'); return; }
     localStorage.setItem('ebpc_admin_pin', adminPin);

@@ -1,4 +1,9 @@
 const { db, logAudit } = require('./db');
+// audit scopé au club du tournoi concerné (multi-club)
+function logAuditTournoi(action, cible, avant, apres, tournoiId) {
+  const t = tournoiId != null ? db.prepare('SELECT club_id FROM tournoi WHERE id = ?').get(tournoiId) : null;
+  logAudit(action, cible, avant, apres, t && t.club_id != null ? t.club_id : undefined);
+}
 
 function httpError(status, message) {
   const e = new Error(message);
@@ -100,7 +105,7 @@ function verifierFinTournoi(m) {
       .get(m.tournoi_id).c;
     if (reste > 0) return;
     db.prepare(`UPDATE tournoi SET statut = 'termine', champion_id = ? WHERE id = ?`).run(dernier.gagnant_id, m.tournoi_id);
-    logAudit('tournoi_termine', `tournoi ${m.tournoi_id}`, null, { champion: pseudo(dernier.gagnant_id) });
+    logAuditTournoi('tournoi_termine', `tournoi ${m.tournoi_id}`, null, { champion: pseudo(dernier.gagnant_id) }, m.tournoi_id);
   }
 }
 
@@ -320,7 +325,7 @@ function corrigerScore(matchId, score1, score2, manches, motif) {
   db.prepare(`UPDATE match SET score1 = ?, score2 = ?, manches = ?, etat = ?, gagnant_id = ?, ended_at = CASE WHEN ? = 'termine' THEN COALESCE(ended_at, datetime('now')) ELSE ended_at END, updated_at = datetime('now') WHERE id = ?`)
     .run(s1, s2, manches, etat, gagnant, etat, matchId);
   insererEvent(matchId, null, 'correction', { avant, apres: { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant }, motif });
-  logAudit('correction_score', `match ${matchId}`, avant, { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant });
+  logAuditTournoi('correction_score', `match ${matchId}`, avant, { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant }, m.tournoi_id);
   if (etat === 'termine' && gagnant != null) {
     const perdant = gagnant === m.joueur1_id ? m.joueur2_id : m.joueur1_id;
     propagerGagnant(matchId, gagnant);
@@ -338,7 +343,7 @@ function declarerForfait(matchId, forfaitJoueurId) {
   const autre = forfaitJoueurId === m.joueur1_id ? m.joueur2_id : m.joueur1_id;
   db.prepare(`UPDATE match SET etat = 'forfait', gagnant_id = ?, ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE id = ?`).run(autre, matchId);
   insererEvent(matchId, forfaitJoueurId, 'forfait', { perdant: pseudo(forfaitJoueurId), gagnant: pseudo(autre) });
-  logAudit('forfait', `match ${matchId}`, { etat: m.etat }, { forfait: pseudo(forfaitJoueurId), gagnant: pseudo(autre) });
+  logAuditTournoi('forfait', `match ${matchId}`, { etat: m.etat }, { forfait: pseudo(forfaitJoueurId), gagnant: pseudo(autre) }, m.tournoi_id);
   propagerGagnant(matchId, autre);
   propagerPerdant(matchId, forfaitJoueurId);
   verifierFinTournoi(matchById(matchId));

@@ -53,6 +53,7 @@ Variables d'environnement :
 | `PORT` | `3000` | Port d'écoute |
 | `ADMIN_PIN` | `0000` | Code PIN de la table de marque (**à changer en production**) — fallback si aucun compte admin connecté |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | Optionnel : bootstrap au démarrage d'un compte avec `role=admin` (premier compte admin du produit) |
+| `CLUB_DEFAULT_SLUG` / `CLUB_DEFAULT_NAME` | `ebpc` / `EBPC — Pink City Billard` | Club par défaut créé/backfillé au boot (multi-club, étape 1) |
 | `DB_PATH` | `./tournoi.db` | Chemin du fichier SQLite |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | générées à la volée en dev | Clés web-push (**secrets en prod**, sinon les notifs ne marchent pas d'un déploiement à l'autre) |
 | `VAPID_SUBJECT` | `mailto:admin@…` | Sujet VAPID (contact) |
@@ -87,7 +88,7 @@ Pages :
 
 ```bash
 PORT=4100 DB_PATH=/tmp/t.db ADMIN_PIN=0000 node src/server.js &   # serveur frais
-BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js    # 168 checks → test/rapport.md
+BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js    # 189 checks → test/rapport.md
 BASE=http://127.0.0.1:4100 node test/e2e.js                        # structure DKO, SSE…
 BASE=http://127.0.0.1:4100 node test/fullrun.js                    # simulations complètes 16/32 joueurs
 node test/push-unit.js                                             # push (web-push mocké), sans serveur
@@ -191,6 +192,7 @@ src/
 - Temps réel : **SSE** (`GET /api/events`), un seul flux pour tous les clients.
 - Sécurité : PIN admin en header `X-Admin-Pin` uniquement (jamais en query string, hash SHA-256 côté serveur) + **re-saisie du code (`confirm_pin`) pour toute action destructive** + **anti brute-force** (après `PIN_MAX_ESSAIS` échecs par IP → lockout `PIN_BLOCAGE_MS`, HTTP 429 même pour le bon code ; compteur remis à zéro en cas de succès) ; joueurs et spectateurs sans authentification, saisie validée serveur (joueur bien dans le match, match en cours, race to N).
 - **Rôles compte** (`compte.role` = `user`/`admin`) : une session de compte `admin` **suffit** pour toutes les routes `/api/admin/*` **et** exempte de `confirm_pin` sur les actions destructives ; sinon le **PIN reste le fallback** (bootstrap du 1er admin via `ADMIN_EMAIL`/`ADMIN_PASSWORD`, promotion via `POST /api/admin/compte/:id/role`) — les pages admin s'ouvrent sans PIN si la session admin est active.
+- **Multi-club (étapes 1-2, sans impact mono-club)** : table `club` (slug, nom, `pin_hash` par club), `club_id` backfillé sur `tournoi`/`audit_log`/`audit_snapshot`/`push_subscription` au boot ; le club courant est résolu par header `X-Club` ou `?club=<slug>` (404 si slug inconnu, club par défaut sinon, propagé automatiquement par le front) ; toutes les routes (etat, tournois, stats, matchs, joueurs, admin, audit, export/import, rollback) sont scopées `club_id` avec isolation cross-club (404) ; `GET /api/clubs` + `POST /api/admin/club` ; push « inscriptions ouvertes » envoyé au seul club concerné.
 - **Session table de marque limitée à 8 h** : le PIN mémorisé expire (re-saisie obligatoire) + bouton **🔒 Verrouiller** dans le menu admin pour l'effacer ; rate-limit des comptes keyé sur `x-forwarded-for` (IP réelle derrière le proxy Fly).
 - **Robustesse** : middleware d'erreur global 100 % JSON (400 JSON malformé, 413 body > 256 ko, 404 JSON sur `/api/*`), `/api/health` (check BDD pour le monitoring), `unhandledRejection`/`uncaughtException` logués sans crash, arrêt propre SIGTERM/SIGINT (SSE fermés + `db.close()`), SQLite `synchronous=FULL` + WAL + `busy_timeout`, entrées nettoyées (pseudo tronqué à 40 caractères sans caractères de contrôle, toutes les requêtes paramétrées), XSS impossible côté front (`createTextNode` partout).
 - Feuille de route produit (idées multi-club, poules, ELO…) : `docs/ROADMAP.md`

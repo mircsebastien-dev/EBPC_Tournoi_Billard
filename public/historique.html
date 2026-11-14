@@ -41,7 +41,7 @@ function render() {
         pin ? el('button', { class: 'danger', onclick: async () => {
           if (!confirmer(`Supprimer définitivement « ${h.nom} » de l'historique ?`)) return;
           try {
-            const r = await fetch(`/api/admin/tournoi/${h.id}`, { method: 'DELETE', headers: { 'X-Admin-Pin': pin } });
+            const r = await fetch(`/api/admin/tournoi/${h.id}`, { method: 'DELETE', headers: { ...clubHeaders(), 'X-Admin-Pin': pin } });
             if (r.status === 401) { pin = ''; localStorage.removeItem('ebpc_admin_pin'); }
             if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Erreur'); }
             state = await api('/api/etat'); render();

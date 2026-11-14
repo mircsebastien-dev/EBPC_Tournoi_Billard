@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
-const { db, setSetting, getSetting, logAudit } = require('./db');
+const { db, setSetting, getSetting, logAudit, clubParDefaut, clubParSlug } = require('./db');
 const bracket = require('./bracket');
 const M = require('./matchs');
 const comptes = require('./comptes');
@@ -82,7 +82,9 @@ function verifierPinAdmin(req, pin) {
   const bloque = pinBloque(ip);
   if (bloque) return { bloque: true, message: bloque };
   const hash = crypto.createHash('sha256').update(String(pin || '')).digest('hex');
-  if (hash !== getSetting('admin_pin_hash')) { pinEchec(ip); return { ok: false }; }
+  // PIN global (super-admin) OU pin_hash du club courant (multi-club)
+  const clubHash = req.club && req.club.pin_hash;
+  if (hash !== getSetting('admin_pin_hash') && !(clubHash && hash === clubHash)) { pinEchec(ip); return { ok: false }; }
   pinAttempts.delete(ip); // succès -> compteur remis à zéro
   return { ok: true };
 }
@@ -125,10 +127,34 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
   },
 }));
 
-function tournoiActif() {
+// ---------- multi-club: résolution du club courant ----------
+// Header X-Club ou ?club=<slug> ; rien -> club par défaut (mono-club: comportement inchangé).
+app.use((req, res, next) => {
+  const slug = String(req.headers['x-club'] || req.query.club || '').trim();
+  let club = null;
+  if (slug) {
+    club = clubParSlug(slug);
+    if (!club) return res.status(404).json({ error: `Club inconnu « ${slug} »` });
+  }
+  req.club = club || clubParDefaut();
+  next();
+});
+
+function tournoiActif(clubId) {
+  if (clubId != null) {
+    return db.prepare(`SELECT * FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1`).get(clubId) || null;
+  }
   return db.prepare(`SELECT * FROM tournoi WHERE statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1`).get()
     || null;
 }
+
+// helpers d'isolation: une entité n'existe que si son tournoi appartient au club courant
+function clubIdOf(t) { return t && t.club_id != null ? t.club_id : clubParDefaut().id; }
+function tournoiDuClub(req, id) { const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(id)); return (t && clubIdOf(t) === req.club.id) ? t : null; }
+function matchDuClub(req, id) { return db.prepare('SELECT m.* FROM match m JOIN tournoi t ON t.id = m.tournoi_id WHERE m.id = ? AND t.club_id = ?').get(Number(id), req.club.id) || null; }
+function joueurDuClub(req, id) { return db.prepare('SELECT j.* FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id WHERE j.id = ? AND t.club_id = ?').get(Number(id), req.club.id) || null; }
+// audit toujours rattaché au club de la requête
+function logAuditReq(req, action, cible, avant, apres) { logAudit(action, cible, avant, apres, req && req.club ? req.club.id : undefined); }
 
 function distancesMap(tournoiId) {
   const rows = db.prepare('SELECT round, manches FROM distance_round WHERE tournoi_id = ?').all(tournoiId);
@@ -272,12 +298,13 @@ function vueTournoiComplet(t) {
   };
 }
 
-function vueTournoiListe() {
-  const rows = db.prepare(`
+function vueTournoiListe(clubId) {
+  const sql = `
     SELECT t.*, (SELECT COUNT(*) FROM match WHERE tournoi_id = t.id) nb_matchs,
            (SELECT COUNT(*) FROM joueur WHERE tournoi_id = t.id) nb_joueurs
-    FROM tournoi t ORDER BY t.id DESC
-  `).all();
+    FROM tournoi t ${clubId != null ? 'WHERE t.club_id = ?' : ''} ORDER BY t.id DESC
+  `;
+  const rows = clubId != null ? db.prepare(sql).all(clubId) : db.prepare(sql).all();
   return rows.map(t => ({
     ...t,
     champion: t.champion_id ? M.pseudo(t.champion_id) : null,
@@ -301,9 +328,11 @@ function notifierAutoLances(tournoiId, avant) {
 }
 
 function etatGlobal(req) {
+  const clubId = req && req.club ? req.club.id : undefined;
   return {
-    actif: vueTournoiComplet(tournoiActif()),
-    historique: vueTournoiListe().filter(t => t.statut === 'termine'),
+    actif: vueTournoiComplet(tournoiActif(clubId)),
+    historique: vueTournoiListe(clubId).filter(t => t.statut === 'termine'),
+    club: req && req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom } : null,
     auto: getSetting('auto_on') === '1',
     table_pref: getSetting('table_pref') || '',
     tables_reservees: getSetting('tables_reservees') || '',
@@ -315,16 +344,22 @@ function etatGlobal(req) {
 app.get('/api/etat', (req, res) => {
   const tournoiId = req.query.tournoi_id ? Number(req.query.tournoi_id) : null;
   if (tournoiId) {
-    const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(tournoiId);
-    return res.json({ tournoi: vueTournoiComplet(t), historique: vueTournoiListe().filter(x => x.statut === 'termine'), compte: req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo, role: req.compte.role || 'user' } : null });
+    const t = tournoiDuClub(req, tournoiId);
+    if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
+    return res.json({ tournoi: vueTournoiComplet(t), historique: vueTournoiListe(req.club.id).filter(x => x.statut === 'termine'), compte: req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo, role: req.compte.role || 'user' } : null });
   }
   res.json(etatGlobal(req));
 });
 
-app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe() }));
+// liste publique des clubs actifs (slug pour ?club= / X-Club)
+app.get('/api/clubs', (req, res) => {
+  res.json({ clubs: db.prepare('SELECT id, slug, nom FROM club WHERE actif = 1 ORDER BY id').all() });
+});
+
+app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe(req.club.id) }));
 
 app.get('/api/tournois/:id', (req, res) => {
-  const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(req.params.id));
+  const t = tournoiDuClub(req, req.params.id);
   if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
   res.json({ tournoi: vueTournoiComplet(t) });
 });
@@ -337,15 +372,15 @@ app.get('/api/stats-joueurs', (req, res) => {
            COUNT(DISTINCT t.id) tournois,
            COUNT(DISTINCT CASE WHEN t.champion_id = j.id THEN t.id END) titres
     FROM joueur j
+    JOIN tournoi t ON t.id = j.tournoi_id AND t.club_id = ?
     LEFT JOIN match m ON m.tournoi_id = j.tournoi_id AND (m.joueur1_id = j.id OR m.joueur2_id = j.id) AND m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat IN ('termine', 'forfait') AND m.gagnant_id IS NOT NULL
-    LEFT JOIN tournoi t ON t.id = j.tournoi_id
     GROUP BY LOWER(j.pseudo)
     ORDER BY gagnes DESC, joues DESC
-  `).all();
+  `).all(req.club.id);
   // points totaux = somme sur tous les tournois (passés inclus)
   const ptsAgg = {}; // par pseudo (un joueur = plusieurs ids, un par tournoi)
-  for (const j of db.prepare('SELECT id, LOWER(pseudo) p FROM joueur').all()) {
-    for (const t of db.prepare('SELECT id FROM tournoi').all()) {
+  for (const j of db.prepare('SELECT j.id, LOWER(j.pseudo) p FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id AND t.club_id = ?').all(req.club.id)) {
+    for (const t of db.prepare('SELECT id FROM tournoi WHERE club_id = ?').all(req.club.id)) {
       const pts = pointsParTournoi(t.id);
       if (pts[j.id]) ptsAgg[j.p] = (ptsAgg[j.p] || 0) + pts[j.id];
     }
@@ -353,14 +388,15 @@ app.get('/api/stats-joueurs', (req, res) => {
   const evAgg = db.prepare(`
     SELECT e.joueur_id,
            SUM(CASE WHEN e.type = 'runout' THEN 1 ELSE 0 END) runouts
-    FROM match_event e GROUP BY e.joueur_id
-  `).all().reduce((a, r) => (a[r.joueur_id] = r, a), {});
+    FROM match_event e JOIN match m ON m.id = e.match_id JOIN tournoi t ON t.id = m.tournoi_id AND t.club_id = ?
+    GROUP BY e.joueur_id
+  `).all(req.club.id).reduce((a, r) => (a[r.joueur_id] = r, a), {});
   // manches gagnées par joueur = somme de ses scores dans ses matchs (évite le double comptage runout+manche)
   const manchesAgg = db.prepare(`
-    SELECT m.joueur1_id jid, SUM(m.score1) s FROM match m WHERE m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur1_id
+    SELECT m.joueur1_id jid, SUM(m.score1) s FROM match m JOIN tournoi t ON t.id = m.tournoi_id AND t.club_id = ? WHERE m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur1_id
     UNION ALL
-    SELECT m.joueur2_id jid, SUM(m.score2) s FROM match m WHERE m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur2_id
-  `).all().reduce((a, r) => (a[r.jid] = (a[r.jid] || 0) + (r.s || 0), a), {});
+    SELECT m.joueur2_id jid, SUM(m.score2) s FROM match m JOIN tournoi t ON t.id = m.tournoi_id AND t.club_id = ? WHERE m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat != 'prevu' GROUP BY m.joueur2_id
+  `).all(req.club.id, req.club.id).reduce((a, r) => (a[r.jid] = (a[r.jid] || 0) + (r.s || 0), a), {});
   res.json({ joueurs: rows.map(r => ({
     id: r.id,
     pseudo: r.pseudo,
@@ -399,12 +435,14 @@ function codesLances(tid, avant) {
 
 function majEtBroadcast() {
   M.rafraichirPrets();
-  const t = tournoiActif();
-  if (t && t.statut === 'en_cours') {
-    const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
-    const lances = M.autoLancer(t.id);
-    notifierAutoLances(t.id, avant);
-    if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances, matchs: codesLances(t.id, avant) });
+  for (const c of db.prepare('SELECT id FROM club ORDER BY id').all()) { // auto-lancement par club
+    const t = tournoiActif(c.id);
+    if (t && t.statut === 'en_cours') {
+      const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
+      const lances = M.autoLancer(t.id);
+      notifierAutoLances(t.id, avant);
+      if (lances > 0) logAuditReq(req, 'auto_lancement', `tournoi ${t.id}`, null, { lances, matchs: codesLances(t.id, avant) }, c.id);
+    }
   }
   broadcast('update', { changed: true, at: Date.now() }); // payload léger: le client re-fetch /api/etat
 }
@@ -425,14 +463,14 @@ app.post('/api/admin/auto', requireAdmin, (req, res) => {
     const n = parseInt(req.body.reservees_tour, 10);
     setSetting('reservees_tour', Number.isInteger(n) && n > 0 ? String(n) : '');
   }
-  logAudit('auto_toggle', 'tournoi', null, { on });
+  logAuditReq(req, 'auto_toggle', 'tournoi', null, { on });
   if (on) {
-    const t = tournoiActif();
+    const t = tournoiActif(req.club.id);
     if (t && t.statut === 'en_cours') {
       const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
     const lances = M.autoLancer(t.id);
     notifierAutoLances(t.id, avant);
-      if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances, declencheur: 'activation', matchs: codesLances(t.id, avant) });
+      if (lances > 0) logAuditReq(req, 'auto_lancement', `tournoi ${t.id}`, null, { lances, declencheur: 'activation', matchs: codesLances(t.id, avant) });
     }
   }
   majEtBroadcast();
@@ -441,7 +479,7 @@ app.post('/api/admin/auto', requireAdmin, (req, res) => {
 
 app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const { nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu } = req.body;
-  const actif = tournoiActif();
+  const actif = tournoiActif(req.club.id);
   if (actif) return res.status(409).json({ error: `Un tournoi est encore actif (${actif.nom}). Terminez-le ou supprimez-le d'abord.`, actif_id: actif.id });
   if (!['blackball', 'ultimate'].includes(regle)) return res.status(400).json({ error: 'Règle invalide' });
   if (![16, 32, 64, 128].includes(Number(taille))) return res.status(400).json({ error: 'Taille invalide (max)'});
@@ -452,9 +490,9 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const dateH = (typeof date_heure === 'string' && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(date_heure)) ? date_heure.replace('T', ' ').slice(0, 16) : bracket.prochainMardi20h();
   const lieuT = (typeof lieu === 'string' && lieu.trim()) ? lieu.trim().slice(0, 200) : 'Le 147, 12 Rue des Amidonniers 31000 Toulouse';
   const info = db.prepare(`
-    INSERT INTO tournoi (nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, statut)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
-  `).run(nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 8), ajustement_auto === false ? 0 : 1, seuil, distSpe, dateH, lieuT);
+    INSERT INTO tournoi (club_id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, statut)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
+  `).run(req.club.id, nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 8), ajustement_auto === false ? 0 : 1, seuil, distSpe, dateH, lieuT);
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(info.lastInsertRowid));
   for (let i = 1; i <= t.nb_tables; i++) {
     db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
@@ -463,7 +501,7 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const def = bracket.manchesDefaut(rounds, t.seuil_distance, t.distance_speciale);
   const ins = db.prepare('INSERT INTO distance_round (tournoi_id, round, manches) VALUES (?, ?, ?)');
   for (const r of rounds) ins.run(t.id, r.key, def[r.key]);
-  logAudit('creation_tournoi', `tournoi ${t.id}`, null, req.body);
+  logAuditReq(req, 'creation_tournoi', `tournoi ${t.id}`, null, req.body);
   // notif push à tous les abonnés : inscriptions ouvertes (switch de la table de marque, actif par défaut)
   if (req.body.notif_push !== false) {
     try {
@@ -472,7 +510,7 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
         body: `« ${t.nom} » · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} joueurs · ${dateH}`,
         url: '/',
         tag: 'tournoi-' + t.id,
-      }).catch(() => {});
+      }, req.club.id).catch(() => {}); // push scopé au club courant
     } catch {}
   }
   majEtBroadcast();
@@ -480,7 +518,7 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
 });
 
 app.delete('/api/admin/tournoi', requireAdmin, requireConfirmPin, (req, res) => {
-  const id = (tournoiActif() || {}).id;
+  const id = (tournoiActif(req.club.id) || {}).id;
   if (!id) return res.status(404).json({ error: 'Aucun tournoi' });
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(id);
   if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
@@ -492,14 +530,14 @@ app.delete('/api/admin/tournoi', requireAdmin, requireConfirmPin, (req, res) => 
   db.prepare('DELETE FROM distance_round WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM audit_snapshot WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM tournoi WHERE id = ?').run(id);
-  logAudit('suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut }, null);
+  logAuditReq(req, 'suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut }, null);
   majEtBroadcast();
   res.json({ ok: true });
 });
 
 app.delete('/api/admin/tournoi/:id', requireAdmin, requireConfirmPin, (req, res) => {
   const id = Number(req.params.id);
-  const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(id);
+  const t = tournoiDuClub(req, id); // isolation multi-club: un autre club -> 404
   if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
   db.prepare('UPDATE tournoi SET champion_id = NULL WHERE id = ?').run(id);
   db.prepare('DELETE FROM match_event WHERE match_id IN (SELECT id FROM match WHERE tournoi_id = ?)').run(id);
@@ -509,13 +547,13 @@ app.delete('/api/admin/tournoi/:id', requireAdmin, requireConfirmPin, (req, res)
   db.prepare('DELETE FROM distance_round WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM audit_snapshot WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM tournoi WHERE id = ?').run(id);
-  logAudit('suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut }, null);
+  logAuditReq(req, 'suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut }, null);
   majEtBroadcast();
   res.json({ ok: true });
 });
 
 app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   const enCours = t.statut === 'en_cours';
   if (t.statut !== 'inscription' && !enCours) return res.status(409).json({ error: 'Tournoi terminé, config verrouillée' });
@@ -556,13 +594,13 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
       if (!existantes2.includes(i)) db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
     }
   }
-  logAudit('maj_tournoi', `tournoi ${t.id}`, null, req.body);
+  logAuditReq(req, 'maj_tournoi', `tournoi ${t.id}`, null, req.body);
   majEtBroadcast();
   res.json({ ok: true, ...etatGlobal(req) });
 });
 
 app.put('/api/admin/distances', requireAdmin, (req, res) => {
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   const { distances } = req.body;
   if (!distances || typeof distances !== 'object') return res.status(400).json({ error: 'distances requis' });
@@ -576,13 +614,13 @@ app.put('/api/admin/distances', requireAdmin, (req, res) => {
     const upd = db.prepare(`UPDATE match SET manches = ? WHERE tournoi_id = ? AND etat NOT IN ('termine', 'forfait') AND LOWER(bracket) || tour = ?`);
     for (const [round, manches] of Object.entries(distances)) upd.run(Number(manches), t.id, round);
   }
-  logAudit('maj_distances', `tournoi ${t.id}`, { statut: t.statut }, distances);
+  logAuditReq(req, 'maj_distances', `tournoi ${t.id}`, { statut: t.statut }, distances);
   majEtBroadcast();
   res.json({ ok: true });
 });
 
 app.post('/api/admin/joueur', requireAdmin, (req, res) => {
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi ouvert aux inscriptions (le précédent doit être terminé et le prochain créé)' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
   const pseudo = cleanPseudo(req.body.pseudo, 40);
@@ -598,7 +636,7 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
     // si un compte existe avec ce pseudo -> on rattache le joueur au compte (feature amis/notifs)
     const c = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
     if (c) db.prepare('UPDATE joueur SET compte_id = ? WHERE id = ?').run(c.id, info.lastInsertRowid);
-    logAudit('inscription', `joueur ${info.lastInsertRowid}`, null, { pseudo, tds });
+    logAuditReq(req, 'inscription', `joueur ${info.lastInsertRowid}`, null, { pseudo, tds });
     majEtBroadcast();
     res.json({ ok: true, id: Number(info.lastInsertRowid) });
   } catch (e) {
@@ -608,7 +646,7 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/joueurs/simulation', requireAdmin, (req, res) => {
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes' });
   const count = Math.max(1, Math.min(128, Number(req.body.count) || 8));
@@ -630,13 +668,13 @@ app.post('/api/admin/joueurs/simulation', requireAdmin, (req, res) => {
     k++;
     if (k > 999) break;
   }
-  logAudit('simulation_joueurs', `tournoi ${t.id}`, null, { prefix, demandes: count, crees: crees.length, statut: 'paye' });
+  logAuditReq(req, 'simulation_joueurs', `tournoi ${t.id}`, null, { prefix, demandes: count, crees: crees.length, statut: 'paye' });
   majEtBroadcast();
   res.json({ ok: true, crees: crees.length, joueurs: crees });
 });
 
 app.post('/api/joueur', (req, res) => {
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi ouvert aux inscriptions — attendez que le tournoi en cours soit terminé et que le prochain soit créé' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
   const pseudo = cleanPseudo(req.body.pseudo, 40);
@@ -645,7 +683,7 @@ app.post('/api/joueur', (req, res) => {
   if (count >= t.taille) return res.status(409).json({ error: `Tableau complet (${t.taille} joueurs max)` });
   try {
     const info = db.prepare('INSERT INTO joueur (tournoi_id, pseudo) VALUES (?, ?)').run(t.id, pseudo);
-    logAudit('inscription_publique', `joueur ${info.lastInsertRowid}`, null, { pseudo });
+    logAuditReq(req, 'inscription_publique', `joueur ${info.lastInsertRowid}`, null, { pseudo });
     majEtBroadcast();
     res.json({ ok: true, id: Number(info.lastInsertRowid), pseudo });
   } catch (e) {
@@ -655,20 +693,20 @@ app.post('/api/joueur', (req, res) => {
 });
 
 app.delete('/api/admin/joueur/:id', requireAdmin, (req, res) => { // désinscription: pas de re-confirmation PIN (routine, phase inscription uniquement)
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé' });
-  const j = M.joueurById(Number(req.params.id));
+  const j = joueurDuClub(req, req.params.id);
   if (!j || j.tournoi_id !== t.id) return res.status(404).json({ error: 'Joueur introuvable' });
   db.prepare('DELETE FROM joueur WHERE id = ?').run(j.id);
-  logAudit('desinscription', `joueur ${j.id}`, { pseudo: j.pseudo }, null);
+  logAuditReq(req, 'desinscription', `joueur ${j.id}`, { pseudo: j.pseudo }, null);
   majEtBroadcast();
   res.json({ ok: true });
 });
 
 app.put('/api/admin/joueur/:id', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
-  const j = db.prepare('SELECT * FROM joueur WHERE id = ?').get(id);
+  const j = joueurDuClub(req, id);
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
   const pseudo = cleanPseudo(req.body.pseudo, 40);
   if (pseudo.length >= 2) {
@@ -679,26 +717,26 @@ app.put('/api/admin/joueur/:id', requireAdmin, (req, res) => {
   if (req.body.statut === 'paye' || req.body.statut === 'inscrit' || req.body.statut === 'absent') {
     db.prepare('UPDATE joueur SET statut = ? WHERE id = ?').run(req.body.statut, id);
   }
-  logAudit('joueur_edite', `joueur #${id}`, j.tournoi_id, { pseudo });
+  logAuditReq(req, 'joueur_edite', `joueur #${id}`, j.tournoi_id, { pseudo });
   majEtBroadcast();
   res.json({ ok: true, joueur: db.prepare('SELECT * FROM joueur WHERE id = ?').get(id) });
 });
 
 app.post('/api/admin/joueur/:id/paiement', requireAdmin, (req, res) => {
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé' });
-  const j = M.joueurById(Number(req.params.id));
+  const j = joueurDuClub(req, req.params.id);
   if (!j || j.tournoi_id !== t.id) return res.status(404).json({ error: 'Joueur introuvable' });
   const nouveau = req.body.statut === 'paye' ? 'paye' : 'en_attente';
   db.prepare('UPDATE joueur SET statut = ? WHERE id = ?').run(nouveau, j.id);
-  logAudit('paiement', `joueur ${j.id}`, { statut: j.statut }, { statut: nouveau, pseudo: j.pseudo });
+  logAuditReq(req, 'paiement', `joueur ${j.id}`, { statut: j.statut }, { statut: nouveau, pseudo: j.pseudo });
   majEtBroadcast();
   res.json({ ok: true });
 });
 
 app.post('/api/admin/tirage', requireAdmin, (req, res) => {
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tirage déjà effectué' });
   const joueurs = db.prepare(`SELECT * FROM joueur WHERE tournoi_id = ? AND statut = 'paye' ORDER BY id`).all(t.id);
@@ -712,7 +750,7 @@ app.post('/api/admin/tirage', requireAdmin, (req, res) => {
       const def = bracket.manchesDefaut(rounds, t.seuil_distance, t.distance_speciale);
       const ins = db.prepare('INSERT INTO distance_round (tournoi_id, round, manches) VALUES (?, ?, ?)');
       for (const rr of rounds) ins.run(t.id, rr.key, def[rr.key]);
-      logAudit('ajustement_taille', `tournoi ${t.id}`, { taille_max: t.taille }, { taille_effective: tailleEff, nb_payes: joueurs.length });
+      logAuditReq(req, 'ajustement_taille', `tournoi ${t.id}`, { taille_max: t.taille }, { taille_effective: tailleEff, nb_payes: joueurs.length });
       Object.assign(t, { taille: tailleEff });
     }
   }
@@ -721,17 +759,18 @@ app.post('/api/admin/tirage', requireAdmin, (req, res) => {
   const rngCrypto = () => crypto.randomInt(0, 2 ** 31) / 2 ** 31;
   bracket.genererBracket(t, joueurs, manchesMap, rngCrypto);
   db.prepare(`UPDATE tournoi SET statut = 'en_cours' WHERE id = ?`).run(t.id);
-  logAudit('tirage', `tournoi ${t.id}`, { nb_joueurs: joueurs.length }, null);
+  logAuditReq(req, 'tirage', `tournoi ${t.id}`, { nb_joueurs: joueurs.length }, null);
   majEtBroadcast();
   res.json({ ok: true, ...etatGlobal(req) });
 });
 
 app.post('/api/admin/match/:id/lancer', requireAdmin, (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const tableId = req.body.table_id != null ? Number(req.body.table_id) : null;
   const m = M.lancerMatch(Number(req.params.id), tableId);
   const p1 = m.joueur1_id ? M.pseudo(m.joueur1_id) : 'blanc';
   const p2 = m.joueur2_id ? M.pseudo(m.joueur2_id) : 'blanc';
-  logAudit('lancement_match', `${codeMatchRow(m)} — ${p1} vs ${p2}`, null, { table: m.table_id ? M.tableNumero(m.table_id) : null });
+  logAuditReq(req, 'lancement_match', `${codeMatchRow(m)} — ${p1} vs ${p2}`, null, { table: m.table_id ? M.tableNumero(m.table_id) : null });
   majEtBroadcast();
   // notif push "à toi de jouer" (fire and forget)
   try {
@@ -750,22 +789,25 @@ app.post('/api/admin/match/:id/lancer', requireAdmin, (req, res) => {
 
 
 app.post('/api/admin/match/:id/joueurs', requireAdmin, (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const j1 = req.body.joueur1_id == null || req.body.joueur1_id === '' ? null : Number(req.body.joueur1_id);
   const j2 = req.body.joueur2_id == null || req.body.joueur2_id === '' ? null : Number(req.body.joueur2_id);
   const m = M.setJoueursAdmin(Number(req.params.id), j1, j2);
-  logAudit('match_joueurs_change', `match #${req.params.id} -> j1=${j1} j2=${j2}`, null, {});
+  logAuditReq(req, 'match_joueurs_change', `match #${req.params.id} -> j1=${j1} j2=${j2}`, null, {});
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });
 
 app.post('/api/admin/match/:id/table', requireAdmin, (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const m = M.setTableAdmin(Number(req.params.id), req.body.table_id == null ? null : Number(req.body.table_id));
-  logAudit('match_table_change', `match #${req.params.id} -> table ${req.body.table_id}`, null, {});
+  logAuditReq(req, 'match_table_change', `match #${req.params.id} -> table ${req.body.table_id}`, null, {});
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });
 
 app.post('/api/admin/match/:id/correction', requireAdmin, (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const { score1, score2, manches, motif } = req.body;
   const m = M.corrigerScore(Number(req.params.id), Number(score1) || 0, Number(score2) || 0, Number(manches) || 3, motif || '');
   majEtBroadcast();
@@ -773,27 +815,29 @@ app.post('/api/admin/match/:id/correction', requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/match/:id/rouvrir', requireAdmin, (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const m = M.rouvrirMatch(Number(req.params.id));
-  logAudit('rouvrir_match', `match ${m.id}`, null, { etat: 'en_cours' });
+  logAuditReq(req, 'rouvrir_match', `match ${m.id}`, null, { etat: 'en_cours' });
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });
 
 app.post('/api/admin/match/:id/forfait', requireAdmin, (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const m = M.declarerForfait(Number(req.params.id), Number(req.body.joueur_id));
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });
 
 app.post('/api/admin/terminer', requireAdmin, (req, res) => {
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut === 'termine') return res.status(409).json({ error: 'Tournoi déjà terminé' });
   // arrêt manuel = coupe net: champion UNIQUEMENT si explicitement choisi (pas de fallback auto)
   const championId = req.body.champion_id ? Number(req.body.champion_id) : null;
   db.prepare(`UPDATE tournoi SET statut = 'termine', champion_id = ? WHERE id = ?`).run(championId, t.id);
   db.prepare(`UPDATE match SET etat = 'termine', ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE tournoi_id = ? AND etat IN ('prevu', 'pret', 'en_cours')`).run(t.id);
-  logAudit('tournoi_termine_manuellement', `tournoi ${t.id}`, { statut: t.statut }, { champion_id: championId });
+  logAuditReq(req, 'tournoi_termine_manuellement', `tournoi ${t.id}`, { statut: t.statut }, { champion_id: championId });
   majEtBroadcast();
   res.json({ ok: true, ...etatGlobal(req) });
 });
@@ -806,7 +850,7 @@ app.post('/api/admin/push-test-ami', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/simuler', requireAdmin, (req, res) => {
-  const t = tournoiActif();
+  const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
   if (t.statut !== 'en_cours') return res.status(409).json({ error: 'Le tournoi doit être en cours (faites le tirage d\'abord)' });
   M.rafraichirPrets();
@@ -828,7 +872,7 @@ app.post('/api/admin/simuler', requireAdmin, (req, res) => {
     joues++;
   }
   const final = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
-  logAudit('simulation_tournoi', `tournoi ${t.id}`, null, { matchs_joues: joues, statut: final.statut, champion_id: final.champion_id });
+  logAuditReq(req, 'simulation_tournoi', `tournoi ${t.id}`, null, { matchs_joues: joues, statut: final.statut, champion_id: final.champion_id });
   majEtBroadcast();
   res.json({ ok: true, matchs_joues: joues, statut: final.statut, champion: final.champion_id ? M.pseudo(final.champion_id) : null });
 });
@@ -852,7 +896,7 @@ app.post('/api/admin/compte/:id/pseudo', requireAdmin, (req, res) => {
     const c = db.prepare('SELECT id FROM compte WHERE id = ?').get(id);
     if (!c) return res.status(404).json({ error: 'Compte introuvable' });
     const p = comptes.setPseudoAdmin(id, req.body.pseudo);
-    logAudit('compte_pseudo_change', `compte #${id} -> ${p}`, null, {});
+    logAuditReq(req, 'compte_pseudo_change', `compte #${id} -> ${p}`, null, {});
     res.json({ ok: true, pseudo: p });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
@@ -865,7 +909,7 @@ app.post('/api/admin/compte/:id/role', requireAdmin, (req, res) => {
   const c = db.prepare('SELECT id, pseudo, role FROM compte WHERE id = ?').get(id);
   if (!c) return res.status(404).json({ error: 'Compte introuvable' });
   db.prepare('UPDATE compte SET role = ? WHERE id = ?').run(role, id);
-  logAudit('compte_role_change', `compte #${id} (${c.pseudo}) -> ${role}`, { role: c.role }, { role });
+  logAuditReq(req, 'compte_role_change', `compte #${id} (${c.pseudo}) -> ${role}`, { role: c.role }, { role });
   majEtBroadcast();
   res.json({ ok: true, id, role });
 });
@@ -875,7 +919,7 @@ app.post('/api/admin/compte/:id/password', requireAdmin, (req, res) => {
     const id = Number(req.params.id);
     if (!db.prepare('SELECT id FROM compte WHERE id = ?').get(id)) return res.status(404).json({ error: 'Compte introuvable' });
     comptes.setPasswordAdmin(id, req.body.password);
-    logAudit('compte_mdp_change', `compte #${id}`, null, {});
+    logAuditReq(req, 'compte_mdp_change', `compte #${id}`, null, {});
     res.json({ ok: true });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
@@ -884,37 +928,52 @@ app.delete('/api/admin/compte/:id', requireAdmin, requireConfirmPin, (req, res) 
   const id = Number(req.params.id);
   const c = comptes.supprimerCompte(id);
   if (!c) return res.status(404).json({ error: 'Compte introuvable' });
-  logAudit('compte_supprime', `compte ${c.pseudo}`, null, { id });
+  logAuditReq(req, 'compte_supprime', `compte ${c.pseudo}`, null, { id });
   res.json({ ok: true });
 });
 
 app.get('/api/admin/match/:id/events', requireAdmin, (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   res.json({ events: M.listerEvents(Number(req.params.id)) });
 });
 app.delete('/api/admin/match/:id/event/:eventId', requireAdmin, requireConfirmPin, (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const m = M.supprimerEventAdmin(Number(req.params.id), Number(req.params.eventId));
-  logAudit('event_supprime', `match #${req.params.id} event #${req.params.eventId}`, null, {});
+  logAuditReq(req, 'event_supprime', `match #${req.params.id} event #${req.params.eventId}`, null, {});
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });
 
 app.delete('/api/admin/audit', requireAdmin, requireConfirmPin, (req, res) => {
-  const info = db.prepare('DELETE FROM audit_log').run();
-  logAudit('audit_purge', 'journal vidé', null, { supprimes: info.changes });
+  const info = db.prepare('DELETE FROM audit_log WHERE club_id = ?').run(req.club.id); // vidage scopé au club
+  logAuditReq(req, 'audit_purge', 'journal vidé', null, { supprimes: info.changes });
   res.json({ ok: true, supprimes: info.changes });
 });
 
 app.get('/api/admin/audit', requireAdmin, (req, res) => {
-  // filtres optionnels: ?q= (texte dans action/cible/avant/apres) et ?action= (action exacte)
+  // filtres optionnels: ?q= (texte dans action/cible/avant/apres) et ?action= (action exacte) — journal scopé au club courant
   const q = String(req.query.q || '').trim().slice(0, 80);
   const action = String(req.query.action || '').trim().slice(0, 60);
   let sql = `SELECT a.*, EXISTS(SELECT 1 FROM audit_snapshot s WHERE s.audit_id = a.id) AS has_snapshot FROM audit_log a`;
-  const where = [], params = [];
+  const where = ['a.club_id = ?'], params = [req.club.id];
   if (q) { where.push('(a.action LIKE ? OR a.cible LIKE ? OR a.avant LIKE ? OR a.apres LIKE ?)'); const like = `%${q}%`; params.push(like, like, like, like); }
   if (action) { where.push('a.action = ?'); params.push(action); }
-  if (where.length) sql += ' WHERE ' + where.join(' AND ');
+  sql += ' WHERE ' + where.join(' AND ');
   sql += ' ORDER BY a.id DESC LIMIT 500';
   res.json({ audit: db.prepare(sql).all(...params), q, action });
+});
+
+// ---------- Multi-club: gestion des clubs (réservé admin global/super-admin pour l'instant) ----------
+app.post('/api/admin/club', requireAdmin, (req, res) => {
+  const slug = String(req.body.slug || '').trim().toLowerCase();
+  const nom = String(req.body.nom || '').trim().slice(0, 80);
+  if (!/^[a-z0-9][a-z0-9-]{1,29}$/.test(slug)) return res.status(400).json({ error: 'slug invalide (2-30 car. a-z 0-9 -)' });
+  if (!nom) return res.status(400).json({ error: 'nom requis' });
+  if (clubParSlug(slug)) return res.status(409).json({ error: `slug « ${slug} » déjà pris` });
+  const pinHash = req.body.pin ? crypto.createHash('sha256').update(String(req.body.pin)).digest('hex') : null;
+  const info = db.prepare('INSERT INTO club (slug, nom, pin_hash) VALUES (?, ?, ?)').run(slug, nom, pinHash);
+  logAuditReq(req, 'club_cree', `club ${slug}`, null, { nom });
+  res.json({ ok: true, club: db.prepare('SELECT id, slug, nom, actif FROM club WHERE id = ?').get(Number(info.lastInsertRowid)) });
 });
 
 // Rollback point-in-time : restaure le tournoi actif à l'état du snapshot d'un événement d'audit
@@ -922,7 +981,7 @@ app.post('/api/admin/tournoi/rollback', requireAdmin, requireConfirmPin, (req, r
   const auditId = Number(req.body.audit_id);
   const snap = db.prepare('SELECT * FROM audit_snapshot WHERE audit_id = ?').get(auditId);
   if (!snap) return res.status(404).json({ error: 'Aucun snapshot pour cet événement' });
-  const actif = tournoiActif();
+  const actif = tournoiActif(req.club.id);
   if (!actif || actif.id !== snap.tournoi_id) {
     return res.status(409).json({ error: 'Seul le tournoi actif peut être restauré (ce snapshot concerne un autre tournoi)' });
   }
@@ -951,7 +1010,7 @@ app.post('/api/admin/tournoi/rollback', requireAdmin, requireConfirmPin, (req, r
     reinsert('match_event', data.events);
   });
   tx();
-  logAudit('rollback', `tournoi ${tid} restauré à l'événement #${auditId}`, null, { audit_id: auditId, taken_at: snap.taken_at });
+  logAuditReq(req, 'rollback', `tournoi ${tid} restauré à l'événement #${auditId}`, null, { audit_id: auditId, taken_at: snap.taken_at });
   majEtBroadcast();
   res.json({ ok: true, ...etatGlobal(req) });
 });
@@ -970,7 +1029,7 @@ function payloadTournoi(tid) {
 }
 
 app.get('/api/admin/tournoi/export', requireAdmin, (req, res) => {
-  const t = req.query.id ? db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(req.query.id)) : tournoiActif();
+  const t = req.query.id ? tournoiDuClub(req, req.query.id) : tournoiActif(req.club.id); // isolation club
   if (!t) return res.status(404).json({ error: 'Tournoi introuvable (ou aucun tournoi actif)' });
   res.setHeader('Content-Disposition', `attachment; filename="tournoi-${t.id}-${String(t.nom).replace(/[^\w-]+/g, '_')}.json"`);
   res.json(payloadTournoi(t.id));
@@ -987,7 +1046,7 @@ app.post('/api/admin/tournoi/import', requireAdmin, requireConfirmPin, (req, res
   if (!['simple', 'double'].includes(t.format)) return err400('Export invalide (format)');
   for (const k of ['joueurs', 'matchs', 'events', 'distances', 'tables']) if (p[k] != null && !Array.isArray(p[k])) return err400(`Export invalide (${k} doit être un tableau)`);
   const joueurs = p.joueurs || [], matchs = p.matchs || [], events = p.events || [], distances = p.distances || [], tables = p.tables || [];
-  const actif = tournoiActif();
+  const actif = tournoiActif(req.club.id);
   if (actif && req.body.replace !== true) {
     return res.status(409).json({ error: `Un tournoi est actif (${actif.nom}). Envoyez replace=true + confirm_pin pour le remplacer par l'import.`, actif_id: actif.id });
   }
@@ -1002,6 +1061,7 @@ app.post('/api/admin/tournoi/import', requireAdmin, requireConfirmPin, (req, res
   const setJ = new Set(joueurs.map(j => j.id)), setM = new Set(matchs.map(m => m.id)), setT = new Set(tables.map(tb => tb.id));
   const casses = refs.filter(([k, v]) => (k === 'joueur' ? !setJ.has(v) : k === 'match' ? !setM.has(v) : !setT.has(v)));
   if (casses.length) return err400(`Export invalide: ${casses.length} référence(s) cassée(s) (ex: ${casses[0][0]} #${casses[0][1]})`);
+  t.club_id = req.club.id; // un import atterrit toujours dans le club courant
   const tx = db.transaction(() => {
     db.pragma('defer_foreign_keys = ON');
     if (actif) {
@@ -1067,7 +1127,7 @@ app.post('/api/admin/tournoi/import', requireAdmin, requireConfirmPin, (req, res
     return newTid;
   });
   const newTid = tx();
-  logAudit('import_tournoi', `tournoi importé -> #${newTid} (${t.nom})`, null, { nom: t.nom, joueurs: joueurs.length, matchs: matchs.length, remplace: !!actif });
+  logAuditReq(req, 'import_tournoi', `tournoi importé -> #${newTid} (${t.nom})`, null, { nom: t.nom, joueurs: joueurs.length, matchs: matchs.length, remplace: !!actif });
   majEtBroadcast();
   res.json({ ok: true, tournoi_id: Number(newTid), ...etatGlobal(req) });
 });
@@ -1077,7 +1137,7 @@ app.get('/api/admin/tournoi/rollback/diff', requireAdmin, (req, res) => {
   const auditId = Number(req.query.audit_id);
   const snap = db.prepare('SELECT * FROM audit_snapshot WHERE audit_id = ?').get(auditId);
   if (!snap) return res.status(404).json({ error: 'Aucun snapshot pour cet événement' });
-  const actif = tournoiActif();
+  const actif = tournoiActif(req.club.id);
   if (!actif || actif.id !== snap.tournoi_id) return res.status(409).json({ error: 'Seul le tournoi actif peut être comparé (ce snapshot concerne un autre tournoi)' });
   const data = JSON.parse(snap.payload);
   const cur = db.prepare('SELECT * FROM match WHERE tournoi_id = ?').all(actif.id);
@@ -1112,6 +1172,7 @@ app.get('/api/admin/tournoi/rollback/diff', requireAdmin, (req, res) => {
 
 // Tirage à la bande: déclare qui casse en premier (joueur du match ou admin)
 app.post('/api/match/:id/bande', (req, res, next) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   try {
     const m = M.setBande(Number(req.params.id), Number(req.body.joueur_id));
     majEtBroadcast();
@@ -1120,6 +1181,7 @@ app.post('/api/match/:id/bande', (req, res, next) => {
 });
 
 app.post('/api/match/:id/manche', (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const joueurId = Number(req.body.joueur_id);
   if (!joueurId) return res.status(400).json({ error: 'joueur_id requis (gagnant de la manche)' });
   const m = M.declarerManche(Number(req.params.id), joueurId);
@@ -1128,6 +1190,7 @@ app.post('/api/match/:id/manche', (req, res) => {
 });
 
 app.post('/api/match/:id/runout', (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const joueurId = Number(req.body.joueur_id);
   if (!joueurId) return res.status(400).json({ error: 'joueur_id requis' });
   const kind = req.body.kind === 'casse' ? 'casse' : 'reprise';
@@ -1137,6 +1200,7 @@ app.post('/api/match/:id/runout', (req, res) => {
 });
 
 app.get('/api/joueur/:id/stats', (req, res) => {
+  if (!joueurDuClub(req, req.params.id)) return res.status(404).json({ error: "Joueur introuvable" }); // isolation club
   const id = Number(req.params.id);
   const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(id);
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
@@ -1158,6 +1222,7 @@ app.get('/api/joueur/:id/stats', (req, res) => {
 });
 
 app.post('/api/match/:id/retirer', (req, res) => {
+  if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const joueurId = Number(req.body.joueur_id);
   if (!joueurId) return res.status(400).json({ error: 'joueur_id requis (à qui retirer la manche)' });
   const m = M.retirerManche(Number(req.params.id), joueurId);
@@ -1166,6 +1231,7 @@ app.post('/api/match/:id/retirer', (req, res) => {
 });
 
 app.get('/api/joueur/:id/matchs', (req, res) => {
+  if (!joueurDuClub(req, req.params.id)) return res.status(404).json({ error: "Joueur introuvable" }); // isolation club
   const id = Number(req.params.id);
   const { ids: idsM } = idsMemeJoueur(id);
   const phM = idsM.map(() => '?').join(',');
@@ -1177,6 +1243,7 @@ app.get('/api/joueur/:id/matchs', (req, res) => {
 });
 
 app.get('/api/joueur/:id/historique', (req, res) => {
+  if (!joueurDuClub(req, req.params.id)) return res.status(404).json({ error: "Joueur introuvable" }); // isolation club
   const id = Number(req.params.id);
   const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(id);
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
