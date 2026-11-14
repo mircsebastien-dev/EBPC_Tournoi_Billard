@@ -29,7 +29,8 @@ async function render() {
       if (!confirm('Vider tout le journal d\'audit ? (irréversible)')) return;
       try {
         const r = await adminApiDestructif('/api/admin/audit', { method: 'DELETE' }, 'vider tout le journal d\'audit');
-        alert('🗑 ' + r.supprimes + ' entrées supprimées'); location.reload();
+        alert('🗑 ' + r.supprimes + ' entrées supprimées');
+        await render();
       } catch (e) { alert(e.message); }
     } }, 'Vider le journal')),
   el('div', { id: 'audit' }, 'Chargement…')));
@@ -46,7 +47,10 @@ async function render() {
             if (!confirm(`Restaurer le tournoi actif à l'état de cet événement (#${a.id} — ${a.action}) ?\nLe contenu actuel du tournoi sera remplacé.`)) return;
             try {
               await adminApiDestructif('/api/admin/tournoi/rollback', { method: 'POST', body: JSON.stringify({ audit_id: a.id }) }, `restaurer le tournoi à l'événement #${a.id} (${a.action})`);
-              alert('✅ Tournoi restauré'); location.reload();
+              alert('✅ Tournoi restauré');
+              const y = window.scrollY; // re-render en place: conserve zoom et position de scroll (pas de location.reload)
+              await render();
+              window.scrollTo(0, y);
             } catch (e) { alert(e.message); }
           },
         }, '⏪ Restaurer à ce point') : null),
