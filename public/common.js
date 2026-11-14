@@ -142,7 +142,7 @@ function matchCard(m, opts = {}) {
     if (typeof hasAdminPin === 'function' && hasAdminPin() && typeof openMatchEditor === 'function') {
       openMatchEditor(m, () => { if (opts.onAdminChange) opts.onAdminChange(); });
     } else {
-      location.href = `/match.html?id=${m.id}`;
+      location.href = matchUrl(m);
     }
   });
   card.style.cursor = 'pointer';
@@ -275,7 +275,7 @@ function renderBracket(container, t, opts = {}) {
           if (typeof hasAdminPin === 'function' && hasAdminPin() && typeof openMatchEditor === 'function') {
             openMatchEditor(m, () => { if (opts.onAdminChange) opts.onAdminChange(); });
           } else {
-            location.href = `/match.html?id=${m.id}`;
+            location.href = matchUrl(m);
           }
         });
         node.style.cursor = 'pointer';
@@ -416,6 +416,12 @@ function fmtDateHeure(dh) {
 }
 
 /* ===== Édition admin inline d'un match (depuis le tableau quand le PIN est mémorisé) ===== */
+// URL de la card match en propageant la page courante (retour contextuel depuis match.html)
+function matchUrl(m, extra = '') {
+  const ret = encodeURIComponent(location.pathname + location.search);
+  return `/match.html?id=${m.id}${extra ? '&' + extra : ''}&retour=${ret}`;
+}
+
 function hasAdminPin() {
   return !!(localStorage.getItem('ebpc_admin_pin') || '');
 }

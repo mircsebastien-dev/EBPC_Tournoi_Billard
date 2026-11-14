@@ -10,12 +10,29 @@
 <body>
 <header class="top">
   <h1>🎱 Match en direct</h1>
-  <nav><a href="/suivi.html">← Mes matchs</a><a href="/tv.html">📺 TV</a><a href="/tableau.html">🗺 Tableau</a></nav>
+  <div id="nav"><a id="lien-retour" href="/suivi.html">← Retour</a></div>
 </header>
 <main id="main"></main>
 <script src="/common.js"></script>
 <script>
 const params = new URLSearchParams(location.search);
+// retour contextuel: ?retour= (propagé par les cards) > referrer même origine > /suivi.html
+(function () {
+  let cible = '/suivi.html';
+  const r = params.get('retour');
+  if (r && r.startsWith('/') && !r.startsWith('//') && !r.startsWith('/match.html')) cible = r;
+  else {
+    try {
+      const ref = new URL(document.referrer);
+      if (ref.origin === location.origin && ref.pathname !== '/match.html') cible = ref.pathname + ref.search;
+    } catch {}
+  }
+  const lien = document.getElementById('lien-retour');
+  lien.href = cible;
+  lien.title = 'Retour à ' + cible;
+  if (cible === '/suivi.html') lien.textContent = '← Mes matchs';
+  document.getElementById('nav').append(nav(''));
+})();
 const matchId = Number(params.get('id'));
 const joueurId = Number(params.get('joueur')) || Number(localStorage.getItem('ebpc_joueur_id') || 0);
 let state = null;

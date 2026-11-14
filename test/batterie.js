@@ -746,6 +746,13 @@ async function nouveauTournoi(body) {
   // nettoyage
   await del('/api/admin/tournoi', { club: 'clubb' }).catch(() => {});
   await del('/api/admin/tournoi').catch(() => {});
+
+  // ---------- 18. Front: retour contextuel de la card match ----------
+  sec('18. Front: card match avec retour contextuel (?retour=/referrer) + menu nav');
+  const mhtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'match.html'), 'utf8');
+  check('match.html: lien retour dynamique (?retour= > referrer > /suivi.html) + menu nav()', mhtml.includes('lien-retour') && mhtml.includes('document.referrer') && mhtml.includes("nav('')"), '');
+  const cjs18 = fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8');
+  check('common.js: matchUrl propage ?retour= depuis les cards', cjs18.includes('function matchUrl') && cjs18.includes('&retour=') && cjs18.includes('location.href = matchUrl(m)'), '');
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
