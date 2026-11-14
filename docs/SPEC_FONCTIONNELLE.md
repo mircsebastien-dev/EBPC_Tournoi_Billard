@@ -15,7 +15,7 @@ Application web de gestion de tournois de billard (blackball / ultimate) : inscr
 | Visiteur | public | — |
 | Joueur invité | pages publiques + saisie score de ses matchs | pseudo choisi (localStorage) |
 | Joueur avec compte | + notifs push, amis, fiche perso, export RGPD | pseudo + email + mdp (session cookie) |
-| Admin (table de marque) | `/admin*.html` + routes `/api/admin/*` | code PIN (`ADMIN_PIN`), vérifié côté serveur à chaque requête |
+| Admin (table de marque) | `/admin*.html` + routes `/api/admin/*` | code PIN (`ADMIN_PIN`) **ou** session d'un compte `role=admin` (vérifié côté serveur à chaque requête) |
 
 Un joueur invité qui crée un compte avec le **même pseudo** est rattaché automatiquement (création de compte, connexion, ET inscription admin si le compte existe déjà).
 
@@ -120,6 +120,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - Boutons radius 1 px uniformes ; thème sombre « charbon + rose profond #d6336c »
 
 - **Session admin 8 h** : le PIN en localStorage expire (`ebpc_admin_pin_since`, `ADMIN_SESSION_MS = 8h`) + bouton 🔒 Verrouiller (efface le PIN mémorisé) ; re-saisie obligatoire ensuite
+- **Rôles compte** (`compte.role` : `user` par défaut, `admin`) : `requireAdmin` accepte la **session d'un compte admin** (sans PIN) ; sinon fallback sur le PIN. `requireConfirmPin` (actions destructives) est **exempté** si session admin, sinon exige `confirm_pin`. Bootstrap du 1er admin via env `ADMIN_EMAIL`/`ADMIN_PASSWORD` ; promotion/rétrogradation via `POST /api/admin/compte/:id/role` (`admin`|`user`, 400 sinon, PIN requis). Les pages `/admin*.html` s'ouvrent sans PIN si la session courante est admin (sinon écran PIN).
 - Rate-limit comptes (`insc:`/`conn:`/`oubli:`) keyé sur `x-forwarded-for` via `ipClient(req)` (derrière proxy, `req.ip` = IP du proxy)
 - PIN admin vérifié serveur sur toutes les routes `/api/admin/*` (401) + **anti brute-force** : `PIN_MAX_ESSAIS` (10) échecs max par IP (via `x-forwarded-for` puis `req.ip`) dans `PIN_FENETRE_MS` (10 min) → lockout `PIN_BLOCAGE_MS` (10 min) avec **429 même pour le bon code** ; succès = compteur remis à zéro. S'applique à `X-Admin-Pin` (header/query/body) **et** à `confirm_pin`. Test : section 12 de la batterie, active si `TEST_BRUTEFORCE=1` (serveur lancé avec les 3 variables petites)
 - mdp scrypt+salt ; sessions cookie HttpOnly/SameSite/Secure, token hashé ; réinit 1 h hashée ; rate-limit inscription/connexion/oubli
@@ -130,13 +131,13 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 ## 14. Déploiement / hébergement / services
 
 - **Fly.io** : app `ebpc-tournoi-billard`, région `cdg`, **1 machine** `shared-cpu-1x` / **256 Mo** (SQLite = 1 seule machine écrivante — ne pas scaler en horizontal ; monter en vertical si besoin : `fly scale memory 512`), `auto_stop off`, volume `tournoi_data` (snapshoté) monté sur `/data`, `DB_PATH=/data/tournoi.db`, `PORT=3000`, listen `0.0.0.0`
-- **Secrets Fly** (jamais `BASE_URL`) : `ADMIN_PIN`, `RESEND_API_KEY`, `MAIL_FROM`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
+- **Secrets Fly** (jamais `BASE_URL`) : `ADMIN_PIN`, `ADMIN_EMAIL`/`ADMIN_PASSWORD` (bootstrap compte admin, optionnels), `RESEND_API_KEY`, `MAIL_FROM`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
 - **Emails** : Resend (réinit mdp) ; en dev sans clé, le lien est loggé
 - **Push** : VAPID (web-push), clés en secrets ; en dev, clés générées à la volée (log)
 - **Déploiement** : push sur `main` → déploiement auto Fly depuis GitHub (prod `ebpc-tournoi-billard`) ; **app de test** séparée (`ebpc-tournoi-billard-test`) : volume neuf ou restauré depuis snapshot prod (jamais partagé), secrets recopiés à la main (Fly ne les lit pas), PIN différent conseillé
 - **Snapshots volume** : `fly volumes snapshots list/create tournoi_data` pour backup/restauration
 - **Tests** (serveur frais sur DB temporaire : `PORT=xxxx DB_PATH=/tmp/x.db ADMIN_PIN=0000 node src/server.js`) :
-  - `BASE=http://127.0.0.1:PORT node test/batterie.js` → **155 checks** (`test/rapport.md`) : sécurité PIN + confirm_pin, tournois, comptes, matchs, DKO, amis, règles, **rollback point-in-time (401/404/200, état restauré, match en cours → pret 0-0 + table libérée)**, slots API, byes exclus du classement, lancements lisibles, **robustesse (section 13 : health, 400/413/404 JSON, id NaN, pseudo tronqué/nettoyé, injection SQL, 20 manches parallèles sans 500 ni double comptage)**
+  - `BASE=http://127.0.0.1:PORT node test/batterie.js` → **167 checks** (`test/rapport.md`) : sécurité PIN + confirm_pin, tournois, comptes, matchs, DKO, amis, règles, **rollback point-in-time (401/404/200, état restauré, match en cours → pret 0-0 + table libérée)**, slots API, byes exclus du classement, lancements lisibles, **robustesse (section 13 : health, 400/413/404 JSON, id NaN, pseudo tronqué/nettoyé, injection SQL, 20 manches parallèles sans 500 ni double comptage)**
   - `BASE=… node test/e2e.js` (structure DKO 32 k=2/k=3, distances LB race-to-2, SSE) · `BASE=… node test/fullrun.js` (simulations complètes 16/32 joueurs simple + DKO)
   - `node test/push-unit.js` (push `envoyerTous` avec web-push mocké via `require.cache` : payload « inscriptions ouvertes », cleanup 410/404, 500 conservé) · `node test/purge-unit.js` (purge au boot `audit_log`/`audit_snapshot` > 90 j, test en 2 processus)
   - anti brute-force PIN : `TEST_BRUTEFORCE=1 PIN_MAX_ESSAIS=4 PIN_FENETRE_MS=1500 PIN_BLOCAGE_MS=2000` (côté serveur ET côté batterie) active la section 12 (429 après N échecs, lockout même pour le bon code, déblocage après délai)

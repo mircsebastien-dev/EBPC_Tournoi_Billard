@@ -521,6 +521,7 @@ async function nouveauTournoi(body) {
   }
   await del('/api/admin/tournoi').catch(() => {});
 
+
   // ---------- rapport ----------
 
 
@@ -630,6 +631,54 @@ async function nouveauTournoi(body) {
   const nf_hist = (await api('/api/tournois')).data.tournois.find(h => h.nom === 'Batterie2');
   check('clôture coupe net -> champion null', nf_hist && nf_hist.champion === null, JSON.stringify(nf_hist && nf_hist.champion));
 
+
+  // ---------- 16. Rôles: session compte admin (role) vs fallback PIN ----------
+  sec('16. Rôles: compte admin = session suffit (requireAdmin + confirm_pin), PIN sinon');
+  const login = async (pseudo, password) => {
+    const rr2 = await fetch(BASE + '/api/compte/connexion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pseudo, password }) });
+    const sc = rr2.headers.get('set-cookie');
+    return { status: rr2.status, cookie: sc ? sc.split(';')[0] : '' };
+  };
+  const apiC = (p, cookie, opts = {}) => fetch(BASE + p, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}), ...(opts.pin ? { 'X-Admin-Pin': opts.pin } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  }).then(async r2 => ({ status: r2.status, data: await r2.json().catch(() => ({})) }));
+  // compte user (Seb, créé section 4, mdp 'nouveau1' après le test réinit): session user -> PAS admin
+  const lSeb = await login('Seb', 'nouveau1');
+  check('login Seb (user) -> 200 + cookie', lSeb.status === 200 && !!lSeb.cookie, lSeb.status);
+  r = await apiC('/api/admin/audit', lSeb.cookie);
+  check('session user sans PIN -> 401 sur /api/admin/*', r.status === 401, r.status);
+  // promouvoir AliceBT (créée section NF, mdp '1234') en admin via PIN
+  const listeComptes = (await api('/api/admin/comptes')).data.comptes;
+  const aliceC = listeComptes.find(c => c.pseudo === 'AliceBT');
+  check('compte AliceBT retrouvé (role=user)', !!aliceC && (aliceC.role === 'user' || !aliceC.role), JSON.stringify(aliceC && aliceC.role));
+  const lAlice0 = await login('AliceBT', '1234');
+  r = await apiC('/api/admin/audit', lAlice0.cookie);
+  check('session AliceBT (role=user) -> 401', r.status === 401, r.status);
+  r = await post(`/api/admin/compte/${aliceC.id}/role`, { role: 'admin' });
+  check('POST role=admin (PIN) -> 200', r.status === 200 && r.data.role === 'admin', r.status + ' ' + (r.data.error || ''));
+  r = await post(`/api/admin/compte/${aliceC.id}/role`, { role: 'superadmin' });
+  check('role invalide -> 400', r.status === 400, r.status);
+  const lBoss = await login('AliceBT', '1234');
+  r = await apiC('/api/admin/audit', lBoss.cookie);
+  check('session AliceBT (role=admin) sans PIN -> 200', r.status === 200, r.status + ' ' + JSON.stringify(r.data).slice(0, 60));
+  // action destructive: session admin -> PAS de confirm_pin nécessaire
+  r = await post('/api/admin/tournoi', { nom: 'RoleT', regle: 'blackball', taille: 16, format: 'simple', notif_push: false });
+  check('création RoleT (PIN)', r.status === 200, r.status);
+  r = await apiC('/api/admin/tournoi', lBoss.cookie, { method: 'DELETE', body: {} });
+  check('DELETE tournoi avec session admin, SANS confirm_pin -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  // sans session admin: PIN seul ne suffit plus pour une action destructive -> confirm_pin requis
+  r = await post('/api/admin/tournoi', { nom: 'RoleT2', regle: 'blackball', taille: 16, format: 'simple', notif_push: false });
+  r = await api('/api/admin/tournoi', { method: 'DELETE', body: {} }); // header PIN mais pas de confirm_pin
+  check('DELETE tournoi avec PIN seul (pas de confirm_pin, pas de session admin) -> 401', r.status === 401, r.status);
+  // session user + confirm_pin mais SANS PIN -> 401 (requireAdmin exige PIN ou session admin)
+  r = await apiC('/api/admin/tournoi', lSeb.cookie, { method: 'DELETE', body: { confirm_pin: PIN } });
+  check('session user + confirm_pin sans PIN -> 401 (PIN ou session admin requis)', r.status === 401, r.status);
+  // session user + PIN + confirm_pin correct -> 200
+  r = await apiC('/api/admin/tournoi', lSeb.cookie, { method: 'DELETE', body: { confirm_pin: PIN }, pin: PIN });
+  check('DELETE tournoi avec PIN + confirm_pin correct -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  await del('/api/admin/tournoi').catch(() => {});
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
@@ -656,6 +705,7 @@ async function nouveauTournoi(body) {
   md += `- Robustesse (section 13): /api/health, 404 JSON routes inconnues, 400 JSON malformé, 413 body >256ko, id NaN -> 404, pseudo tronqué/nettoyé, injection SQL sans effet, 20 manches en parallèle sans 500 ni double comptage\n`;
   md += `- Lot sécurité 1 (section 14): rate-limit comptes keyé sur x-forwarded-for (429 après 10 échecs sur une IP proxy, IP réelle non lockée) + session admin 8h avec bouton Verrouiller (front)\n`;
   md += `- Lot fiabilité admin (section 15): export JSON du tournoi, import avec remap des ids + FK validées au COMMIT (401 sans/bon confirm_pin, 400 invalide, 409 si actif sans replace), diff avant rollback (resume + matchs modifiés), filtre du journal ?q=/?action=\n`;
+  md += `- Rôles (section 16): compte role=admin -> session suffit pour requireAdmin ET confirm_pin (destructif); sinon PIN requis (401 sans), confirm_pin requis sur destructifs; POST /api/admin/compte/:id/role (admin/user, 400 invalide)\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);

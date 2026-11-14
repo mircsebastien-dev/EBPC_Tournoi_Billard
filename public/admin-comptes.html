@@ -27,7 +27,7 @@ async function charger() {
 
 function render(comptes) {
   main.innerHTML = '';
-  if (!adminPin) { renderAdminLogin(main); return; }
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
   const input = el('input', {
     id: 'filtre', placeholder: '🔍 Rechercher (pseudo ou email)…', value: filtre, maxlength: 40, style: 'width:100%;max-width:340px',
   });
@@ -46,7 +46,7 @@ function render(comptes) {
     el('table', { style: 'width:100%;border-collapse:collapse' },
       el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Sessions', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
       el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
-        el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo),
+        el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo, (c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑 admin') : null)),
         el('td', { style: 'padding:6px 8px', title: c.email }, maskEmail(c.email)),
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, (c.created_at || '').slice(0, 16).replace('T', ' ')),
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.last_login_at ? fmtDateHeureSql(c.last_login_at) : 'jamais'),
@@ -54,6 +54,12 @@ function render(comptes) {
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.matchs)),
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.sessions)),
         el('td', { style: 'padding:6px 8px;text-align:right' },
+          el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: c.role === 'admin' ? 'Rétrograder en simple utilisateur (le PIN restera nécessaire pour l\\u2019admin)' : 'Promouvoir administrateur (sa session suffira pour l\\u2019admin, sans PIN)', onclick: async () => {
+            const cible = c.role === 'admin' ? 'user' : 'admin';
+            if (!confirm(`${cible === 'admin' ? 'Promouvoir' : 'Rétrograder'} « ${c.pseudo} » en ${cible === 'admin' ? 'admin' : 'user'} ?`)) return;
+            try { await adminApi(`/api/admin/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: cible }) }); charger(); }
+            catch (e) { alert(e.message); }
+          } }, c.role === 'admin' ? '👑\u2193 user' : '👑 admin'),
           el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: 'Renommer le pseudo du compte', onclick: async () => {
             const p = prompt(`Nouveau pseudo pour « ${c.pseudo} » (min 2 caractères) :`, c.pseudo);
             if (!p || p === c.pseudo) return;
@@ -74,8 +80,8 @@ function render(comptes) {
 }
 
 async function init() {
-  if (!adminPin) { renderAdminLogin(main); return; }
-  await adminInit(() => {});
+  const ok = await adminInit(() => {});
+  if (!ok) { renderAdminLogin(main); return; }
   await charger();
 }
 init();

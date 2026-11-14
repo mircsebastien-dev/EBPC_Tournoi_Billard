@@ -23,7 +23,7 @@ let tournoiId = null; // null = tournoi actif
 let filtre = "";
 
 async function charger() {
-  if (!adminPin) { renderAdminLogin(main); return; }
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
   const st = await adminApi("/api/etat");
   let t = st.actif;
   if (tournoiId) {
@@ -135,8 +135,7 @@ async function renderEvents(t) {
   if (sel.value) loadEv();
 }
 
-adminInit(() => {});
-charger();
+adminInit(() => {}).then(ok => { if (ok) charger(); else renderAdminLogin(main); });
 </script>
 </body>
 </html>

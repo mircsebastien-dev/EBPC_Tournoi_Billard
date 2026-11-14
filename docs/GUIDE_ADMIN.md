@@ -1,6 +1,6 @@
 # ⚙️ Guide admin — Table de marque (EBPC / Pink City Billard)
 
-Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly). Toutes les routes `/api/admin/*` exigent le PIN (401 sinon). Seules les données publiques (tableau, TV, stats, historique) sont visibles sans PIN.
+Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly) **ou** connexion d'un compte avec le **rôle `admin`** (créé au démarrage via `ADMIN_EMAIL`/`ADMIN_PASSWORD`, ou promu depuis la page Comptes). Toutes les routes `/api/admin/*` exigent le PIN **ou** une session admin (401 sinon). Seules les données publiques (tableau, TV, stats, historique) sont visibles sans PIN.
 
 **Session limitée à 8 h** : le code mémorisé expire après 8 h (re-saisie obligatoire) ; bouton **🔒 Verrouiller** dans le menu admin pour effacer immédiatement le code mémorisé.
 
@@ -86,6 +86,7 @@ Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11
 Toute action admin qui **supprime des données** exige le **code PIN re-saisi** dans le body (`confirm_pin`, 401 sinon), via une **modale à mot de passe masqué** — pas seulement la session déjà ouverte :
 - `DELETE /api/admin/tournoi` (tournoi actif), `DELETE /api/admin/tournoi/:id`, `DELETE /api/admin/compte/:id`, `DELETE /api/admin/match/:id/event/:id`, `DELETE /api/admin/audit` (vidage), `POST /api/admin/tournoi/rollback`
 - **Seule exception** : `DELETE /api/admin/joueur/:id` (désinscription d'un joueur) ne demande pas le code
+- Une **session de compte `admin`** est dispensée de `confirm_pin` (la session suffit) ; sinon le code re-saisi est obligatoire
 
 ## 9. Outils divers
 

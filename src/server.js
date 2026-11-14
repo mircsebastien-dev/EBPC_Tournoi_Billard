@@ -32,6 +32,10 @@ function cleanPseudo(v, max = 40) {
 const PORT = process.env.PORT || 3000;
 const ADMIN_PIN = process.env.ADMIN_PIN || '0000';
 setSetting('admin_pin_hash', crypto.createHash('sha256').update(ADMIN_PIN).digest('hex'));
+// compte admin bootstrap (optionnel): ADMIN_EMAIL + ADMIN_PASSWORD -> compte role=admin au boot
+if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+  try { comptes.ensureAdminCompte(process.env.ADMIN_EMAIL, process.env.ADMIN_PASSWORD); } catch (e) { console.error('[ADMIN] bootstrap:', e.message); }
+}
 
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 app.use(comptes.middlewareSession);
@@ -83,17 +87,25 @@ function verifierPinAdmin(req, pin) {
   return { ok: true };
 }
 
+// Auth admin à deux niveaux: session d'un compte role=admin (méthode produit),
+// sinon fallback par code PIN (anti brute-force). Le PIN n'est exigé QUE si pas de session admin.
+function estAdminSession(req) { return !!(req.compte && req.compte.role === 'admin'); }
+
 function requireAdmin(req, res, next) {
+  if (estAdminSession(req)) { req.adminVia = 'session'; return next(); }
   // PAS de req.query.pin: le PIN dans l'URL fuirait dans les logs des proxies
   const pin = req.headers['x-admin-pin'] || (req.body && req.body.pin);
   const r = verifierPinAdmin(req, pin);
   if (r.bloque) return res.status(429).json({ error: r.message });
-  if (!r.ok) return res.status(401).json({ error: 'PIN administrateur invalide' });
+  if (!r.ok) return res.status(401).json({ error: 'PIN administrateur invalide (ou connectez-vous avec un compte admin)' });
+  req.adminVia = 'pin';
   next();
 }
 
-// geste admin destructif : exige le code re-saisi dans le body (confirm_pin), pas juste la session
+// geste admin destructif : exige le code re-saisi dans le body (confirm_pin), pas juste la session PIN —
+// sauf si session d'un compte admin (déjà authentifié fortement par mdp + session)
 function requireConfirmPin(req, res, next) {
+  if (estAdminSession(req)) return next();
   const pin = req.body && req.body.confirm_pin;
   const r = verifierPinAdmin(req, pin);
   if (r.bloque) return res.status(429).json({ error: r.message });
@@ -824,7 +836,7 @@ app.post('/api/admin/simuler', requireAdmin, (req, res) => {
 // ---- Gestion des comptes joueurs (admin) ----
 app.get('/api/admin/comptes', requireAdmin, (req, res) => {
   const rows = db.prepare(`
-    SELECT c.id, c.pseudo, c.email, c.created_at,
+    SELECT c.id, c.pseudo, c.email, c.role, c.created_at,
            (SELECT COUNT(*) FROM session s WHERE s.compte_id = c.id) sessions,
            c.last_login_at,
            (SELECT COUNT(*) FROM joueur j WHERE j.compte_id = c.id) joueurs,
@@ -843,6 +855,19 @@ app.post('/api/admin/compte/:id/pseudo', requireAdmin, (req, res) => {
     logAudit('compte_pseudo_change', `compte #${id} -> ${p}`, null, {});
     res.json({ ok: true, pseudo: p });
   } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// rôle d'un compte (user/admin) — géré par un admin (PIN ou session admin)
+app.post('/api/admin/compte/:id/role', requireAdmin, (req, res) => {
+  const role = req.body && req.body.role;
+  if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: "role invalide ('admin' ou 'user')" });
+  const id = Number(req.params.id);
+  const c = db.prepare('SELECT id, pseudo, role FROM compte WHERE id = ?').get(id);
+  if (!c) return res.status(404).json({ error: 'Compte introuvable' });
+  db.prepare('UPDATE compte SET role = ? WHERE id = ?').run(role, id);
+  logAudit('compte_role_change', `compte #${id} (${c.pseudo}) -> ${role}`, { role: c.role }, { role });
+  majEtBroadcast();
+  res.json({ ok: true, id, role });
 });
 
 app.post('/api/admin/compte/:id/password', requireAdmin, (req, res) => {

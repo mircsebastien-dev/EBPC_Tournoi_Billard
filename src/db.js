@@ -238,6 +238,8 @@ if (matchCols.length > 0) {
   }
   if (!db.prepare("PRAGMA table_info(compte)").all().some(c => c.name === 'last_login_at'))
     db.exec('ALTER TABLE compte ADD COLUMN last_login_at TEXT');
+  if (!db.prepare("PRAGMA table_info(compte)").all().some(c => c.name === 'role'))
+    db.exec("ALTER TABLE compte ADD COLUMN role TEXT NOT NULL DEFAULT 'user'"); // 'user' | 'admin' — session admin acceptée par requireAdmin (le PIN reste le fallback)
   if (!db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id'))
     db.exec('ALTER TABLE match ADD COLUMN casseur_id INTEGER REFERENCES joueur(id)');
 }

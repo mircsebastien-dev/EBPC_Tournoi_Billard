@@ -22,7 +22,7 @@ const val = (id) => document.getElementById(id)?.value;
 
 function render() {
   main.innerHTML = '';
-  if (!adminPin) { renderAdminLogin(main); return; }
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
   const t = adminTournoiActif();
   if (!t) renderCreer(t);
   else if (t.tournoi.statut === 'inscription') renderInscriptions(t);

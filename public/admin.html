@@ -21,7 +21,7 @@ const main = document.getElementById('main');
 
 function render() {
   main.innerHTML = '';
-  if (!adminPin) { renderAdminLogin(main); return; }
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
   const t = adminTournoiActif();
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, 'Espace table de marque'),

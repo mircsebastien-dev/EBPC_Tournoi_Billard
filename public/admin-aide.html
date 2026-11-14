@@ -15,6 +15,7 @@
 document.getElementById("nav").append(nav("admin"));
 const main = document.getElementById("main");
 main.append(el("div", { class: "panel" },
+  el("p", {}, "Accès : code PIN (env `ADMIN_PIN`) ou session d'un compte avec le rôle `admin` (bootstrap via `ADMIN_EMAIL`/`ADMIN_PASSWORD`, promotion depuis /admin-comptes.html)."),
   el("h2", {}, "1. Créer le tournoi"),
   el("p", {}, "/admin-tournoi.html → nom, règle, taille (16/32/64/128), format (élim. directe / double KO + nb tours), nb tables, date. Ajustement auto à la taille des payés. Tables réservées: vide par défaut. En phase inscription, la TV montre un grand QR centré pour s'inscrire. Switch 🔔 « Notif push « inscriptions ouvertes » (coché par défaut) : à la création, un push « 🎱 Nouveau tournoi — inscriptions ouvertes » est envoyé à tous les comptes abonnés."),
   el("h2", {}, "2. Inscriptions"),
@@ -36,9 +37,9 @@ main.append(el("div", { class: "panel" },
   el("h2", {}, "6. Clôturer"),
   el("p", {}, "« Terminer maintenant » = coupe net, aucun champion auto (sauf choix explicite dans le select). Fin normale = champion auto via la finale. Historique ensuite en liste + recherche/surbrillance joueur."),
   el("h2", {}, "7. Comptes & audit"),
-  el("p", {}, "/admin-comptes.html: liste (dernière connexion, inscri., matchs, sessions), ✏️ pseudo, 🔑 mdp, 🗑 supprimer (historique matchs conservé). Purge auto des comptes inactifs > 18 mois. /admin-journal.html: 500 dernières actions admin, lancements lisibles (« wb1-001 — P11 vs P07 (table 3) »). Chaque entrée snapshotée a un bouton ⏪ « Restaurer à ce point » : rollback point-in-time du tournoi actif (transaction atomique, fonctionne même avec un match en cours → remis à 0-0, table libérée ; 409 si autre tournoi, 404 sans snapshot ; logué lui-même). 🔐 Toute action destructive (suppression tournoi/compte/event, vidage du journal, rollback) exige le code PIN re-saisi (modale masquée, `confirm_pin`) — sauf la désinscription d'un joueur."),
+  el("p", {}, "/admin-comptes.html: liste (dernière connexion, inscri., matchs, sessions), ✏️ pseudo, 🔑 mdp, 🗑 supprimer (historique matchs conservé). Purge auto des comptes inactifs > 18 mois. /admin-journal.html: 500 dernières actions admin, lancements lisibles (« wb1-001 — P11 vs P07 (table 3) »). Chaque entrée snapshotée a un bouton ⏪ « Restaurer à ce point » : rollback point-in-time du tournoi actif (transaction atomique, fonctionne même avec un match en cours → remis à 0-0, table libérée ; 409 si autre tournoi, 404 sans snapshot ; logué lui-même). 🔐 Toute action destructive (suppression tournoi/compte/event, vidage du journal, rollback) exige le code PIN re-saisi (modale masquée, `confirm_pin`) — sauf la désinscription d'un joueur. Une session de compte avec le rôle `admin` est dispensée de `confirm_pin`."),
   el("h2", {}, "8. Tests & déploiement"),
-  el("p", {}, "Batterie: BASE=http://127.0.0.1:PORT node test/batterie.js (120 checks → test/rapport.md) + test/e2e.js + test/fullrun.js ; sans serveur : node test/push-unit.js (push mocké), node test/purge-unit.js (purge > 90 j). Fly: secrets ADMIN_PIN, RESEND_API_KEY, MAIL_FROM, VAPID_* (jamais BASE_URL); volume tournoi_data sur /data; snapshots dans Volumes."),
+  el("p", {}, "Batterie: BASE=http://127.0.0.1:PORT node test/batterie.js (167 checks → test/rapport.md) + test/e2e.js + test/fullrun.js ; sans serveur : node test/push-unit.js (push mocké), node test/purge-unit.js (purge > 90 j). Fly: secrets ADMIN_PIN, RESEND_API_KEY, MAIL_FROM, VAPID_* (jamais BASE_URL); volume tournoi_data sur /data; snapshots dans Volumes."),
   el("p", { class: "muted small", style: "margin-top:16px" }, "Version complète: docs/GUIDE_ADMIN.md dans le dépôt GitHub.")));
 </script>
 </body>

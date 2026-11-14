@@ -53,7 +53,7 @@ function rateLimit(cle, max, fenetreMs) {
 }
 
 // ---------- helpers ----------
-function comptePublic(c) { return c ? { id: c.id, pseudo: c.pseudo, email: c.email || null } : null; }
+function comptePublic(c) { return c ? { id: c.id, pseudo: c.pseudo, email: c.email || null, role: c.role || 'user' } : null; }
 function parseCookies(req) {
   const out = {};
   const h = req.headers.cookie || '';
@@ -85,7 +85,7 @@ function compteDepuisReq(req) {
   const token = cookies[SESSION_COOKIE];
   if (!token) return null;
   const row = db.prepare(`
-    SELECT c.id, c.pseudo, c.email, s.expires FROM session s JOIN compte c ON c.id = s.compte_id
+    SELECT c.id, c.pseudo, c.email, c.role, s.expires FROM session s JOIN compte c ON c.id = s.compte_id
     WHERE s.token_hash = ? AND s.expires > datetime('now')
   `).get(hashToken(token));
   return row || null;
@@ -439,4 +439,23 @@ function setPseudoAdmin(compteId, pseudo) {
   return p;
 }
 
-module.exports = { supprimerCompte, purgerComptesInactifs, setPasswordAdmin, setPseudoAdmin, supprimerCompte, purgerComptesInactifs, registerCompteRoutes, middlewareSession, hashToken, SESSION_COOKIE };
+// Compte admin de secours/bootstrap via env (ADMIN_EMAIL + ADMIN_PASSWORD) : créé ou promu admin au boot.
+// Le PIN admin reste utilisable en fallback ; la session de ce compte suffit pour les routes admin.
+function ensureAdminCompte(email, password) {
+  if (!email || !password) return null;
+  if (!validerEmail(email) || !validerPassword(password)) { console.error('[ADMIN] ADMIN_EMAIL/ADMIN_PASSWORD invalides, ignorés'); return null; }
+  const mail = String(email).trim().toLowerCase();
+  const existe = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE').get(mail);
+  if (existe) {
+    if (existe.role !== 'admin') db.prepare("UPDATE compte SET role = 'admin' WHERE id = ?").run(existe.id);
+    return existe.id;
+  }
+  const pseudo = String(mail.split('@')[0]).replace(/[^\p{L}\p{N}_\-]/gu, '').slice(0, 24) || 'admin';
+  const salt = nouveauSalt();
+  const info = db.prepare(`INSERT INTO compte (pseudo, email, pass_hash, salt, role, last_login_at) VALUES (?, ?, ?, ?, 'admin', datetime('now'))`)
+    .run(pseudo, mail, hashPassword(String(password), salt), salt);
+  console.log(`[ADMIN] compte admin bootstrappé: ${pseudo} <${mail}> (role=admin)`);
+  return Number(info.lastInsertRowid);
+}
+
+module.exports = { supprimerCompte, purgerComptesInactifs, setPasswordAdmin, setPseudoAdmin, registerCompteRoutes, middlewareSession, hashToken, ensureAdminCompte, SESSION_COOKIE };

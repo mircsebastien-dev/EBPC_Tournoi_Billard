@@ -48,7 +48,7 @@ async function confirmerRollback(a) {
 
 async function render() {
   main.innerHTML = '';
-  if (!adminPin) { renderAdminLogin(main); return; }
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
   main.append(el('div', { class: 'panel' },
   el('div', { class: 'row', style: 'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px' },
     el('div', { class: 'hero-title' }, 'Journal d\'audit'),

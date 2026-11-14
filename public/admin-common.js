@@ -9,6 +9,11 @@ if (adminPin && adminPinSince && Date.now() - adminPinSince > ADMIN_SESSION_MS) 
   localStorage.removeItem('ebpc_admin_pin_since');
 }
 let adminState = null;
+let adminCompte = null; // compte role=admin connecté (session) -> pas besoin de PIN
+// résolu au chargement de la page : /api/compte/moi renseigne compteCourant (common.js)
+const adminCompteP = api('/api/compte/moi').then(() => {
+  adminCompte = (typeof compteCourant !== 'undefined' && compteCourant && compteCourant.role === 'admin') ? compteCourant : null;
+}).catch(() => { adminCompte = null; });
 
 function verrouillerAdmin() {
   adminPin = '';
@@ -30,8 +35,9 @@ async function adminApi(path, opts = {}) {
 }
 
 async function adminInit(onUpdate) {
+  await adminCompteP;
   adminState = await api('/api/etat');
-  if (!adminPin) return false;
+  if (!adminPin && !adminCompte) return false;
   connecterSSE((s) => { adminState = s; if (onUpdate) onUpdate(s); });
   return true;
 }
@@ -55,7 +61,8 @@ function renderAdminLogin(main) {
   main.append(el('div', { class: 'panel', style: 'max-width:380px;margin:60px auto' },
     el('div', { class: 'hero-title', style: 'text-align:center' }, '🔐 Table de marque'),
     el('label', {}, 'Code PIN'), input,
-    el('div', { style: 'margin-top:14px' }, el('button', { onclick: entrer, style: 'width:100%' }, 'Se connecter'))));
+    el('div', { style: 'margin-top:14px' }, el('button', { onclick: entrer, style: 'width:100%' }, 'Se connecter')),
+    el('p', { class: 'muted small', style: 'text-align:center;margin-top:10px' }, 'Ou ', el('a', { href: '/compte.html' }, 'connecte-toi avec un compte admin'), '.')));
   input.focus();
 }
 
@@ -80,15 +87,18 @@ function demanderPin(label) {
   });
 }
 async function adminApiDestructif(path, opts, label) {
-  const pin = await demanderPin(label || 'cette suppression');
-  if (!pin) throw new Error('Annulé : code non saisi');
   const body = opts && opts.body ? JSON.parse(opts.body) : {};
-  body.confirm_pin = pin;
+  if (!adminCompte) { // session d'un compte admin = déjà authentifié : pas de re-saisie du PIN
+    const pin = await demanderPin(label || 'cette suppression');
+    if (!pin) throw new Error('Annulé : code non saisi');
+    body.confirm_pin = pin;
+  }
   return adminApi(path, { ...(opts || {}), body: JSON.stringify(body) });
 }
 
 function adminNav(active) {
   const n = nav(active === 'admin-home' ? 'admin' : active);
+  if (adminCompte) n.append(el('span', { class: 'chip', style: 'margin-left:8px' }, '👤 ' + adminCompte.pseudo + ' (admin)'));
   // verrouillage manuel de la table de marque (efface le PIN mémorisé)
   n.append(el('button', {
     class: 'secondary', type: 'button', style: 'padding:4px 10px;font-size:12px;margin-left:8px',
