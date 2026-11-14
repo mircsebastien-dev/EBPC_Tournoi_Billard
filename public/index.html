@@ -119,7 +119,7 @@ async function renderAmisPanel() {
       // clic sur le nom -> fiche joueur (si l'ami est inscrit au tournoi actif)
       a.joueur_id
         ? el('a', { href: `/joueur.html?id=${a.joueur_id}`, title: `Fiche de ${a.pseudo}`, style: 'color:inherit;font-weight:700;text-decoration:none' }, a.pseudo, ' ›')
-        : el('div', { style: 'font-weight:700' }, a.pseudo),
+        : el('div', { style: 'font-weight:700', title: 'Jamais inscrit à un tournoi de ce club — pas de fiche' }, a.pseudo),
       el('span', { class: 'muted small' }, txt)));
   }
 }
