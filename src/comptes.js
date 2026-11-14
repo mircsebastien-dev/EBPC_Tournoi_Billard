@@ -202,8 +202,15 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
       }
     }
     res.json({ amis: rows.map(a => {
-      const js = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND compte_id = ?').all(t ? t.id : -1, a.compte_id);
-      return { ...a, joueur_id: js.length ? js[0].id : null, statut: statuts[a.compte_id] || { type: 'hors_tournoi' } };
+      const tid = t ? t.id : -1;
+      // fiche joueur: d'abord via compte_id dans le tournoi actif, sinon même pseudo dans le tournoi actif, sinon n'importe quel tournoi du club
+      let jid = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND compte_id = ?').get(tid, a.compte_id)?.id
+        || db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE').get(tid, a.pseudo)?.id
+        || db.prepare(`SELECT j.id FROM joueur j JOIN tournoi tt ON tt.id = j.tournoi_id
+                       WHERE tt.club_id = ? AND (j.compte_id = ? OR j.pseudo = ? COLLATE NOCASE) ORDER BY j.id DESC LIMIT 1`)
+             .get(req.club ? req.club.id : null, a.compte_id, a.pseudo)?.id
+        || null;
+      return { ...a, joueur_id: jid, statut: statuts[a.compte_id] || { type: 'hors_tournoi' } };
     }) });
   });
 
