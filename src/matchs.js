@@ -34,9 +34,19 @@ function setJoueurDansSuivant(m, champ, toId, slot, joueurId) {
   if (!s) return;
   const col = slot === 1 ? 'joueur1_id' : 'joueur2_id';
   const autre = slot === 1 ? 'joueur2_id' : 'joueur1_id';
+  if (s[autre] === joueurId) return; // ne jamais créer un match avec le même joueur des 2 côtés
   db.prepare(`UPDATE match SET ${col} = ?, etat = CASE WHEN ${autre} IS NOT NULL AND etat = 'prevu' THEN 'pret' ELSE etat END, updated_at = datetime('now') WHERE id = ?`)
     .run(joueurId, s.id);
-  if (s.bracket === 'F') eviterRematchF(s.id);
+  if (s.bracket) {
+    // sweep anti-rematch sur tout le tour (WB/LB/F): un swap peut devenir possible quand les autres matchs du tour se remplissent
+    let garde = 0, swapped = true;
+    while (swapped && garde++ < 10) {
+      swapped = false;
+      const tous = db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND bracket = ? AND tour = ? AND etat IN ('prevu','pret') AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL ORDER BY position`)
+        .all(s.tournoi_id, s.bracket, s.tour);
+      for (const f of tous) { if (eviterRematch(f.id)) { swapped = true; break; } }
+    }
+  }
   appliquerBye(s.id);
 }
 
@@ -84,6 +94,11 @@ function verifierFinTournoi(m) {
     ORDER BY CASE bracket WHEN 'F' THEN 2 WHEN 'WB' THEN 1 ELSE 0 END DESC, tour DESC, position ASC LIMIT 1
   `).get(m.tournoi_id);
   if (dernier && dernier.id === m.id && dernier.gagnant_id != null) {
+    // garde-fou: on ne termine le tournoi que s'il ne reste plus aucun match jouable
+    const reste = db.prepare(`SELECT COUNT(*) c FROM match WHERE tournoi_id = ?
+      AND (etat IN ('pret', 'en_cours') OR (etat = 'prevu' AND (joueur1_id IS NOT NULL OR joueur2_id IS NOT NULL)))`)
+      .get(m.tournoi_id).c;
+    if (reste > 0) return;
     db.prepare(`UPDATE tournoi SET statut = 'termine', champion_id = ? WHERE id = ?`).run(dernier.gagnant_id, m.tournoi_id);
     logAudit('tournoi_termine', `tournoi ${m.tournoi_id}`, null, { champion: pseudo(dernier.gagnant_id) });
   }
@@ -195,11 +210,33 @@ function retirerManche(matchId, joueurId) {
   return matchById(matchId);
 }
 
+// Garantie anti-rematch: aucun match ne peut démarrer (ou finir par forfait/correction) avec une paire
+// de joueurs déjà appariée ailleurs, hors finale (dernier tour F à 1 match) et cas forcé (dernier tour LB à 1 match).
+function assertPasDeRematch(m) {
+  if (!m.joueur1_id || !m.joueur2_id) return;
+  const maxT = dernierTourB(m.tournoi_id, m.bracket);
+  const nbDernier = db.prepare('SELECT COUNT(*) c FROM match WHERE tournoi_id = ? AND bracket = ? AND tour = ?').get(m.tournoi_id, m.bracket, maxT).c;
+  if (m.tour >= maxT && nbDernier <= 1) return; // finale / dernier tour à 1 match: rematch autorisé
+  { // sweep du tour au cas où un swap est possible
+    let garde = 0, swapped = true;
+    while (swapped && garde++ < 10) {
+      swapped = false;
+      const tous = db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND bracket = ? AND tour = ? AND etat IN ('prevu','pret') AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL ORDER BY position`)
+        .all(m.tournoi_id, m.bracket, m.tour);
+      for (const f of tous) { if (eviterRematch(f.id)) { swapped = true; break; } }
+    }
+  }
+  const m2 = matchById(m.id);
+  if (paireExiste(m2.tournoi_id, m2.joueur1_id, m2.joueur2_id, [m2.id]))
+    throw httpError(409, 'Rematch interdit hors finale : ces deux joueurs sont déjà appariés dans un autre match');
+}
+
 function lancerMatch(matchId, tableId) {
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.joueur1_id == null || m.joueur2_id == null) throw httpError(409, 'Match incomplet (joueur manquant)');
   if (m.etat !== 'pret' && m.etat !== 'prevu') throw httpError(409, 'Match non lançable dans cet état');
+  assertPasDeRematch(m);
   if (tableId == null) {
     const libre = tableLibrePref(m.tournoi_id, matchId); // pref + tables réservées en phase finale
     tableId = libre ? libre.id : null;
@@ -267,12 +304,13 @@ function rouvrirMatch(matchId) {
 }
 
 function corrigerScore(matchId, score1, score2, manches, motif) {
-  const m = matchById(matchId);
+  let m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   const avant = { score1: m.score1, score2: m.score2, manches: m.manches, etat: m.etat, gagnant_id: m.gagnant_id };
   if (avant.etat === 'termine' || avant.etat === 'forfait') annulerEnAval(matchId);
   const s1 = Math.max(0, Math.min(score1, manches));
   const s2 = Math.max(0, Math.min(score2, manches));
+  if (s1 >= manches || s2 >= manches) { assertPasDeRematch(matchById(matchId)); m = matchById(matchId); }
   let etat = m.etat;
   let gagnant = m.gagnant_id;
   if (s1 >= manches || s2 >= manches) {
@@ -296,6 +334,7 @@ function declarerForfait(matchId, forfaitJoueurId) {
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.etat === 'termine') throw httpError(409, 'Match déjà terminé');
+  assertPasDeRematch(m);
   const autre = forfaitJoueurId === m.joueur1_id ? m.joueur2_id : m.joueur1_id;
   db.prepare(`UPDATE match SET etat = 'forfait', gagnant_id = ?, ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE id = ?`).run(autre, matchId);
   insererEvent(matchId, forfaitJoueurId, 'forfait', { perdant: pseudo(forfaitJoueurId), gagnant: pseudo(autre) });
@@ -417,52 +456,91 @@ function setJoueursAdmin(matchId, j1, j2) {
     if (j != null && !db.prepare('SELECT id FROM joueur WHERE id = ? AND tournoi_id = ?').get(j, m.tournoi_id))
       throw httpError(400, 'Joueur inconnu dans ce tournoi');
   }
-  db.prepare('UPDATE match SET joueur1_id = ?, joueur2_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(j1, j2, matchId);
-  // si un côté devient null et l'autre non -> bye auto
-  const cur = matchById(matchId);
-  if (cur.etat === 'prevu' && ((cur.joueur1_id == null) !== (cur.joueur2_id == null))) {
-    const g = cur.joueur1_id || cur.joueur2_id;
-    const p = null;
-    terminerMatch(matchId, g, p, 'adversaire absent (bye)');
+  // rematch interdit hors finale : on refuse un changement manuel qui remettrait ensemble 2 joueurs
+  // déjà appariés (joués OU prévus) dans un autre match — sauf si l'un des deux matchs est la vraie finale
+  if (j1 != null && j2 != null) {
+    const existe = paireExiste(m.tournoi_id, j1, j2, [m.id]);
+    if (existe) {
+      const estFinale = (x) => x.bracket === 'F' && x.tour === dernierTourF(m.tournoi_id);
+      if (!estFinale(m) && !estFinale(existe))
+        throw httpError(409, `Rematch interdit hors finale : cette paire est déjà au match #${existe.id}`);
+    }
   }
+  db.prepare('UPDATE match SET joueur1_id = ?, joueur2_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(j1, j2, matchId);
+  // si un côté devient null et l'autre non -> bye auto (uniquement si le feeder du côté null est terminé)
+  appliquerBye(matchId);
   return matchById(matchId);
 }
 
 
 // ---- Anti-rematch strict jusqu'à la vraie finale (dernier tour F) ----
-function dejaJoues(tournoiId, a, b) {
+function dejaJoues(tournoiId, a, b, saufIds = []) {
   if (!a || !b || a === b) return false;
-  return !!db.prepare(`
+  let sql = `
     SELECT 1 FROM match WHERE tournoi_id = ? AND etat IN ('termine','forfait','en_cours')
-      AND ((joueur1_id = ? AND joueur2_id = ?) OR (joueur1_id = ? AND joueur2_id = ?)) LIMIT 1
-  `).get(tournoiId, a, b, b, a);
+      AND ((joueur1_id = ? AND joueur2_id = ?) OR (joueur1_id = ? AND joueur2_id = ?))`;
+  const params = [tournoiId, a, b, b, a];
+  if (saufIds.length) { sql += ` AND id NOT IN (${saufIds.map(() => '?').join(',')})`; params.push(...saufIds); }
+  return !!db.prepare(sql + ' LIMIT 1').get(...params);
+}
+
+// paire présente dans un match quel que soit son état (prevu/pret/joué) — anti-rematch strict
+function paireExiste(tournoiId, a, b, saufIds = []) {
+  if (!a || !b || a === b) return null;
+  let sql = `SELECT id, bracket, tour FROM match WHERE tournoi_id = ? AND ((joueur1_id = ? AND joueur2_id = ?) OR (joueur1_id = ? AND joueur2_id = ?))`;
+  const params = [tournoiId, a, b, b, a];
+  if (saufIds.length) { sql += ` AND id NOT IN (${saufIds.map(() => '?').join(',')})`; params.push(...saufIds); }
+  return db.prepare(sql + ' LIMIT 1').get(...params) || null;
 }
 
 function dernierTourF(tournoiId) {
   const r = db.prepare("SELECT MAX(tour) t FROM match WHERE tournoi_id = ? AND bracket = 'F'").get(tournoiId);
   return r ? r.t : 0;
 }
+function dernierTourB(tournoiId, bracket) {
+  const r = db.prepare('SELECT MAX(tour) t FROM match WHERE tournoi_id = ? AND bracket = ?').get(tournoiId, bracket);
+  return r ? r.t : 0;
+}
 
-// Si un match F (hors vraie finale) a ses 2 joueurs déjà rencontrés, on essaie de swap
-// avec un autre match du même tour F pour casser le rematch.
-function eviterRematchF(fMatchId) {
+// Si un match F ou LB (hors dernier tour du bracket = finale) a ses 2 joueurs déjà appariés ailleurs,
+// on essaie de swap un seul joueur avec un autre match du même tour pour casser le rematch.
+function eviterRematch(fMatchId) {
   const f = matchById(fMatchId);
-  if (!f || f.bracket !== 'F') return false;
-  if (f.tour >= dernierTourF(f.tournoi_id)) return false; // vraie finale: rematch autorisé
+  if (!f || !f.bracket || (f.etat !== 'prevu' && f.etat !== 'pret')) return false; // on ne swappe que des matchs non démarrés
+  const maxT = dernierTourB(f.tournoi_id, f.bracket);
+  const nbDernier = db.prepare('SELECT COUNT(*) c FROM match WHERE tournoi_id = ? AND bracket = ? AND tour = ?').get(f.tournoi_id, f.bracket, maxT).c;
+  if (f.tour >= maxT && nbDernier <= 1) return false; // finale (dernier tour à 1 match): rematch autorisé (forcé)
   if (!f.joueur1_id || !f.joueur2_id) return false;
-  if (!dejaJoues(f.tournoi_id, f.joueur1_id, f.joueur2_id)) return false;
-  const autres = db.prepare(`SELECT * FROM match WHERE tournoi_id = ? AND bracket = 'F' AND tour = ? AND id != ? AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL`).all(f.tournoi_id, f.tour, f.id);
+  if (!paireExiste(f.tournoi_id, f.joueur1_id, f.joueur2_id, [f.id])) return false;
+  // partenaires: tout match du même bracket+tour avec AU MOINS un joueur (l'autre slot peut être encore vide)
+  const autres = db.prepare(`SELECT * FROM match WHERE tournoi_id = ? AND bracket = ? AND tour = ? AND id != ?
+    AND etat IN ('prevu','pret') AND (joueur1_id IS NOT NULL OR joueur2_id IS NOT NULL)`).all(f.tournoi_id, f.bracket, f.tour, f.id);
+  // f=(a,b) est un rematch; on essaie de séparer a et b en échangeant UN SEUL joueur avec g
+  // (4 orientations: on échange le slot de f avec un slot rempli de g)
   for (const g of autres) {
-    // swap complet des 2 matchs si ça casse le conflit des deux côtés
-    if (!dejaJoues(f.tournoi_id, g.joueur1_id, f.joueur2_id) && !dejaJoues(f.tournoi_id, g.joueur2_id, f.joueur1_id)) {
-        db.prepare('UPDATE match SET joueur1_id = ?, joueur2_id = ? WHERE id = ?').run(g.joueur1_id, g.joueur2_id, f.id);
-        db.prepare('UPDATE match SET joueur1_id = ?, joueur2_id = ? WHERE id = ?').run(f.joueur1_id, f.joueur2_id, g.id);
-        try { db.prepare('INSERT INTO audit_log (action, label, tournoi_id, details) VALUES (?, ?, ?, ?)').run('rematch_swap_f', `swap F${f.tour} #${f.position}<->#${g.position}`, f.tournoi_id, JSON.stringify({ f: f.id, g: g.id })); } catch {}
+    const F = { j1: f.joueur1_id, j2: f.joueur2_id };
+    const G = { j1: g.joueur1_id, j2: g.joueur2_id };
+    for (const fs of ['j1', 'j2']) {
+      for (const gs of ['j1', 'j2']) {
+        if (G[gs] == null) continue;
+        const newF = { ...F, [fs]: G[gs] };
+        const newG = { ...G, [gs]: F[fs] };
+        if (newF.j1 === newF.j2) continue; // ne jamais créer j1 === j2
+        if (newG.j1 != null && newG.j2 != null && newG.j1 === newG.j2) continue;
+        if (paireExiste(f.tournoi_id, newF.j1, newF.j2, [f.id, g.id])) continue;
+        if (newG.j1 != null && newG.j2 != null && paireExiste(f.tournoi_id, newG.j1, newG.j2, [f.id, g.id])) continue;
+        const fCol = fs === 'j1' ? 'joueur1_id' : 'joueur2_id';
+        const gCol = gs === 'j1' ? 'joueur1_id' : 'joueur2_id';
+        db.prepare(`UPDATE match SET ${fCol} = ? WHERE id = ?`).run(G[gs], f.id);
+        db.prepare(`UPDATE match SET ${gCol} = ? WHERE id = ?`).run(F[fs], g.id);
+        try { db.prepare('INSERT INTO audit_log (action, cible, avant, apres) VALUES (?, ?, ?, ?)').run(`rematch_swap_${f.bracket.toLowerCase()}`, `swap ${f.bracket}${f.tour} #${f.position}<->#${g.position}`, JSON.stringify({ f: F, g: G }), JSON.stringify({ f: newF, g: newG })); } catch {}
         return true;
+      }
     }
   }
   return false;
 }
+const eviterRematchF = eviterRematch; // alias (rétro-compat)
 
 
 // Admin: events d'un match + suppression avec recalcul des scores
@@ -491,7 +569,7 @@ function supprimerEventAdmin(matchId, eventId) {
   return matchById(matchId);
 }
 
-module.exports = { listerEvents, supprimerEventAdmin, eviterRematchF, dejaJoues, setTableAdmin, setJoueursAdmin,
+module.exports = { listerEvents, supprimerEventAdmin, eviterRematchF, eviterRematch, dejaJoues, paireExiste, setTableAdmin, setJoueursAdmin,
   httpError,
   matchById,
   setBande,

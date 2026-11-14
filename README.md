@@ -90,6 +90,7 @@ BASE=http://127.0.0.1:4100 node test/e2e.js                        # structure D
 BASE=http://127.0.0.1:4100 node test/fullrun.js                    # simulations complètes 16/32 joueurs
 node test/push-unit.js                                             # push (web-push mocké), sans serveur
 node test/purge-unit.js                                            # purge audit/snapshots > 90 j au boot, sans serveur
+BASE=http://127.0.0.1:4100 node test/simu-invariants.js           # simus randomisées 32j DKO k=2… + invariant anti-rematch après chaque mutation
 ```
 
 ## Déploiement sur un VPS (recommandé, ~5 €/mois)

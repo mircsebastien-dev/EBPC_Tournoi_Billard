@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-14T15:39:22.724Z
-- Base : http://127.0.0.1:4112
-- Résultat : **125 OK / 0 ÉCHEC** (6.0s)
+- Date : 2026-11-14T16:46:49.943Z
+- Base : http://127.0.0.1:4141
+- Résultat : **122 OK / 0 ÉCHEC** (2.7s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -110,6 +110,8 @@
 | ✅ | slots exposés dans /api/etat (suivant_slot/perdant_slot) |  |
 | ✅ | classement: byes exclus (joues=0 juste après tirage) |  |
 | ✅ | match joué 3-0 avant rollback |  |
+| ✅ | changer joueurs vers paire déjà jouée -> 409 rematch (hors finale) |  |
+| ✅ | changer joueurs vers paire inédite -> 200 |  |
 | ✅ | audit: événement tirage a un snapshot (has_snapshot) |  |
 | ✅ | audit: lancement lisible (code match + "vs") |  |
 | ✅ | DELETE tournoi sans confirm_pin -> 401 |  |
@@ -124,14 +126,6 @@
 | ✅ | après rollback (match en cours): pret 0-0, table libérée |  |
 | ✅ | DELETE tournoi avec bon code -> 200 |  |
 | ✅ | désinscription joueur SANS confirm_pin -> 200 (exempté) |  |
-
-## 12. Anti brute-force PIN admin (429 après N échecs, lockout même pour le bon code, déblocage après délai)
-
-| ✅ | après plusieurs mauvais PIN -> 429 |  |
-| ✅ | message 429 avec délai restant |  |
-| ✅ | pendant le lockout, même le bon PIN -> 429 |  |
-| ✅ | après le délai, le bon PIN repasse -> 200 |  |
-| ✅ | nouvel échec après déblocage -> 401 (compteur remis à zéro par le succès) |  |
 
 ## Amis, admin-data, règles, points, clôture
 
@@ -189,3 +183,4 @@
 - Points au classement (présents, gagnant >= 1) + clôture coupe net (champion null)
 - Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué, rollback avec match en cours -> pret 0-0 + table libérée) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit
 - Anti brute-force PIN admin (section 12, si TEST_BRUTEFORCE=1: 429 après N échecs par IP, lockout même pour le bon code, déblocage après délai, compteur remis à zéro au succès)
+- Anti-rematch: changement manuel de joueurs vers une paire déjà jouée -> 409 hors finale (section 11) ; simu complète randomisée avec invariant anti-rematch après chaque mutation: test/simu-invariants.js

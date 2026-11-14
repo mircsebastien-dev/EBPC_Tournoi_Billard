@@ -325,6 +325,17 @@ async function nouveauTournoi(body) {
   for (let i = 0; i < m11.manches; i++) await api(`/api/match/${m11.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: m11.joueur1.id } });
   t11 = (await api('/api/etat')).data.actif;
   check('match joué 3-0 avant rollback', t11.matchs.find(x => x.id === m11.id).etat === 'termine', t11.matchs.find(x => x.id === m11.id).etat);
+  // anti-rematch sur changement manuel de joueurs (hors finale -> 409)
+  const prevuWB = t11.matchs.find(m => m.etat === 'prevu' && m.bracket !== 'F');
+  if (prevuWB) {
+    r = await post(`/api/admin/match/${prevuWB.id}/joueurs`, { joueur1_id: m11.joueur1.id, joueur2_id: m11.joueur2.id });
+    check('changer joueurs vers paire déjà jouée -> 409 rematch (hors finale)', r.status === 409 && /rematch/i.test(r.data.error || ''), r.status + ' ' + (r.data.error || ''));
+    // paire inédite: joueur qui n'apparaît dans aucun match avec m11.joueur1 (ni joué ni prévu)
+    const autre = t11.joueurs.find(j => j.id !== m11.joueur1.id && j.id !== m11.joueur2.id &&
+      !t11.matchs.some(m => (m.joueur1 && m.joueur2) && ((m.joueur1.id === m11.joueur1.id && m.joueur2.id === j.id) || (m.joueur1.id === j.id && m.joueur2.id === m11.joueur1.id))));
+    r = await post(`/api/admin/match/${prevuWB.id}/joueurs`, { joueur1_id: m11.joueur1.id, joueur2_id: autre.id });
+    check('changer joueurs vers paire inédite -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  }
   let audit = (await api('/api/admin/audit')).data.audit;
   const evTirage = audit.find(a => a.action === 'tirage');
   check('audit: événement tirage a un snapshot (has_snapshot)', !!evTirage && evTirage.has_snapshot === 1, evTirage && evTirage.has_snapshot);
@@ -521,6 +532,7 @@ async function nouveauTournoi(body) {
   md += `- Points au classement (présents, gagnant >= 1) + clôture coupe net (champion null)\n`;
   md += `- Rollback point-in-time (snapshots audit: has_snapshot, rollback 200/401/404, état restauré, logué, rollback avec match en cours -> pret 0-0 + table libérée) + confirm_pin requis sur suppressions admin (401 sans/mauvais code) sauf désinscription joueur + slots suivant/perdant exposés + byes exclus du classement + lancements lisibles dans l'audit\n`;
   md += `- Anti brute-force PIN admin (section 12, si TEST_BRUTEFORCE=1: 429 après N échecs par IP, lockout même pour le bon code, déblocage après délai, compteur remis à zéro au succès)\n`;
+  md += `- Anti-rematch: changement manuel de joueurs vers une paire déjà jouée -> 409 hors finale (section 11) ; simu complète randomisée avec invariant anti-rematch après chaque mutation: test/simu-invariants.js\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);

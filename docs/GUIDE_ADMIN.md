@@ -40,7 +40,7 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 
 | Action | Comment | Impacts | Risques |
 |---|---|---|---|
-| **Changer les joueurs** (👥, WB ou LB, blanc possible) | `POST /admin/match/:id/joueurs` | Maj immédiate, broadcast SSE, audit. Blanc sur match `prevu` → bye auto | ⚠️ Peut créer un **rematch** (deux joueurs déjà joués) — le swap anti-rematch ne s'applique qu'en F et à la propagation auto, pas à un changement manuel. Vérifie avant |
+| **Changer les joueurs** (👥, WB ou LB, blanc possible) | `POST /admin/match/:id/joueurs` | Maj immédiate, broadcast SSE, audit. Blanc sur match `prevu` → bye auto (uniquement si le feeder du côté blanc est terminé) | **409 automatique** si la paire est déjà appariée (jouée ou prévue) dans un autre match, hors finale — le rematch est impossible |
 | **Déplacer de table** (🎱) | `POST /admin/match/:id/table` | 409 si table occupée ; `null` pour libérer | Aucun, juste la TV/cards qui suivent |
 | **Corriger le score** (✏️) | `POST /admin/match/:id/correction` (scores absolus) | Si la distance est atteinte → le match se termine et propage le gagnant | ⚠️ Si le match était terminé, l'aval est annulé en cascade (voir rouvrir) |
 | **Rouvrir un match** (🔓) | `POST /admin/match/:id/rouvrir` | **409 interdit si un match aval a déjà commencé/reçu un joueur** | Corriger alors à la main les matchs suivants (joueurs/score) |
@@ -55,7 +55,9 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 Points = **profondeur atteinte** (WB: n° de tour; en DKO, F tour t = k+tour), **ex-aequo** (3 joueurs à 5 pts = 1er,1er,1er puis 4ème). Matchs clôturés sans gagnant = ni joués ni perdus.
 | **Forfait** (🚫) | `POST /admin/match/:id/forfait` (joueur perdant) | Le gagnant (l'autre) propage, le perdant part en LB (DKO) | Le forfait est définitif dans l'historique |
 
-⚠️ **Règles structurelles à connaître** (DKO) : WB et LB ne se croisent qu'en finale ; en F, alternance des moitiés + swap anti-rematch automatique jusqu'à la vraie finale (rematch autorisé en finale uniquement).
+⚠️ **Règles structurelles à connaître** (DKO) : WB et LB ne se croisent qu'en finale ; swap anti-rematch automatique sur **tous les tours WB/LB/F** à chaque propagation (tant qu'un match partenaire du tour permet un échange propre).
+
+**Anti-rematch strict (garanti)** : aucun match ne peut démarrer (`lancer`), ni finir par forfait/correction, avec une paire de joueurs déjà appariée ailleurs — **409 « Rematch interdit hors finale »** après un dernier sweep du tour. Seule exception : le dernier tour d'un bracket à **1 seul match** (vraie finale F, ou dernier tour LB s'il n'en reste qu'un). Les swaps sont logués dans l'audit (`rematch_swap_f` / `_lb` / `_wb`). Test de simulation complet avec invariant vérifié après chaque mutation : `test/simu-invariants.js`.
 
 ## 6. Clôturer le tournoi
 
@@ -93,7 +95,8 @@ Toute action admin qui **supprime des données** exige le **code PIN re-saisi** 
 
 ```bash
 # serveur frais sur DB temporaire, puis:
-BASE=http://127.0.0.1:PORT node test/batterie.js   # 120 checks → test/rapport.md (rollback, confirm_pin, slots, byes…)
+BASE=http://127.0.0.1:PORT node test/batterie.js   # 122 checks → test/rapport.md (rollback, confirm_pin, slots, byes, rematch 409…)
+BASE=http://127.0.0.1:PORT [NO_MANUEL=1] [SEED=…] node test/simu-invariants.js   # simus randomisées 32j DKO k=1/2/3 + 32j simple + 16j, interventions admin aléatoires, invariant anti-rematch après chaque mutation
 BASE=http://127.0.0.1:PORT node test/e2e.js         # structure DKO, distances LB, SSE
 BASE=http://127.0.0.1:PORT node test/fullrun.js     # simulations complètes (16/32 joueurs, simple + DKO)
 node test/push-unit.js                              # push « inscriptions ouvertes » (web-push mocké) + cleanup 410/404

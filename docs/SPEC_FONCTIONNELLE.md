@@ -50,13 +50,13 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
   - **Dernier point** (atteint race to) → modale de confirmation du score final avec « Modifier »
 - Forfait (admin ou arrêt), réouverture admin **409 si un match aval a commencé ou a reçu un joueur**
 - **−1 (retirer une manche)** : correction possible à tout moment ; la ⚪ revient à l'état précédent (le casseur redevient l'adversaire du casseur courant)
-- **Corrections admin** (modale « Gérer le match », clic sur card avec PIN) : changer les joueurs (WB/LB, blanc possible → bye auto), déplacer de table (409 si occupée, libérer = null), corriger le score (scores absolus), rouvrir, forfait. Audit logué.
+- **Corrections admin** (modale « Gérer le match », clic sur card avec PIN) : changer les joueurs (WB/LB, blanc possible → bye auto **uniquement si le feeder du côté blanc est terminé** ; **409 si la paire est déjà appariée ailleurs hors finale**), déplacer de table (409 si occupée, libérer = null), corriger le score (scores absolus), rouvrir (409 si aval commencé), forfait. Audit logué.
 
 ## 5. Bracket (génération, DKO)
 
 - WB tours, LB (`2k-2` tours en DKO k), F (tableau final)
 - Liens : gagnant WB t → WB t+1 ; perdant WB1 → LB1 ; perdant WB t → LB tour pair ; croisements LB par blocs de 4 (évite les re-matchs intra-groupe) ; dernier tour LB → F1 slot 2 en **rotation d'une demi-moitié** (moitiés opposées WB/LB)
-- **Anti-rematch strict jusqu'à la vraie finale** : à chaque propagation dans un match F (hors dernier tour), si les 2 joueurs se sont déjà joués → **swap auto** avec un autre match du même tour (logué `rematch_swap_f`) ; la vraie finale autorise le rematch
+- **Anti-rematch strict, garanti hors finale** : à chaque propagation, **sweep du tour entier (WB/LB/F)** : si un match non démarré a ses 2 joueurs déjà appariés ailleurs (joués OU prévus, `paireExiste`), on échange **un seul joueur** avec un autre match du même tour (jusqu'à 4 orientations, partenaires même partiellement remplis), logué `rematch_swap_*`. Le sweep ne touche que les matchs `prevu`/`pret` et ne crée jamais `j1 === j2`. **Garde-fou au lancement** (`assertPasDeRematch` dans `lancerMatch`, `declarerForfait`, `corrigerScore` quand ça termine) : après un dernier sweep, si la paire existe encore ailleurs → **409 « Rematch interdit hors finale »**. Seule exception : dernier tour d'un bracket à **1 seul match** (finale F / dernier LB forcé). Conséquence : aucun rematch ne peut jamais être joué hors finale ; en cas d'état manuellement corrompu sans swap possible, le lancement est bloqué (fail-closed, 409 explicite)
 - Propagation gagnant/perdant en cascade, byes auto
 
 ## 6. Affichage public
@@ -137,8 +137,9 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
   - `BASE=… node test/e2e.js` (structure DKO 32 k=2/k=3, distances LB race-to-2, SSE) · `BASE=… node test/fullrun.js` (simulations complètes 16/32 joueurs simple + DKO)
   - `node test/push-unit.js` (push `envoyerTous` avec web-push mocké via `require.cache` : payload « inscriptions ouvertes », cleanup 410/404, 500 conservé) · `node test/purge-unit.js` (purge au boot `audit_log`/`audit_snapshot` > 90 j, test en 2 processus)
   - anti brute-force PIN : `TEST_BRUTEFORCE=1 PIN_MAX_ESSAIS=4 PIN_FENETRE_MS=1500 PIN_BLOCAGE_MS=2000` (côté serveur ET côté batterie) active la section 12 (429 après N échecs, lockout même pour le bon code, déblocage après délai)
+  - `BASE=… [NO_MANUEL=1] [NB_SIMUS=3] [SEED=…] node test/simu-invariants.js` : simulations complètes randomisées (32j DKO k=1/2/3, 32j simple, 16j DKO k=2) avec interventions admin aléatoires (lancer/table, bande, manche, retirer, correction, forfait, rouvrir, delete event, changer joueurs) ; **invariant anti-rematch vérifié après chaque mutation** (aucune paire dans 2 matchs joués hors finale + aucun match j1===j2), impacts vérifiés (propagation gagnant/perdant, recalc score, 409 rematch), stats cohérentes en fin, aucun 500
 - **Monitoring** : `fly status`, `fly logs`, métriques mémoire pendant un tournoi
 
 ## 15. Fichiers clés
 
-`src/server.js` (routes, SSE, stats, confirm_pin, rollback), `src/matchs.js` (règles, propagation, corrections, ⚪ sur retirer), `src/bracket.js` (génération WB/LB/F, liens), `src/comptes.js` (auth, amis, RGPD), `src/push.js` (VAPID, `envoyerTous`, envois), `src/db.js` (schéma + migrations + `logAudit` + snapshots + purge), `public/` (pages + common.js [rendu bracket/liste/cartes] + sw.js + push-client.js), `test/` (batterie.js, e2e.js, fullrun.js, push-unit.js, purge-unit.js, rapport.md), `docs/` (guides + cette spec + **ROADMAP.md** : idées produit — multi-club, poules, ELO, arbitre, shot clock…)
+`src/server.js` (routes, SSE, stats, confirm_pin, rollback), `src/matchs.js` (règles, propagation, corrections, ⚪ sur retirer), `src/bracket.js` (génération WB/LB/F, liens), `src/comptes.js` (auth, amis, RGPD), `src/push.js` (VAPID, `envoyerTous`, envois), `src/db.js` (schéma + migrations + `logAudit` + snapshots + purge), `public/` (pages + common.js [rendu bracket/liste/cartes] + sw.js + push-client.js), `test/` (batterie.js, e2e.js, fullrun.js, simu-invariants.js, push-unit.js, purge-unit.js, rapport.md), `docs/` (guides + cette spec + **ROADMAP.md** : idées produit — multi-club, poules, ELO, arbitre, shot clock…)
