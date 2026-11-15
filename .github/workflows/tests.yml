@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -22,38 +25,65 @@ jobs:
           rm -f /tmp/t.db /tmp/t.db-wal /tmp/t.db-shm
           DB_PATH=/tmp/t.db PORT=4100 ADMIN_PIN=0000 node src/server.js > /tmp/server-batterie.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4100/api/health >/dev/null && break; sleep 1; done
-          BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js
+          BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js 2>&1 | tee batterie-out.txt
+          exit ${PIPESTATUS[0]}
 
       - name: E2E (structure DKO, distances, SSE)
+        if: always()
         run: |
           pkill -f 'src/server.js' || true
           rm -f /tmp/e.db /tmp/e.db-wal /tmp/e.db-shm
           DB_PATH=/tmp/e.db PORT=4101 ADMIN_PIN=0000 node src/server.js > /tmp/server-e2e.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4101/api/health >/dev/null && break; sleep 1; done
-          BASE=http://127.0.0.1:4101 ADMIN_PIN=0000 node test/e2e.js
+          BASE=http://127.0.0.1:4101 ADMIN_PIN=0000 node test/e2e.js 2>&1 | tee e2e-out.txt
+          exit ${PIPESTATUS[0]}
 
       - name: Full run (simulations complètes)
+        if: always()
         run: |
           pkill -f 'src/server.js' || true
           rm -f /tmp/f.db /tmp/f.db-wal /tmp/f.db-shm
           DB_PATH=/tmp/f.db PORT=4102 ADMIN_PIN=0000 node src/server.js > /tmp/server-fullrun.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4102/api/health >/dev/null && break; sleep 1; done
-          BASE=http://127.0.0.1:4102 ADMIN_PIN=0000 node test/fullrun.js
+          BASE=http://127.0.0.1:4102 ADMIN_PIN=0000 node test/fullrun.js 2>&1 | tee fullrun-out.txt
+          exit ${PIPESTATUS[0]}
 
       - name: Simu invariants (anti-rematch, randomisé)
+        if: always()
         run: |
           pkill -f 'src/server.js' || true
           rm -f /tmp/s.db /tmp/s.db-wal /tmp/s.db-shm
           DB_PATH=/tmp/s.db PORT=4103 ADMIN_PIN=0000 node src/server.js > /tmp/server-simu.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4103/api/health >/dev/null && break; sleep 1; done
-          BASE=http://127.0.0.1:4103 ADMIN_PIN=0000 NO_MANUEL=1 SEED=12345 node test/simu-invariants.js
+          BASE=http://127.0.0.1:4103 ADMIN_PIN=0000 NO_MANUEL=1 SEED=12345 node test/simu-invariants.js 2>&1 | tee simu-out.txt
+          exit ${PIPESTATUS[0]}
 
       - name: Push unitaires (web-push mocké)
-        run: node test/push-unit.js
+        if: always()
+        run: node test/push-unit.js 2>&1 | tee push-unit-out.txt; exit ${PIPESTATUS[0]}
 
       - name: Purge unitaires (audit > 90 j)
-        run: node test/purge-unit.js
+        if: always()
+        run: node test/purge-unit.js 2>&1 | tee purge-unit-out.txt; exit ${PIPESTATUS[0]}
 
-      - name: Journaux serveur (debug si échec)
+      - name: Échecs en annotations
         if: failure()
-        run: 'for f in /tmp/server-*.log; do echo "== $f =="; tail -50 "$f"; done'
+        run: grep 'FAIL' batterie-out.txt 2>/dev/null | head -25 | while IFS= read -r l; do echo "::error::${l:0:250}"; done || true
+
+      - name: Publier les résultats (branche ci-rapport)
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p out
+          [ -f test/rapport.md ] && cp test/rapport.md out/rapport.md || true
+          for f in batterie-out.txt e2e-out.txt fullrun-out.txt simu-out.txt push-unit-out.txt purge-unit-out.txt; do [ -f "$f" ] && cp "$f" out/ || true; done
+          cp /tmp/server-*.log out/ 2>/dev/null || true
+          echo "run: ${{ github.run_id }} — commit ${{ github.sha }} — ${{ github.event_name }}" > out/INFO.txt
+          cd out
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Résultats CI — run ${{ github.run_id }}"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:ci-rapport
