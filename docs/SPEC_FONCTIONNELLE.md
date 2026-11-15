@@ -119,7 +119,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 ## 13. Sécurité
 - Headers : CSP (`script-src 'self' 'unsafe-inline'`), X-Frame-Options DENY, nosniff, Referrer-Policy
 - SQLite WAL + busy_timeout 5 s ; SSE broadcast léger `{changed}` + re-fetch client
-- Boutons radius 1 px uniformes ; thème sombre « charbon + rose profond #d6336c »
+- Boutons radius 1 px uniformes ; thème sombre « charbon + rose profond #d6336c » ; liens de contenu en rose clair `--pink-soft` (#ef7ba4) pour tous les états (`a` et `a:visited`, le bleu/violet par défaut du navigateur étant illisible sur fond sombre) — la nav, les chips et les round-links gardent leurs couleurs propres
 
 - **Session admin 8 h** : le PIN en localStorage expire (`ebpc_admin_pin_since`, `ADMIN_SESSION_MS = 8h`) + bouton 🔒 Verrouiller (efface le PIN mémorisé) ; re-saisie obligatoire ensuite
 - **Rôles compte** (`compte.role` : `user` par défaut, `admin`) : `requireAdmin` accepte la **session d'un compte admin** (sans PIN) ; sinon fallback sur le PIN. `requireConfirmPin` (actions destructives) est **exempté** si session admin (sinon exige `confirm_pin`), mais le front affiche quand même une **modale de confirmation par saisie du mot `SUPPRIMER`** (`demanderConfirmationTexte` dans admin-common.js). Bootstrap du 1er admin via env `ADMIN_EMAIL`/`ADMIN_PASSWORD` ; promotion/rétrogradation via `POST /api/admin/compte/:id/role` (`admin`|`user`, 400 sinon, PIN requis). Les pages `/admin*.html` s'ouvrent sans PIN si la session courante est admin (sinon écran PIN).
