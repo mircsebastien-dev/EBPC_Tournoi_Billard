@@ -46,6 +46,7 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 | **Déplacer de table** (🎱) | `POST /admin/match/:id/table` | 409 si table occupée ; `null` pour libérer | Aucun, juste la TV/cards qui suivent |
 | **Corriger le score** (✏️) | `POST /admin/match/:id/correction` (scores absolus) | Si la distance est atteinte → le match se termine et propage le gagnant | ⚠️ Si le match était terminé, l'aval est annulé en cascade (voir rouvrir) |
 | **Rouvrir un match** (🔓) | `POST /admin/match/:id/rouvrir` | **409 interdit si un match aval a déjà commencé/reçu un joueur** | Corriger alors à la main les matchs suivants (joueurs/score) |
+| **Forfait** (🚫) | `POST /admin/match/:id/forfait` (joueur perdant) | Le gagnant (l'autre) propage, le perdant part en LB (DKO) | Le forfait est définitif dans l'historique |
 
 ### 🗄 Gestion des données (`/admin-data.html`, lien « 🗄 Données »)
 - Sélecteur de tournoi (actif **ou terminé** = corrections historiques) + filtre par pseudo (Entrée)
@@ -55,7 +56,6 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 
 ### ⭐ Classement par points
 Points = **profondeur atteinte** (WB: n° de tour; en DKO, F tour t = k+tour), **ex-aequo** (3 joueurs à 5 pts = 1er,1er,1er puis 4ème). Matchs clôturés sans gagnant = ni joués ni perdus.
-| **Forfait** (🚫) | `POST /admin/match/:id/forfait` (joueur perdant) | Le gagnant (l'autre) propage, le perdant part en LB (DKO) | Le forfait est définitif dans l'historique |
 
 ⚠️ **Règles structurelles à connaître** (DKO) : WB et LB ne se croisent qu'en finale ; swap anti-rematch automatique sur **tous les tours WB/LB/F** à chaque propagation (tant qu'un match partenaire du tour permet un échange propre).
 
