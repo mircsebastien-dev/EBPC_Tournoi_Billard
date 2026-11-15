@@ -1,7 +1,7 @@
 // Web Push (PWA) : VAPID + envoi "à toi de jouer" quand un match d'un joueur abonné est lancé
 const webpush = require('web-push');
 const crypto = require('crypto');
-const { db } = require('./db');
+const { db, getSetting, setSetting } = require('./db');
 
 let vapidKeys = null;
 function getVapid() {
@@ -10,9 +10,18 @@ function getVapid() {
   if (pub && priv) {
     vapidKeys = { publicKey: pub, privateKey: priv };
   } else {
-    // dev local : paire générée à la volée (à remplacer par des secrets en prod)
-    vapidKeys = webpush.generateVAPIDKeys();
-    console.log('[PUSH dev] VAPID public générée à la volée:', vapidKeys.publicKey, '(définis VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY en prod)');
+    // pas de secrets VAPID: paire générée PUIS PERSISTÉE en base (table settings, sur le volume en prod).
+    // Sans ça, chaque redémarrage/redéploiement régénère les clés et casse silencieusement
+    // tous les abonnements push existants (le service de push refuse les anciennes clés).
+    const storedPub = getSetting('vapid_public_key'), storedPriv = getSetting('vapid_private_key');
+    if (storedPub && storedPriv) {
+      vapidKeys = { publicKey: storedPub, privateKey: storedPriv };
+    } else {
+      vapidKeys = webpush.generateVAPIDKeys();
+      setSetting('vapid_public_key', vapidKeys.publicKey);
+      setSetting('vapid_private_key', vapidKeys.privateKey);
+      console.log('[PUSH] VAPID générée et persistée en base:', vapidKeys.publicKey, '(les abonnements existants doivent être réactivés une fois)');
+    }
   }
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT || 'mailto:admin@ebpc-tournoi.fly.dev',

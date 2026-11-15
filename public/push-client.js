@@ -17,6 +17,9 @@ async function pushActiver() {
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') throw new Error('Permission refusée');
   const reg = await navigator.serviceWorker.ready;
+  // un abonnement existe déjà? on le remplace (la clé VAPID du serveur a pu changer)
+  const old = await reg.pushManager.getSubscription();
+  if (old) { try { await old.unsubscribe(); } catch (e) {} }
   const { publicKey } = await (await fetch('/api/push/vapid-public')).json();
   const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
   await api('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: sub.toJSON() }) });
