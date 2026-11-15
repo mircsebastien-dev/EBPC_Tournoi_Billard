@@ -188,7 +188,17 @@ function renderInscriptions(t) {
     const body = { pseudo };
     const tds = document.getElementById('tds');
     if (tds && tds.value) body.tete_de_serie = Number(tds.value);
-    try { await adminApi('/api/admin/joueur', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { alert(e.message); }
+    try {
+      await adminApi('/api/admin/joueur', { method: 'POST', body: JSON.stringify(body) });
+    } catch (e) {
+      // pseudo d'un compte existant: demander confirmation explicite avant d'inscrire à la place du titulaire
+      if (e.data && e.data.compte_pseudo) {
+        if (confirm(`Un compte existe déjà avec le pseudo « ${pseudo} ».\n\nInscrire quand même ce joueur ? Il sera rattaché à ce compte (notifications « à toi de jouer » et amis incluses).\n\nSinon, le titulaire peut s'inscrire lui-même depuis son compte.`)) {
+          try { await adminApi('/api/admin/joueur', { method: 'POST', body: JSON.stringify({ ...body, confirme: true }) }); }
+          catch (e2) { alert(e2.message); }
+        }
+      } else alert(e.message);
+    }
   }
   async function paiement(j, statut) {
     try { await adminApi(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: JSON.stringify({ statut }) }); } catch (e) { alert(e.message); }

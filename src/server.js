@@ -636,13 +636,16 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
   if (t.tetes_de_serie && req.body.tete_de_serie != null && req.body.tete_de_serie !== '') {
     tds = Number(req.body.tete_de_serie);
   }
-  // pseudo d'un compte = réservé: le joueur doit s'inscrire lui-même depuis son compte (anti-usurpation)
-  if (compteAvecPseudo(pseudo)) {
-    return res.status(409).json({ error: `Un compte existe déjà avec le pseudo « ${pseudo} » (pseudo réservé) — le joueur doit s'inscrire depuis son compte`, compte_pseudo: true });
+  // pseudo d'un compte = réservé: confirmation explicite requise (l'UI admin demande, puis renvoie confirme=true)
+  const cReserve = compteAvecPseudo(pseudo);
+  if (cReserve && !req.body.confirme) {
+    return res.status(409).json({ error: `Un compte existe déjà avec le pseudo « ${pseudo} » — inscrire quand même ce joueur à la place du titulaire ?`, compte_pseudo: true });
   }
   try {
     const info = db.prepare('INSERT INTO joueur (tournoi_id, pseudo, tete_de_serie) VALUES (?, ?, ?)').run(t.id, pseudo, tds);
-    logAuditReq(req, 'inscription', `joueur ${info.lastInsertRowid}`, null, { pseudo, tds });
+    // admin a confirmé: on rattache le joueur au compte (notifs « à toi de jouer » et amis fonctionnent)
+    if (cReserve) db.prepare('UPDATE joueur SET compte_id = ? WHERE id = ?').run(cReserve.id, info.lastInsertRowid);
+    logAuditReq(req, 'inscription', `joueur ${info.lastInsertRowid}`, null, { pseudo, tds, rattache_compte: cReserve ? cReserve.id : null });
     majEtBroadcast();
     res.json({ ok: true, id: Number(info.lastInsertRowid) });
   } catch (e) {

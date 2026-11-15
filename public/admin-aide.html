@@ -19,7 +19,7 @@ main.append(el("div", { class: "panel" },
   el("h2", {}, "1. Créer le tournoi"),
   el("p", {}, "/admin-tournoi.html → nom, règle, taille (16/32/64/128), format (élim. directe / double KO + nb tours), nb tables, date. Ajustement auto à la taille des payés. Tables réservées: vide par défaut. En phase inscription, la TV montre un grand QR centré pour s'inscrire. Switch 🔔 « Notif push « inscriptions ouvertes » (coché par défaut) : à la création, un push « 🎱 Nouveau tournoi — inscriptions ouvertes » est envoyé à tous les comptes abonnés."),
   el("h2", {}, "2. Inscriptions"),
-  el("p", {}, "Ajouter / simuler / payer / supprimer. Seuls les payés sont tirés. ⛔ Pseudo d'un compte = réservé: inscription anonyme et ajout admin refusés (409, anti-usurpation) — le titulaire s'inscrit depuis son compte. Un invité qui crée un compte avec le même pseudo est rattaché auto (reçoit les pushs). Pseudo/mdp oublié → /admin-comptes.html (✏️ pseudo, 🔑 mdp)."),
+  el("p", {}, "Ajouter / simuler / payer / supprimer. Seuls les payés sont tirés. ⛔ Pseudo d'un compte = réservé: inscription anonyme refusée (409, anti-usurpation); ajout admin possible après confirmation (joueur rattaché au compte). Un invité qui crée un compte avec le même pseudo est rattaché auto (reçoit les pushs). Pseudo/mdp oublié → /admin-comptes.html (✏️ pseudo, 🔑 mdp)."),
   el("h2", {}, "3. Tirage"),
   el("p", {}, "Bouton Tirage: appariements aléatoires crypto, byes répartis. ⚠️ Fige le bracket (retour en arrière possible uniquement par rollback point-in-time via le journal d'audit, voir §9)."),
   el("h2", {}, "4. Lancer les matchs"),
@@ -43,7 +43,7 @@ main.append(el("div", { class: "panel" },
   el("h2", {}, "10. Comptes & audit"),
   el("p", {}, "/admin-comptes.html: liste (dernière connexion, inscri., matchs, sessions), ✏️ pseudo, 🔑 mdp, 🗑 supprimer (historique matchs conservé). Purge auto des comptes inactifs > 18 mois. /admin-journal.html: 500 dernières actions admin, lancements lisibles (« wb1-001 — P11 vs P07 (table 3) »). Le rollback point-in-time (bouton ⏮ « Restaurer à ce point ») est détaillé §9. 🔐 Toute action destructive (suppression tournoi/compte/event, vidage du journal, rollback) exige le code PIN re-saisi (modale masquée, `confirm_pin`) — sauf la désinscription d'un joueur. Une session de compte avec le rôle `admin` ne redemande pas le PIN, mais exige de saisir le mot `SUPPRIMER` dans la modale de confirmation."),
   el("h2", {}, "11. Tests & déploiement"),
-  el("p", {}, "Batterie: BASE=http://127.0.0.1:PORT node test/batterie.js (204 checks → test/rapport.md) + test/e2e.js + test/fullrun.js ; sans serveur : node test/push-unit.js (push mocké), node test/purge-unit.js (purge > 90 j). Fly: secrets ADMIN_PIN, RESEND_API_KEY, MAIL_FROM, VAPID_* (jamais BASE_URL); volume tournoi_data sur /data; snapshots dans Volumes."),
+  el("p", {}, "Batterie: BASE=http://127.0.0.1:PORT node test/batterie.js (203 checks → test/rapport.md) + test/e2e.js + test/fullrun.js ; sans serveur : node test/push-unit.js (push mocké), node test/purge-unit.js (purge > 90 j). Fly: secrets ADMIN_PIN, RESEND_API_KEY, MAIL_FROM, VAPID_* (jamais BASE_URL); volume tournoi_data sur /data; snapshots dans Volumes."),
   el("p", { class: "muted small", style: "margin-top:16px" }, "Version complète: docs/GUIDE_ADMIN.md dans le dépôt GitHub.")));
 </script>
 </body>

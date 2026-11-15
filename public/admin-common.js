@@ -34,7 +34,7 @@ async function adminApi(path, opts = {}) {
   const res = await fetch(path, { headers: adminHeaders(), ...opts });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) { adminPin = ''; localStorage.removeItem('ebpc_admin_pin'); localStorage.removeItem('ebpc_admin_pin_since'); throw new Error('PIN invalide'); }
-  if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(data.error || `Erreur ${res.status}`), { status: res.status, data });
   return data;
 }
 
