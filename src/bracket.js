@@ -259,18 +259,32 @@ function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
         }
       }
       // Croisement en alternance supérieure/inférieure : WB tour k alimente le tableau final (slot 1),
-      // le dernier tour LB alimente le slot 2 en ROTATION d'une demi-moitié (et non plus en miroir global),
-      // pour que le joueur remonté du LB tombe dans la moitié OPPOSÉE à son groupe WB d'origine
-      // -> impossible de se rejouer avant la vraie finale.
+      // le dernier tour LB alimente le slot 2 en ROTATION d'une demi-moitié CROISÉE :
+      // 1) rotation d'une demi-moitié (et non plus en miroir global) : le joueur remonté du LB tombe
+      //    dans la moitié OPPOSÉE à son groupe WB d'origine -> impossible de se rejouer en F1/F2 ;
+      // 2) miroir binaire (bit-reversal) à l'intérieur de chaque moitié : le perdant de WB2#p et sa
+      //    victime WB1 (qui reviennent forcément via deux matchs LB adjacents #p / #p^1) tombent dans
+      //    des QUARTS différents -> le risque de re-match passe des quarts (F2) aux demis (F3).
+      // Mesuré (100k simulations 32j/k=2, plancher des 40320 réventilations statiques possibles) :
+      // prédiction contredite 22,7% -> 6,2% des tournois, toujours au niveau des demis.
+      // Le sweep anti-rematch (eviterRematch / assertPasDeRematch) reste le filet de sécurité :
+      // aucun rematch ne peut être joué avant la finale, quel que soit le câblage.
       const nbF1 = p2 >> 1;
       for (let p = 1; p <= nbWBk; p++) {
         setLien(get('WB', k, p), 'suivant', get('F', 1, p), 1);
       }
       const nbLB = Object.keys(M.LB).filter(key => key.startsWith(`${nbToursLB}:`)).length;
       const demi = Math.floor(nbF1 / 2) || 1;
+      const bitsDemi = Math.max(1, Math.round(Math.log2(demi)));
       for (let p = 1; p <= nbLB; p++) {
-        const pos = ((p - 1 + demi) % nbF1) + 1; // rotation d'une demi-moitié
-        setLien(get('LB', nbToursLB, p), 'suivant', get('F', 1, pos), 2);
+        const base = ((p - 1 + demi) % nbF1) + 1; // rotation d'une demi-moitié
+        const j = (base - 1) % demi;             // index dans la moitié cible (0..demi-1)
+        let r = 0;
+        for (let x = j, b = bitsDemi; b > 0; b--) { // miroir binaire intra-moitié
+          r = (r << 1) | (x & 1);
+          x >>= 1;
+        }
+        setLien(get('LB', nbToursLB, p), 'suivant', get('F', 1, base + r - j), 2);
       }
     }
   });

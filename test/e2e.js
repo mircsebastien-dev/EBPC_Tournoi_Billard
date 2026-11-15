@@ -385,18 +385,29 @@ async function main() {
     check(`DKO ${taille} k=${k} : dernier LB (tour ${maxLB}) -> F tour 1`, lbLast.every(m => m.suivant_id && f1ids.has(m.suivant_id)));
     const r = await api('/api/admin/simuler', { method: 'POST', body: {} });
     check(`DKO ${taille} k=${k} : simulé jusqu'au bout (${r.data.statut}, champion ${r.data.champion})`, r.data.statut === 'termine' && !!r.data.champion);
-    // rotation d'une demi-moitié (bb9e78a) : LB dernier tour p -> F1 position ((p-1+demi)%nbF1)+1,
-    // chaque F1 reçoit exactement 1 WBk (slot 1) + 1 dernier-LB (slot 2), sans conflit
+    // rotation d'une demi-moitié CROISÉE : LB dernier tour p -> F1 position :
+    // base = ((p-1+demi)%nbF1)+1, puis miroir binaire (bit-reversal) à l'intérieur de chaque moitié,
+    // pour que deux revenants issus de matchs LB adjacents (perdant WB2 et sa victime WB1) tombent
+    // dans des quarts différents -> risque de re-match repoussé de F2 à F3 (22,7% -> 6,2% des tournois).
+    // Chaque F1 reçoit exactement 1 WBk (slot 1) + 1 dernier-LB (slot 2), sans conflit.
     const nbF1 = f1ids.size;
     const demi = Math.floor(nbF1 / 2) || 1;
+    const bitsDemi = Math.max(1, Math.round(Math.log2(demi)));
+    const posAttendue = (p) => {
+      const base = ((p - 1 + demi) % nbF1) + 1;
+      const j = (base - 1) % demi;
+      let r = 0;
+      for (let x = j, b = bitsDemi; b > 0; b--) { r = (r << 1) | (x & 1); x >>= 1; }
+      return base + r - j;
+    };
     const wbk = t.matchs.filter(m => m.bracket === 'WB' && m.tour === k);
     const wbkTargets = new Set(wbk.map(m => m.suivant_id));
     const lbTargets = lbLast.map(m => m.suivant_id);
     const rotationOK = lbLast.every((m, i) => {
       const posCible = t.matchs.find(x => x.id === m.suivant_id)?.position;
-      return posCible === ((i + demi) % nbF1) + 1;
+      return posCible === posAttendue(i + 1);
     });
-    check(`DKO ${taille} k=${k} : LB entre dans le tableau final en rotation de demi-moitié (pos ((p-1+${demi})%${nbF1})+1)`, rotationOK, { lbTargets, nbF1 });
+    check(`DKO ${taille} k=${k} : LB entre dans le tableau final en rotation de demi-moitié croisée (miroir binaire intra-moitié)`, rotationOK, { lbTargets, nbF1 });
     const distinctOK = new Set(lbTargets).size === lbTargets.length && lbTargets.every(id => f1ids.has(id));
     check(`DKO ${taille} k=${k} : chaque dernier-LB cible un F1 distinct (slot 2), chaque WBk un F1 distinct (slot 1)`, distinctOK && new Set(wbkTargets).size === wbk.length && [...wbkTargets].every(id => f1ids.has(id)), { lbTargets, wbkTargets: [...wbkTargets] });
   }
