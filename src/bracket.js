@@ -177,6 +177,13 @@ function structureBracket(tournoi, manchesMap) {
       const nb = taille >> t;
       for (let p = 1; p <= nb; p++) add('WB', t, p);
     }
+    // WB : le gagnant de WB(t,p) part en WB(t+1, ceil(p/2))
+    for (let t = 1; t < k; t++) {
+      const nb = taille >> t;
+      for (let p = 1; p <= nb; p++) {
+        matchs[at('WB', t, p)].suivant = { vers: at('WB', t + 1, Math.ceil(p / 2)), slot: p % 2 === 1 ? 1 : 2 };
+      }
+    }
     const nbToursLB = k === 1 ? 1 : 2 * k - 2;
     for (let t = 1; t <= nbToursLB; t++) {
       let nb;
