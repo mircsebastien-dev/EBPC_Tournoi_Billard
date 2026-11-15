@@ -646,6 +646,8 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
     // admin a confirmé: on rattache le joueur au compte (notifs « à toi de jouer » et amis fonctionnent)
     if (cReserve) db.prepare('UPDATE joueur SET compte_id = ? WHERE id = ?').run(cReserve.id, info.lastInsertRowid);
     logAuditReq(req, 'inscription', `joueur ${info.lastInsertRowid}`, null, { pseudo, tds, rattache_compte: cReserve ? cReserve.id : null });
+    // push « inscription d'un ami » aux comptes qui ont ce compte en ami (même comportement que /api/tournoi/inscrire)
+    if (cReserve) { try { push.notifierInscriptionAmi(cReserve.id, pseudo, t.nom, req.club.id); } catch (e) { console.error('[PUSH] notifierInscriptionAmi:', e.message); } }
     majEtBroadcast();
     res.json({ ok: true, id: Number(info.lastInsertRowid) });
   } catch (e) {
