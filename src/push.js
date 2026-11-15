@@ -84,6 +84,43 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
   } catch (e) { console.error('[PUSH] notifierMatchLance:', e.message); }
 }
 
+// Notifie l'inscription d'un compte à un tournoi aux comptes qui l'ont en ami
+// et qui ont activé la préférence "notification inscription amis" (désactivable depuis /compte.html).
+// clubId optionnel : seuls les abonnements du club visé reçoivent le push (multi-club).
+async function notifierInscriptionAmi(compteId, pseudoAmi, tournoiNom, clubId) {
+  try {
+    getVapid();
+    const subs = db.prepare(`
+      SELECT s.endpoint, s.keys_json
+      FROM push_subscription s
+      JOIN ami a ON a.compte_id = s.compte_id
+      JOIN compte c ON c.id = a.compte_id
+      WHERE a.ami_compte_id = ?
+        AND COALESCE(c.notif_amis_inscription, 1) = 1
+        AND s.compte_id IS NOT NULL
+        AND (s.club_id IS NULL OR s.club_id = ?)
+    `).all(compteId, clubId != null ? clubId : -1);
+    const payload = JSON.stringify({
+      title: '👥 Un ami s\'est inscrit',
+      body: `${pseudoAmi} vient de s'inscrire au tournoi « ${tournoiNom} »`,
+      url: '/tournoi.html',
+      tag: 'ami-inscription-' + compteId,
+    });
+    let n = 0;
+    for (const s of subs) {
+      try {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payload);
+        n++;
+      } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); // abonnement mort
+        }
+      }
+    }
+    return n;
+  } catch (e) { console.error('[PUSH] notifierInscriptionAmi:', e.message); return 0; }
+}
+
 // Notifie les comptes abonnés (ex: nouveau tournoi -> inscriptions ouvertes).
 // clubId optionnel: si fourni, seuls les abonnements du club visé reçoivent le push (multi-club).
 async function envoyerTous(payloadObj, clubId) {
@@ -148,4 +185,4 @@ async function envoyerTestAmi(joueurId) {
   return { envoyes: n, ami_de: j.pseudo };
 }
 
-module.exports = { registerPushRoutes, notifierMatchLance, publicKey, envoyerTest, envoyerTestAmi, envoyerTous };
+module.exports = { registerPushRoutes, notifierMatchLance, notifierInscriptionAmi, publicKey, envoyerTest, envoyerTestAmi, envoyerTous };

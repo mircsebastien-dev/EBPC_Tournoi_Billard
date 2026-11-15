@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS compte (
   reset_token_hash TEXT,
   reset_expires TEXT,
   last_login_at TEXT,
+  notif_amis_inscription INTEGER NOT NULL DEFAULT 1, -- pref "notification inscription amis" (désactivable depuis la page Compte)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -255,6 +256,8 @@ if (matchCols.length > 0) {
     db.exec('ALTER TABLE compte ADD COLUMN last_login_at TEXT');
   if (!db.prepare("PRAGMA table_info(compte)").all().some(c => c.name === 'role'))
     db.exec("ALTER TABLE compte ADD COLUMN role TEXT NOT NULL DEFAULT 'user'"); // 'user' | 'admin' — session admin acceptée par requireAdmin (le PIN reste le fallback)
+  if (!db.prepare("PRAGMA table_info(compte)").all().some(c => c.name === 'notif_amis_inscription'))
+    db.exec('ALTER TABLE compte ADD COLUMN notif_amis_inscription INTEGER NOT NULL DEFAULT 1'); // pref "notification inscription amis"
   if (!db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id'))
     db.exec('ALTER TABLE match ADD COLUMN casseur_id INTEGER REFERENCES joueur(id)');
 }

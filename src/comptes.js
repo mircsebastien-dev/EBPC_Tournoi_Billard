@@ -167,7 +167,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   app.post('/api/compte/email', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
     const email = String(req.body.email || '').trim().toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Email invalide' });
+    if (!/^[^@\s]+@[^\s@]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Email invalide' });
     const pris = db.prepare('SELECT id FROM compte WHERE email = ? AND id != ?').get(email, req.compte.id);
     if (pris) return res.status(409).json({ error: 'Cet email est déjà utilisé par un autre compte' });
     db.prepare('UPDATE compte SET email = ? WHERE id = ?').run(email, req.compte.id);
@@ -282,7 +282,23 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   app.get('/api/compte/moi', (req, res) => {
     if (!req.compte) return res.json({ compte: null, joueur_id: null });
     const j = db.prepare('SELECT id FROM joueur WHERE compte_id = ? ORDER BY id DESC LIMIT 1').get(req.compte.id);
-    res.json({ compte: comptePublic(req.compte), joueur_id: j ? j.id : null });
+    const pref = db.prepare('SELECT notif_amis_inscription FROM compte WHERE id = ?').get(req.compte.id);
+    res.json({
+      compte: comptePublic(req.compte),
+      joueur_id: j ? j.id : null,
+      prefs: { notif_amis_inscription: pref ? !!pref.notif_amis_inscription : true },
+    });
+  });
+
+  // préférences du compte (ex: notification "inscription d'un ami" — désactivable depuis /compte.html)
+  app.post('/api/compte/preferences', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const v = req.body.notif_amis_inscription;
+    if (v !== true && v !== false && v !== 0 && v !== 1) return res.status(400).json({ error: 'Valeur invalide' });
+    const val = (v === true || v === 1) ? 1 : 0;
+    db.prepare('UPDATE compte SET notif_amis_inscription = ? WHERE id = ?').run(val, req.compte.id);
+    logAuditC(req, 'compte_preferences', `compte ${req.compte.id}`, null, { notif_amis_inscription: val });
+    res.json({ ok: true, prefs: { notif_amis_inscription: !!val } });
   });
 
   // mes matchs (via les joueurs liés à mon compte)
@@ -354,17 +370,24 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     // déjà inscrit via ce compte ?
     const deja = db.prepare('SELECT j.* FROM joueur j WHERE j.tournoi_id = ? AND j.compte_id = ?').get(t.id, req.compte.id);
     if (deja) return res.status(409).json({ error: `Déjà inscrit en tant que ${deja.pseudo}`, joueur: { id: deja.id, pseudo: deja.pseudo, statut: deja.statut } });
+    // push "inscription d'un ami" aux comptes qui m'ont en ami et ont activé la pref (non bloquant)
+    const notifierAmis = () => {
+      try { require('./push').notifierInscriptionAmi(req.compte.id, req.compte.pseudo, t.nom, req.club ? req.club.id : undefined); }
+      catch (e) { console.error('[PUSH] notifierInscriptionAmi:', e.message); }
+    };
     // un joueur anonyme avec le même pseudo existe déjà -> on le rattache au compte
     const anon = db.prepare('SELECT * FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE').get(t.id, req.compte.pseudo);
     if (anon) {
       db.prepare('UPDATE joueur SET compte_id = ? WHERE id = ?').run(req.compte.id, anon.id);
       logAuditC(req, 'inscription', `joueur ${anon.id}`, null, { compte: req.compte.pseudo, rattache: true });
+      notifierAmis();
       majEtBroadcast();
       return res.json({ ok: true, rattache: true, joueur: { id: anon.id, pseudo: anon.pseudo, statut: anon.statut } });
     }
     const info = db.prepare('INSERT INTO joueur (tournoi_id, pseudo, statut, compte_id) VALUES (?, ?, ?, ?)')
       .run(t.id, req.compte.pseudo, 'en_attente', req.compte.id);
     logAuditC(req, 'inscription', `joueur ${info.lastInsertRowid}`, null, { compte: req.compte.pseudo });
+    notifierAmis();
     majEtBroadcast();
     res.status(201).json({ ok: true, joueur: { id: Number(info.lastInsertRowid), pseudo: req.compte.pseudo, statut: 'en_attente' } });
   });

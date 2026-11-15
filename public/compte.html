@@ -55,7 +55,7 @@ async function deconnexion() {
 
 async function init() {
   main.innerHTML = '';
-  const { compte, joueur_id } = await api('/api/compte/moi');
+  const { compte, joueur_id, prefs } = await api('/api/compte/moi');
   if (compte) {
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto;text-align:center' },
       el('div', { class: 'hero-title' }, `👤 ${compte.pseudo}`),
@@ -63,7 +63,7 @@ async function init() {
       el('div', { class: 'row', style: 'justify-content:center' },
         joueur_id ? el('a', { href: '/joueur.html?id=' + joueur_id }, el('button', { class: 'secondary' }, 'Ma fiche joueur')) : null,
         el('button', { class: 'danger', onclick: () => { if (confirm('Se déconnecter ?')) deconnexion(); } }, 'Se déconnecter'))));
-    
+
     // panneau email (masqué: l'email complet n'est affiché nulle part)
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
       el('h2', {}, '✉️ Email'),
@@ -136,7 +136,14 @@ const btnNotif = notifOk
     }
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
       el('h2', {}, '👥 Amis'),
-      el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence, et leur statut ici.'),
+      el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence ou quand ils s\'inscrivent à un tournoi, et leur statut ici.'),
+      el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
+        el('span', {}, '🔔 Notifier quand un ami s\'inscrit à un tournoi'),
+        el('input', { id: 'pref-ami-inscription', type: 'checkbox', checked: !prefs || prefs.notif_amis_inscription !== false, onchange: async (e) => {
+          const actif = e.target.checked;
+          try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ notif_amis_inscription: actif }) }); }
+          catch (err) { e.target.checked = !actif; alert(err.message); }
+        } })),
       el('div', { id: 'amis-box' })));
     renderAmis();
     // mes matchs (inscriptions en cours / matchs joués)

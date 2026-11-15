@@ -1,4 +1,4 @@
-// Test unitaire du push "inscriptions ouvertes" (envoyerTous) avec web-push mocké.
+// Test unitaire du push "inscriptions ouvertes" (envoyerTous) + "inscription d'un ami" avec web-push mocké.
 // Usage: node test/push-unit.js  (aucun serveur requis, DB temporaire)
 const os = require('os');
 const path = require('path');
@@ -34,7 +34,7 @@ const { db } = require('../src/db');
 const push = require('../src/push');
 
 (async () => {
-  console.log('=== TEST UNIT PUSH (envoyerTous, mock web-push) ===\n');
+  console.log('=== TEST UNIT PUSH (envoyerTous + notifierInscriptionAmi, mock web-push) ===\n');
 
   // 2 comptes abonnés (compte_id est NOT NULL dans le schéma: pas de subscription anonyme possible)
   const c1 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('Testeur1', 't1@x.fr', 'h', 's')").run();
@@ -77,6 +77,32 @@ const push = require('../src/push');
   comportement = 'ok';
   const n4 = await push.envoyerTous({ title: 'x', body: 'y', url: '/', tag: 't' });
   check('sans aucune subscription -> 0 sans crash', n4 === 0, `n=${n4}`);
+
+  // --- notifierInscriptionAmi: pref "notification inscription amis" + relation ami ---
+  console.log('\n--- notifierInscriptionAmi ---');
+  const c3 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('Testeur3', 't3@x.fr', 'h', 's')").run(); // ami de c1, pref active
+  const c4 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('Testeur4', 't4@x.fr', 'h', 's')").run(); // ami de c1, pref désactivée
+  const c5 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('Testeur5', 't5@x.fr', 'h', 's')").run(); // pas ami de c1
+  db.prepare('UPDATE compte SET notif_amis_inscription = 0 WHERE id = ?').run(c4.lastInsertRowid);
+  db.prepare('INSERT INTO ami (compte_id, ami_compte_id) VALUES (?, ?)').run(c3.lastInsertRowid, c1.lastInsertRowid);
+  db.prepare('INSERT INTO ami (compte_id, ami_compte_id) VALUES (?, ?)').run(c4.lastInsertRowid, c1.lastInsertRowid);
+  db.prepare('INSERT INTO ami (compte_id, ami_compte_id) VALUES (?, ?)').run(c5.lastInsertRowid, c2.lastInsertRowid); // ami de c2, pas de c1
+  db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epA', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(c3.lastInsertRowid);
+  db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epB', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(c4.lastInsertRowid);
+  db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epC', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(c5.lastInsertRowid);
+  envois.length = 0;
+  const nAmi = await push.notifierInscriptionAmi(c1.lastInsertRowid, 'Testeur1', 'Tournoi RB');
+  check('inscription ami: envoyé seulement à l\'ami avec la pref active', nAmi === 1 && envois.length === 1 && envois[0].endpoint === 'https://push.example/epA', `n=${nAmi} endpoints=${envois.map(e => e.endpoint).join(',')}`);
+  check('payload inscription ami correct', envois[0] && envois[0].payload.title.includes('ami') && envois[0].payload.body.includes('Testeur1') && envois[0].payload.body.includes('Tournoi RB') && envois[0].payload.url === '/tournoi.html', JSON.stringify(envois[0] && envois[0].payload));
+  // pref réactivée -> les 2 amis de c1 notifiés (c5 toujours exclu: pas ami de c1)
+  db.prepare('UPDATE compte SET notif_amis_inscription = 1 WHERE id = ?').run(c4.lastInsertRowid);
+  envois.length = 0;
+  const nAmi2 = await push.notifierInscriptionAmi(c1.lastInsertRowid, 'Testeur1', 'Tournoi RB');
+  check('pref réactivée -> les 2 amis notifiés, le non-ami exclu', nAmi2 === 2 && envois.every(e => e.endpoint !== 'https://push.example/epC'), `n=${nAmi2}`);
+  // personne ne m'a en ami -> 0 envoi sans crash
+  envois.length = 0;
+  const nAmi3 = await push.notifierInscriptionAmi(c5.lastInsertRowid, 'Testeur5', 'Tournoi RB');
+  check('aucun ami -> 0 envoi sans crash', nAmi3 === 0 && envois.length === 0, `n=${nAmi3}`);
 
   db.close();
   for (const ext of ['', '-wal', '-shm']) { try { fs.unlinkSync(DB_PATH + ext); } catch (e) {} }
