@@ -28,6 +28,7 @@ Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly) **ou** co
 
 ## 3. Tirage au sort
 
+- Dès la création du tournoi, `/tableau.html` affiche déjà la **structure à vide** (même câblage que le futur tirage) : tour 1 en `j1` … `jN` (ex. j1 à j32 pour un tableau de 32), tours suivants en « gagnant wb1-001 » / « perdant lb2-003 ». Ces matchs sont **virtuels** (`virtuel: true`, ids `v1`…, non cliquables) : rien n'est écrit en base
 - Bouton **Tirage** : appariements aléatoires (crypto), blancs (bye) répartis, le gagnant d'un bye passe directement
 - ⚠️ Le tirage fige le bracket WB + LB (+ tableau final F en DKO). Après, on ne peut plus re-générer sans tout perdre
 

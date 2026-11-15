@@ -79,12 +79,13 @@ function render() {
   if (!t) {
     main.append(el('div', { class: 'panel', style: 'text-align:center;padding:40px 20px' },
       el('div', { class: 'hero-title' }, '🎱 Aucun tournoi en cours'),
-      el('p', { class: 'muted' }, 'Le tableau apparaîtra ici dès le tirage au sort.')));
+      el('p', { class: 'muted' }, 'Le tableau (structure à vide) apparaîtra ici dès la création d\'un tournoi, les joueurs après le tirage au sort.')));
     return;
   }
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, `Tableau — ${t.tournoi.nom}`),
     el('p', { class: 'hero-sub' }, `${t.tournoi.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.tournoi.taille} joueurs · ${t.tournoi.format === 'double' ? 'double KO ' + t.tournoi.dko_tours + ' tours + tableau final' : 'élimination directe'}`),
+    t.tournoi.statut === 'inscription' ? el('p', { class: 'muted small', style: 'text-align:center' }, `⏳ Tirage au sort non effectué : structure du tableau à vide, les places j1 à j${t.tournoi.taille} seront prises par les joueurs après le tirage`) : null,
     el('div', { class: 'round-nav' },
       el('label', { class: 'muted small', style: 'align-self:center' }, 'Aller au tour :'),
       (() => {
@@ -157,6 +158,8 @@ function renderListe(container, t) {
       // match attendu : chaque slot sans joueur affiche son match d'origine (comme dans le bracket)
       const feeders = t.matchs.filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
       const srcOf = (slot) => {
+        // tableau virtuel (avant tirage) : slots du tour 1 WB = j1, j2, ... jN
+        if (m.virtuel && m.bracket === 'WB' && m.tour === 1) return slot === 1 ? `j${2 * m.position - 1}` : `j${2 * m.position}`;
         const f = feeders.find(x => x.suivant_id === m.id && x.suivant_slot === slot) || feeders.find(x => x.perdant_id === m.id && x.perdant_slot === slot);
         return f ? (f.suivant_id === m.id ? 'gagnant' : 'perdant') + ' ' + codeMatch(f) : null; // max 15 caractères
       };

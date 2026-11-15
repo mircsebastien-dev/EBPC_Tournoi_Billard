@@ -105,6 +105,10 @@ function codeMatch(m) {
 
 // libellés d'origine des slots manquants (ex: "gagnant wb1-001"), comme dans le bracket
 function feederLabels(t, m) {
+  // tableau virtuel (avant tirage) : les slots du tour 1 WB affichent j1, j2, ... jN
+  if (m.virtuel && m.bracket === 'WB' && m.tour === 1) {
+    return { lbl1: `j${2 * m.position - 1}`, lbl2: `j${2 * m.position}` };
+  }
   const feeders = (t && t.matchs ? t.matchs : []).filter(x => x.suivant_id === m.id || x.perdant_id === m.id);
   const srcOf = (slot) => {
     const f = feeders.find(x => x.suivant_id === m.id && x.suivant_slot === slot) || feeders.find(x => x.perdant_id === m.id && x.perdant_slot === slot);
@@ -137,16 +141,19 @@ function matchCard(m, opts = {}) {
       m.casseur ? el('span', { class: 'chip', title: 'Casse la manche en cours' }, `⚪ casse`) : null,
       m.duree_s != null ? el('span', {}, `⏳ ${fmtDuree(m.duree_s)}`) : null,
       opts.extra || null));
-  card.addEventListener('click', () => {
-    if (opts.onClick) { opts.onClick(m); return; }
-    if (typeof hasAdminPin === 'function' && hasAdminPin() && typeof openMatchEditor === 'function') {
-      openMatchEditor(m, () => { if (opts.onAdminChange) opts.onAdminChange(); });
-    } else {
-      location.href = matchUrl(m);
-    }
-  });
-  card.style.cursor = 'pointer';
-  if (typeof hasAdminPin === 'function' && hasAdminPin()) card.title = 'Clic = éditer (admin)';
+  // match virtuel (tableau à vide avant tirage) : pure affichage, pas de navigation
+  if (!m.virtuel) {
+    card.addEventListener('click', () => {
+      if (opts.onClick) { opts.onClick(m); return; }
+      if (typeof hasAdminPin === 'function' && hasAdminPin() && typeof openMatchEditor === 'function') {
+        openMatchEditor(m, () => { if (opts.onAdminChange) opts.onAdminChange(); });
+      } else {
+        location.href = matchUrl(m);
+      }
+    });
+    card.style.cursor = 'pointer';
+    if (typeof hasAdminPin === 'function' && hasAdminPin()) card.title = 'Clic = éditer (admin)';
+  }
   return card;
 }
 
@@ -253,8 +260,10 @@ function renderBracket(container, t, opts = {}) {
         const kind = f.suivant_id === m.id ? 'gagnant' : 'perdant';
         return kind + ' ' + codeMatch(f); // max 15 caractères (ex: "gagnant wb1-001")
       };
-      const lbl1 = m.joueur1 ? m.joueur1.pseudo : srcOf(1);
-      const lbl2 = m.joueur2 ? m.joueur2.pseudo : srcOf(2);
+      // tableau virtuel (avant tirage) : slots du tour 1 WB = j1, j2, ... jN
+      const virtuelWB1 = m.virtuel && m.bracket === 'WB' && m.tour === 1;
+      const lbl1 = m.joueur1 ? m.joueur1.pseudo : (virtuelWB1 ? `j${2 * m.position - 1}` : srcOf(1));
+      const lbl2 = m.joueur2 ? m.joueur2.pseudo : (virtuelWB1 ? `j${2 * m.position}` : srcOf(2));
       const node = el('div', {
         class: 'node' + (m.etat === 'en_cours' ? ' live' : '') + ((m.etat === 'termine' || m.etat === 'forfait') ? ' done' : '') + (enAttente ? ' attente' : ''),
         'data-id': m.id,
@@ -270,7 +279,7 @@ function renderBracket(container, t, opts = {}) {
           (m.etat === 'termine' || m.etat === 'forfait') ? badgeEtat(m.etat) : null,
           m.table != null ? el('span', { class: 'table-badge' }, '🎱 Table ' + m.table) : null,
           m.duree_s != null ? el('span', {}, '⏳ ' + fmtDuree(m.duree_s)) : null));
-      if (!opts.readonly) {
+      if (!opts.readonly && !m.virtuel) {
         node.addEventListener('click', () => {
           if (typeof hasAdminPin === 'function' && hasAdminPin() && typeof openMatchEditor === 'function') {
             openMatchEditor(m, () => { if (opts.onAdminChange) opts.onAdminChange(); });

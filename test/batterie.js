@@ -84,6 +84,13 @@ async function nouveauTournoi(body) {
   r = await api('/api/etat');
   check('/api/etat OK + tables = 4', r.status === 200 && r.data.actif.tables.length === 4, r.data.actif && r.data.actif.tables.length);
   check('/api/etat expose auto/table_pref/compte', 'auto' in r.data && 'table_pref' in r.data && 'compte' in r.data, Object.keys(r.data).join(','));
+  // bracket virtuel avant tirage (16 joueurs simple) : structure complète exposée, matchs marqués virtuels
+  const virt = r.data.actif.matchs;
+  check('bracket virtuel avant tirage : 15 matchs (16j simple)', virt.length === 15 && virt.every(m => m.virtuel === true), virt.length);
+  const vWb1 = virt.find(m => m.bracket === 'WB' && m.tour === 1 && m.position === 1);
+  const vCible = virt.find(m => m.id === vWb1.suivant_id);
+  check('virtuel : wb1-001 -> wb2-001 slot 1', vWb1.suivant_slot === 1 && vCible.bracket === 'WB' && vCible.tour === 2 && vCible.position === 1, JSON.stringify(vWb1.suivant_id));
+  check('virtuel : aucun joueur, tout prevu, ids v*, pas de perdant (simple)', virt.every(m => !m.joueur1 && !m.joueur2 && m.etat === 'prevu' && /^v\d+$/.test(m.id) && !m.perdant_id), '');
 
   // ---------- 3. Inscriptions ----------
   sec('3. Inscriptions joueurs');
@@ -267,6 +274,15 @@ async function nouveauTournoi(body) {
   sec('9. Double KO: liens, croisement LB, anti-re-match');
   await del('/api/admin/tournoi');
   await post('/api/admin/tournoi', { nom: 'DKO32', regle: 'blackball', taille: 32, format: 'double', dko_tours: 2, nb_tables: 8 });
+  // bracket virtuel avant tirage (32 joueurs double k=2) : 55 matchs de structure, câblage identique au futur tirage
+  let tv = (await api('/api/etat')).data.actif;
+  check('virtuel DKO32: 55 matchs, tous virtuels prevu sans joueur', tv.matchs.length === 55 && tv.matchs.every(m => m.virtuel === true && m.etat === 'prevu' && !m.joueur1 && !m.joueur2), tv.matchs.length);
+  const vLB2 = tv.matchs.find(m => m.bracket === 'LB' && m.tour === 2 && m.position === 1);
+  const vF1c = tv.matchs.find(m => m.id === vLB2.suivant_id);
+  check('virtuel DKO32: lb2-001 -> f1-005 slot 2 (croisement demi-moitié)', vLB2.suivant_slot === 2 && vF1c.bracket === 'F' && vF1c.tour === 1 && vF1c.position === 5, JSON.stringify(vLB2.suivant_id));
+  const vWB1 = tv.matchs.find(m => m.bracket === 'WB' && m.tour === 1 && m.position === 1);
+  const vLB1c = tv.matchs.find(m => m.id === vWB1.perdant_id);
+  check('virtuel DKO32: perdant wb1-001 -> lb1-001 slot 1', vWB1.perdant_slot === 1 && vLB1c.bracket === 'LB' && vLB1c.tour === 1 && vLB1c.position === 1, '');
   await post('/api/admin/joueurs/simulation', { count: 32, prefix: 'J' });
   t = (await api('/api/etat')).data.actif;
   for (const j of t.joueurs) await post(`/api/admin/joueur/${j.id}/paiement`, { statut: 'paye' });

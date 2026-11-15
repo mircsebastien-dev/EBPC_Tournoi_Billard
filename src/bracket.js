@@ -142,151 +142,165 @@ function labelRound(key, taille, format, dkoTours) {
   return `1/${p >> tour} de finale`;
 }
 
-function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
+// Structure PURE du tableau (aucune BDD, aucun joueur) : liste des matchs dans l'ordre de
+// création + liens (suivant/perdant) référencés par index. Source unique du câblage :
+// utilisée par genererBracket (tirage réel) ET par l'API pour le tableau « à vide »
+// exposé avant le tirage (phase inscription), avec les slots du tour 1 en j1, j2, ... jN.
+function structureBracket(tournoi, manchesMap) {
   const taille = tournoi.taille;
   const format = tournoi.format;
   const k = tournoi.dko_tours;
-  const tournoiId = tournoi.id;
   const manches = (key) => manchesMap[key] || 3;
+  const matchs = [];
+  const ref = {}; // "WB:1:2" -> index dans matchs
+  const add = (b, t, p) => {
+    ref[`${b}:${t}:${p}`] = matchs.length;
+    matchs.push({ bracket: b, tour: t, position: p, manches: manches(`${b.toLowerCase()}${t}`), suivant: null, perdant: null });
+    return matchs.length - 1;
+  };
+  const at = (b, t, p) => ref[`${b}:${t}:${p}`];
+
+  if (format === 'simple') {
+    const tours = log2int(taille);
+    for (let t = 1; t <= tours; t++) {
+      const nb = taille >> t;
+      for (let p = 1; p <= nb; p++) add('WB', t, p);
+    }
+    for (let t = 1; t < tours; t++) {
+      const nb = taille >> t;
+      for (let p = 1; p <= nb; p++) {
+        matchs[at('WB', t, p)].suivant = { vers: at('WB', t + 1, Math.ceil(p / 2)), slot: p % 2 === 1 ? 1 : 2 };
+      }
+    }
+  } else {
+    for (let t = 1; t <= k; t++) {
+      const nb = taille >> t;
+      for (let p = 1; p <= nb; p++) add('WB', t, p);
+    }
+    const nbToursLB = k === 1 ? 1 : 2 * k - 2;
+    for (let t = 1; t <= nbToursLB; t++) {
+      let nb;
+      if (t === 1) nb = taille >> 2;
+      else if (t % 2 === 1) nb = taille >> ((t + 1) / 2 + 1);
+      else nb = taille >> (t / 2 + 1);
+      for (let p = 1; p <= nb; p++) add('LB', t, p);
+    }
+    for (let p = 1; p <= taille >> 2; p++) {
+      matchs[at('WB', 1, 2 * p - 1)].perdant = { vers: at('LB', 1, p), slot: 1 };
+      matchs[at('WB', 1, 2 * p)].perdant = { vers: at('LB', 1, p), slot: 2 };
+    }
+    for (let t = 2; t <= k; t++) {
+      const lbTour = 2 * t - 2;
+      if (lbTour >= 1 && lbTour <= nbToursLB) {
+        const nb = taille >> t;
+        for (let p = 1; p <= nb; p++) {
+          matchs[at('WB', t, p)].perdant = { vers: at('LB', lbTour, p), slot: 2 };
+        }
+      }
+    }
+    for (let t = 1; t < nbToursLB; t++) {
+      const nb = matchs.filter(m => m.bracket === 'LB' && m.tour === t).length;
+      if ((t + 1) % 2 === 1) {
+        // tour impair suivant (nb/2 matchs) : croisement par bloc de 4 (extérieur <-> intérieur)
+        // pour que les 2 feeders d'un match LB ne viennent jamais du même groupe de 4 du WB
+        for (let p = 1; p <= nb; p++) {
+          const q = Math.floor((p - 1) / 4);
+          const r = (p - 1) % 4;
+          const cible = (r === 0 || r === 3) ? 2 * q + 1 : 2 * q + 2;
+          const slot = (r === 0 || r === 1) ? 1 : 2;
+          matchs[at('LB', t, p)].suivant = { vers: at('LB', t + 1, cible), slot };
+        }
+      } else {
+        // tour PAIR suivant : il reçoit aussi les perdants du WB (slot 2 = perdant WB(t',p)).
+        // CROISEMENT par bloc de 4 du niveau WB correspondant (p <-> p^1 dans chaque paire)
+        // en slot 1 uniquement -> le perdant de WB ne retrouve jamais en LB le gagnant du match
+        // voisin de son propre groupe de 4 (évite le re-match J1-vs-J2).
+        for (let p = 1; p <= nb; p++) {
+          const cible = p % 2 === 1 ? p + 1 : p - 1;
+          matchs[at('LB', t, p)].suivant = { vers: at('LB', t + 1, cible), slot: 1 };
+        }
+      }
+    }
+
+    const p2 = taille >> (k - 1);
+    const toursF = log2int(p2);
+    for (let t = 1; t <= toursF; t++) {
+      const nb = p2 >> t;
+      for (let pos = 1; pos <= nb; pos++) add('F', t, pos);
+    }
+    for (let t = 1; t < toursF; t++) {
+      const nb = p2 >> t;
+      for (let pos = 1; pos <= nb; pos++) {
+        matchs[at('F', t, pos)].suivant = { vers: at('F', t + 1, Math.ceil(pos / 2)), slot: pos % 2 === 1 ? 1 : 2 };
+      }
+    }
+    // Croisement en alternance supérieure/inférieure : WB tour k alimente le tableau final (slot 1),
+    // le dernier tour LB alimente le slot 2 en ROTATION d'une demi-moitié CROISÉE :
+    // 1) rotation d'une demi-moitié (et non plus en miroir global) : le joueur remonté du LB tombe
+    //    dans la moitié OPPOSÉE à son groupe WB d'origine -> impossible de se rejouer en F1/F2 ;
+    // 2) miroir binaire (bit-reversal) à l'intérieur de chaque moitié : le perdant de WB2#p et sa
+    //    victime WB1 (qui reviennent forcément via deux matchs LB adjacents #p / #p^1) tombent dans
+    //    des QUARTS différents -> le risque de re-match passe des quarts (F2) aux demis (F3).
+    // Mesuré (100k simulations 32j/k=2, plancher des 40320 réventilations statiques possibles) :
+    // prédiction contredite 22,7% -> 6,2% des tournois, toujours au niveau des demis.
+    // Le sweep anti-rematch (eviterRematch / assertPasDeRematch) reste le filet de sécurité :
+    // aucun rematch ne peut être joué avant la finale, quel que soit le câblage.
+    const nbWBk = taille >> k;
+    const nbF1 = p2 >> 1;
+    for (let p = 1; p <= nbWBk; p++) {
+      matchs[at('WB', k, p)].suivant = { vers: at('F', 1, p), slot: 1 };
+    }
+    const nbLB = matchs.filter(m => m.bracket === 'LB' && m.tour === nbToursLB).length;
+    const demi = Math.floor(nbF1 / 2) || 1;
+    const bitsDemi = Math.max(1, Math.round(Math.log2(demi)));
+    for (let p = 1; p <= nbLB; p++) {
+      const base = ((p - 1 + demi) % nbF1) + 1; // rotation d'une demi-moitié
+      const j = (base - 1) % demi;             // index dans la moitié cible (0..demi-1)
+      let r = 0;
+      for (let x = j, b = bitsDemi; b > 0; b--) { // miroir binaire intra-moitié
+        r = (r << 1) | (x & 1);
+        x >>= 1;
+      }
+      matchs[at('LB', nbToursLB, p)].suivant = { vers: at('F', 1, base + r - j), slot: 2 };
+    }
+  }
+  return matchs;
+}
+
+function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
+  const taille = tournoi.taille;
+  const tournoiId = tournoi.id;
 
   const ids = joueurs.map(j => ({ id: j.id, tds: tournoi.tetes_de_serie ? j.tete_de_serie : null }));
   while (ids.length < taille) ids.push({ id: null, tds: null });
 
   const M = { WB: {}, LB: {}, F: {} };
-  const get = (b, t, p) => M[b][`${t}:${p}`];
 
   db.prepare('DELETE FROM match_event WHERE match_id IN (SELECT id FROM match WHERE tournoi_id = ?)').run(tournoiId);
   db.prepare('DELETE FROM match WHERE tournoi_id = ?').run(tournoiId);
 
+  // Structure pure (matchs + câblage) : source unique partagée avec le tableau virtuel avant tirage
+  const structure = structureBracket(tournoi, manchesMap);
+
   const tx = db.transaction(() => {
-    if (format === 'simple') {
-      const tours = log2int(taille);
-      const slots = appariementPremierTour(ids, taille, ids, rng);
-      for (let t = 1; t <= tours; t++) {
-        const nb = taille >> t;
-        for (let p = 1; p <= nb; p++) {
-          const j1 = t === 1 ? slots[p - 1][0] : null;
-          const j2 = t === 1 ? slots[p - 1][1] : null;
-          M.WB[`${t}:${p}`] = creerMatch(tournoiId, 'WB', t, p, manches(`wb${t}`), j1, j2);
-        }
-      }
-      for (let t = 1; t < tours; t++) {
-        const nb = taille >> t;
-        for (let p = 1; p <= nb; p++) {
-          setLien(get('WB', t, p), 'suivant', get('WB', t + 1, Math.ceil(p / 2)), p % 2 === 1 ? 1 : 2);
-        }
-      }
-    } else {
-      for (let t = 1; t <= k; t++) {
-        const nb = taille >> t;
-        for (let p = 1; p <= nb; p++) {
-          M.WB[`${t}:${p}`] = creerMatch(tournoiId, 'WB', t, p, manches(`wb${t}`), null, null);
-        }
-      }
-      const slots = appariementPremierTour(ids, taille, ids, rng);
-      for (let p = 1; p <= taille / 2; p++) {
-        db.prepare('UPDATE match SET joueur1_id = ?, joueur2_id = ? WHERE id = ?')
-          .run(slots[p - 1][0], slots[p - 1][1], get('WB', 1, p));
-      }
-      for (let t = 1; t < k; t++) {
-        const nb = taille >> t;
-        for (let p = 1; p <= nb; p++) {
-          setLien(get('WB', t, p), 'suivant', get('WB', t + 1, Math.ceil(p / 2)), p % 2 === 1 ? 1 : 2);
-        }
-      }
-
-      const nbToursLB = k === 1 ? 1 : 2 * k - 2;
-      for (let t = 1; t <= nbToursLB; t++) {
-        let nb;
-        if (t === 1) nb = taille >> 2;
-        else if (t % 2 === 1) nb = taille >> ((t + 1) / 2 + 1);
-        else nb = taille >> (t / 2 + 1);
-        for (let p = 1; p <= nb; p++) {
-          M.LB[`${t}:${p}`] = creerMatch(tournoiId, 'LB', t, p, manches(`lb${t}`), null, null);
-        }
-      }
-      for (let p = 1; p <= taille >> 2; p++) {
-        setLien(get('WB', 1, 2 * p - 1), 'perdant', get('LB', 1, p), 1);
-        setLien(get('WB', 1, 2 * p), 'perdant', get('LB', 1, p), 2);
-      }
-      for (let t = 2; t <= k; t++) {
-        const lbTour = 2 * t - 2;
-        if (lbTour >= 1 && lbTour <= nbToursLB) {
-          const nb = taille >> t;
-          for (let p = 1; p <= nb; p++) {
-            setLien(get('WB', t, p), 'perdant', get('LB', lbTour, p), 2);
-          }
-        }
-      }
-      for (let t = 1; t < nbToursLB; t++) {
-        const nb = Object.keys(M.LB).filter(key => key.startsWith(`${t}:`)).length;
-        const nbSuiv = Object.keys(M.LB).filter(key => key.startsWith(`${t + 1}:`)).length;
-        if ((t + 1) % 2 === 1) {
-          // tour impair suivant (nbSuiv = nb/2) : croisement par bloc de 4 (extérieur <-> intérieur)
-          // pour que les 2 feeders d'un match LB ne viennent jamais du même groupe de 4 du WB
-          for (let p = 1; p <= nb; p++) {
-            const q = Math.floor((p - 1) / 4);
-            const r = (p - 1) % 4;
-            const cible = (r === 0 || r === 3) ? 2 * q + 1 : 2 * q + 2;
-            const slot = (r === 0 || r === 1) ? 1 : 2;
-            setLien(get('LB', t, p), 'suivant', get('LB', t + 1, cible), slot);
-          }
-        } else {
-          // tour PAIR suivant : il reçoit aussi les perdants du WB (slot 2 = perdant WB(t',p)).
-          // CROISEMENT par bloc de 4 du niveau WB correspondant (p <-> p^1 dans chaque paire)
-          // en slot 1 uniquement -> le perdant de WB ne retrouve jamais en LB le gagnant du match
-          // voisin de son propre groupe de 4 (évite le re-match J1-vs-J2).
-          for (let p = 1; p <= nb; p++) {
-            const cible = p % 2 === 1 ? p + 1 : p - 1;
-            setLien(get('LB', t, p), 'suivant', get('LB', t + 1, cible), 1);
-          }
-        }
-      }
-
-      const nbWBk = taille >> k;
-      const p2 = taille >> (k - 1);
-      const toursF = log2int(p2);
-      for (let t = 1; t <= toursF; t++) {
-        const nb = p2 >> t;
-        for (let pos = 1; pos <= nb; pos++) {
-          M.F[`${t}:${pos}`] = creerMatch(tournoiId, 'F', t, pos, manches(`f${t}`), null, null);
-        }
-      }
-      for (let t = 1; t < toursF; t++) {
-        const nb = p2 >> t;
-        for (let pos = 1; pos <= nb; pos++) {
-          setLien(get('F', t, pos), 'suivant', get('F', t + 1, Math.ceil(pos / 2)), pos % 2 === 1 ? 1 : 2);
-        }
-      }
-      // Croisement en alternance supérieure/inférieure : WB tour k alimente le tableau final (slot 1),
-      // le dernier tour LB alimente le slot 2 en ROTATION d'une demi-moitié CROISÉE :
-      // 1) rotation d'une demi-moitié (et non plus en miroir global) : le joueur remonté du LB tombe
-      //    dans la moitié OPPOSÉE à son groupe WB d'origine -> impossible de se rejouer en F1/F2 ;
-      // 2) miroir binaire (bit-reversal) à l'intérieur de chaque moitié : le perdant de WB2#p et sa
-      //    victime WB1 (qui reviennent forcément via deux matchs LB adjacents #p / #p^1) tombent dans
-      //    des QUARTS différents -> le risque de re-match passe des quarts (F2) aux demis (F3).
-      // Mesuré (100k simulations 32j/k=2, plancher des 40320 réventilations statiques possibles) :
-      // prédiction contredite 22,7% -> 6,2% des tournois, toujours au niveau des demis.
-      // Le sweep anti-rematch (eviterRematch / assertPasDeRematch) reste le filet de sécurité :
-      // aucun rematch ne peut être joué avant la finale, quel que soit le câblage.
-      const nbF1 = p2 >> 1;
-      for (let p = 1; p <= nbWBk; p++) {
-        setLien(get('WB', k, p), 'suivant', get('F', 1, p), 1);
-      }
-      const nbLB = Object.keys(M.LB).filter(key => key.startsWith(`${nbToursLB}:`)).length;
-      const demi = Math.floor(nbF1 / 2) || 1;
-      const bitsDemi = Math.max(1, Math.round(Math.log2(demi)));
-      for (let p = 1; p <= nbLB; p++) {
-        const base = ((p - 1 + demi) % nbF1) + 1; // rotation d'une demi-moitié
-        const j = (base - 1) % demi;             // index dans la moitié cible (0..demi-1)
-        let r = 0;
-        for (let x = j, b = bitsDemi; b > 0; b--) { // miroir binaire intra-moitié
-          r = (r << 1) | (x & 1);
-          x >>= 1;
-        }
-        setLien(get('LB', nbToursLB, p), 'suivant', get('F', 1, base + r - j), 2);
-      }
+    const idsReels = structure.map(sm => {
+      const id = creerMatch(tournoiId, sm.bracket, sm.tour, sm.position, sm.manches, null, null);
+      M[sm.bracket][`${sm.tour}:${sm.position}`] = id;
+      return id;
+    });
+    const index = {}; // "WB:1:2" -> index dans structure
+    structure.forEach((sm, i) => { index[`${sm.bracket}:${sm.tour}:${sm.position}`] = i; });
+    // Tirage VRAIMENT aléatoire : joueurs + blancs mélangés dans les slots du tour 1 WB
+    const slots = appariementPremierTour(ids, taille, ids, rng);
+    for (let p = 1; p <= taille / 2; p++) {
+      db.prepare('UPDATE match SET joueur1_id = ?, joueur2_id = ? WHERE id = ?')
+        .run(slots[p - 1][0], slots[p - 1][1], idsReels[index[`WB:1:${p}`]]);
     }
+    // Câblage (gagnant -> suivant, perdant -> loser bracket)
+    structure.forEach((sm, i) => {
+      if (sm.suivant) setLien(idsReels[i], 'suivant', idsReels[sm.suivant.vers], sm.suivant.slot);
+      if (sm.perdant) setLien(idsReels[i], 'perdant', idsReels[sm.perdant.vers], sm.perdant.slot);
+    });
   });
 
   tx();
@@ -303,5 +317,6 @@ module.exports = {
   prochainMardi20h,
   tailleAuto,
   genererBracket,
+  structureBracket,
   appariementPremierTour,
 };

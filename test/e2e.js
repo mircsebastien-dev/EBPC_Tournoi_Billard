@@ -56,6 +56,12 @@ async function main() {
   r = await api('/api/etat');
   check('10 joueurs inscrits', r.data.actif.joueurs.length === 10);
   check('tous en_attente par défaut', r.data.actif.joueurs.every(j => j.statut === 'en_attente'));
+  // bracket virtuel avant tirage (16 joueurs double k=2) : structure à vide exposée par /api/etat
+  const virt = r.data.actif.matchs;
+  check('bracket virtuel avant tirage : 27 matchs (16j DKO k=2)', virt.length === 27 && virt.every(m => m.virtuel === true), virt.length);
+  const vLb2 = virt.find(m => m.bracket === 'LB' && m.tour === 2 && m.position === 1);
+  const vF1 = virt.find(m => m.id === vLb2.suivant_id);
+  check('virtuel : lb2-001 -> f1-003 slot 2 (rotation demi-moitié)', vLb2.suivant_slot === 2 && vF1.bracket === 'F' && vF1.tour === 1 && vF1.position === 3, JSON.stringify(vLb2.suivant_id));
 
   console.log('== 3b. Paiement : tirage refusé sans joueurs payés ==');
   r = await api('/api/admin/tirage', { method: 'POST', body: {} });

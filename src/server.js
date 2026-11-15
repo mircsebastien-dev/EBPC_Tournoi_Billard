@@ -284,18 +284,54 @@ function calculerStats(tournoiId) {
 function vueTournoiComplet(t) {
   if (!t) return null;
   const joueurs = db.prepare('SELECT id, pseudo, tete_de_serie, statut, compte_id FROM joueur WHERE tournoi_id = ? ORDER BY pseudo').all(t.id);
-  const matchs = db.prepare(`SELECT * FROM match WHERE tournoi_id = ? ORDER BY CASE bracket WHEN 'WB' THEN 1 WHEN 'LB' THEN 2 ELSE 3 END, tour, position`).all(t.id);
+  let matchs = db.prepare(`SELECT * FROM match WHERE tournoi_id = ? ORDER BY CASE bracket WHEN 'WB' THEN 1 WHEN 'LB' THEN 2 ELSE 3 END, tour, position`).all(t.id);
+  const distances = distancesMap(t.id);
   const rounds = bracket.listeRounds(t.taille, t.format, t.dko_tours).map(r => ({
     ...r,
     label: bracket.labelRound(r.key, t.taille, t.format, t.dko_tours),
-    manches: distancesMap(t.id)[r.key] || 3,
+    manches: distances[r.key] || 3,
   }));
   const tables = db.prepare('SELECT * FROM table_billard WHERE tournoi_id = ? ORDER BY numero').all(t.id);
   const champion = t.champion_id ? { id: t.champion_id, pseudo: M.pseudo(t.champion_id) } : null;
+  // Tableau « à vide » avant le tirage : la structure complète (câblage identique au futur
+  // tirage) est exposée sous forme de matchs VIRTUELS (ids "v1".."vN", virtuel: true),
+  // sans aucun joueur et non cliquables côté client. Le tour 1 WB est affiché j1..jN
+  // par le front ; le vrai tirage remplace tout ça par les matchs réels.
+  let matchsVirtuels = false;
+  if (t.statut === 'inscription' && matchs.length === 0) {
+    matchsVirtuels = true;
+    const structure = bracket.structureBracket(t, distances);
+    const idDe = (i) => `v${i + 1}`;
+    matchs = structure.map((sm, i) => ({
+      id: idDe(i),
+      virtuel: true,
+      tournoi_id: t.id,
+      bracket: sm.bracket,
+      tour: sm.tour,
+      position: sm.position,
+      joueur1: null,
+      joueur2: null,
+      casseur: null,
+      score1: 0,
+      score2: 0,
+      manches: sm.manches,
+      gagnant_id: null,
+      gagnant: null,
+      etat: 'prevu',
+      table: null,
+      suivant_id: sm.suivant ? idDe(sm.suivant.vers) : null,
+      suivant_slot: sm.suivant ? sm.suivant.slot : null,
+      perdant_id: sm.perdant ? idDe(sm.perdant.vers) : null,
+      perdant_slot: sm.perdant ? sm.perdant.slot : null,
+      started_at: null,
+      ended_at: null,
+      duree_s: null,
+    }));
+  }
   return {
     tournoi: t,
     joueurs,
-    matchs: matchs.map(vueMatch),
+    matchs: matchsVirtuels ? matchs : matchs.map(vueMatch),
     rounds,
     tables,
     champion,
