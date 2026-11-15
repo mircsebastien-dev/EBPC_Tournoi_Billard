@@ -48,32 +48,36 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 | **Rouvrir un match** (🔓) | `POST /admin/match/:id/rouvrir` | **409 interdit si un match aval a déjà commencé/reçu un joueur** | Corriger alors à la main les matchs suivants (joueurs/score) |
 | **Forfait** (🚫) | `POST /admin/match/:id/forfait` (joueur perdant) | Le gagnant (l'autre) propage, le perdant part en LB (DKO) | Le forfait est définitif dans l'historique |
 
-### 🗄 Gestion des données (`/admin-data.html`, lien « 🗄 Données »)
+⚠️ **Règles structurelles à connaître** (DKO) : WB et LB ne se croisent qu'en finale ; swap anti-rematch automatique sur **tous les tours WB/LB/F** à chaque propagation (tant qu'un match partenaire du tour permet un échange propre).
+
+**Anti-rematch strict (garanti)** : aucun match ne peut démarrer (`lancer`), ni finir par forfait/correction, avec une paire de joueurs déjà appariée ailleurs — **409 « Rematch interdit hors finale »** après un dernier sweep du tour. Seule exception : le dernier tour d'un bracket à **1 seul match** (vraie finale F, ou dernier tour LB s'il n'en reste qu'un). Les swaps sont logués dans l'audit (`rematch_swap_f` / `_lb` / `_wb`). Test de simulation complet avec invariant vérifié après chaque mutation : `test/simu-invariants.js`.
+
+## 6. Gestion des données (`/admin-data.html`, lien « 🗄 Données »)
+
 - Sélecteur de tournoi (actif **ou terminé** = corrections historiques) + filtre par pseudo (Entrée)
 - Onglet **Matchs** : liste + modale ⚙️ + accès 📜 events
 - Onglet **Joueurs** : éditer pseudo/statut (💾), supprimer (🗑)
 - Onglet **Events** : 🗑 supprime un event → **score recalculé** → stats corrigées automatiquement
 
-### ⭐ Classement par points
-Points = **profondeur atteinte** (WB: n° de tour; en DKO, F tour t = k+tour), **ex-aequo** (3 joueurs à 5 pts = 1er,1er,1er puis 4ème). Matchs clôturés sans gagnant = ni joués ni perdus.
+## 7. Classement par points
 
-⚠️ **Règles structurelles à connaître** (DKO) : WB et LB ne se croisent qu'en finale ; swap anti-rematch automatique sur **tous les tours WB/LB/F** à chaque propagation (tant qu'un match partenaire du tour permet un échange propre).
+- Points = **profondeur atteinte** (WB: n° de tour; en DKO, F tour t = k+tour)
+- **Ex-aequo** : 3 joueurs à 5 pts = 1er,1er,1er puis 4ème
+- Matchs clôturés sans gagnant = ni joués ni perdus
 
-**Anti-rematch strict (garanti)** : aucun match ne peut démarrer (`lancer`), ni finir par forfait/correction, avec une paire de joueurs déjà appariée ailleurs — **409 « Rematch interdit hors finale »** après un dernier sweep du tour. Seule exception : le dernier tour d'un bracket à **1 seul match** (vraie finale F, ou dernier tour LB s'il n'en reste qu'un). Les swaps sont logués dans l'audit (`rematch_swap_f` / `_lb` / `_wb`). Test de simulation complet avec invariant vérifié après chaque mutation : `test/simu-invariants.js`.
-
-## 6. Clôturer le tournoi
+## 8. Clôturer le tournoi
 
 - **Terminer maintenant** : coupe net — **aucun champion automatique** (sauf si tu choisis explicitement un joueur dans le select « Champion »)
 - Fin normale : la finale F déclare le champion automatiquement
 - Le tournoi part dans l'historique (`/admin-historique.html` ou `/historique.html`) : détail en **liste de matchs** avec surbrillance d'un joueur (champ recherche, validé par Entrée)
 
-## 7. Comptes joueurs (`/admin-comptes.html`)
+## 9. Comptes joueurs (`/admin-comptes.html`)
 
 - Liste : pseudo, email, créé le, **dernière connexion**, nb inscri. tournois, matchs, sessions actives
 - Recherche pseudo/email (Entrée), actions : ✏️ pseudo, 🔑 mdp, 🗑 supprimer (détache les joueurs — l'historique des matchs est conservé — supprime sessions/push, logué audit)
 - **Purge auto** : comptes sans connexion depuis **18 mois** supprimés au boot + toutes les heures
 
-## 8. Journal d'audit + rollback point-in-time (`/admin-journal.html`)
+## 10. Journal d'audit + rollback point-in-time (`/admin-journal.html`)
 
 Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11 vs P07 (table 3) » —, changements joueurs/table, rouvrir, forfaits, suppressions, swaps anti-rematch…) — **500 dernières entrées du club courant** (multi-club : le journal est scopé `club_id`, comme les snapshots).
 
@@ -81,7 +85,7 @@ Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11
 - Chaque entrée a un **snapshot** du tournoi actif du club (`has_snapshot`) : table `audit_snapshot`, **200 snapshots max par tournoi**, **purge auto > 90 jours** au boot
 - Bouton **⏪ Restaurer à ce point** (1re colonne) : affiche d'abord le **diff** (`GET /api/admin/tournoi/rollback/diff?audit_id=…` : matchs modifiés/ajoutés/supprimés, joueurs, statut, champion) dans la confirmation, puis demande le code PIN, puis restaure via `POST /api/admin/tournoi/rollback {audit_id, confirm_pin}` — **transaction atomique** (tout ou rien, FK différées), fonctionne **même avec des matchs en cours** (scores remis à 0, tables libérées, événements supprimés), 409 si le snapshot concerne un autre tournoi, 404 si pas de snapshot. Le rollback est lui-même logué. La page se re-rend en place (zoom/scroll conservés)
 
-### ⏮ Rollback point-in-time — mode d’emploi
+### 10.1 ⏮ Rollback point-in-time — mode d’emploi
 
 **Où :** `/admin-journal.html`, 1re colonne de chaque entrée snapshotée : bouton **⏮ « Restaurer à ce point »**.
 
@@ -99,21 +103,21 @@ Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11
 - La page se re-rend en place (zoom/scroll conservés).
 - Limites : 200 snapshots max par tournoi, purge auto > 90 jours — au-delà, rollback impossible (d’où l’export JSON régulier depuis /admin-tournoi.html 💾).
 
-### 🔐 Confirmation par code re-saisi (actions destructives)
+### 10.2 🔐 Confirmation par code re-saisi (actions destructives)
 
 Toute action admin qui **supprime des données** exige le **code PIN re-saisi** dans le body (`confirm_pin`, 401 sinon), via une **modale à mot de passe masqué** — pas seulement la session déjà ouverte :
 - `DELETE /api/admin/tournoi` (tournoi actif), `DELETE /api/admin/tournoi/:id`, `DELETE /api/admin/compte/:id`, `DELETE /api/admin/match/:id/event/:id`, `DELETE /api/admin/audit` (vidage), `POST /api/admin/tournoi/rollback`
 - **Seule exception** : `DELETE /api/admin/joueur/:id` (désinscription d'un joueur) ne demande pas le code
 - Une **session de compte `admin`** est dispensée de `confirm_pin` (le PIN n'est pas redemandé), mais une **modale de confirmation par saisie du mot `SUPPRIMER`** reste obligatoire ; sinon le code re-saisi est obligatoire
 
-## 9. Outils divers
+## 11. Outils divers
 
 - **Simuler tout le tournoi** (scores aléatoires jusqu'au bout) — test/démo
 - **TV** (`/tv.html`) : matchs en cours uniquement (8/page), QR en coin ; en phase inscription : grand QR centré
 - **Tableau** (`/tableau.html`) : bracket (défaut) ou liste (toggle, `?vue=liste`), filtre joueur (Entrée)
 - Stats joueurs (`/stats.html`, fiches `/joueur.html?id=`), matchs contre blanc exclus des stats
 
-## 10. Tests & déploiement
+## 12. Tests & déploiement
 
 ```bash
 # serveur frais sur DB temporaire, puis:
