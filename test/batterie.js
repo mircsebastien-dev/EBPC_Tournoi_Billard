@@ -547,16 +547,16 @@ async function nouveauTournoi(body) {
   let nf_rs = await post('/api/admin/joueurs/simulation', { count: 15, prefix: 'J' });
   check('simulation 15 joueurs', nf_rs.status === 200, nf_rs.status);
   // pseudos réservés: un compte 'Seb' existe (créé plus haut) -> anonyme refusé, admin OK après confirmation
-  nf_r = await post('/api/joueur', { pseudo: 'Seb' }, { pin: null });
-  check('inscription anonyme avec pseudo d\'un compte -> 409 (réservé)', nf_r.status === 409 && nf_r.data.compte_pseudo === true, nf_r.status + ' ' + (nf_r.data.error || ''));
-  nf_r = await post('/api/admin/joueur', { pseudo: 'Seb' });
-  check('ajout admin pseudo d\'un compte sans confirmation -> 409', nf_r.status === 409 && nf_r.data.compte_pseudo === true, nf_r.status + ' ' + (nf_r.data.error || ''));
-  nf_r = await post('/api/admin/joueur', { pseudo: 'Seb', confirme: true });
-  check('ajout admin avec confirmation -> 200', nf_r.status === 200, nf_r.status + ' ' + (nf_r.data.error || ''));
-  nf_r = await post('/api/joueur', { pseudo: 'InviteBT' }, { pin: null });
-  check('inscription anonyme avec pseudo libre -> 200', nf_r.status === 200, nf_r.status + ' ' + (nf_r.data.error || ''));
-  nf_r = await del(`/api/admin/joueur/${(await api('/api/etat')).data.actif.joueurs.find(j => j.pseudo === 'InviteBT').id}`);
-  check('suppression du joueur anonyme InviteBT', nf_r.status === 200, nf_r.status);
+  let nf_pr = await post('/api/joueur', { pseudo: 'Seb' }, { pin: null });
+  check('inscription anonyme avec pseudo d\'un compte -> 409 (réservé)', nf_pr.status === 409 && nf_pr.data.compte_pseudo === true, nf_pr.status + ' ' + (nf_pr.data.error || ''));
+  nf_pr = await post('/api/admin/joueur', { pseudo: 'Seb' });
+  check('ajout admin pseudo d\'un compte sans confirmation -> 409', nf_pr.status === 409 && nf_pr.data.compte_pseudo === true, nf_pr.status + ' ' + (nf_pr.data.error || ''));
+  nf_pr = await post('/api/admin/joueur', { pseudo: 'Seb', confirme: true });
+  check('ajout admin avec confirmation -> 200', nf_pr.status === 200, nf_pr.status + ' ' + (nf_pr.data.error || ''));
+  nf_pr = await post('/api/joueur', { pseudo: 'InviteBT' }, { pin: null });
+  check('inscription anonyme avec pseudo libre -> 200', nf_pr.status === 200, nf_pr.status + ' ' + (nf_pr.data.error || ''));
+  nf_pr = await del(`/api/admin/joueur/${(await api('/api/etat')).data.actif.joueurs.find(j => j.pseudo === 'InviteBT').id}`);
+  check('suppression du joueur anonyme InviteBT', nf_pr.status === 200, nf_pr.status);
   let nf_t = (await api('/api/etat')).data.actif;
   check('16 joueurs inscrits', nf_t && nf_t.joueurs.length === 16, nf_t && nf_t.joueurs.length);
   for (const j of nf_t.joueurs) await post(`/api/admin/joueur/${j.id}/paiement`, { statut: 'paye' });
