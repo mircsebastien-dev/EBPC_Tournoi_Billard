@@ -29,6 +29,11 @@ function cleanPseudo(v, max = 40) {
   return String(v || '').replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, max);
 }
 
+// pseudo d'un compte = réservé: aucune inscription anonyme ne peut le prendre (anti-usurpation d'identité)
+function compteAvecPseudo(pseudo) {
+  return db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(String(pseudo || '')) || null;
+}
+
 const PORT = process.env.PORT || 3000;
 const ADMIN_PIN = process.env.ADMIN_PIN || '0000';
 setSetting('admin_pin_hash', crypto.createHash('sha256').update(ADMIN_PIN).digest('hex'));
@@ -631,11 +636,12 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
   if (t.tetes_de_serie && req.body.tete_de_serie != null && req.body.tete_de_serie !== '') {
     tds = Number(req.body.tete_de_serie);
   }
+  // pseudo d'un compte = réservé: le joueur doit s'inscrire lui-même depuis son compte (anti-usurpation)
+  if (compteAvecPseudo(pseudo)) {
+    return res.status(409).json({ error: `Un compte existe déjà avec le pseudo « ${pseudo} » (pseudo réservé) — le joueur doit s'inscrire depuis son compte`, compte_pseudo: true });
+  }
   try {
     const info = db.prepare('INSERT INTO joueur (tournoi_id, pseudo, tete_de_serie) VALUES (?, ?, ?)').run(t.id, pseudo, tds);
-    // si un compte existe avec ce pseudo -> on rattache le joueur au compte (feature amis/notifs)
-    const c = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
-    if (c) db.prepare('UPDATE joueur SET compte_id = ? WHERE id = ?').run(c.id, info.lastInsertRowid);
     logAuditReq(req, 'inscription', `joueur ${info.lastInsertRowid}`, null, { pseudo, tds });
     majEtBroadcast();
     res.json({ ok: true, id: Number(info.lastInsertRowid) });
@@ -659,9 +665,10 @@ app.post('/api/admin/joueurs/simulation', requireAdmin, (req, res) => {
   const crees = [];
   let k = 1;
   const existe = db.prepare('SELECT 1 FROM joueur WHERE tournoi_id = ? AND pseudo = ?');
+  const existeCompte = db.prepare('SELECT 1 FROM compte WHERE pseudo = ? COLLATE NOCASE'); // pseudo d'un compte = réservé
   while (crees.length < n) {
     const pseudo = `${prefix}${String(k).padStart(2, '0')}`;
-    if (!existe.get(t.id, pseudo)) {
+    if (!existe.get(t.id, pseudo) && !existeCompte.get(pseudo)) {
       const info = ins.run(t.id, pseudo, 'paye');
       crees.push({ id: Number(info.lastInsertRowid), pseudo });
     }
@@ -679,6 +686,10 @@ app.post('/api/joueur', (req, res) => {
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
   const pseudo = cleanPseudo(req.body.pseudo, 40);
   if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
+  // pseudo d'un compte = réservé (anti-usurpation): l'inscription anonyme est refusée, le titulaire doit se connecter
+  if (compteAvecPseudo(pseudo)) {
+    return res.status(409).json({ error: 'Ce pseudo appartient à un compte : connecte-toi pour t\'inscrire, ou choisis un autre pseudo', compte_pseudo: true });
+  }
   const count = db.prepare('SELECT COUNT(*) c FROM joueur WHERE tournoi_id = ?').get(t.id).c;
   if (count >= t.taille) return res.status(409).json({ error: `Tableau complet (${t.taille} joueurs max)` });
   try {
@@ -712,6 +723,11 @@ app.put('/api/admin/joueur/:id', requireAdmin, (req, res) => {
   if (pseudo.length >= 2) {
     const pris = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND id != ?').get(j.tournoi_id, pseudo, id);
     if (pris) return res.status(409).json({ error: 'Pseudo déjà pris dans ce tournoi' });
+    // pseudo d'un compte = réservé (sauf si le joueur est déjà rattaché à CE compte: alignement de pseudo autorisé)
+    const cReserve = compteAvecPseudo(pseudo);
+    if (cReserve && cReserve.id !== j.compte_id) {
+      return res.status(409).json({ error: `Le pseudo « ${pseudo} » appartient à un compte (pseudo réservé)`, compte_pseudo: true });
+    }
     db.prepare('UPDATE joueur SET pseudo = ? WHERE id = ?').run(pseudo, id);
   }
   if (req.body.statut === 'paye' || req.body.statut === 'inscrit' || req.body.statut === 'absent') {

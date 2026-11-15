@@ -21,6 +21,7 @@ Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly) **ou** co
 
 - Ajouter un joueur (pseudo), **simuler** N joueurs, marquer **payé**, supprimer
 - Seuls les joueurs **payés** sont tirés au sort
+- ⛔ **Pseudo d'un compte = réservé** : inscription publique anonyme **et** ajout admin refusés avec **409** si un compte porte déjà ce pseudo (anti-usurpation) — le titulaire s'inscrit lui-même depuis son compte. Exception renommage : aligner le pseudo d'un joueur déjà rattaché à son propre compte reste possible
 - Un joueur inscrit en invité (sans compte) qui crée plus tard un compte avec le **même pseudo** est rattaché automatiquement (inscription ET connexion, phase inscription ET tournoi en cours) → il reçoit les pushs
 - Compte joueur oublie son pseudo/mdp : `/admin-comptes.html` → ✏️ pseudo / 🔑 mdp (sessions invalidées)
 
@@ -121,7 +122,7 @@ Toute action admin qui **supprime des données** exige le **code PIN re-saisi** 
 
 ```bash
 # serveur frais sur DB temporaire, puis:
-BASE=http://127.0.0.1:PORT node test/batterie.js   # 197 checks → test/rapport.md (rollback, confirm_pin, slots, byes, rematch 409, robustesse, export/import, diff, filtres…)
+BASE=http://127.0.0.1:PORT node test/batterie.js   # 204 checks → test/rapport.md (rollback, confirm_pin, slots, byes, rematch 409, robustesse, export/import, diff, filtres, pseudos réservés…)
 BASE=http://127.0.0.1:PORT [NO_MANUEL=1] [SEED=…] node test/simu-invariants.js   # simus randomisées 32j DKO k=1/2/3 + 32j simple + 16j, interventions admin aléatoires, invariant anti-rematch après chaque mutation
 BASE=http://127.0.0.1:PORT node test/e2e.js         # structure DKO, distances LB, SSE
 BASE=http://127.0.0.1:PORT node test/fullrun.js     # simulations complètes (16/32 joueurs, simple + DKO)

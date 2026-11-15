@@ -546,7 +546,21 @@ async function nouveauTournoi(body) {
   check('création Batterie2', nf_rc.status === 200, nf_rc.status + ' ' + (nf_rc.data.error || ''));
   let nf_rs = await post('/api/admin/joueurs/simulation', { count: 15, prefix: 'J' });
   check('simulation 15 joueurs', nf_rs.status === 200, nf_rs.status);
-  await post('/api/admin/joueur', { pseudo: 'Seb' }); // compte 'Seb' existe déjà (créé plus haut)
+  // pseudos réservés: un compte 'Seb' existe (créé plus haut) -> inscription anonyme et ajout admin refusés
+  nf_r = await post('/api/admin/joueur', { pseudo: 'Seb' });
+  check('ajout admin avec pseudo d\'un compte -> 409 (réservé)', nf_r.status === 409 && nf_r.data.compte_pseudo === true, nf_r.status + ' ' + (nf_r.data.error || ''));
+  nf_r = await post('/api/joueur', { pseudo: 'Seb' }, { pin: null });
+  check('inscription anonyme avec pseudo d\'un compte -> 409 (réservé)', nf_r.status === 409 && nf_r.data.compte_pseudo === true, nf_r.status + ' ' + (nf_r.data.error || ''));
+  nf_r = await post('/api/joueur', { pseudo: 'InviteBT' }, { pin: null });
+  check('inscription anonyme avec pseudo libre -> 200', nf_r.status === 200, nf_r.status + ' ' + (nf_r.data.error || ''));
+  nf_r = await del(`/api/admin/joueur/${(await api('/api/etat')).data.actif.joueurs.find(j => j.pseudo === 'InviteBT').id}`);
+  check('suppression du joueur anonyme InviteBT', nf_r.status === 200, nf_r.status);
+  // le titulaire du compte s'inscrit lui-même (nouveau flux: le pseudo d'un compte ne peut être inscrit que par son titulaire)
+  nf_r = await post('/api/compte/connexion', { pseudo: 'Seb', password: 'nouveau1' }, { pin: null });
+  check('connexion Seb -> 200', nf_r.status === 200, nf_r.status + ' ' + (nf_r.data.error || ''));
+  nf_r = await post('/api/tournoi/inscrire', {}, { pin: null, useCookie: true });
+  check('self-enroll Seb -> 201', nf_r.status === 201, nf_r.status + ' ' + (nf_r.data.error || ''));
+  cookie = '';
   let nf_t = (await api('/api/etat')).data.actif;
   check('16 joueurs inscrits', nf_t && nf_t.joueurs.length === 16, nf_t && nf_t.joueurs.length);
   for (const j of nf_t.joueurs) await post(`/api/admin/joueur/${j.id}/paiement`, { statut: 'paye' });
@@ -631,6 +645,8 @@ async function nouveauTournoi(body) {
   check('PUT joueur pseudo -> 200', nf_r.status === 200 && nf_r.data.joueur.pseudo === 'RenamedBT', nf_r.status);
   nf_r = await put(`/api/admin/joueur/${nf_j0.id}`, { pseudo: 'Seb' });
   check('PUT joueur pseudo pris -> 409', nf_r.status === 409, nf_r.status);
+  nf_r = await put(`/api/admin/joueur/${nf_j0.id}`, { pseudo: 'AliceBT' });
+  check('PUT pseudo d\'un compte (sans joueur homonyme) -> 409 (réservé)', nf_r.status === 409 && nf_r.data.compte_pseudo === true, nf_r.status + ' ' + (nf_r.data.error || ''));
   nf_r = await api(`/api/admin/match/${nf_m.id}/events`);
   const nf_ev = nf_r.data.events.find(e => e.type === 'manche' || e.type === 'runout');
   if (nf_ev) {
