@@ -19,6 +19,8 @@ Application web de gestion de tournois de billard (blackball / ultimate) : inscr
 
 Un joueur invité qui crée un compte avec le **même pseudo** est rattaché automatiquement (création de compte, connexion, ET inscription admin si le compte existe déjà).
 
+**Compte connecté = pas d'inscription anonyme** : `POST /api/joueur` refuse avec **409 `compte_connecte`** (l'inscription passe par `/api/tournoi/inscrire`) ; l'accueil ne propose que le bouton 1-clic du compte, le champ pseudo n'est affiché qu'aux non-connectés.
+
 ---
 
 ## 2. Tournois
@@ -61,7 +63,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 
 ## 6. Affichage public
 
-- **Accueil** : infos tournoi, inscription rapide, panneau **Amis** (si connecté), QR
+- **Accueil** : infos tournoi, inscription rapide (bouton 1-clic du compte si connecté, champ pseudo uniquement si non connecté), panneau **Amis** (si connecté), QR
 - **Tableau** (`/tableau.html`) : vue **bracket** avec **onglets Tout / WB / LB / Phase finale** (mémorisés) ; **liens SVG entre matchs visibles uniquement sur l'onglet « Phase finale »** (stubs courts sur les autres onglets), halo uniquement sur les matchs en cours ; cartes 230 px max ; **slots explicites** : match attendu = « gagnant wb1-001 » / « perdant lb2-003 » / « blanc » (une ligne par slot, ≤ 15 caractères) tant que les joueurs ne sont pas connus — exposé aussi dans l'API (`suivant_slot`/`perdant_slot` sur chaque match) ; vue **liste** (cartes en flux, une ligne `joueur1  0 - 0  joueur2`, gagnant en vert, match terminé bordé vert, match en cours entouré rouge, labels de slots) ; « Aller au tour » (select) ; **filtre joueur** (préfixe, Entrée pour valider, focus conservé)
 - **TV** (`/tv.html`) : uniquement les matchs **en cours**, champion en fin ; **grand QR centré**, **horloge en cours** (haut droite, sous le bandeau), **Screen Wake Lock** (anti veille écran) ; (520px/60vh/92vw) quand aucun tournoi lancé ou phase inscription (petit QR coin masqué dans ce cas) ; overlay « tourne l'écran » sur grand écran portrait
 - **Joueur** (`/suivi.html`) : choisir son joueur (invité = uniquement joueurs sans compte) → ses matchs en cours/à venir

@@ -44,6 +44,7 @@ function render() {
   // ---- Inscription (si ouverte) ----
   if (tn.statut === 'inscription') {
     // ---- Compte connecté : bouton d'inscription en 1 clic avec le pseudo du compte ----
+    // (pas de formulaire anonyme proposé : l'inscription passe par le compte)
     const compte = state.compte;
     if (compte) {
       const deja = t.joueurs.find(j => j.compte_id === compte.id);
@@ -55,14 +56,16 @@ function render() {
     } else {
       main.append(el('div', { class: 'panel', style: 'text-align:center' },
         el('p', { class: 'muted small' }, '💡 Crée un compte (pseudo + email + mot de passe) pour t\'inscrire en 1 clic et retrouver tes stats : ', el('a', { href: '/compte.html' }, '👤 Mon compte'))));
+      const input = el('input', { id: 'pseudo', placeholder: 'Ton pseudo', maxlength: 40, autocomplete: 'off' });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') inscrire(); });
+      main.append(el('div', { class: 'panel' },
+        el('div', { class: 'row' },
+          el('div', {}, input),
+          el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: inscrire }, "S'inscrire")))));
     }
-    const input = el('input', { id: 'pseudo', placeholder: 'Ton pseudo', maxlength: 40, autocomplete: 'off' });
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') inscrire(); });
+    // compteur + liste des inscrits (connecté ou non)
     main.append(el('div', { class: 'panel' },
-      el('div', { class: 'row' },
-        el('div', {}, input),
-        el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: inscrire }, "S'inscrire"))),
-      el('p', { class: 'muted small', style: 'margin:10px 0 0;text-align:center' }, `${t.joueurs.length}/${tn.taille} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés`),
+      el('p', { class: 'muted small', style: 'margin:0;text-align:center' }, `${t.joueurs.length}/${tn.taille} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés`),
       t.joueurs.length > 0 ? el('div', { class: 'liste-joueurs', style: 'margin-top:12px' },
         t.joueurs.map(j => el('a', { class: 'chip', href: `/joueur.html?id=${j.id}`, style: 'text-decoration:none;color:var(--text)' }, `${j.tete_de_serie ? '#' + j.tete_de_serie + ' ' : ''}${j.pseudo}${j.statut === 'paye' ? ' ✅' : ''}`))) : null));
   }

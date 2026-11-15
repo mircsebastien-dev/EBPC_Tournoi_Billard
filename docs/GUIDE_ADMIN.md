@@ -23,6 +23,7 @@ Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly) **ou** co
 - Seuls les joueurs **payés** sont tirés au sort
 - ⛔ **Pseudo d'un compte = réservé** : l'inscription publique anonyme est refusée avec **409** (anti-usurpation) ; l'ajout admin est possible **après confirmation explicite** (l'UI demande « inscrire quand même ? », le joueur est alors rattaché au compte). Exception renommage : aligner le pseudo d'un joueur déjà rattaché à son propre compte reste possible
 - Un joueur inscrit en invité (sans compte) qui crée plus tard un compte avec le **même pseudo** est rattaché automatiquement (inscription ET connexion, phase inscription ET tournoi en cours) → il reçoit les pushs
+- 🔒 **Compte connecté = pas d'inscription anonyme** : l'accueil ne propose que le bouton 1-clic du compte (pas de champ pseudo), et `POST /api/joueur` refuse avec **409 `compte_connecte`** ; l'inscription passe par `/api/tournoi/inscrire`
 - Compte joueur oublie son pseudo/mdp : `/admin-comptes.html` → ✏️ pseudo / 🔑 mdp (sessions invalidées)
 
 ## 3. Tirage au sort

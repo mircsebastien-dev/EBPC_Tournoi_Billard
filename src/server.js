@@ -691,6 +691,11 @@ app.post('/api/joueur', (req, res) => {
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
   const pseudo = cleanPseudo(req.body.pseudo, 40);
   if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
+  // compte connecté : l'inscription anonyme n'est pas proposée (l'accueil n'affiche plus le champ pseudo),
+  // le joueur passe par son compte (bouton « M'inscrire » -> /api/tournoi/inscrire)
+  if (req.compte) {
+    return res.status(409).json({ error: 'Compte connecté : inscris-toi avec le bouton « M\'inscrire » de ton compte', compte_connecte: true });
+  }
   // pseudo d'un compte = réservé (anti-usurpation): l'inscription anonyme est refusée, le titulaire doit se connecter
   if (compteAvecPseudo(pseudo)) {
     return res.status(409).json({ error: 'Ce pseudo appartient à un compte : connecte-toi pour t\'inscrire, ou choisis un autre pseudo', compte_pseudo: true });

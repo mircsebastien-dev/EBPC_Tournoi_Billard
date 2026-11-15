@@ -125,6 +125,8 @@ async function nouveauTournoi(body) {
   check('self-enroll tournoi -> 201 (Seb)', r.status === 201 && r.data.joueur.pseudo === 'Seb', JSON.stringify(r.data));
   r = await post('/api/tournoi/inscrire', {}, { pin: null, useCookie: true });
   check('double enroll -> 409', r.status === 409, r.data.error);
+  r = await post('/api/joueur', { pseudo: 'InviteSeb' }, { pin: null, useCookie: true });
+  check('inscription anonyme avec compte connecté -> 409 (compte_connecte)', r.status === 409 && r.data.compte_connecte === true, r.status + ' ' + (r.data.error || ''));
   r = await post('/api/tournoi/inscrire', {}, { pin: null });
   check('enroll sans compte -> 401', r.status === 401, r.data.error);
   r = await post('/api/compte/oubli', { email: 'seb@test.fr' }, { pin: null });
