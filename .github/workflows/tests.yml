@@ -1,0 +1,59 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Batterie (API complète)
+        run: |
+          rm -f /tmp/t.db /tmp/t.db-wal /tmp/t.db-shm
+          DB_PATH=/tmp/t.db PORT=4100 ADMIN_PIN=0000 node src/server.js > /tmp/server-batterie.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4100/api/health >/dev/null && break; sleep 1; done
+          BASE=http://127.0.0.1:4100 ADMIN_PIN=0000 node test/batterie.js
+
+      - name: E2E (structure DKO, distances, SSE)
+        run: |
+          pkill -f 'src/server.js' || true
+          rm -f /tmp/e.db /tmp/e.db-wal /tmp/e.db-shm
+          DB_PATH=/tmp/e.db PORT=4101 ADMIN_PIN=0000 node src/server.js > /tmp/server-e2e.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4101/api/health >/dev/null && break; sleep 1; done
+          BASE=http://127.0.0.1:4101 ADMIN_PIN=0000 node test/e2e.js
+
+      - name: Full run (simulations complètes)
+        run: |
+          pkill -f 'src/server.js' || true
+          rm -f /tmp/f.db /tmp/f.db-wal /tmp/f.db-shm
+          DB_PATH=/tmp/f.db PORT=4102 ADMIN_PIN=0000 node src/server.js > /tmp/server-fullrun.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4102/api/health >/dev/null && break; sleep 1; done
+          BASE=http://127.0.0.1:4102 ADMIN_PIN=0000 node test/fullrun.js
+
+      - name: Simu invariants (anti-rematch, randomisé)
+        run: |
+          pkill -f 'src/server.js' || true
+          rm -f /tmp/s.db /tmp/s.db-wal /tmp/s.db-shm
+          DB_PATH=/tmp/s.db PORT=4103 ADMIN_PIN=0000 node src/server.js > /tmp/server-simu.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4103/api/health >/dev/null && break; sleep 1; done
+          BASE=http://127.0.0.1:4103 ADMIN_PIN=0000 NO_MANUEL=1 SEED=12345 node test/simu-invariants.js
+
+      - name: Push unitaires (web-push mocké)
+        run: node test/push-unit.js
+
+      - name: Purge unitaires (audit > 90 j)
+        run: node test/purge-unit.js
+
+      - name: Journaux serveur (debug si échec)
+        if: failure()
+        run: 'for f in /tmp/server-*.log; do echo "== $f =="; tail -50 "$f"; done'
