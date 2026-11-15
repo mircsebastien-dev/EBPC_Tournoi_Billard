@@ -78,9 +78,9 @@ function render() {
       el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { t, onClick: () => location.href = matchUrl(m) })))));
   }
 
-  // lien discret vers le tableau complet
+  // lien vers le tableau complet (rose, comme les autres liens de contenu)
   main.append(el('div', { style: 'text-align:center;margin-top:6px' },
-    el('a', { href: '/tableau.html', class: 'muted small' }, '🗺 Voir le tableau complet →')));
+    el('a', { href: '/tableau.html', class: 'small' }, '🗺 Voir le tableau complet →')));
 }
 
 async function inscrire() {
