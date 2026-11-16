@@ -193,9 +193,10 @@ async function nouveauTournoi(body) {
   const vides = wb1.filter(m => m.etat === 'termine' && !m.joueur1 && !m.joueur2);
   const prets = wb1.filter(m => m.etat === 'pret');
   check('8 matchs WB1', wb1.length === 8, wb1.length);
-  check('byes auto-terminés avec gagnant', byes.length > 0 && byes.every(b => b.gagnant_id != null), `${byes.length} byes, ${vides.length} vides, ${prets.length} prets`);
+  check('byes/vides auto-terminés : 6 blancs répartis, byes avec gagnant, vides sans gagnant', byes.every(b => b.gagnant_id != null) && vides.every(v => v.gagnant_id == null) && byes.length + 2 * vides.length === 6 && 2 * prets.length + byes.length === 10, `${byes.length} byes, ${vides.length} vides, ${prets.length} prets`);
   const wb2 = t.matchs.filter(m => m.bracket === 'WB' && m.tour === 2);
-  check('gagnants byes propagés au tour 2', wb2.some(m => m.joueur1 || m.joueur2), wb2.filter(m => m.joueur1 || m.joueur2).length);
+  const joueursWb2 = wb2.flatMap(m => [m.joueur1?.id, m.joueur2?.id]).filter(x => x != null);
+  check('gagnants byes propagés au tour 2', joueursWb2.length === byes.length && byes.every(b => joueursWb2.includes(b.gagnant_id)), `${joueursWb2.length} joueurs en WB2 pour ${byes.length} byes`);
   // aléatoire: 2 tirages différents
   const app1 = wb1.map(m => [m.joueur1?.pseudo, m.joueur2?.pseudo].join('-')).sort().join('|');
   await del('/api/admin/tournoi');
