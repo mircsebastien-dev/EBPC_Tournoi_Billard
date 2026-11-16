@@ -41,7 +41,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 
 - Admin : ajouter/supprimer un joueur, simuler N joueurs, marquer payé, tirage = uniquement les payés
 - Joueur : self-enroll par pseudo (invité) ou via compte ; self-désinscription via compte (phase inscription uniquement)
-- **Tirage au sort** crypto (crypto.randomInt) : appariement WB1 (serpentin + têtes de série), blancs (bye) répartis, bye = victoire auto + propagation
+- **Tirage au sort** crypto (`crypto.randomInt`, mélange Fisher-Yates) : si les têtes de série sont activées, les seedés (triés par TDS) sont placés en ordre **serpentin** sur les matchs WB1 (TDS 1 → match 1, TDS 2 → dernier match, TDS 3 → match 2, TDS 4 → avant-dernier, etc. ; TDS impaires en slot 1, paires en slot 2 → les seedés ne peuvent se rencontrer qu'en fin de tableau) ; les non-seedés ET les blancs sont **mélangés ensemble** puis versés dans les slots restants (un match WB1 peut donc être joueur-vs-blanc = passe direct, ou blanc-vs-blanc = match vide auto-terminé par `appliquerBye`) ; bye = victoire auto + propagation
 
 ## 4. Matchs
 
@@ -56,12 +56,25 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - **−1 (retirer une manche)** : correction possible à tout moment ; la ⚪ revient à l'état précédent (le casseur redevient l'adversaire du casseur courant)
 - **Corrections admin** (modale « Gérer le match », clic sur card avec PIN) : changer les joueurs (WB/LB, blanc possible → bye auto **uniquement si le feeder du côté blanc est terminé** ; **409 si la paire est déjà appariée ailleurs hors finale**), déplacer de table (409 si occupée, libérer = null), corriger le score (scores absolus), rouvrir (409 si aval commencé), forfait. Audit logué.
 
-## 5. Bracket (génération, DKO)
+## 5. Bracket (génération, croisements, anti-rematch)
 
-- WB tours, LB (`2k-2` tours en DKO k), F (tableau final)
-- Liens : gagnant WB t → WB t+1 ; perdant WB1 → LB1 ; perdant WB t → LB tour pair ; croisements LB par blocs de 4 (évite les re-matchs intra-groupe) ; dernier tour LB → F1 slot 2 en **rotation d'une demi-moitié croisée** (moitié opposée à la zone WB d'origine, puis miroir binaire à l'intérieur de chaque moitié : deux revenants issus de matchs LB adjacents tombent dans des quarts différents, risque de re-match repoussé des quarts F2 vers les demis F3, 22,7 % → 6,2 % des tournois ; plancher mesuré des 40 320 réventilations statiques possibles)
-- **Anti-rematch strict, garanti hors finale** : à chaque propagation, **sweep du tour entier (WB/LB/F)** : si un match non démarré a ses 2 joueurs déjà appariés ailleurs (joués OU prévus, `paireExiste`), on échange **un seul joueur** avec un autre match du même tour (jusqu'à 4 orientations, partenaires même partiellement remplis), logué `rematch_swap_*`. Le sweep ne touche que les matchs `prevu`/`pret` et ne crée jamais `j1 === j2`. **Garde-fou au lancement** (`assertPasDeRematch` dans `lancerMatch`, `declarerForfait`, `corrigerScore` quand ça termine) : après un dernier sweep, si la paire existe encore ailleurs → **409 « Rematch interdit hors finale »**. Seule exception : dernier tour d'un bracket à **1 seul match** (finale F / dernier LB forcé). Conséquence : aucun rematch ne peut jamais être joué hors finale ; en cas d'état manuellement corrompu sans swap possible, le lancement est bloqué (fail-closed, 409 explicite)
-- Propagation gagnant/perdant en cascade, byes auto
+**Structure** (source unique : `structureBracket`, fonction **pure** sans BDD ni joueurs, partagée par le tirage réel ET le tableau virtuel pré-tirage) :
+
+- Format **simple** : `log2(taille)` tours WB, WB t = `taille >> t` matchs ; gagnant WB(t,p) → WB(t+1, ⌈p/2⌉)
+- **DKO partiel k** : WB k tours ; **LB `2k-2` tours** (1 seul si k=1) ; les LB tours `2j-1` et `2j` comptent chacun `taille >> (j+1)` matchs (LB1/LB2 = taille/4, LB3/LB4 = taille/8, …) ; **tableau final F** de `taille >> (k-1)` joueurs (`log2` tours) : gagnant WB(k,p) → **F1 slot 1**, dernier tour LB → F1 slot 2 (croisement ci-dessous)
+- **Liens perdants** : perdant WB1 (positions 2p-1 et 2p) → LB1 p (slots 1 et 2) ; perdant WB t (t ≥ 2, position p) → LB tour **2t-2**, position p, **slot 2** (le slot 1 vient du LB)
+- Propagation gagnant/perdant en cascade, byes auto (`appliquerBye` : joueur seul + feeder adverse terminé = victoire bye propagée ; blanc-vs-blanc = match vide auto-terminé)
+
+**Croisements LB** (câblage statique anti-rematch, calibré pour retarder au maximum les re-rencontres) :
+
+- Tour **impair → pair** (LB1→LB2, LB3→LB4…, même nombre de matchs) : croisement **par paires p ↔ p^1 en slot 1** ; le tour pair reçoit par ailleurs un perdant WB en slot 2 (même position) → le perdant de WB(t,p) ne peut jamais retomber sur le gagnant LB issu de son propre groupe de 4 du WB (élimine le re-match immédiat « J1 vs J2 »)
+- Tour **pair → impair** (LB2→LB3, LB4→LB5…, moitié moins de matchs) : croisement **par blocs de 4** — les feeders extérieurs du bloc (rangs 1 et 4) alimentent un match suivant, les intérieurs (rangs 2 et 3) l'autre → les 2 feeders d'un match LB suivant ne viennent jamais du même groupe de 4 du WB
+- **Dernier tour LB → F1 slot 2** en **rotation d'une demi-moitié croisée** (moitié opposée à la zone WB d'origine, puis miroir binaire à l'intérieur de chaque moitié : deux revenants issus de matchs LB adjacents tombent dans des quarts différents, risque de re-match repoussé des quarts F2 vers les demis F3, 22,7 % → 6,2 % des tournois ; plancher mesuré des 40 320 réventilations statiques possibles)
+
+**Anti-rematch strict, garanti hors finale** (filet de sécurité dynamique, quel que soit le câblage) :
+
+- **Sweep à chaque propagation** (`setJoueurDansSuivant`) : si un match non démarré a ses 2 joueurs déjà appariés ailleurs (joués OU prévus, `paireExiste`), on échange **un seul joueur** avec un autre match du même tour (**4 orientations** testées, partenaires même partiellement remplis), logué `rematch_swap_*` ; le sweep reboucle (jusqu'à 10 passes) sur tout le tour WB/LB/F tant qu'un swap est possible, car un swap devient possible quand les autres matchs du tour se remplissent. Ne touche que les matchs `prevu`/`pret`, ne crée jamais `j1 === j2`
+- **Garde-fou au lancement** (`assertPasDeRematch` dans `lancerMatch`, `declarerForfait`, `corrigerScore` quand ça termine) : après un dernier sweep, si la paire existe encore ailleurs → **409 « Rematch interdit hors finale »**. **Changement manuel des joueurs** (`setJoueursAdmin`) : 409 si la paire est déjà appariée ailleurs (joué ou prévu), sauf si l'un des deux matchs est la vraie finale. **Seule exception** : dernier tour d'un bracket à **1 seul match** (finale F / dernier LB forcé). Conséquence : aucun rematch ne peut jamais être joué hors finale ; en cas d'état manuellement corrompu sans swap possible, le lancement est bloqué (fail-closed, 409 explicite)
 
 ## 6. Affichage public
 
@@ -142,7 +155,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - **Déploiement** : push sur `main` → déploiement auto Fly depuis GitHub (prod `ebpc-tournoi-billard`) ; **app de test** séparée (`ebpc-tournoi-billard-test`) : volume neuf ou restauré depuis snapshot prod (jamais partagé), secrets recopiés à la main (Fly ne les lit pas), PIN différent conseillé
 - **Snapshots volume** : `fly volumes snapshots list/create tournoi_data` pour backup/restauration
 - **Tests** (serveur frais sur DB temporaire : `PORT=xxxx DB_PATH=/tmp/x.db ADMIN_PIN=0000 node src/server.js`) :
-  - `BASE=http://127.0.0.1:PORT node test/batterie.js` → **203 checks** (`test/rapport.md`) : sécurité PIN + confirm_pin, tournois, comptes, matchs, DKO, amis, règles, **rollback point-in-time (401/404/200, état restauré, match en cours → pret 0-0 + table libérée)**, slots API, byes exclus du classement, lancements lisibles, **robustesse (section 13 : health, 400/413/404 JSON, id NaN, pseudo tronqué/nettoyé, injection SQL, 20 manches parallèles sans 500 ni double comptage)**
+  - `BASE=http://127.0.0.1:PORT node test/batterie.js` → **232 checks** (`test/rapport.md`) : sécurité PIN + confirm_pin, tournois, comptes, matchs, DKO, amis, règles, **rollback point-in-time (401/404/200, état restauré, match en cours → pret 0-0 + table libérée)**, slots API, byes exclus du classement, lancements lisibles, **robustesse (section 13 : health, 400/413/404 JSON, id NaN, pseudo tronqué/nettoyé, injection SQL, 20 manches parallèles sans 500 ni double comptage)**
   - `BASE=… node test/e2e.js` (structure DKO 32 k=2/k=3, distances LB race-to-2, SSE) · `BASE=… node test/fullrun.js` (simulations complètes 16/32 joueurs simple + DKO)
   - `node test/push-unit.js` (push `envoyerTous` avec web-push mocké via `require.cache` : payload « inscriptions ouvertes », cleanup 410/404, 500 conservé) · `node test/purge-unit.js` (purge au boot `audit_log`/`audit_snapshot` > 90 j, test en 2 processus)
   - anti brute-force PIN : `TEST_BRUTEFORCE=1 PIN_MAX_ESSAIS=4 PIN_FENETRE_MS=1500 PIN_BLOCAGE_MS=2000` (côté serveur ET côté batterie) active la section 12 (429 après N échecs, lockout même pour le bon code, déblocage après délai)
