@@ -21,6 +21,8 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 
 **Compte connecté = pas d'inscription anonyme** : `POST /api/joueur` refuse avec **409 `compte_connecte`** (l'inscription passe par `/api/tournoi/inscrire`) ; l'accueil ne propose que le bouton 1-clic du compte, le champ pseudo n'est affiché qu'aux non-connectés.
 
+**Self-désinscription** : `DELETE /api/tournoi/desinscrire` (compte connecté, **401** sinon) retire du tournoi actif le joueur rattaché au compte — uniquement en phase `inscription` (**409** si tournoi lancé), **404** si pas inscrit ; bouton « Me désinscrire » sur l'accueil et `/compte.html`, logué `desinscription` (`self: true`) dans l'audit ; un joueur sans compte reste désinscriptible par un admin uniquement.
+
 ---
 
 ## 2. Tournois
@@ -38,7 +40,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 ## 3. Inscriptions
 
 - Admin : ajouter/supprimer un joueur, simuler N joueurs, marquer payé, tirage = uniquement les payés
-- Joueur : self-enroll par pseudo (invité) ou via compte
+- Joueur : self-enroll par pseudo (invité) ou via compte ; self-désinscription via compte (phase inscription uniquement)
 - **Tirage au sort** crypto (crypto.randomInt) : appariement WB1 (serpentin + têtes de série), blancs (bye) répartis, bye = victoire auto + propagation
 
 ## 4. Matchs
@@ -63,7 +65,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 
 ## 6. Affichage public
 
-- **Accueil** : infos tournoi, inscription rapide (bouton 1-clic du compte si connecté, champ pseudo uniquement si non connecté), panneau **Amis** (si connecté), QR
+- **Accueil** : infos tournoi, inscription rapide (bouton 1-clic du compte si connecté, champ pseudo uniquement si non connecté), bouton « Me désinscrire » si déjà inscrit (phase inscription), panneau **Amis** (si connecté), QR
 - **Tableau** (`/tableau.html`) : vue **bracket** avec **onglets Tout / WB / LB / Phase finale** (mémorisés) ; **liens SVG entre matchs visibles uniquement sur l'onglet « Phase finale »** (stubs courts sur les autres onglets), halo uniquement sur les matchs en cours ; cartes 230 px max ; **slots explicites** : match attendu = « gagnant wb1-001 » / « perdant lb2-003 » / « blanc » (une ligne par slot, ≤ 15 caractères) tant que les joueurs ne sont pas connus — exposé aussi dans l'API (`suivant_slot`/`perdant_slot` sur chaque match) ; vue **liste** (cartes en flux, une ligne `joueur1  0 - 0  joueur2`, gagnant en vert, match terminé bordé vert, match en cours entouré rouge, labels de slots) ; « Aller au tour » (select) ; **filtre joueur** (préfixe, Entrée pour valider, focus conservé) ; **tableau à vide avant le tirage** : dès la création (statut inscription), `/api/etat` expose la structure complète en **matchs virtuels** (`virtuel: true`, ids `v1`…`vN`, `etat` prévu, aucun joueur, non cliquables côté client, rien en base) issus de `structureBracket` — la même fonction pure qui câble le vrai tirage — et la page affiche le tour 1 en `j1`…`jN` (ex. j1 à j32), les tours suivants en « gagnant/perdant … » ; le tirage remplace les matchs virtuels par les réels
 - **TV** (`/tv.html`) : uniquement les matchs **en cours**, champion en fin ; **grand QR centré**, **horloge en cours** (haut droite, sous le bandeau), **Screen Wake Lock** (anti veille écran) ; (520px/60vh/92vw) quand aucun tournoi lancé ou phase inscription (petit QR coin masqué dans ce cas) ; overlay « tourne l'écran » sur grand écran portrait
 - **Joueur** (`/suivi.html`) : choisir son joueur (invité = uniquement joueurs sans compte) → ses matchs en cours/à venir
@@ -113,7 +115,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 ## 12. API (principales)
 
 - Public : `/api/etat` (SSE aussi, matchs avec `suivant_slot`/`perdant_slot`), `/api/tournois`, `/api/tournois/:id`, `/api/stats-joueurs`, `/api/joueur/:id/stats|historique|matchs`, `/api/comptes/recherche`, `/api/qrcode.svg`, `/api/events` (SSE)
-- Joueur : `/api/match/:id/bande|manche|runout|retirer`, `/api/compte/*` (inscription, connexion, déconnexion, moi, email, amis, export, push subscribe), `/api/push/vapid-public|subscribe|unsubscribe`, `/api/push/test`
+- Joueur : `/api/match/:id/bande|manche|runout|retirer`, `/api/tournoi/inscrire|desinscrire`, `/api/compte/*` (inscription, connexion, déconnexion, moi, email, amis, export, push subscribe), `/api/push/vapid-public|subscribe|unsubscribe`, `/api/push/test`
 - Admin (PIN) : `/api/admin/*` (tournoi [+ `notif_push` à la création], joueur(s), paiement, tirage, auto, match lancer/table/joueurs/correction/rouvrir/forfait/events, terminer, simuler, comptes, compte pseudo/password/suppr, audit [500 entrées + `has_snapshot`, filtres `?q=`/`?action=`], data events, distances, tables) + **`POST /api/admin/tournoi/rollback {audit_id, confirm_pin}`** + **`GET /api/admin/tournoi/rollback/diff?audit_id=`** (diff snapshot vs courant avant restauration) + **`GET /api/admin/tournoi/export[?id=]`** (JSON téléchargeable) + **`POST /api/admin/tournoi/import {payload, replace?, confirm_pin}`** (remap des ids en 2 passes — liens self-FK en UPDATE après — `PRAGMA foreign_key_check` avant COMMIT, 400 explicite si refs cassées, 409 si tournoi actif sans `replace:true`) ; routes destructives protégées par `requireConfirmPin` (`confirm_pin` dans le body)
 
 ## 13. Sécurité

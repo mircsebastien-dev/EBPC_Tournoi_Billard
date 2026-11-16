@@ -171,7 +171,13 @@ const btnNotif = notifOk
     if (mesInscriptions.length) {
       main.append(el('div', { class: 'panel' },
         el('h2', {}, '📋 Mon inscription'),
-        ...mesInscriptions.map(j => el('p', {}, `✅Inscrit au tournoi « ${t.tournoi.nom} » en tant que ${j.pseudo} — statut : ${j.statut === 'paye' ? 'payé' : 'en attente'}`))));
+        ...mesInscriptions.map(j => el('p', {}, `✅Inscrit au tournoi « ${t.tournoi.nom} » en tant que ${j.pseudo} — statut : ${j.statut === 'paye' ? 'payé' : 'en attente'}`)),
+        t.tournoi.statut === 'inscription' ? el('div', { style: 'margin-top:8px' },
+          el('button', { class: 'danger', onclick: async () => {
+            if (!confirm('Te désinscrire du tournoi « ' + t.tournoi.nom + ' » ? (si tu as déjà payé, passe voir le club)')) return;
+            try { await api('/api/tournoi/desinscrire', { method: 'DELETE' }); init(); } catch (e) { alert(e.message); }
+          } }, 'Me désinscrire'),
+          el('p', { class: 'muted small', style: 'margin-top:6px' }, 'Possible tant que les inscriptions sont ouvertes.')) : null));
     }
     if (mm.matchs && mm.matchs.length) {
       main.append(el('div', { class: 'panel' },

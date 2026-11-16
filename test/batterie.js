@@ -132,6 +132,17 @@ async function nouveauTournoi(body) {
   check('self-enroll tournoi -> 201 (Seb)', r.status === 201 && r.data.joueur.pseudo === 'Seb', JSON.stringify(r.data));
   r = await post('/api/tournoi/inscrire', {}, { pin: null, useCookie: true });
   check('double enroll -> 409', r.status === 409, r.data.error);
+  // --- self-désinscription (compte connecté, phase inscription) ---
+  r = await del('/api/tournoi/desinscrire', { pin: null });
+  check('self-désinscription sans compte -> 401', r.status === 401, r.data.error);
+  r = await del('/api/tournoi/desinscrire', { pin: null, useCookie: true });
+  check('self-désinscription -> 200 (Seb)', r.status === 200 && r.data.pseudo === 'Seb', JSON.stringify(r.data));
+  t = (await api('/api/etat')).data.actif;
+  check('désinscrit : Seb absent du tournoi', !t.joueurs.some(j => j.pseudo === 'Seb'), t.joueurs.length + ' joueurs');
+  r = await del('/api/tournoi/desinscrire', { pin: null, useCookie: true });
+  check('double désinscription -> 404', r.status === 404, r.data.error);
+  r = await post('/api/tournoi/inscrire', {}, { pin: null, useCookie: true });
+  check('ré-inscription après désinscription -> 201', r.status === 201, r.status + ' ' + (r.data.error || ''));
   r = await post('/api/joueur', { pseudo: 'InviteSeb' }, { pin: null, useCookie: true });
   check('inscription anonyme avec compte connecté -> 409 (compte_connecte)', r.status === 409 && r.data.compte_connecte === true, r.status + ' ' + (r.data.error || ''));
   r = await post('/api/tournoi/inscrire', {}, { pin: null });
@@ -598,6 +609,8 @@ async function nouveauTournoi(body) {
   check('s\'ajouter soi-même -> 400', nf_r.status === 400, nf_r.status);
   let nf_rt = await post('/api/admin/tirage', {});
   check('tirage OK', nf_rt.status === 200, nf_rt.status + ' ' + (nf_rt.data.error || ''));
+  nf_r = await del('/api/tournoi/desinscrire', { pin: null, useCookie: true });
+  check('self-désinscription tournoi lancé -> 409', nf_r.status === 409, nf_r.status + ' ' + (nf_r.data.error || ''));
   nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });
   check('liste amis = 1 (Seb)', nf_r.status === 200 && nf_r.data.amis.length === 1 && nf_r.data.amis[0].pseudo === 'Seb', nf_r.status);
   check('ami a un statut de tournoi', ['pret', 'en_cours', 'inscrit'].includes(nf_r.data.amis[0].statut.type), nf_r.data.amis[0].statut.type);
@@ -633,6 +646,8 @@ async function nouveauTournoi(body) {
   check('admin comptes: amis_comptes (Seb) + amis_pseudos (Ghost) exposés', !!(nf_adminL && (nf_adminL.amis_comptes || '').includes('Seb') && (nf_adminL.amis_pseudos || '').includes('Ghost')), JSON.stringify({ a: nf_adminL && nf_adminL.amis_comptes, p: nf_adminL && nf_adminL.amis_pseudos }));
   const admHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
   check('front: colonne Amis dans admin-comptes (comptes + sans compte)', admHtml.includes('amis_comptes') && admHtml.includes('amis_pseudos') && admHtml.includes('sans compte'), '');
+  const cptHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'compte.html'), 'utf8');
+  check('front: bouton « Me désinscrire » (accueil + page compte)', idxHtml.includes('Me désinscrire') && cptHtml.includes('Me désinscrire') && (idxHtml + cptHtml).includes('/api/tournoi/desinscrire'), '');
   nf_r = await del('/api/compte/amis/' + nf_sebId, { pin: null, useCookie: true });
   nf_r = await del('/api/compte/amis-pseudo/' + nf_ghostId, { pin: null, useCookie: true });
   nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });
