@@ -66,7 +66,7 @@ Pages :
 
 | URL | Rôle |
 |---|---|
-| `/` | Accueil public + inscription + tableau live + stats |
+| `/` | Accueil public + affiche auto-générée du prochain tournoi (phase inscription) + inscription + tableau live + stats |
 | `/tv.html` | Écran TV (plein écran, auto-refresh, stats) |
 | `/tableau.html` | **Bracket visuel** (colonnes par round, liens SVG, surlignage live) |
 | `/suivi.html` | Suivi joueur (sélection du pseudo, ses matchs) |

@@ -290,3 +290,23 @@ button, .btn-score, .btn-manche, .btn-bande, .nav-burger, .nav-login, a.btn, .ch
 /* bracket: toutes les cards même largeur */
 .bracket-col, .bracket .round { width: 230px; min-width: 230px; max-width: 230px; flex: 0 0 230px; }
 .bracket .match-card { width: 100%; box-sizing: border-box; }
+
+/* ===== Affiche du tournoi à venir (accueil, phase inscription) : poster sobre or/sombre ===== */
+.poster { position: relative; display: flex; align-items: center; gap: 26px; padding: 34px 28px; overflow: hidden; border-top: 2px solid var(--gold); background: radial-gradient(130% 150% at 88% 8%, rgba(217,184,120,0.09), transparent 55%), linear-gradient(180deg, var(--panel), var(--bg2)); }
+.poster-info { flex: 1 1 auto; min-width: 0; }
+.poster-eyebrow { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); border: 1px solid rgba(217,184,120,0.45); padding: 5px 12px; margin-bottom: 14px; }
+.poster-title { font-size: clamp(28px, 6vw, 42px); line-height: 1.1; }
+.poster-when { font-size: clamp(17px, 4vw, 21px); font-weight: 800; color: var(--gold); margin: 10px 0 14px; }
+.poster-fill { margin-top: 18px; max-width: 420px; }
+.poster-bar { height: 8px; background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.poster-bar > div { height: 100%; background: linear-gradient(90deg, var(--gold), #f0d9a8); transition: width 0.4s; }
+.poster-qr { position: relative; z-index: 1; flex: 0 0 auto; text-align: center; }
+.poster-qr img { background: #fff; padding: 7px; border-radius: 6px; display: block; margin: 0 auto; }
+/* boule 8 en filigrane derrière le QR */
+.poster-ball { position: absolute; right: 18px; bottom: 12px; width: 148px; height: 148px; border-radius: 50%; pointer-events: none; opacity: 0.55; background: radial-gradient(circle at 32% 28%, #343945, #14161d 58%, #0b0c10); border: 1px solid rgba(217,184,120,0.28); }
+.poster-ball-num { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); width: 64px; height: 64px; border-radius: 50%; background: var(--text); color: var(--bg); font-weight: 800; font-size: 30px; display: flex; align-items: center; justify-content: center; }
+@media (max-width: 700px) {
+  .poster { flex-direction: column; align-items: stretch; text-align: center; }
+  .poster .row { justify-content: center !important; }
+  .poster-fill { margin-left: auto; margin-right: auto; }
+}

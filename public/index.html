@@ -31,15 +31,39 @@ function render() {
   }
   const tn = t.tournoi;
 
-  // ---- Infos de base uniquement : nom, date, lieu ----
-  main.append(el('div', { class: 'panel', style: 'text-align:center' },
-    el('div', { class: 'hero-title' }, tn.nom),
-    (tn.date_heure || tn.lieu) ? el('p', { style: 'font-size:clamp(18px,4.5vw,24px);font-weight:800;color:var(--gold);margin:8px 0' },
-      `${tn.date_heure ? '📅 ' + fmtDateHeure(tn.date_heure) : ''}${tn.date_heure && tn.lieu ? '  ·  ' : ''}${tn.lieu ? '📍 ' + tn.lieu : ''}`) : null,
-    el('div', { class: 'row', style: 'justify-content:center' },
-      el('span', { class: `badge ${tn.statut}` }, tn.statut === 'inscription' ? 'Inscriptions ouvertes' : tn.statut === 'en_cours' ? '🔴 En cours' : '🏁 Terminé'),
-      el('span', { class: 'chip' }, tn.regle === 'blackball' ? 'Blackball' : 'Ultimate'),
-      el('span', { class: 'chip' }, `tableau ${tn.taille}`))));
+  // ---- Affiche du tournoi à venir (poster auto-généré, phase inscription) ----
+  if (tn.statut === 'inscription') {
+    const inscrits = t.joueurs.length;
+    const restantes = Math.max(0, tn.taille - inscrits);
+    const pct = Math.max(4, Math.min(100, Math.round((inscrits / tn.taille) * 100)));
+    main.append(el('div', { class: 'panel poster' },
+      el('div', { class: 'poster-info' },
+        el('span', { class: 'poster-eyebrow' }, 'Inscriptions ouvertes'),
+        el('div', { class: 'hero-title poster-title' }, tn.nom),
+        (tn.date_heure || tn.lieu) ? el('p', { class: 'poster-when' },
+          `${tn.date_heure ? '📅 ' + fmtDateHeure(tn.date_heure) : ''}${tn.date_heure && tn.lieu ? '  ·  ' : ''}${tn.lieu ? '📍 ' + tn.lieu : ''}`) : null,
+        el('div', { class: 'row', style: 'justify-content:flex-start;flex-wrap:wrap' },
+          el('span', { class: 'chip' }, tn.regle === 'blackball' ? 'Blackball' : 'Ultimate'),
+          el('span', { class: 'chip' }, tn.format === 'double' ? `Double KO (${tn.dko_tours || 1} tour${(tn.dko_tours || 1) > 1 ? 's' : ''} WB)` : 'Élimination directe'),
+          el('span', { class: 'chip' }, `Tableau de ${tn.taille}`)),
+        el('div', { class: 'poster-fill' },
+          el('div', { class: 'poster-bar' }, el('div', { style: `width:${pct}%` })),
+          el('p', { class: 'muted small', style: 'margin:8px 0 0' },
+            restantes > 0 ? `${inscrits}/${tn.taille} inscrits · ${restantes} place${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''}` : `Complet · ${inscrits}/${tn.taille} inscrits`))),
+      el('div', { class: 'poster-qr' },
+        el('img', { src: '/api/qrcode.svg', alt: 'QR code inscription', width: 128, height: 128, loading: 'lazy' }),
+        el('p', { class: 'muted small', style: 'margin:8px 0 0' }, 'Scanne et inscris-toi')),
+      el('div', { class: 'poster-ball', 'aria-hidden': 'true' }, el('div', { class: 'poster-ball-num' }, '8'))));
+  } else {
+    main.append(el('div', { class: 'panel', style: 'text-align:center' },
+      el('div', { class: 'hero-title' }, tn.nom),
+      (tn.date_heure || tn.lieu) ? el('p', { style: 'font-size:clamp(18px,4.5vw,24px);font-weight:800;color:var(--gold);margin:8px 0' },
+        `${tn.date_heure ? '📅 ' + fmtDateHeure(tn.date_heure) : ''}${tn.date_heure && tn.lieu ? '  ·  ' : ''}${tn.lieu ? '📍 ' + tn.lieu : ''}`) : null,
+      el('div', { class: 'row', style: 'justify-content:center' },
+        el('span', { class: `badge ${tn.statut}` }, tn.statut === 'en_cours' ? '🔴 En cours' : '🏁 Terminé'),
+        el('span', { class: 'chip' }, tn.regle === 'blackball' ? 'Blackball' : 'Ultimate'),
+        el('span', { class: 'chip' }, `tableau ${tn.taille}`))));
+  }
 
   // ---- Inscription (si ouverte) ----
   if (tn.statut === 'inscription') {
