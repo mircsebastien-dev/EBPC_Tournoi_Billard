@@ -44,7 +44,7 @@ function render() {
           `${tn.date_heure ? fmtDateHeure(tn.date_heure) : ''}${tn.date_heure && tn.lieu ? '  ·  ' : ''}${tn.lieu ? tn.lieu : ''}`) : null,
         el('div', { class: 'row', style: 'justify-content:flex-start;flex-wrap:wrap' },
           el('span', { class: 'chip' }, tn.regle === 'blackball' ? 'Blackball' : 'Ultimate'),
-          el('span', { class: 'chip' }, tn.format === 'double' ? `Double KO (${tn.dko_tours || 1} tour${(tn.dko_tours || 1) > 1 ? 's' : ''} WB)` : 'Élimination directe'),
+          el('span', { class: 'chip' }, tn.format === 'double' ? `Double KO (${tn.dko_tours || 1} tour${(tn.dko_tours || 1) > 1 ? 's' : ''})` : 'Élimination directe'),
           el('span', { class: 'chip' }, `Tableau de ${tn.taille}`)),
         el('div', { class: 'poster-fill' },
           el('div', { class: 'poster-bar' }, el('div', { style: `width:${pct}%` })),
