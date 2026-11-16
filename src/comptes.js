@@ -430,7 +430,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     res.status(201).json({ ok: true, joueur: { id: Number(info.lastInsertRowid), pseudo: req.compte.pseudo, statut: 'en_attente' } });
   });
 
-  // self-désinscription du tournoi actif (uniquement en phase d'inscription)
+  // self-désinscription du tournoi actif (uniquement en phase d'inscription, pas encore payé)
   // même garde-fou que la désinscription admin : impossible une fois le tournoi lancé
   app.delete('/api/tournoi/desinscrire', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Connecte-toi à ton compte pour te désinscrire' });
@@ -439,6 +439,8 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (t.statut !== 'inscription') return res.status(409).json({ error: 'Les inscriptions sont fermées (tournoi lancé)' });
     const j = db.prepare('SELECT * FROM joueur WHERE tournoi_id = ? AND compte_id = ?').get(t.id, req.compte.id);
     if (!j) return res.status(404).json({ error: "Tu n'es pas inscrit à ce tournoi" });
+    // déjà payé : la désinscription autonome est refusée (remboursement à gérer par le club)
+    if (j.statut === 'paye') return res.status(409).json({ error: 'Tu as déjà payé ton inscription : la désinscription se fait auprès de la table de marque', deja_paye: true });
     db.prepare('DELETE FROM joueur WHERE id = ?').run(j.id);
     logAuditC(req, 'desinscription', `joueur ${j.id}`, null, { compte: req.compte.pseudo, self: true });
     majEtBroadcast();

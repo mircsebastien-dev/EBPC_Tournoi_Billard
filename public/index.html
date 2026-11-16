@@ -53,8 +53,11 @@ function render() {
         deja
           ? el('div', {},
               el('p', { style: 'color:var(--green);font-weight:700' }, `✅ Inscrit (${deja.statut === 'paye' ? 'payé' : 'en attente de paiement'})`),
-              el('button', { class: 'secondary', style: 'width:100%;max-width:420px;margin-top:8px', onclick: desinscrireCompte }, 'Me désinscrire'),
-              el('p', { class: 'muted small', style: 'margin-top:6px' }, 'Inscrit par erreur ? Tu peux te désinscrire tant que les inscriptions sont ouvertes (si tu as déjà payé, passe voir le club).'))
+              deja.statut === 'paye'
+                ? el('p', { class: 'muted small', style: 'margin-top:6px' }, '💰 Déjà payé : la désinscription se fait auprès de la table de marque (remboursement à voir avec le club).')
+                : el('div', {},
+                    el('button', { class: 'secondary', style: 'width:100%;max-width:420px;margin-top:8px', onclick: desinscrireCompte }, 'Me désinscrire'),
+                    el('p', { class: 'muted small', style: 'margin-top:6px' }, 'Inscrit par erreur ? Tu peux te désinscrire tant que les inscriptions sont ouvertes et que tu n\'as pas payé.')))
           : el('button', { style: 'width:100%;max-width:420px', onclick: inscrireCompte }, `M'inscrire à « ${tn.nom} » en tant que ${compte.pseudo}`)));
     } else {
       main.append(el('div', { class: 'panel', style: 'text-align:center' },

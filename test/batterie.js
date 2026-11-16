@@ -132,9 +132,17 @@ async function nouveauTournoi(body) {
   check('self-enroll tournoi -> 201 (Seb)', r.status === 201 && r.data.joueur.pseudo === 'Seb', JSON.stringify(r.data));
   r = await post('/api/tournoi/inscrire', {}, { pin: null, useCookie: true });
   check('double enroll -> 409', r.status === 409, r.data.error);
-  // --- self-désinscription (compte connecté, phase inscription) ---
+  // --- self-désinscription (compte connecté, phase inscription, pas encore payé) ---
   r = await del('/api/tournoi/desinscrire', { pin: null });
   check('self-désinscription sans compte -> 401', r.status === 401, r.data.error);
+  // déjà payé -> refus (la self-désinscription ne concerne que les inscrits non payés)
+  let sebJ = (await api('/api/etat')).data.actif.joueurs.find(j => j.pseudo === 'Seb');
+  r = await post(`/api/admin/joueur/${sebJ.id}/paiement`, { statut: 'paye' });
+  check('Seb marqué payé (setup)', r.status === 200, r.status);
+  r = await del('/api/tournoi/desinscrire', { pin: null, useCookie: true });
+  check('self-désinscription déjà payé -> 409 (deja_paye)', r.status === 409 && r.data.deja_paye === true, r.status + ' ' + (r.data.error || ''));
+  r = await post(`/api/admin/joueur/${sebJ.id}/paiement`, { statut: 'en_attente' });
+  check('paiement Seb annulé (setup)', r.status === 200, r.status);
   r = await del('/api/tournoi/desinscrire', { pin: null, useCookie: true });
   check('self-désinscription -> 200 (Seb)', r.status === 200 && r.data.pseudo === 'Seb', JSON.stringify(r.data));
   t = (await api('/api/etat')).data.actif;
@@ -648,6 +656,7 @@ async function nouveauTournoi(body) {
   check('front: colonne Amis dans admin-comptes (comptes + sans compte)', admHtml.includes('amis_comptes') && admHtml.includes('amis_pseudos') && admHtml.includes('sans compte'), '');
   const cptHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'compte.html'), 'utf8');
   check('front: bouton « Me désinscrire » (accueil + page compte)', idxHtml.includes('Me désinscrire') && cptHtml.includes('Me désinscrire') && (idxHtml + cptHtml).includes('/api/tournoi/desinscrire'), '');
+  check('front: self-désinscription masquée si déjà payé', idxHtml.includes('la désinscription se fait auprès de la table de marque') && cptHtml.includes('la désinscription se fait auprès de la table de marque'), '');
   nf_r = await del('/api/compte/amis/' + nf_sebId, { pin: null, useCookie: true });
   nf_r = await del('/api/compte/amis-pseudo/' + nf_ghostId, { pin: null, useCookie: true });
   nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });

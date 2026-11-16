@@ -21,7 +21,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 
 **Compte connecté = pas d'inscription anonyme** : `POST /api/joueur` refuse avec **409 `compte_connecte`** (l'inscription passe par `/api/tournoi/inscrire`) ; l'accueil ne propose que le bouton 1-clic du compte, le champ pseudo n'est affiché qu'aux non-connectés.
 
-**Self-désinscription** : `DELETE /api/tournoi/desinscrire` (compte connecté, **401** sinon) retire du tournoi actif le joueur rattaché au compte — uniquement en phase `inscription` (**409** si tournoi lancé), **404** si pas inscrit ; bouton « Me désinscrire » sur l'accueil et `/compte.html`, logué `desinscription` (`self: true`) dans l'audit ; un joueur sans compte reste désinscriptible par un admin uniquement.
+**Self-désinscription** : `DELETE /api/tournoi/desinscrire` (compte connecté, **401** sinon) retire du tournoi actif le joueur rattaché au compte — uniquement en phase `inscription` (**409** si tournoi lancé) et **sans avoir payé** (**409 `deja_paye`** si `statut = paye`), **404** si pas inscrit ; bouton « Me désinscrire » sur l'accueil et `/compte.html` (masqué si déjà payé), logué `desinscription` (`self: true`) dans l'audit ; un joueur sans compte ou déjà payé reste désinscriptible par un admin uniquement.
 
 ---
 
