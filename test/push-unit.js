@@ -134,6 +134,37 @@ const push = require('../src/push');
   await push.notifierMatchLance(mTest, 'JoueurA', 'JoueurB', 2, 'wb1-001');
   check('pref match réactivée -> 4 envois (ami inclus)', envois.length === 4 && envois.some(e => e.endpoint === 'https://push.example/epM2'), `envois=${envois.length}`);
 
+  // --- suivi par pseudo (ami sans compte): match + inscription + dédoublonnage + fix NOT IN NULL ---
+  console.log('\n--- suivi par pseudo (ami sans compte) ---');
+  const cF = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('SuiveurP', 'sp@x.fr', 'h', 's')").run();
+  db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epF', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(cF.lastInsertRowid);
+  db.prepare("INSERT INTO ami_pseudo (compte_id, pseudo) VALUES (?, 'GhostAnon')").run(cF.lastInsertRowid);
+  const jG = db.prepare("INSERT INTO joueur (tournoi_id, pseudo) VALUES (?, 'GhostAnon')").run(tr.lastInsertRowid); // joueur anonyme: aucun compte
+  envois.length = 0;
+  await push.notifierMatchLance({ id: 1000, joueur1_id: jA.lastInsertRowid, joueur2_id: jG.lastInsertRowid }, 'JoueurA', 'GhostAnon', 3, 'wb1-002');
+  // joueurs: epJA (GhostAnon anonyme, pas d'abonnement) ; amis: epM1+epM2 (compte de JoueurA) + epF (suit le pseudo)
+  // NB: avant le fix NOT EXISTS, un adversaire anonyme annulait TOUTES les notifs amis (NOT IN empoisonné par NULL)
+  check('adversaire anonyme: joueur + 2 amis par compte + suiveur du pseudo notifiés (4)', envois.length === 4, `envois=${envois.map(e => e.endpoint).join(',')}`);
+  const envoiF = envois.find(e => e.endpoint === 'https://push.example/epF');
+  check('suiveur du pseudo: payload « Match d\'un ami en cours » + lien match', envoiF && envoiF.payload.title.includes("Match d'un ami") && envoiF.payload.url === '/match.html?id=1000', JSON.stringify(envoiF && envoiF.payload));
+  // c6 est ami du compte JoueurA ET suit le pseudo GhostAnon -> un seul envoi (dédoublonné)
+  db.prepare("INSERT INTO ami_pseudo (compte_id, pseudo) VALUES (?, 'GhostAnon')").run(c6.lastInsertRowid);
+  envois.length = 0;
+  await push.notifierMatchLance({ id: 1001, joueur1_id: jA.lastInsertRowid, joueur2_id: jG.lastInsertRowid }, 'JoueurA', 'GhostAnon', 3, 'wb1-003');
+  check('compte ami ET suiveur du même pseudo -> 1 seul envoi (dédup)', envois.length === 4, `envois=${envois.length}`);
+  db.prepare("DELETE FROM ami_pseudo WHERE compte_id = ? AND pseudo = 'GhostAnon'").run(c6.lastInsertRowid);
+  // inscription d'un joueur anonyme sous un pseudo suivi
+  envois.length = 0;
+  const nInsP = await push.notifierInscriptionAmi(null, 'GhostAnon', 'Tournoi Test');
+  check('inscription anonyme sous pseudo suivi -> 1 envoi (compteId null)', nInsP === 1 && envois[0].endpoint === 'https://push.example/epF', `n=${nInsP} endpoints=${envois.map(e => e.endpoint).join(',')}`);
+  check('payload inscription pseudo correct (tag p-)', envois[0] && envois[0].payload.body.includes('GhostAnon') && envois[0].payload.url === '/tournoi.html' && envois[0].payload.tag.startsWith('ami-inscription-p-'), JSON.stringify(envois[0] && envois[0].payload));
+  // pref inscription désactivée -> 0 envoi
+  db.prepare('UPDATE compte SET notif_amis_inscription = 0 WHERE id = ?').run(cF.lastInsertRowid);
+  envois.length = 0;
+  const nInsP2 = await push.notifierInscriptionAmi(null, 'GhostAnon', 'Tournoi Test');
+  check('pref inscription désactivée -> 0 envoi', nInsP2 === 0, `n=${nInsP2}`);
+  db.prepare('UPDATE compte SET notif_amis_inscription = 1 WHERE id = ?').run(cF.lastInsertRowid);
+
   db.close();
   for (const ext of ['', '-wal', '-shm']) { try { fs.unlinkSync(DB_PATH + ext); } catch (e) {} }
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC ===`);

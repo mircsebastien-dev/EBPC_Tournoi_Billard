@@ -84,6 +84,15 @@ CREATE TABLE IF NOT EXISTS ami (
   UNIQUE(compte_id, ami_compte_id)
 );
 
+-- suivi d'un pseudo SANS compte (ami "anonyme"): notifs et statut live par pseudo
+CREATE TABLE IF NOT EXISTS ami_pseudo (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  compte_id INTEGER NOT NULL REFERENCES compte(id) ON DELETE CASCADE,
+  pseudo TEXT NOT NULL COLLATE NOCASE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(compte_id, pseudo)
+);
+
 CREATE TABLE IF NOT EXISTS session (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   token_hash TEXT NOT NULL UNIQUE,

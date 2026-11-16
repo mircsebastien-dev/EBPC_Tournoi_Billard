@@ -117,6 +117,16 @@ const btnNotif = notifOk
               catch (err) { alert(err.message); }
             } }, '➕ Ajouter')));
         }
+        // aucun compte exact avec ce pseudo -> proposer le suivi par pseudo (ami sans compte)
+        if (!comptes.some(c => c.pseudo.toLowerCase() === q.toLowerCase())) {
+          const dejaSuivi = amis.some(a => a.sans_compte && a.pseudo.toLowerCase() === q.toLowerCase());
+          res.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding:4px 0' },
+            el('span', {}, q, ' ', el('span', { class: 'muted small' }, '(sans compte)')),
+            dejaSuivi ? el('span', { class: 'muted small' }, 'déjà suivi') : el('button', { class: 'secondary', style: 'padding:3px 10px;font-size:12px', onclick: async () => {
+              try { await api('/api/compte/amis-pseudo', { method: 'POST', body: JSON.stringify({ pseudo: q }) }); renderAmis(); }
+              catch (err) { alert(err.message); }
+            } }, '➕ Suivre')));
+        }
         const f = document.getElementById('ami-q'); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
       });
       box.append(inp, res);
@@ -124,19 +134,20 @@ const btnNotif = notifOk
       for (const a of amis) {
         const st = a.statut || {};
         const stTxt = { en_cours: `🟢 en cours vs ${st.vs || '?'} (${st.score}${st.table ? ' · table ' + st.table : ''})`, pret: `🕐 match programmé vs ${st.vs || '?'}`, inscrit: '📝 inscrit au tournoi', hors_tournoi: '— hors tournoi' }[st.type] || '—';
+        const libelle = '👤 ' + a.pseudo + (a.sans_compte ? ' (sans compte)' : '');
         box.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding:6px 0' },
           el('div', {}, a.joueur_id
-            ? el('a', { href: `/joueur.html?id=${a.joueur_id}`, title: `Fiche de ${a.pseudo}`, style: 'color:inherit;text-decoration:none' }, el('div', { style: 'font-weight:700' }, '👤 ' + a.pseudo, ' ›'))
-            : el('div', { style: 'font-weight:700' }, '👤 ' + a.pseudo), el('div', { class: 'muted small' }, stTxt)),
+            ? el('a', { href: `/joueur.html?id=${a.joueur_id}`, title: `Fiche de ${a.pseudo}`, style: 'color:inherit;text-decoration:none' }, el('div', { style: 'font-weight:700' }, libelle, ' ›'))
+            : el('div', { style: 'font-weight:700' }, libelle), el('div', { class: 'muted small' }, stTxt)),
           el('button', { class: 'danger', style: 'padding:3px 10px;font-size:12px', onclick: async () => {
             if (!confirm('Retirer ' + a.pseudo + ' de tes amis ?')) return;
-            await api('/api/compte/amis/' + a.compte_id, { method: 'DELETE' }); renderAmis();
+            await api(a.sans_compte ? '/api/compte/amis-pseudo/' + a.id : '/api/compte/amis/' + a.compte_id, { method: 'DELETE' }); renderAmis();
           } }, '🗑')));
       }
     }
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
       el('h2', {}, '👥 Amis'),
-      el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence ou quand ils s\'inscrivent à un tournoi, et leur statut ici.'),
+      el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence ou quand ils s\'inscrivent à un tournoi, et leur statut ici. Pas besoin de compte pour eux : entre son pseudo dans la recherche puis « Suivre ».'),
       el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
         el('span', {}, '🔔 Notifier quand un ami s\'inscrit à un tournoi'),
         el('input', { id: 'pref-ami-inscription', type: 'checkbox', checked: !prefs || prefs.notif_amis_inscription !== false, onchange: async (e) => {

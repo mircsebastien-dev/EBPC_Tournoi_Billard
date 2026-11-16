@@ -85,7 +85,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - Changement d'email (vérif unicité 409), changement de pseudo (admin), dernière connexion (`last_login_at`)
 - **Email masqué** sur la page compte (`p***@domaine`) + champ de changement séparé
 - **Purge auto** des comptes inactifs > 18 mois (boot + toutes les heures)
-- **Amis** : table `ami`, recherche par pseudo (`/api/comptes/recherche`), ajout/suppression, statut live par ami (en cours vs X (score, table) / programmé / inscrit / hors tournoi) ; **push « match d'un ami »** au lancement pour les comptes amis (**préférences `notif_amis_match` / `notif_amis_inscription` désactivables depuis /compte.html**, défaut activées) ; section Amis dans le compte + panneau accueil
+- **Amis** : table `ami`, recherche par pseudo (`/api/comptes/recherche`), ajout/suppression, statut live par ami (en cours vs X (score, table) / programmé / inscrit / hors tournoi) ; **suivi par pseudo sans compte** (table `ami_pseudo` : mêmes notifs match + inscription, statut live par pseudo dans le tournoi actif, anti-doublon par endpoint) ; **push « match d'un ami »** au lancement pour les comptes amis et les suiveurs du pseudo (**préférences `notif_amis_match` / `notif_amis_inscription` désactivables depuis /compte.html**, défaut activées) ; section Amis dans le compte + panneau accueil
 - **RGPD** : page `/confidentialite.html` (lien nav), export JSON « mes données » (`/api/compte/export`), emails masqués dans l'admin-comptes, un seul cookie de session, localStorage = préférences uniquement
 
 ## 9. Notifications push (PWA)

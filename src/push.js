@@ -53,17 +53,28 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
       JOIN joueur j ON j.compte_id = s.compte_id
       WHERE j.id IN (?, ?) AND s.compte_id IS NOT NULL
     `).all(m.joueur1_id, m.joueur2_id);
-    // + les comptes qui ont un des 2 joueurs en ami (préférence "notification match d'un ami", désactivable depuis /compte.html)
+    // + les comptes qui ont un des 2 joueurs en ami (par compte, ou par pseudo suivi sans compte)
+    // (préférence "notification match d'un ami", désactivable depuis /compte.html)
+    // NOT EXISTS (et pas NOT IN): un joueur anonyme a compte_id NULL, qui empoisonnerait le NOT IN
     const subsAmis = db.prepare(`
-      SELECT s.endpoint, s.keys_json, c.pseudo ami_de FROM push_subscription s
+      SELECT s.endpoint, s.keys_json FROM push_subscription s
       JOIN ami a ON a.compte_id = s.compte_id
-      JOIN joueur j ON j.compte_id = a.ami_compte_id
-      JOIN compte c ON c.id = j.compte_id
       JOIN compte rc ON rc.id = a.compte_id
+      JOIN joueur j ON j.compte_id = a.ami_compte_id
       WHERE j.id IN (?, ?) AND s.compte_id IS NOT NULL
         AND COALESCE(rc.notif_amis_match, 1) = 1
-        AND s.compte_id NOT IN (SELECT compte_id FROM joueur WHERE id IN (?, ?))
-    `).all(m.joueur1_id, m.joueur2_id, m.joueur1_id, m.joueur2_id);
+        AND NOT EXISTS (SELECT 1 FROM joueur pj WHERE pj.id IN (?, ?) AND pj.compte_id = s.compte_id)
+      GROUP BY s.endpoint
+      UNION
+      SELECT s.endpoint, s.keys_json FROM push_subscription s
+      JOIN ami_pseudo ap ON ap.compte_id = s.compte_id
+      JOIN compte rc ON rc.id = ap.compte_id
+      JOIN joueur j ON j.pseudo = ap.pseudo COLLATE NOCASE
+      WHERE j.id IN (?, ?) AND s.compte_id IS NOT NULL
+        AND COALESCE(rc.notif_amis_match, 1) = 1
+        AND NOT EXISTS (SELECT 1 FROM joueur pj WHERE pj.id IN (?, ?) AND pj.compte_id = s.compte_id)
+      GROUP BY s.endpoint
+    `).all(m.joueur1_id, m.joueur2_id, m.joueur1_id, m.joueur2_id, m.joueur1_id, m.joueur2_id, m.joueur1_id, m.joueur2_id);
     const payload = JSON.stringify({
       title: '🎱 À toi de jouer !',
       body: `${pseudo1} vs ${pseudo2} — Table ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
@@ -95,27 +106,43 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
   } catch (e) { console.error('[PUSH] notifierMatchLance:', e.message); }
 }
 
-// Notifie l'inscription d'un compte à un tournoi aux comptes qui l'ont en ami
+// Notifie l'inscription d'un compte à un tournoi aux comptes qui l'ont en ami (par compte)
+// OU qui suivent son pseudo (ami_pseudo, sans compte) — compteId null = inscription anonyme par pseudo.
 // et qui ont activé la préférence "notification inscription amis" (désactivable depuis /compte.html).
 // clubId optionnel : seuls les abonnements du club visé reçoivent le push (multi-club).
 async function notifierInscriptionAmi(compteId, pseudoAmi, tournoiNom, clubId) {
   try {
     getVapid();
-    const subs = db.prepare(`
+    const club = clubId != null ? clubId : -1;
+    const subsMap = new Map(); // dédoublonné par endpoint (un compte peut être ami ET suiveur du pseudo)
+    if (compteId != null) {
+      for (const s of db.prepare(`
+        SELECT s.endpoint, s.keys_json
+        FROM push_subscription s
+        JOIN ami a ON a.compte_id = s.compte_id
+        JOIN compte c ON c.id = a.compte_id
+        WHERE a.ami_compte_id = ?
+          AND COALESCE(c.notif_amis_inscription, 1) = 1
+          AND s.compte_id IS NOT NULL
+          AND (s.club_id IS NULL OR s.club_id = ?)
+      `).all(compteId, club)) subsMap.set(s.endpoint, s);
+    }
+    for (const s of db.prepare(`
       SELECT s.endpoint, s.keys_json
       FROM push_subscription s
-      JOIN ami a ON a.compte_id = s.compte_id
-      JOIN compte c ON c.id = a.compte_id
-      WHERE a.ami_compte_id = ?
+      JOIN ami_pseudo ap ON ap.compte_id = s.compte_id
+      JOIN compte c ON c.id = ap.compte_id
+      WHERE ap.pseudo = ? COLLATE NOCASE
         AND COALESCE(c.notif_amis_inscription, 1) = 1
         AND s.compte_id IS NOT NULL
         AND (s.club_id IS NULL OR s.club_id = ?)
-    `).all(compteId, clubId != null ? clubId : -1);
+    `).all(pseudoAmi, club)) subsMap.set(s.endpoint, s);
+    const subs = [...subsMap.values()];
     const payload = JSON.stringify({
       title: '👥 Un ami s\'est inscrit',
       body: `${pseudoAmi} vient de s'inscrire au tournoi « ${tournoiNom} »`,
       url: '/tournoi.html',
-      tag: 'ami-inscription-' + compteId,
+      tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
     });
     let n = 0;
     for (const s of subs) {
@@ -179,7 +206,7 @@ async function envoyerTest(compteId) {
   for (const s of subs) { try { await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payload); n++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); } }
   return { envoyes: n, subs: subs.length };
 }
-// simule le push "match d'un ami" pour un joueur donné (envoie à tous les comptes qui l'ont en ami)
+// simule le push "match d'un ami" pour un joueur donné (envoie à tous les comptes qui l'ont en ami ou suivent son pseudo)
 async function envoyerTestAmi(joueurId) {
   getVapid();
   const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(joueurId);
@@ -189,7 +216,12 @@ async function envoyerTestAmi(joueurId) {
     JOIN ami a ON a.compte_id = s.compte_id
     JOIN joueur j ON j.compte_id = a.ami_compte_id
     WHERE j.id = ? AND s.compte_id IS NOT NULL
-  `).all(joueurId);
+    UNION
+    SELECT s.endpoint, s.keys_json FROM push_subscription s
+    JOIN ami_pseudo ap ON ap.compte_id = s.compte_id
+    JOIN joueur j ON j.pseudo = ap.pseudo COLLATE NOCASE
+    WHERE j.id = ? AND s.compte_id IS NOT NULL
+  `).all(joueurId, joueurId);
   const payload = JSON.stringify({ title: "👥 Match d'un ami en cours (TEST)", body: `${j.pseudo} est en match — ceci est une notification de test`, url: '/', tag: 'test-ami-' + Date.now() });
   let n = 0;
   for (const s of subs) { try { await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payload); n++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); } }

@@ -682,8 +682,8 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
     // admin a confirmé: on rattache le joueur au compte (notifs « à toi de jouer » et amis fonctionnent)
     if (cReserve) db.prepare('UPDATE joueur SET compte_id = ? WHERE id = ?').run(cReserve.id, info.lastInsertRowid);
     logAuditReq(req, 'inscription', `joueur ${info.lastInsertRowid}`, null, { pseudo, tds, rattache_compte: cReserve ? cReserve.id : null });
-    // push « inscription d'un ami » aux comptes qui ont ce compte en ami (même comportement que /api/tournoi/inscrire)
-    if (cReserve) { try { push.notifierInscriptionAmi(cReserve.id, pseudo, t.nom, req.club.id); } catch (e) { console.error('[PUSH] notifierInscriptionAmi:', e.message); } }
+    // push « inscription d'un ami » aux comptes qui ont ce compte en ami ou suivent ce pseudo (même comportement que /api/joueur et /api/tournoi/inscrire)
+    try { push.notifierInscriptionAmi(cReserve ? cReserve.id : null, pseudo, t.nom, req.club.id); } catch (e) { console.error('[PUSH] notifierInscriptionAmi:', e.message); }
     majEtBroadcast();
     res.json({ ok: true, id: Number(info.lastInsertRowid) });
   } catch (e) {
@@ -741,6 +741,8 @@ app.post('/api/joueur', (req, res) => {
   try {
     const info = db.prepare('INSERT INTO joueur (tournoi_id, pseudo) VALUES (?, ?)').run(t.id, pseudo);
     logAuditReq(req, 'inscription_publique', `joueur ${info.lastInsertRowid}`, null, { pseudo });
+    // push « inscription d'un ami » aux comptes qui suivent ce pseudo (ami sans compte)
+    try { push.notifierInscriptionAmi(null, pseudo, t.nom, req.club.id); } catch (e) { console.error('[PUSH] notifierInscriptionAmi (pseudo):', e.message); }
     majEtBroadcast();
     res.json({ ok: true, id: Number(info.lastInsertRowid), pseudo });
   } catch (e) {

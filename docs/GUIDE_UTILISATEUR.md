@@ -30,7 +30,7 @@
 5. Le match est terminé quand un joueur atteint le « race to » (3, 5 ou 7 manches gagnantes selon le tour — réglé par la table de marque).
 
 ## 👥 Amis (suivi d'autres joueurs)
-Compte → section **Amis** : recherche un pseudo (Entrée) → ➕ Ajouter. Tu reçois une **notif push « match d'un ami »** quand son match commence (tap = card du match), et son **statut en direct** (🟢 en cours vs X (score, table), 🕐 programmé, 📝 inscrit, — hors tournoi) sur ton compte **et sur l'accueil** (panneau 👥 Amis). 🗑 pour retirer. Chaque type de notif amis se coupe indépendamment : cases **« notif match d'un ami »** et **« notif inscription d'un ami »** (activées par défaut).
+Compte → section **Amis** : recherche un pseudo (Entrée) → ➕ Ajouter. Tu reçois une **notif push « match d'un ami »** quand son match commence (tap = card du match), et son **statut en direct** (🟢 en cours vs X (score, table), 🕐 programmé, 📝 inscrit, — hors tournoi) sur ton compte **et sur l'accueil** (panneau 👥 Amis). 🗑 pour retirer. Chaque type de notif amis se coupe indépendamment : cases **« notif match d'un ami »** et **« notif inscription d'un ami »** (activées par défaut). **Ton ami n'a pas de compte ?** Entre son pseudo dans la recherche : si aucun compte ne correspond, un bouton **➕ Suivre** apparaît ; tant qu'il s'inscrit avec ce pseudo, il est suivi pareil (inscriptions, matchs, statut live), même s'il joue toujours en anonyme.
 
 ## Mot de passe oublié
 Compte → « Mot de passe oublié » → entre ton email → un lien de réinitialisation arrive par mail (valable 1 h) → choisis un nouveau mot de passe.

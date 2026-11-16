@@ -610,6 +610,24 @@ async function nouveauTournoi(body) {
   nf_r = await del('/api/compte/amis/' + nf_r.data.amis[0].compte_id, { pin: null, useCookie: true });
   nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });
   check('retrait ami', nf_r.data.amis.length === 0, nf_r.status);
+  // --- amis sans compte: suivi par pseudo ---
+  nf_r = await post('/api/compte/amis-pseudo', { pseudo: 'Ghost' }, { pin: null, useCookie: true });
+  check('suivi pseudo sans compte -> 200', nf_r.status === 200 && nf_r.data.ami && nf_r.data.ami.pseudo === 'Ghost' && nf_r.data.ami.sans_compte === true, nf_r.status + ' ' + (nf_r.data.error || ''));
+  nf_r = await post('/api/compte/amis-pseudo', { pseudo: 'ghoSt' }, { pin: null, useCookie: true });
+  check('suivi pseudo doublon (casse ignorée) -> 409', nf_r.status === 409, nf_r.status);
+  nf_r = await post('/api/compte/amis-pseudo', { pseudo: 'Seb' }, { pin: null, useCookie: true });
+  check('suivi du pseudo d\'un compte -> 409', nf_r.status === 409, nf_r.status);
+  nf_r = await post('/api/compte/amis-pseudo', { pseudo: 'AliceBT' }, { pin: null, useCookie: true });
+  check('suivre son propre pseudo -> 400', nf_r.status === 400, nf_r.status);
+  nf_r = await post('/api/compte/amis-pseudo', { pseudo: '   ' }, { pin: null, useCookie: true });
+  check('suivi pseudo vide -> 400', nf_r.status === 400, nf_r.status);
+  nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });
+  check('liste amis = 1 suivi pseudo (Ghost)', nf_r.data.amis.length === 1 && nf_r.data.amis[0].pseudo === 'Ghost' && nf_r.data.amis[0].sans_compte === true, JSON.stringify(nf_r.data.amis.map(a => a.pseudo)));
+  check('suivi pseudo jamais inscrit -> hors_tournoi + joueur_id null', nf_r.data.amis[0].statut.type === 'hors_tournoi' && nf_r.data.amis[0].joueur_id === null, JSON.stringify(nf_r.data.amis[0]));
+  const nf_ghostId = nf_r.data.amis[0].id;
+  nf_r = await del('/api/compte/amis-pseudo/' + nf_ghostId, { pin: null, useCookie: true });
+  nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });
+  check('retrait suivi pseudo', nf_r.data.amis.length === 0, nf_r.status);
   cookie = '';
 
   // --- règles: bande, alternance, 403 casse/reprise ---
