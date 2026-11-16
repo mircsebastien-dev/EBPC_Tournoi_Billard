@@ -1,1 +1,504 @@
-undefinedundefined
+// Comptes joueurs : pseudo + email + mot de passe (scrypt), sessions cookie, réinit par mail (Resend)
+const crypto = require('crypto');
+const { db, logAudit } = require('./db');
+const logAuditC = (req, ...a) => logAudit(...a, req && req.club ? req.club.id : undefined);
+
+const SESSION_COOKIE = 'ebpc_session';
+const SESSION_JOURS = 30;
+const RESET_VALIDITE_H = 1; // 1h
+
+// ---------- mdp (scrypt natif, pas de dep externe) ----------
+function hashPassword(password, salt) {
+  return crypto.scryptSync(String(password), salt, 64).toString('hex');
+}
+function nouveauSalt() { return crypto.randomBytes(16).toString('hex'); }
+function verifierPassword(password, salt, hash) {
+  const h = hashPassword(password, salt);
+  const a = Buffer.from(h, 'hex'), b = Buffer.from(hash, 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+function hashToken(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
+
+// ---------- mail (Resend si RESEND_API_KEY, sinon log) ----------
+async function envoyerMail({ to, subject, text, html }) {
+  const key = process.env.RESEND_API_KEY;
+  const from = process.env.MAIL_FROM || 'Pink City Billard <no-reply@ebpc-tournoi.fly.dev>';
+  if (!key) {
+    console.log(`[MAIL dev - RESEND_API_KEY absent] to=${to} subject=${subject}\n${text}`);
+    return { dev: true };
+  }
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [to], subject, text, html }),
+  });
+  if (!r.ok) throw new Error('Resend: ' + (await r.text()).slice(0, 200));
+  return { ok: true };
+}
+
+// ---------- rate limit basique en mémoire ----------
+const rl = new Map();
+// IP réelle derrière un proxy (Fly/Render): x-forwarded-for en premier, sinon req.ip = IP du proxy
+// (sinon tous les clients partageraient la même clé de rate-limit)
+function ipClient(req) {
+  const xf = req.headers['x-forwarded-for'];
+  return (xf ? String(xf).split(',')[0].trim() : '') || req.ip || 'local';
+}
+function rateLimit(cle, max, fenetreMs) {
+  const now = Date.now();
+  const arr = (rl.get(cle) || []).filter(t => now - t < fenetreMs);
+  if (arr.length >= max) return false;
+  arr.push(now);
+  rl.set(cle, arr);
+  return true;
+}
+
+// ---------- helpers ----------
+function comptePublic(c) { return c ? { id: c.id, pseudo: c.pseudo, email: c.email || null, role: c.role || 'user' } : null; }
+function parseCookies(req) {
+  const out = {};
+  const h = req.headers.cookie || '';
+  for (const part of h.split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return out;
+}
+function setSessionCookie(res, token, jours) {
+  const maxAge = jours * 24 * 3600;
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}`);
+}
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
+}
+
+function creerSession(compteId) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + SESSION_JOURS * 24 * 3600 * 1000).toISOString();
+  db.prepare('INSERT INTO session (token_hash, compte_id, expires) VALUES (?, ?, ?)').run(hashToken(token), compteId, expires);
+  // ménage
+  db.prepare(`DELETE FROM session WHERE expires < datetime('now')`).run();
+  return token;
+}
+
+function compteDepuisReq(req) {
+  const cookies = parseCookies(req);
+  const token = cookies[SESSION_COOKIE];
+  if (!token) return null;
+  const row = db.prepare(`
+    SELECT c.id, c.pseudo, c.email, c.role, s.expires FROM session s JOIN compte c ON c.id = s.compte_id
+    WHERE s.token_hash = ? AND s.expires > datetime('now')
+  `).get(hashToken(token));
+  return row || null;
+}
+
+function middlewareSession(req, res, next) {
+  req.compte = compteDepuisReq(req);
+  next();
+}
+
+function validerPseudo(p) {
+  return typeof p === 'string' && /^[\p{L}\p{N}_\-]{2,24}$/u.test(p.trim());
+}
+function validerEmail(e) {
+  return typeof e === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e.trim()) && e.length <= 190;
+}
+function validerPassword(p) {
+  return typeof p === 'string' && p.length >= 4 && p.length <= 128;
+}
+
+// ---------- routes ----------
+
+// Rattache les joueurs anonymes du tournoi actif au même pseudo -> compte (création de compte ou connexion)
+function rattacherJoueursAnonymes(compteId, pseudo, tournoiActif, clubId) {
+  if (!tournoiActif) return;
+  const t = tournoiActif(clubId);
+  if (t && (t.statut === 'inscription' || t.statut === 'en_cours')) {
+    db.prepare('UPDATE joueur SET compte_id = ? WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND compte_id IS NULL')
+      .run(compteId, t.id, pseudo);
+  }
+}
+
+function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueMatch }) {
+  // inscription compte
+  app.post('/api/compte/inscription', (req, res) => {
+    const ip = ipClient(req);
+    if (!rateLimit('insc:' + ip, 5, 10 * 60 * 1000)) return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 10 min' });
+    const pseudo = String(req.body.pseudo || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = req.body.password;
+    if (!validerPseudo(pseudo)) return res.status(400).json({ error: 'Pseudo invalide (2-24 caractères : lettres, chiffres, _ -)' });
+    if (!validerEmail(email)) return res.status(400).json({ error: 'Email invalide' });
+    if (!validerPassword(password)) return res.status(400).json({ error: 'Mot de passe trop court (min 4 caractères)' });
+    const existe = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE OR email = ? COLLATE NOCASE').get(pseudo, email);
+    if (existe) return res.status(409).json({ error: 'Pseudo ou email déjà utilisé' });
+    const salt = nouveauSalt();
+    const info = db.prepare(`INSERT INTO compte (pseudo, email, pass_hash, salt, last_login_at) VALUES (?, ?, ?, ?, datetime('now'))`)
+      .run(pseudo, email, hashPassword(password, salt), salt);
+    rattacherJoueursAnonymes(info.lastInsertRowid, pseudo, tournoiActif, req.club ? req.club.id : undefined);
+    const compte = db.prepare('SELECT id, pseudo, email FROM compte WHERE id = ?').get(info.lastInsertRowid);
+    const token = creerSession(compte.id);
+    setSessionCookie(res, token, SESSION_JOURS);
+    logAuditC(req, 'compte_cree', `compte ${compte.id}`, null, { pseudo: compte.pseudo });
+    res.status(201).json({ ok: true, compte: comptePublic(compte) });
+  });
+
+  // connexion
+  app.post('/api/compte/connexion', (req, res) => {
+    const ip = ipClient(req);
+    if (!rateLimit('conn:' + ip, 10, 10 * 60 * 1000)) return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 10 min' });
+    const pseudo = String(req.body.pseudo || '').trim();
+    const password = req.body.password;
+    const c = db.prepare('SELECT * FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
+    if (!c || !verifierPassword(password, c.salt, c.pass_hash)) {
+      return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect' });
+    }
+    rattacherJoueursAnonymes(c.id, c.pseudo, tournoiActif, req.club ? req.club.id : undefined);
+    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
+    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
+    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
+    const token = creerSession(c.id);
+    setSessionCookie(res, token, SESSION_JOURS);
+    logAuditC(req, 'compte_connexion', `compte ${c.id}`, null, { pseudo: c.pseudo });
+    res.json({ ok: true, compte: comptePublic(c) });
+  });
+
+  // déconnexion
+  app.post('/api/compte/email', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const email = String(req.body.email || '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^\s@]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Email invalide' });
+    const pris = db.prepare('SELECT id FROM compte WHERE email = ? AND id != ?').get(email, req.compte.id);
+    if (pris) return res.status(409).json({ error: 'Cet email est déjà utilisé par un autre compte' });
+    db.prepare('UPDATE compte SET email = ? WHERE id = ?').run(email, req.compte.id);
+    res.json({ ok: true, email });
+  });
+
+  // ---- Amis ----
+  app.get('/api/compte/amis', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const rows = db.prepare(`
+      SELECT a.id, a.created_at, c.id compte_id, c.pseudo
+      FROM ami a JOIN compte c ON c.id = a.ami_compte_id
+      WHERE a.compte_id = ? ORDER BY c.pseudo COLLATE NOCASE
+    `).all(req.compte.id);
+    // statut de chaque ami dans le tournoi actif
+    const t = tournoiActif ? tournoiActif(req.club ? req.club.id : undefined) : null;
+    const statuts = {};
+    if (t && t.statut !== 'termine') {
+      const matchs = db.prepare(`SELECT m.etat, m.table_id, m.score1, m.score2, m.bracket, m.tour, m.position,
+        j1.pseudo p1, j2.pseudo p2, m.gagnant_id, m.joueur1_id, m.joueur2_id
+        FROM match m JOIN joueur j1 ON j1.id = m.joueur1_id LEFT JOIN joueur j2 ON j2.id = m.joueur2_id
+        WHERE m.tournoi_id = ? AND m.joueur1_id IS NOT NULL`).all(t.id);
+      for (const a of rows) {
+        const js = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND compte_id = ?').all(t.id, a.compte_id);
+        const jids = js.map(x => x.id);
+        const mEnCours = matchs.find(m => (m.etat === 'en_cours') && jids.includes(m.joueur1_id) || (m.etat === 'en_cours') && m.joueur2_id && jids.includes(m.joueur2_id));
+        const mPret = matchs.find(m => (m.etat === 'pret') && (jids.includes(m.joueur1_id) || (m.joueur2_id && jids.includes(m.joueur2_id))));
+        const inscrit = jids.length > 0;
+        statuts[a.compte_id] = mEnCours ? { type: 'en_cours', vs: mEnCours.joueur1_id && jids.includes(mEnCours.joueur1_id) ? mEnCours.p2 : mEnCours.p1, score: mEnCours.score1 + '-' + mEnCours.score2, table: mEnCours.table_id }
+          : mPret ? { type: 'pret', vs: mPret.joueur1_id && jids.includes(mPret.joueur1_id) ? mPret.p2 : mPret.p1 }
+          : inscrit ? { type: 'inscrit' } : { type: 'hors_tournoi' };
+      }
+    }
+    res.json({ amis: rows.map(a => {
+      const tid = t ? t.id : -1;
+      // fiche joueur: d'abord via compte_id dans le tournoi actif, sinon même pseudo dans le tournoi actif, sinon n'importe quel tournoi du club
+      let jid = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND compte_id = ?').get(tid, a.compte_id)?.id
+        || db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE').get(tid, a.pseudo)?.id
+        || db.prepare(`SELECT j.id FROM joueur j JOIN tournoi tt ON tt.id = j.tournoi_id
+                       WHERE tt.club_id = ? AND (j.compte_id = ? OR j.pseudo = ? COLLATE NOCASE) ORDER BY j.id DESC LIMIT 1`)
+             .get(req.club ? req.club.id : null, a.compte_id, a.pseudo)?.id
+        || null;
+      return { ...a, joueur_id: jid, statut: statuts[a.compte_id] || { type: 'hors_tournoi' } };
+    }) });
+  });
+
+  app.post('/api/compte/amis', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const pseudo = String(req.body.pseudo || '').trim();
+    const c = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
+    if (!c) return res.status(404).json({ error: 'Aucun compte avec ce pseudo' });
+    if (c.id === req.compte.id) return res.status(400).json({ error: 'Tu ne peux pas t\'ajouter toi-même' });
+    const existe = db.prepare('SELECT id FROM ami WHERE compte_id = ? AND ami_compte_id = ?').get(req.compte.id, c.id);
+    if (existe) return res.status(409).json({ error: 'Déjà dans tes amis' });
+    db.prepare('INSERT INTO ami (compte_id, ami_compte_id) VALUES (?, ?)').run(req.compte.id, c.id);
+    res.json({ ok: true, ami: { id: c.id, pseudo: c.pseudo } });
+  });
+
+  app.delete('/api/compte/amis/:compteId', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    db.prepare('DELETE FROM ami WHERE compte_id = ? AND ami_compte_id = ?').run(req.compte.id, Number(req.params.compteId));
+    res.json({ ok: true });
+  });
+
+  // recherche de comptes par pseudo (pseudos publics uniquement)
+  app.get('/api/comptes/recherche', (req, res) => {
+    const q = String(req.query.q || '').trim().toLowerCase();
+    if (q.length < 2) return res.json({ comptes: [] });
+    const rows = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo LIKE ? COLLATE NOCASE ORDER BY pseudo LIMIT 20')
+      .all(q + '%');
+    res.json({ comptes: rows.map(r => ({ id: r.id, pseudo: r.pseudo, moi: req.compte && r.id === req.compte.id })) });
+  });
+
+  // RGPD: export de toutes les données du compte (JSON téléchargeable)
+  app.get('/api/compte/export', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const c = req.compte;
+    const joueurs = db.prepare(`SELECT tournoi_id, pseudo, statut, tete_de_serie, created_at FROM joueur WHERE compte_id = ?`).all(c.id);
+    const matchs = db.prepare(`
+      SELECT m.id, m.tournoi_id, m.bracket, m.tour, m.position, m.etat, m.score1, m.score2, m.manches, m.started_at, m.ended_at,
+             j1.pseudo joueur1, j2.pseudo joueur2, g.pseudo gagnant
+      FROM match m
+      LEFT JOIN joueur j1 ON j1.id = m.joueur1_id LEFT JOIN joueur j2 ON j2.id = m.joueur2_id LEFT JOIN joueur g ON g.id = m.gagnant_id
+      WHERE m.joueur1_id IN (SELECT id FROM joueur WHERE compte_id = ?) OR m.joueur2_id IN (SELECT id FROM joueur WHERE compte_id = ?)
+    `).all(c.id, c.id);
+    const events = db.prepare(`SELECT e.type, e.detail, e.created_at, m.tournoi_id FROM match_event e JOIN match m ON m.id = e.match_id WHERE e.joueur_id IN (SELECT id FROM joueur WHERE compte_id = ?)`).all(c.id);
+    const amis = db.prepare(`SELECT c2.pseudo ami, a.created_at FROM ami a JOIN compte c2 ON c2.id = a.ami_compte_id WHERE a.compte_id = ?`).all(c.id);
+    const mesAmis = db.prepare(`SELECT c2.pseudo ajoute_par, a.created_at FROM ami a JOIN compte c2 ON c2.id = a.compte_id WHERE a.ami_compte_id = ?`).all(c.id);
+    res.json({
+      export_date: new Date().toISOString(),
+      compte: { id: c.id, pseudo: c.pseudo, email: c.email, created_at: c.created_at, last_login_at: c.last_login_at },
+      joueurs, matchs, events, amis, ajoutes_par: mesAmis,
+    });
+  });
+
+  app.post('/api/push/test', async (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const { envoyerTest } = require('./push');
+    const r = await envoyerTest(req.compte.id);
+    res.json({ ok: true, ...r });
+  });
+
+  app.post('/api/compte/deconnexion', (req, res) => {
+    const cookies = parseCookies(req);
+    const token = cookies[SESSION_COOKIE];
+    if (token) db.prepare('DELETE FROM session WHERE token_hash = ?').run(hashToken(token));
+    clearSessionCookie(res);
+    res.json({ ok: true });
+  });
+
+  // moi
+  app.get('/api/compte/moi', (req, res) => {
+    if (!req.compte) return res.json({ compte: null, joueur_id: null });
+    const j = db.prepare('SELECT id FROM joueur WHERE compte_id = ? ORDER BY id DESC LIMIT 1').get(req.compte.id);
+    const pref = db.prepare('SELECT notif_amis_inscription, notif_amis_match FROM compte WHERE id = ?').get(req.compte.id);
+    res.json({
+      compte: comptePublic(req.compte),
+      joueur_id: j ? j.id : null,
+      prefs: {
+        notif_amis_inscription: pref ? !!pref.notif_amis_inscription : true,
+        notif_amis_match: pref ? !!pref.notif_amis_match : true,
+      },
+    });
+  });
+
+  // préférences du compte (notif "inscription d'un ami", notif "match d'un ami" — désactivables depuis /compte.html)
+  app.post('/api/compte/preferences', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const maj = {};
+    for (const cle of ['notif_amis_inscription', 'notif_amis_match']) {
+      const v = req.body[cle];
+      if (v === undefined) continue;
+      if (v !== true && v !== false && v !== 0 && v !== 1) return res.status(400).json({ error: 'Valeur invalide' });
+      maj[cle] = (v === true || v === 1) ? 1 : 0;
+    }
+    if (!Object.keys(maj).length) return res.status(400).json({ error: 'Aucune préférence reconnue' });
+    const set = Object.keys(maj).map(c => `${c} = ?`).join(', ');
+    db.prepare(`UPDATE compte SET ${set} WHERE id = ?`).run(...Object.values(maj), req.compte.id);
+    logAuditC(req, 'compte_preferences', `compte ${req.compte.id}`, null, maj);
+    res.json({ ok: true, prefs: Object.fromEntries(Object.entries(maj).map(([c, v]) => [c, !!v])) });
+  });
+
+  // mes matchs (via les joueurs liés à mon compte)
+  app.get('/api/compte/moi/matchs', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    const rows = db.prepare(`
+      SELECT m.* FROM match m JOIN joueur j ON (j.id = m.joueur1_id OR j.id = m.joueur2_id)
+      WHERE j.compte_id = ?
+      ORDER BY m.tournoi_id DESC, m.tour, m.position
+    `).all(req.compte.id);
+    res.json({ matchs: rows.map(r => vueMatch(r)) });
+  });
+
+  // mot de passe oublié -> mail avec lien de réinit
+  app.post('/api/compte/oubli', async (req, res) => {
+    const ip = ipClient(req);
+    if (!rateLimit('oubli:' + ip, 3, 60 * 60 * 1000)) return res.status(429).json({ error: 'Trop de demandes, réessaie plus tard' });
+    const email = String(req.body.email || '').trim().toLowerCase();
+    if (!validerEmail(email)) return res.status(400).json({ error: 'Email invalide' });
+    const c = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE').get(email);
+    // réponse identique même si le compte n'existe pas (pas d'énumération)
+    let devLink = null;
+    if (c) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + RESET_VALIDITE_H * 3600 * 1000).toISOString();
+      db.prepare('UPDATE compte SET reset_token_hash = ?, reset_expires = ? WHERE id = ?').run(hashToken(token), expires, c.id);
+      const origin = process.env.BASE_URL
+        || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.headers['x-forwarded-host'] || req.get('host')}`;
+      const link = `${origin}/reinit.html?token=${token}`;
+      await envoyerMail({
+        to: c.email,
+        subject: 'Réinitialisation de ton mot de passe — Pink City Billard',
+        text: `Bonjour ${c.pseudo},\n\nTu as demandé à réinitialiser ton mot de passe. Clique sur ce lien (valable 1h) :\n${link}\n\nSi tu n'es pas à l'origine de la demande, ignore ce mail.`,
+        html: `<p>Bonjour <b>${c.pseudo}</b>,</p><p>Tu as demandé à réinitialiser ton mot de passe. Clique sur ce lien (valable 1h) :</p><p><a href="${link}">${link}</a></p><p>Si tu n'es pas à l'origine de la demande, ignore ce mail.</p>`,
+      });
+      if (!process.env.RESEND_API_KEY) devLink = link; // visible en dev/test uniquement
+      logAuditC(req, 'compte_oubli', `compte ${c.id}`, null, { pseudo: c.pseudo });
+    }
+    res.json({ ok: true, message: 'Si un compte existe pour cet email, un lien de réinitialisation vient d\'être envoyé.', dev_reset_link: devLink });
+  });
+
+  // réinitialisation via token
+  app.post('/api/compte/reinit', (req, res) => {
+    const token = String(req.body.token || '');
+    const password = req.body.password;
+    if (!token || token.length < 32) return res.status(400).json({ error: 'Lien invalide' });
+    if (!validerPassword(password)) return res.status(400).json({ error: 'Mot de passe trop court (min 4 caractères)' });
+    const c = db.prepare(`SELECT * FROM compte WHERE reset_token_hash = ? AND reset_expires > datetime('now')`).get(hashToken(token));
+    if (!c) return res.status(400).json({ error: 'Lien invalide ou expiré (valable 1h)' });
+    const salt = nouveauSalt();
+    db.prepare('UPDATE compte SET pass_hash = ?, salt = ?, reset_token_hash = NULL, reset_expires = NULL WHERE id = ?')
+      .run(hashPassword(password, salt), salt, c.id);
+    // invalide les sessions existantes
+    db.prepare('DELETE FROM session WHERE compte_id = ?').run(c.id);
+    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
+    const newToken = creerSession(c.id);
+    setSessionCookie(res, newToken, SESSION_JOURS);
+    logAuditC(req, 'compte_reinit', `compte ${c.id}`, null, { pseudo: c.pseudo });
+    res.json({ ok: true, compte: { id: c.id, pseudo: c.pseudo } });
+  });
+
+  // self-enrollment au tournoi actif avec le pseudo du compte
+  app.post('/api/tournoi/inscrire', (req, res) => {
+    if (!req.compte) return res.status(401).json({ error: 'Crée un compte ou connecte-toi d\'abord (pseudo + email + mot de passe)' });
+    const t = tournoiActif(req.club ? req.club.id : undefined);
+    if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+    if (t.statut !== 'inscription') return res.status(409).json({ error: 'Les inscriptions sont fermées (tournoi lancé)' });
+    if (t.taille && t.nb_inscrits >= t.taille) return res.status(409).json({ error: 'Tournoi complet' });
+    // déjà inscrit via ce compte ?
+    const deja = db.prepare('SELECT j.* FROM joueur j WHERE j.tournoi_id = ? AND j.compte_id = ?').get(t.id, req.compte.id);
+    if (deja) return res.status(409).json({ error: `Déjà inscrit en tant que ${deja.pseudo}`, joueur: { id: deja.id, pseudo: deja.pseudo, statut: deja.statut } });
+    // push "inscription d'un ami" aux comptes qui m'ont en ami et ont activé la pref (non bloquant)
+    const notifierAmis = () => {
+      try { require('./push').notifierInscriptionAmi(req.compte.id, req.compte.pseudo, t.nom, req.club ? req.club.id : undefined); }
+      catch (e) { console.error('[PUSH] notifierInscriptionAmi:', e.message); }
+    };
+    // un joueur anonyme avec le même pseudo existe déjà -> on le rattache au compte
+    const anon = db.prepare('SELECT * FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE').get(t.id, req.compte.pseudo);
+    if (anon) {
+      db.prepare('UPDATE joueur SET compte_id = ? WHERE id = ?').run(req.compte.id, anon.id);
+      logAuditC(req, 'inscription', `joueur ${anon.id}`, null, { compte: req.compte.pseudo, rattache: true });
+      notifierAmis();
+      majEtBroadcast();
+      return res.json({ ok: true, rattache: true, joueur: { id: anon.id, pseudo: anon.pseudo, statut: anon.statut } });
+    }
+    const info = db.prepare('INSERT INTO joueur (tournoi_id, pseudo, statut, compte_id) VALUES (?, ?, ?, ?)')
+      .run(t.id, req.compte.pseudo, 'en_attente', req.compte.id);
+    logAuditC(req, 'inscription', `joueur ${info.lastInsertRowid}`, null, { compte: req.compte.pseudo });
+    notifierAmis();
+    majEtBroadcast();
+    res.status(201).json({ ok: true, joueur: { id: Number(info.lastInsertRowid), pseudo: req.compte.pseudo, statut: 'en_attente' } });
+  });
+}
+
+
+// Supprime un compte: détache les joueurs (historique conservé), supprime sessions/push, puis le compte
+function supprimerCompte(id) {
+  const c = db.prepare('SELECT id, pseudo FROM compte WHERE id = ?').get(id);
+  if (!c) return false;
+  db.prepare('UPDATE joueur SET compte_id = NULL WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM session WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM push_subscription WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM compte WHERE id = ?').run(id);
+  return c;
+}
+
+// Purge des comptes inactifs depuis 18 mois (jamais connecté: 18 mois après création)
+function purgerComptesInactifs() {
+  const rows = db.prepare(`
+    SELECT id, pseudo FROM compte
+    WHERE (last_login_at IS NOT NULL AND last_login_at < datetime('now', '-18 months'))
+       OR (last_login_at IS NULL AND created_at < datetime('now', '-18 months'))
+  `).all();
+  for (const r of rows) {
+    supprimerCompte(r.id);
+    logAuditSafe('compte_purge_inactivite', `compte ${r.pseudo} (18 mois d'inactivité)`, null, { id: r.id });
+  }
+  if (rows.length) console.log(`[PURGE] ${rows.length} compte(s) inactif(s) > 18 mois supprimé(s)`);
+  return rows.length;
+}
+
+function logAuditSafe(action, label, tournoiId, details) {
+  try { db.prepare('INSERT INTO audit_log (action, label, tournoi_id, details) VALUES (?, ?, ?, ?)').run(action, label, tournoiId, JSON.stringify(details || {})); } catch {}
+}
+
+
+// Supprime un compte: détache les joueurs (historique conservé), supprime sessions/push, puis le compte
+function supprimerCompte(id) {
+  const c = db.prepare('SELECT id, pseudo FROM compte WHERE id = ?').get(id);
+  if (!c) return false;
+  db.prepare('UPDATE joueur SET compte_id = NULL WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM session WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM push_subscription WHERE compte_id = ?').run(id);
+  db.prepare('DELETE FROM compte WHERE id = ?').run(id);
+  return c;
+}
+
+// Purge des comptes inactifs depuis 18 mois (jamais connecté: 18 mois après création)
+function purgerComptesInactifs() {
+  const rows = db.prepare(`
+    SELECT id, pseudo FROM compte
+    WHERE (last_login_at IS NOT NULL AND last_login_at < datetime('now', '-18 months'))
+       OR (last_login_at IS NULL AND created_at < datetime('now', '-18 months'))
+  `).all();
+  for (const r of rows) {
+    supprimerCompte(r.id);
+    try { db.prepare('INSERT INTO audit_log (action, label, tournoi_id, details) VALUES (?, ?, ?, ?)').run('compte_purge_inactivite', `compte ${r.pseudo} (18 mois inactivité)`, null, JSON.stringify({ id: r.id })); } catch {}
+  }
+  if (rows.length) console.log(`[PURGE] ${rows.length} compte(s) inactif(s) > 18 mois supprimé(s)`);
+  return rows.length;
+}
+
+
+// Admin: définir un nouveau mot de passe pour un compte (et invalider ses sessions)
+function setPasswordAdmin(compteId, password) {
+  if (!password || String(password).length < 4) throw new Error('Mot de passe trop court (min 4)');
+  const salt = nouveauSalt();
+  const pass_hash = hashPassword(String(password), salt);
+  db.prepare('UPDATE compte SET salt = ?, pass_hash = ?, reset_token_hash = NULL, reset_expires = NULL WHERE id = ?').run(salt, pass_hash, compteId);
+  db.prepare('DELETE FROM session WHERE compte_id = ?').run(compteId); // force la reconnexion
+  return true;
+}
+
+
+// Admin: renommer le pseudo d'un compte (unicité casse-insensible)
+function setPseudoAdmin(compteId, pseudo) {
+  const p = String(pseudo || '').trim();
+  if (p.length < 2) throw new Error('Pseudo trop court (min 2)');
+  const pris = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE AND id != ?').get(p, compteId);
+  if (pris) throw new Error('Ce pseudo est déjà pris');
+  db.prepare('UPDATE compte SET pseudo = ? WHERE id = ?').run(p, compteId);
+  return p;
+}
+
+// Compte admin de secours/bootstrap via env (ADMIN_EMAIL + ADMIN_PASSWORD) : créé ou promu admin au boot.
+// Le PIN admin reste utilisable en fallback ; la session de ce compte suffit pour les routes admin.
+function ensureAdminCompte(email, password) {
+  if (!email || !password) return null;
+  if (!validerEmail(email) || !validerPassword(password)) { console.error('[ADMIN] ADMIN_EMAIL/ADMIN_PASSWORD invalides, ignorés'); return null; }
+  const mail = String(email).trim().toLowerCase();
+  const existe = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE').get(mail);
+  if (existe) {
+    if (existe.role !== 'admin') db.prepare("UPDATE compte SET role = 'admin' WHERE id = ?").run(existe.id);
+    return existe.id;
+  }
+  const pseudo = String(mail.split('@')[0]).replace(/[^\p{L}\p{N}_\-]/gu, '').slice(0, 24) || 'admin';
+  const salt = nouveauSalt();
+  const info = db.prepare(`INSERT INTO compte (pseudo, email, pass_hash, salt, role, last_login_at) VALUES (?, ?, ?, ?, 'admin', datetime('now'))`)
+    .run(pseudo, mail, hashPassword(String(password), salt), salt);
+  console.log(`[ADMIN] compte admin bootstrappé: ${pseudo} <${mail}> (role=admin)`);
+  return Number(info.lastInsertRowid);
+}
+
+module.exports = { supprimerCompte, purgerComptesInactifs, setPasswordAdmin, setPseudoAdmin, registerCompteRoutes, middlewareSession, hashToken, ensureAdminCompte, SESSION_COOKIE };

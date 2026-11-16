@@ -1,1 +1,188 @@
-undefined
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon compte — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Pink City Billard</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/push-client.js"></script>
+<script>
+document.getElementById('nav').append(nav('compte'));
+const main = document.getElementById('main');
+const val = (id) => document.getElementById(id)?.value;
+
+function panelConnexion() {
+  return el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto' },
+    el('h2', {}, '🔑 Connexion'),
+    el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'c-pseudo', maxlength: 24, autocomplete: 'username' })),
+    el('div', {}, el('label', {}, 'Mot de passe'), el('input', { id: 'c-pass', type: 'password', autocomplete: 'current-password' })),
+    el('div', { style: 'margin-top:10px' }, el('button', { style: 'width:100%', onclick: connexion }, 'Se connecter')),
+    el('p', { class: 'muted small', style: 'text-align:center' }, el('a', { href: '/oubli.html' }, 'Mot de passe oublié ?')),
+    el('hr', {}),
+    el('h2', {}, '✨ Créer un compte'),
+    el('p', { class: 'muted small' }, 'Juste un pseudo, un email et un mot de passe. Rien d\'autre.'),
+    el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'i-pseudo', maxlength: 24, placeholder: 'ex: BlackMamba31' })),
+    el('div', {}, el('label', {}, 'Email (pour réinit du mot de passe)'), el('input', { id: 'i-email', type: 'email', maxlength: 190, autocomplete: 'email' })),
+    el('div', {}, el('label', {}, 'Mot de passe (min 4)'), el('input', { id: 'i-pass', type: 'password', minlength: 4, autocomplete: 'new-password' })),
+    el('div', { style: 'margin-top:10px' }, el('button', { class: 'secondary', style: 'width:100%', onclick: inscription }, 'Créer mon compte')));
+}
+
+async function inscription() {
+  try {
+    const r = await api('/api/compte/inscription', { method: 'POST', body: JSON.stringify({ pseudo: val('i-pseudo'), email: val('i-email'), password: val('i-pass') }) });
+    location.reload();
+  } catch (e) { alert(e.message); }
+}
+async function connexion() {
+  try {
+    await api('/api/compte/connexion', { method: 'POST', body: JSON.stringify({ pseudo: val('c-pseudo'), password: val('c-pass') }) });
+    location.href = '/';
+  } catch (e) { alert(e.message); }
+}
+async function deconnexion() {
+  await api('/api/compte/deconnexion', { method: 'POST' });
+  location.reload();
+}
+
+async function init() {
+  main.innerHTML = '';
+  const { compte, joueur_id, prefs } = await api('/api/compte/moi');
+  if (compte) {
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto;text-align:center' },
+      el('div', { class: 'hero-title' }, `👤 ${compte.pseudo}`),
+      el('p', { class: 'muted' }, 'Connecté'),
+      el('div', { class: 'row', style: 'justify-content:center' },
+        joueur_id ? el('a', { href: '/joueur.html?id=' + joueur_id }, el('button', { class: 'secondary' }, 'Ma fiche joueur')) : null,
+        el('button', { class: 'danger', onclick: () => { if (confirm('Se déconnecter ?')) deconnexion(); } }, 'Se déconnecter'))));
+
+    // panneau email (masqué: l'email complet n'est affiché nulle part)
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
+      el('h2', {}, '✉️ Email'),
+      el('p', { class: 'muted' }, maskEmail(compte.email)),
+      el('div', { class: 'row' },
+        el('div', { style: 'flex:1 1 auto' }, el('input', { id: 'c-email', type: 'email', placeholder: 'Nouvel email (vide = inchangé)', maxlength: 190 })),
+        el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: async () => {
+          try {
+            const v = val('c-email');
+            if (!v) { alert('Email inchangé'); return; }
+            await api('/api/compte/email', { method: 'POST', body: JSON.stringify({ email: v }) });
+            alert('✅ Email mis à jour'); location.reload();
+          } catch (e) { alert(e.message); }
+        } }, 'Enregistrer')))));
+    // panneau notifications push
+    const notifOk = await pushEstActif().catch(() => false);
+const btnNotif = notifOk
+      ? el('button', { class: 'secondary', style: 'width:100%', onclick: async () => { try { await pushDesactiver(); alert('Notifications désactivées'); location.reload(); } catch (e) { alert(e.message); } } }, 'Désactiver')
+      : el('button', { style: 'width:100%', onclick: async () => { try { await pushActiver(); alert('Notifications activées !'); location.reload(); } catch (e) { alert(e.message); } } }, 'Activer les notifications');
+    const btnTest = el('button', { class: 'secondary', style: 'width:100%', onclick: async () => {
+      try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
+      catch (e) { alert(e.message); }
+    } }, 'Tester la notification');
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
+      el('h2', {}, '🔔 Notifications'),
+      el('p', { class: 'muted small' }, 'Reçois une notification push quand un de tes matchs est lancé (même écran verrouillé).'),
+      estIOS() && !estPWA() ? el('p', { class: 'muted small' }, '📱 Sur iPhone : ajoute d\'abord le site à l\'écran d\'accueil (Safari → Partager → « Sur l\'écran d\'accueil »), puis active les notifications.') : null,
+      el('div', {}, btnNotif),
+      el('div', { style: 'margin-top:10px' }, btnTest)));
+    // panneau amis
+    async function renderAmis() {
+      const box = document.getElementById('amis-box');
+      if (!box) return;
+      const { amis } = await api('/api/compte/amis');
+      box.innerHTML = '';
+      const inp = el('input', { id: 'ami-q', placeholder: '🔍 Rechercher un pseudo… (Entrée)', maxlength: 24, style: 'width:100%;max-width:280px' });
+      const res = el('div', { style: 'margin:6px 0' });
+      inp.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        res.innerHTML = '';
+        const q = inp.value.trim();
+        if (q.length < 2) return;
+        const { comptes } = await api('/api/comptes/recherche?q=' + encodeURIComponent(q));
+        for (const c of comptes) {
+          if (c.moi) continue;
+          const deja = amis.some(a => a.compte_id === c.id);
+          res.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding:4px 0' },
+            el('span', {}, c.pseudo),
+            deja ? el('span', { class: 'muted small' }, 'déjà ami') : el('button', { class: 'secondary', style: 'padding:3px 10px;font-size:12px', onclick: async () => {
+              try { await api('/api/compte/amis', { method: 'POST', body: JSON.stringify({ pseudo: c.pseudo }) }); renderAmis(); }
+              catch (err) { alert(err.message); }
+            } }, '➕ Ajouter')));
+        }
+        const f = document.getElementById('ami-q'); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+      });
+      box.append(inp, res);
+      if (!amis.length) { box.append(el('p', { class: 'muted small', style: 'margin-top:8px' }, 'Aucun ami pour le moment — recherche un pseudo ci-dessus.')); return; }
+      for (const a of amis) {
+        const st = a.statut || {};
+        const stTxt = { en_cours: `🟢 en cours vs ${st.vs || '?'} (${st.score}${st.table ? ' · table ' + st.table : ''})`, pret: `🕐 match programmé vs ${st.vs || '?'}`, inscrit: '📝 inscrit au tournoi', hors_tournoi: '— hors tournoi' }[st.type] || '—';
+        box.append(el('div', { class: 'row', style: 'justify-content:space-between;border-top:1px solid var(--line);padding:6px 0' },
+          el('div', {}, a.joueur_id
+            ? el('a', { href: `/joueur.html?id=${a.joueur_id}`, title: `Fiche de ${a.pseudo}`, style: 'color:inherit;text-decoration:none' }, el('div', { style: 'font-weight:700' }, '👤 ' + a.pseudo, ' ›'))
+            : el('div', { style: 'font-weight:700' }, '👤 ' + a.pseudo), el('div', { class: 'muted small' }, stTxt)),
+          el('button', { class: 'danger', style: 'padding:3px 10px;font-size:12px', onclick: async () => {
+            if (!confirm('Retirer ' + a.pseudo + ' de tes amis ?')) return;
+            await api('/api/compte/amis/' + a.compte_id, { method: 'DELETE' }); renderAmis();
+          } }, '🗑')));
+      }
+    }
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
+      el('h2', {}, '👥 Amis'),
+      el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence ou quand ils s\'inscrivent à un tournoi, et leur statut ici.'),
+      el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
+        el('span', {}, '🔔 Notifier quand un ami s\'inscrit à un tournoi'),
+        el('input', { id: 'pref-ami-inscription', type: 'checkbox', checked: !prefs || prefs.notif_amis_inscription !== false, onchange: async (e) => {
+          const actif = e.target.checked;
+          try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ notif_amis_inscription: actif }) }); }
+          catch (err) { e.target.checked = !actif; alert(err.message); }
+        } })),
+      el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
+        el('span', {}, '🔔 Notifier quand le match d\'un ami commence'),
+        el('input', { id: 'pref-ami-match', type: 'checkbox', checked: !prefs || prefs.notif_amis_match !== false, onchange: async (e) => {
+          const actif = e.target.checked;
+          try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ notif_amis_match: actif }) }); }
+          catch (err) { e.target.checked = !actif; alert(err.message); }
+        } })),
+      el('div', { id: 'amis-box' })));
+    renderAmis();
+    // mes matchs (inscriptions en cours / matchs joués)
+    const mm = await api('/api/compte/moi/matchs');
+    const t = (await api('/api/etat')).actif;
+    const mesInscriptions = t ? t.joueurs.filter(j => j.compte_id === compte.id) : [];
+    if (mesInscriptions.length) {
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, '📋 Mon inscription'),
+        ...mesInscriptions.map(j => el('p', {}, `✅Inscrit au tournoi « ${t.tournoi.nom} » en tant que ${j.pseudo} — statut : ${j.statut === 'paye' ? 'payé' : 'en attente'}`))));
+    }
+    if (mm.matchs && mm.matchs.length) {
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, '🎱 Mes matchs'),
+        el('div', { class: 'matchs-grid' }, mm.matchs.map(m => matchCard(m))))); // tous les matchs, pas de limite
+    }
+
+    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px;text-align:center' },
+      el('button', { class: 'secondary', onclick: async () => {
+        try {
+          const r = await api('/api/compte/export', { pin: null });
+          const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+          const a = el('a', { href: URL.createObjectURL(blob), download: 'mes-donnees-ebpc.json' });
+          document.body.append(a); a.click(); a.remove();
+        } catch (e) { alert(e.message); }
+      } }, 'Exporter mes données (RGPD)'),
+      el('p', { class: 'muted small', style: 'margin-top:6px' }, 'Voir aussi : 🔒 Confidentialité (menu ☰)')));
+      } else {
+    main.append(panelConnexion());
+  }
+}
+init();
+</script>
+</body>
+</html>
