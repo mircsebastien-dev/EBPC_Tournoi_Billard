@@ -76,7 +76,7 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 
 ## 9. Comptes joueurs (`/admin-comptes.html`)
 
-- Liste : pseudo, email, créé le, **dernière connexion**, nb inscri. tournois, matchs, sessions actives
+- Liste : pseudo, email, créé le, **dernière connexion**, nb inscri. tournois, matchs, sessions actives, **amis** (amis avec compte + pseudos suivis sans compte)
 - Recherche pseudo/email (Entrée), actions : ✏️ pseudo, 🔑 mdp, 🗑 supprimer (détache les joueurs — l'historique des matchs est conservé — supprime sessions/push, logué audit)
 - **Purge auto** : comptes sans connexion depuis **18 mois** supprimés au boot + toutes les heures
 

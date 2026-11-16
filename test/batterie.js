@@ -625,6 +625,15 @@ async function nouveauTournoi(body) {
   check('liste amis = 1 suivi pseudo (Ghost)', nf_r.data.amis.length === 1 && nf_r.data.amis[0].pseudo === 'Ghost' && nf_r.data.amis[0].sans_compte === true, JSON.stringify(nf_r.data.amis.map(a => a.pseudo)));
   check('suivi pseudo jamais inscrit -> hors_tournoi + joueur_id null', nf_r.data.amis[0].statut.type === 'hors_tournoi' && nf_r.data.amis[0].joueur_id === null, JSON.stringify(nf_r.data.amis[0]));
   const nf_ghostId = nf_r.data.amis[0].id;
+  // admin voit les amis et pseudos suivis de chaque compte (/api/admin/comptes)
+  nf_r = await post('/api/compte/amis', { pseudo: 'Seb' }, { pin: null, useCookie: true });
+  check('re-ajout ami Seb (pour test admin)', nf_r.status === 200, nf_r.status);
+  const nf_sebId = (await api('/api/comptes/recherche?q=seb', { pin: null, useCookie: true })).data.comptes.find(c => c.pseudo === 'Seb').id;
+  const nf_adminL = (await api('/api/admin/comptes')).data.comptes.find(c => c.pseudo === 'AliceBT');
+  check('admin comptes: amis_comptes (Seb) + amis_pseudos (Ghost) exposés', !!(nf_adminL && (nf_adminL.amis_comptes || '').includes('Seb') && (nf_adminL.amis_pseudos || '').includes('Ghost')), JSON.stringify({ a: nf_adminL && nf_adminL.amis_comptes, p: nf_adminL && nf_adminL.amis_pseudos }));
+  const admHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
+  check('front: colonne Amis dans admin-comptes (comptes + sans compte)', admHtml.includes('amis_comptes') && admHtml.includes('amis_pseudos') && admHtml.includes('sans compte'), '');
+  nf_r = await del('/api/compte/amis/' + nf_sebId, { pin: null, useCookie: true });
   nf_r = await del('/api/compte/amis-pseudo/' + nf_ghostId, { pin: null, useCookie: true });
   nf_r = await api('/api/compte/amis', { pin: null, useCookie: true });
   check('retrait suivi pseudo', nf_r.data.amis.length === 0, nf_r.status);

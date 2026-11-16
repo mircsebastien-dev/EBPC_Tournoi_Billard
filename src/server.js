@@ -954,7 +954,9 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
            (SELECT COUNT(*) FROM session s WHERE s.compte_id = c.id) sessions,
            c.last_login_at,
            (SELECT COUNT(*) FROM joueur j WHERE j.compte_id = c.id) joueurs,
-           (SELECT COUNT(*) FROM match m WHERE m.joueur1_id IN (SELECT id FROM joueur WHERE compte_id = c.id) OR m.joueur2_id IN (SELECT id FROM joueur WHERE compte_id = c.id)) matchs
+           (SELECT COUNT(*) FROM match m WHERE m.joueur1_id IN (SELECT id FROM joueur WHERE compte_id = c.id) OR m.joueur2_id IN (SELECT id FROM joueur WHERE compte_id = c.id)) matchs,
+           (SELECT group_concat(c2.pseudo, ', ') FROM ami a JOIN compte c2 ON c2.id = a.ami_compte_id WHERE a.compte_id = c.id) amis_comptes,
+           (SELECT group_concat(p.pseudo, ', ') FROM ami_pseudo p WHERE p.compte_id = c.id) amis_pseudos
     FROM compte c ORDER BY c.id DESC
   `).all();
   res.json({ comptes: rows });

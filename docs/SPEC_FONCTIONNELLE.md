@@ -100,7 +100,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 
 - `/admin.html` + PIN (vérifié serveur, 401 sinon) ; accès rapides : gérer tournoi, historique, journal d'audit, comptes, 🗄 Données, ⚙️ Guide admin
 - **`/admin-tournoi.html`** : config tournoi, inscriptions, tirage, auto, tables, distances, simulation, clôture
-- **`/admin-comptes.html`** : liste comptes (pseudo, email masqué, créé, dernière connexion, nb inscri. tournois, matchs, sessions), recherche (Entrée), ✏️ pseudo, 🔑 mdp (sessions invalidées), 🗑 supprimer (historique matchs conservé), audit
+- **`/admin-comptes.html`** : liste comptes (pseudo, email masqué, créé, dernière connexion, nb inscri. tournois, matchs, sessions, **amis** : amis compte + pseudos suivis sans compte), recherche (Entrée), ✏️ pseudo, 🔑 mdp (sessions invalidées), 🗑 supprimer (historique matchs conservé), audit
 - **`/admin-data.html`** (🗄 Données) : sélecteur de tournoi (actif **ou terminé** = corrections historiques), filtre pseudo (Entrée) ; onglets Matchs (liste + modale ⚙️ + 📜), Joueurs (éditer pseudo/statut, supprimer), Events (🗑 supprime un event → **score recalculé** → stats corrigées)
 - **`/admin-journal.html`** : **500 dernières actions admin** (lancements lisibles : « wb1-001 — P11 vs P07 (table 3) ») ; chaque entrée avec snapshot a un bouton **⏪ Restaurer à ce point** (1re colonne) → `POST /api/admin/tournoi/rollback {audit_id, confirm_pin}` : restauration **point-in-time** du tournoi actif (transaction atomique, FK différées, match en cours OK → remis à `pret` 0-0 + table libérée ; 409 si snapshot d'un autre tournoi, 404 sans snapshot) ; le rollback est logué ; la page se re-rend en place (zoom/scroll conservés)
 - **`/admin-aide.html`** : guide admin in-app
