@@ -155,8 +155,6 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     }
     rattacherJoueursAnonymes(c.id, c.pseudo, tournoiActif, req.club ? req.club.id : undefined);
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
-    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
-    db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     const token = creerSession(c.id);
     setSessionCookie(res, token, SESSION_JOURS);
     logAuditC(req, 'compte_connexion', `compte ${c.id}`, null, { pseudo: c.pseudo });
@@ -400,37 +398,6 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     majEtBroadcast();
     res.status(201).json({ ok: true, joueur: { id: Number(info.lastInsertRowid), pseudo: req.compte.pseudo, statut: 'en_attente' } });
   });
-}
-
-
-// Supprime un compte: détache les joueurs (historique conservé), supprime sessions/push, puis le compte
-function supprimerCompte(id) {
-  const c = db.prepare('SELECT id, pseudo FROM compte WHERE id = ?').get(id);
-  if (!c) return false;
-  db.prepare('UPDATE joueur SET compte_id = NULL WHERE compte_id = ?').run(id);
-  db.prepare('DELETE FROM session WHERE compte_id = ?').run(id);
-  db.prepare('DELETE FROM push_subscription WHERE compte_id = ?').run(id);
-  db.prepare('DELETE FROM compte WHERE id = ?').run(id);
-  return c;
-}
-
-// Purge des comptes inactifs depuis 18 mois (jamais connecté: 18 mois après création)
-function purgerComptesInactifs() {
-  const rows = db.prepare(`
-    SELECT id, pseudo FROM compte
-    WHERE (last_login_at IS NOT NULL AND last_login_at < datetime('now', '-18 months'))
-       OR (last_login_at IS NULL AND created_at < datetime('now', '-18 months'))
-  `).all();
-  for (const r of rows) {
-    supprimerCompte(r.id);
-    logAuditSafe('compte_purge_inactivite', `compte ${r.pseudo} (18 mois d'inactivité)`, null, { id: r.id });
-  }
-  if (rows.length) console.log(`[PURGE] ${rows.length} compte(s) inactif(s) > 18 mois supprimé(s)`);
-  return rows.length;
-}
-
-function logAuditSafe(action, label, tournoiId, details) {
-  try { db.prepare('INSERT INTO audit_log (action, label, tournoi_id, details) VALUES (?, ?, ?, ?)').run(action, label, tournoiId, JSON.stringify(details || {})); } catch {}
 }
 
 
