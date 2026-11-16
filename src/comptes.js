@@ -216,7 +216,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
                        WHERE tt.club_id = ? AND (j.compte_id = ? OR j.pseudo = ? COLLATE NOCASE) ORDER BY j.id DESC LIMIT 1`)
              .get(req.club ? req.club.id : null, a.compte_id, a.pseudo)?.id
         || null;
-      return { ...a, joueur_id: jid, statut: statuts[a.sans_compte ? 'p' + a.id : 'c' + a.compte_id] || { type: 'hors_tournoi' } };
+      return { ...a, sans_compte: !!a.sans_compte, joueur_id: jid, statut: statuts[a.sans_compte ? 'p' + a.id : 'c' + a.compte_id] || { type: 'hors_tournoi' } };
     }) });
   });
 
