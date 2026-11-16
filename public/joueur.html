@@ -42,16 +42,31 @@ async function init() {
         el('span', { class: 'chip' }, `🔄 Reprise ferme : ${s.reprise}`))));
     // historique des matchs joués (date, tournoi, adversaire, score, V/D)
     const h = await api(`/api/joueur/${id}/historique`);
-    // face-à-face : bilan V/D contre chaque adversaire rencontré (tous tournois confondus)
+    // face-à-face : bilan V/D contre chaque adversaire rencontré (tous tournois confondus),
+    // plié au-delà des 5 plus joués (bouton Tout voir / Réduire)
     if (h.h2h && h.h2h.length) {
-      const selH2H = el('select', { id: 'h2h-select' },
-        el('option', { value: '' }, `Choisir un adversaire (${h.h2h.length})…`),
-        ...h.h2h.map(x => el('option', { value: String(x.adversaire_id) }, `${x.adversaire} · ${x.victoires}V-${x.defaites}D · dernier ${x.dernier_victoire ? 'V' : 'D'}`)));
-      selH2H.addEventListener('change', () => { if (selH2H.value) location.href = `/joueur.html?id=${selH2H.value}`; });
+      const H2H_MAX = 5;
+      const enteteH2H = () => el('tr', {}, el('th', {}, 'Adversaire'), el('th', {}, 'Joués'), el('th', {}, 'V'), el('th', {}, 'D'), el('th', {}, 'Dernier'));
+      const ligneH2H = x => el('tr', {},
+        el('td', {}, el('a', { href: `/joueur.html?id=${x.adversaire_id}`, style: 'color:var(--pink-soft)' }, x.adversaire || '—')),
+        el('td', { style: 'font-weight:800' }, `${x.joues}`),
+        el('td', { style: 'color:var(--green);font-weight:800' }, `${x.victoires}`),
+        el('td', { style: 'color:var(--muted);font-weight:800' }, `${x.defaites}`),
+        el('td', {}, x.dernier_victoire === true
+          ? el('span', { style: 'color:var(--green)' }, '✅ V')
+          : x.dernier_victoire === false ? el('span', { style: 'color:var(--muted)' }, '❌ D') : '—'));
+      const tblH2H = el('table', { class: 'audit' }, enteteH2H(), ...h.h2h.slice(0, H2H_MAX).map(ligneH2H));
+      let toutH2H = false;
+      const btnH2H = h.h2h.length > H2H_MAX ? el('button', { class: 'secondary', style: 'margin-top:8px', onclick: () => {
+        toutH2H = !toutH2H;
+        tblH2H.replaceChildren(enteteH2H(), ...(toutH2H ? h.h2h : h.h2h.slice(0, H2H_MAX)).map(ligneH2H));
+        btnH2H.textContent = toutH2H ? 'Réduire' : `Tout voir (${h.h2h.length})`;
+      } }, `Tout voir (${h.h2h.length})`) : null;
       main.append(el('div', { class: 'panel' },
         el('h2', {}, `⚔️ Face-à-face (${h.h2h.length} adversaire${h.h2h.length > 1 ? 's' : ''})`),
-        selH2H,
-        el('div', { style: 'color:var(--muted);font-size:.85em;margin-top:8px' }, 'Bilan tous tournois confondus. Choisir un adversaire ouvre sa fiche joueur.')));
+        tblH2H,
+        btnH2H,
+        el('div', { style: 'color:var(--muted);font-size:.85em;margin-top:8px' }, 'Bilan tous tournois confondus.')));
     }
     if (h.historique && h.historique.length) {
       main.append(el('div', { class: 'panel' },

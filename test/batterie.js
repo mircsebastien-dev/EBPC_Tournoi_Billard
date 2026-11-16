@@ -667,7 +667,7 @@ async function nouveauTournoi(body) {
   check('front: self-désinscription masquée si déjà payé', idxHtml.includes('la désinscription se fait auprès de la table de marque') && cptHtml.includes('la désinscription se fait auprès de la table de marque'), '');
   // face-à-face (head-to-head) sur la fiche joueur
   const joHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'joueur.html'), 'utf8');
-  check('front: panneau Face-à-face (h2h) sur la fiche joueur, adversaire cliquable', joHtml.includes('Face-à-face') && joHtml.includes('h.h2h') && joHtml.includes('/joueur.html?id=${selH2H.value}'), '');
+  check('front: panneau Face-à-face (h2h) sur la fiche joueur, tableau plié à 5 + bouton Tout voir, adversaire cliquable', joHtml.includes('Face-à-face') && joHtml.includes('H2H_MAX = 5') && joHtml.includes('Tout voir') && joHtml.includes('/joueur.html?id=${x.adversaire_id}'), '');
   // affiche du prochain tournoi (poster auto-généré, phase inscription)
   check('front: affiche tournoi à venir (poster) : eyebrow + jauge inscrits, sans QR ni emojis', idxHtml.includes('poster-eyebrow') && idxHtml.includes('poster-bar') && idxHtml.includes('restantes') && idxHtml.includes('Inscriptions ouvertes') && !idxHtml.includes('/api/qrcode.svg') && !idxHtml.includes('📅') && !idxHtml.includes('📍'), '');
   const styCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
