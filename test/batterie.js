@@ -350,6 +350,13 @@ async function nouveauTournoi(body) {
   check('stats-joueurs 200 + joueurs avec id/manches/runouts', r.status === 200 && r.data.joueurs.length > 0 && 'id' in r.data.joueurs[0] && 'manches' in r.data.joueurs[0] && 'runouts' in r.data.joueurs[0], r.data.joueurs.length);
   const champ = r.data.joueurs.find(p => p.titres > 0);
   check('titres = 1 par tournoi gagné (pas par match)', !champ || champ.titres >= 1, champ && `titres=${champ.titres} joues=${champ.joues}`);
+  // head-to-head : bilan V/D par adversaire sur la fiche joueur
+  const jH2H = r.data.joueurs.find(p => p.joues > 0) || r.data.joueurs[0];
+  r = await api(`/api/joueur/${jH2H.id}/historique`);
+  const hh = r.data.h2h || [];
+  const histH2H = r.data.historique || [];
+  check('fiche joueur: h2h par adversaire (joues = victoires + defaites, dernier renseigné)', hh.length > 0 && hh.every(x => x.adversaire_id && x.adversaire && x.joues === x.victoires + x.defaites && typeof x.dernier_victoire === 'boolean'), `${hh.length} adversaires, ${histH2H.length} matchs`);
+  check('fiche joueur: totaux h2h = totaux historique (matchs decides et victoires)', hh.reduce((a, x) => a + x.joues, 0) === histH2H.filter(x => x.gagnant).length && hh.reduce((a, x) => a + x.victoires, 0) === histH2H.filter(x => x.victoire).length, `${hh.reduce((a, x) => a + x.joues, 0)} joues h2h / ${histH2H.length} historique`);
   r = await fetch(BASE + '/api/qrcode.svg?text=' + encodeURIComponent('https://example.com'));
   const svg = await r.text();
   check('QR svg 200 + svg valide', r.status === 200 && svg.includes('<svg'), r.status);
@@ -658,6 +665,9 @@ async function nouveauTournoi(body) {
   const cptHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'compte.html'), 'utf8');
   check('front: bouton « Me désinscrire » (accueil + page compte)', idxHtml.includes('Me désinscrire') && cptHtml.includes('Me désinscrire') && (idxHtml + cptHtml).includes('/api/tournoi/desinscrire'), '');
   check('front: self-désinscription masquée si déjà payé', idxHtml.includes('la désinscription se fait auprès de la table de marque') && cptHtml.includes('la désinscription se fait auprès de la table de marque'), '');
+  // face-à-face (head-to-head) sur la fiche joueur
+  const joHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'joueur.html'), 'utf8');
+  check('front: panneau Face-à-face (h2h) sur la fiche joueur, adversaire cliquable', joHtml.includes('Face-à-face') && joHtml.includes('h.h2h') && joHtml.includes('/joueur.html?id=${x.adversaire_id}'), '');
   // affiche du prochain tournoi (poster auto-généré, phase inscription)
   check('front: affiche tournoi à venir (poster) : eyebrow + jauge inscrits, sans QR ni emojis', idxHtml.includes('poster-eyebrow') && idxHtml.includes('poster-bar') && idxHtml.includes('restantes') && idxHtml.includes('Inscriptions ouvertes') && !idxHtml.includes('/api/qrcode.svg') && !idxHtml.includes('📅') && !idxHtml.includes('📍'), '');
   const styCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');

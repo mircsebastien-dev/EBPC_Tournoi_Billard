@@ -25,7 +25,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | 7 | **Shot clock / minuteur par manche** affiché card + TV (anti-jeu lent) — timestamp par manche dans `match_event.detail` | M | ⬜ |
 | 8 | **Liste d'attente à l'inscription** : au-delà de N inscrits, file d'attente, promotion auto à la désinscription | M | ⬜ |
 | 9 | **Classement ELO all-time** par compte (victoire contre un fort rapporte plus) | M | ⬜ |
-| 10 | Head-to-head entre 2 joueurs sur la fiche joueur (les données anti-rematch existent déjà) | S | ⬜ |
+| 10 | **Head-to-head entre 2 joueurs sur la fiche joueur** : bilan V/D par adversaire, agrégé par personne (compte/pseudo), dernier duel + lien vers la fiche adverse (`h2h` dans `GET /api/joueur/:id/historique`) | S | ✅ fait |
 
 ## 📺 Salle / TV / affichage
 

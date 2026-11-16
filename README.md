@@ -74,7 +74,7 @@ Pages :
 | `/historique.html` | Liste des tournois terminés (consultation + suppression admin) |
 | `/tournoi.html?id=<id>` | Détail d'un tournoi archivé (tableau, stats, classement) |
 | `/stats.html` | Statistiques joueurs all-time (tous tournois) |
-| `/joueur.html?id=<id>` | Fiche joueur (stats + historique de ses matchs) |
+| `/joueur.html?id=<id>` | Fiche joueur (stats + face-à-face contre chaque adversaire + historique de ses matchs) |
 | `/aide.html` | Aide joueur (inscription, push, saisie des scores…) |
 | `/compte.html` | Compte joueur (email masqué, amis, notifs, export RGPD) |
 | `/confidentialite.html` | Confidentialité / RGPD |

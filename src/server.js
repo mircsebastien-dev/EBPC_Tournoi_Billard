@@ -1333,8 +1333,28 @@ app.get('/api/joueur/:id/historique', (req, res) => {
     WHERE (m.joueur1_id IN (${phH}) OR m.joueur2_id IN (${phH})) AND m.joueur1_id IS NOT NULL AND m.joueur2_id IS NOT NULL AND m.etat IN ('termine', 'forfait')
     ORDER BY m.ended_at DESC, m.id DESC
   `).all(...idsH, ...idsH);
+  // head-to-head : bilan V/D contre chaque adversaire rencontré, agrégé par personne
+  // (même compte ou même pseudo hors compte, exactement comme idsMemeJoueur) ;
+  // rows étant triées par date décroissante, le premier match croisé = le plus récent
+  const h2hMap = new Map();
+  for (const m of rows) {
+    if (m.gagnant_id == null) continue; // tournoi arrêté : ni V ni D
+    const advRowId = idsH.includes(m.joueur1_id) ? m.joueur2_id : m.joueur1_id;
+    if (advRowId == null) continue;
+    const cle = Math.min(...idsMemeJoueur(advRowId).ids);
+    const gagne = idsH.includes(m.gagnant_id);
+    let e = h2hMap.get(cle);
+    if (!e) {
+      e = { adversaire: idsH.includes(m.joueur1_id) ? m.j2_pseudo : m.j1_pseudo, adversaire_id: advRowId, joues: 0, victoires: 0, defaites: 0, dernier_victoire: gagne };
+      h2hMap.set(cle, e);
+    }
+    e.joues++;
+    if (gagne) e.victoires++; else e.defaites++;
+  }
+  const h2h = [...h2hMap.values()].sort((a, b) => b.joues - a.joues || String(a.adversaire).localeCompare(String(b.adversaire)));
   res.json({
     joueur: j,
+    h2h,
     historique: rows.map(m => ({
       id: m.id,
       code: `${m.bracket.toLowerCase()}${m.tour}-${String(m.position).padStart(3, '0')}`,

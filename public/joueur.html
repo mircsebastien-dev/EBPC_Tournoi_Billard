@@ -42,6 +42,21 @@ async function init() {
         el('span', { class: 'chip' }, `🔄 Reprise ferme : ${s.reprise}`))));
     // historique des matchs joués (date, tournoi, adversaire, score, V/D)
     const h = await api(`/api/joueur/${id}/historique`);
+    // face-à-face : bilan V/D contre chaque adversaire rencontré (tous tournois confondus)
+    if (h.h2h && h.h2h.length) {
+      main.append(el('div', { class: 'panel' },
+        el('h2', {}, `⚔️ Face-à-face (${h.h2h.length} adversaire${h.h2h.length > 1 ? 's' : ''})`),
+        el('table', { class: 'audit' },
+          el('tr', {}, el('th', {}, 'Adversaire'), el('th', {}, 'Joués'), el('th', {}, 'V'), el('th', {}, 'D'), el('th', {}, 'Dernier')),
+          ...h.h2h.map(x => el('tr', {},
+            el('td', {}, el('a', { href: `/joueur.html?id=${x.adversaire_id}`, style: 'color:var(--pink-soft)' }, x.adversaire || '—')),
+            el('td', { style: 'font-weight:800' }, `${x.joues}`),
+            el('td', { style: 'color:var(--green);font-weight:800' }, `${x.victoires}`),
+            el('td', { style: 'color:var(--muted);font-weight:800' }, `${x.defaites}`),
+            el('td', {}, x.dernier_victoire === true
+              ? el('span', { style: 'color:var(--green)' }, '✅ V')
+              : x.dernier_victoire === false ? el('span', { style: 'color:var(--muted)' }, '❌ D') : '—'))))));
+    }
     if (h.historique && h.historique.length) {
       main.append(el('div', { class: 'panel' },
         el('h2', {}, `🧾 Historique (${h.historique.length} matchs)`),
