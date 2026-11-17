@@ -165,7 +165,8 @@ function renderInscriptions(t) {
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'secondary', onclick: sauverDistances }, 'Enregistrer'))));
 
   main.append(el('div', { class: 'panel' },
-    el('button', { onclick: tirage, disabled: t.joueurs.filter(j => j.statut === 'paye').length < 2 ? '' : null, style: 'width:100%' }, `Lancer le tirage (${t.joueurs.filter(j => j.statut === 'paye').length} payés)`),
+    el('button', { class: 'secondary', style: 'width:100%', onclick: rappelInscriptions }, '🔔 Rappel inscriptions ouvertes (push aux joueurs abonnés)'),
+    el('div', { style: 'margin-top:12px' }, el('button', { onclick: tirage, disabled: t.joueurs.filter(j => j.statut === 'paye').length < 2 ? '' : null, style: 'width:100%' }, `Lancer le tirage (${t.joueurs.filter(j => j.statut === 'paye').length} payés)`)),
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'danger', style: 'width:100%', onclick: supprimer }, 'Supprimer le tournoi'))));
 
   function toLocalInput(dh) {
@@ -207,6 +208,12 @@ function renderInscriptions(t) {
     try {
       const r = await adminApi('/api/admin/joueurs/simulation', { method: 'POST', body: JSON.stringify({ count: Number(val('simcount')) || 8, prefix: val('simprefix') || 'Simu' }) });
       alert(`${r.crees} joueur(s) fictif(s) ajouté(s) et payés ✅`);
+    } catch (e) { alert(e.message); }
+  }
+  async function rappelInscriptions() {
+    try {
+      const r = await adminApi('/api/admin/tournoi/rappel-inscriptions', { method: 'POST' });
+      alert(`${r.envoyes} notification(s) envoyée(s) ✅`);
     } catch (e) { alert(e.message); }
   }
   async function sauverDistances() {

@@ -81,6 +81,11 @@ async function nouveauTournoi(body) {
   check('création OK', r.status === 200 && r.data.actif.tournoi.nom === 'Batterie', r.status);
   r = await post('/api/admin/tournoi', { nom: 'Y', regle: 'blackball', taille: 16, format: 'simple' });
   check('2e tournoi actif -> 409', r.status === 409, r.data.error);
+  // rappel push inscriptions ouvertes : réservé admin, phase inscription uniquement
+  r = await api('/api/admin/tournoi/rappel-inscriptions', { method: 'POST', body: {}, pin: null });
+  check('rappel inscriptions sans PIN -> 401', r.status === 401, r.status);
+  r = await post('/api/admin/tournoi/rappel-inscriptions', {});
+  check('rappel inscriptions en phase inscription -> 200 + envoyes=0 (aucun abonné en CI)', r.status === 200 && r.data.ok === true && r.data.envoyes === 0, JSON.stringify(r.data));
   r = await api('/api/etat');
   check('/api/etat OK + tables = 4', r.status === 200 && r.data.actif.tables.length === 4, r.data.actif && r.data.actif.tables.length);
   check('/api/etat expose auto/table_pref/compte', 'auto' in r.data && 'table_pref' in r.data && 'compte' in r.data, Object.keys(r.data).join(','));
@@ -371,6 +376,8 @@ async function nouveauTournoi(body) {
   await post('/api/admin/joueurs/simulation', { count: 16, prefix: 'P' });
   r = await post('/api/admin/tirage', {});
   check('tirage RB', r.status === 200, r.status);
+  r = await post('/api/admin/tournoi/rappel-inscriptions', {});
+  check('rappel inscriptions après tirage -> 409', r.status === 409, r.status + ' ' + (r.data.error || ''));
   let t11 = (await api('/api/etat')).data.actif;
   const prevu = t11.matchs.find(m => m.etat === 'prevu');
   const feeder = prevu && t11.matchs.find(x => x.suivant_id === prevu.id || x.perdant_id === prevu.id);
@@ -668,6 +675,9 @@ async function nouveauTournoi(body) {
   // face-à-face (head-to-head) sur la fiche joueur
   const joHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'joueur.html'), 'utf8');
   check('front: panneau Face-à-face (h2h) sur la fiche joueur, tableau plié à 5 + bouton Tout voir, adversaire cliquable', joHtml.includes('Face-à-face') && joHtml.includes('H2H_MAX = 5') && joHtml.includes('Tout voir') && joHtml.includes('/joueur.html?id=${x.adversaire_id}'), '');
+  // rappel inscriptions ouvertes : bouton admin (phase inscription)
+  const atHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-tournoi.html'), 'utf8');
+  check('front: bouton Rappel inscriptions ouvertes (admin-tournoi, phase inscription)', atHtml.includes('rappel-inscriptions') && atHtml.includes('Rappel inscriptions ouvertes') && atHtml.includes('rappelInscriptions'), '');
   // affiche du prochain tournoi (poster auto-généré, phase inscription)
   check('front: affiche tournoi à venir (poster) : eyebrow + jauge inscrits, sans QR ni emojis', idxHtml.includes('poster-eyebrow') && idxHtml.includes('poster-bar') && idxHtml.includes('restantes') && idxHtml.includes('Inscriptions ouvertes') && !idxHtml.includes('/api/qrcode.svg') && !idxHtml.includes('📅') && !idxHtml.includes('📍'), '');
   const styCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');

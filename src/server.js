@@ -919,6 +919,23 @@ app.post('/api/admin/push-test-ami', requireAdmin, async (req, res) => {
   res.json({ ok: true, ...r });
 });
 
+// Rappel push « inscriptions ouvertes » : réservé aux admins, uniquement tant que le tournoi actif est en phase inscription
+app.post('/api/admin/tournoi/rappel-inscriptions', requireAdmin, async (req, res) => {
+  const t = tournoiActif(req.club.id);
+  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Les inscriptions ne sont pas ouvertes (tirage déjà effectué)' });
+  const inscrits = db.prepare('SELECT COUNT(*) AS c FROM joueur WHERE tournoi_id = ?').get(t.id).c;
+  const dateH = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(t.date_heure || '') ? t.date_heure.replace('T', ' ').slice(0, 16) : bracket.prochainMardi20h();
+  const envoyes = await push.envoyerTous({
+    title: '🎱 Rappel — inscriptions ouvertes',
+    body: `« ${t.nom} » · ${inscrits}/${t.taille} inscrits · ${dateH}`,
+    url: '/',
+    tag: 'tournoi-' + t.id, // même tag que la notif de création : le rappel remplace la précédente au lieu de s'empiler
+  }, req.club.id).catch(() => 0);
+  logAuditReq(req, 'rappel_inscriptions', `tournoi ${t.id}`, null, { envoyes });
+  res.json({ ok: true, envoyes });
+});
+
 app.post('/api/admin/simuler', requireAdmin, (req, res) => {
   const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });

@@ -27,7 +27,7 @@ Design **« Eight Ball Pink City »** : thème sombre noir profond avec accents 
 - **Export / import JSON du tournoi** (boutons 💾 table de marque) + **diff affiché avant chaque rollback** + **filtres du journal d'audit** (texte + action)
 - **Rollback point-in-time** : chaque action admin prend un **snapshot** du tournoi actif (table `audit_snapshot`, 200 max par tournoi, purge auto > 90 j) → dans le **journal d'audit**, « ⏪ Restaurer à ce point » restaure le tournoi actif à l'état exact de l'événement (transaction atomique, fonctionne même avec des matchs en cours : scores remis à 0, tables libérées)
 - **Confirmation par code re-saisi** (`confirm_pin`) obligatoire pour **toute action admin destructive** (suppression tournoi / compte / événement de match, vidage du journal, rollback) via une modale à mot de passe masqué — seule la désinscription d'un joueur en est exempte
-- **Notif push « 🎱 Nouveau tournoi — inscriptions ouvertes »** envoyée à tous les abonnés à la création d'un tournoi (switch sur le formulaire de création, **actif par défaut**)
+- **Notif push « 🎱 Nouveau tournoi — inscriptions ouvertes »** envoyée à tous les abonnés à la création d'un tournoi (switch sur le formulaire de création, **actif par défaut**) + **bouton 🔔 « Rappel inscriptions ouvertes »** sur la table de marque pendant la phase d'inscription (push à tous les abonnés du club, le rappel remplace la notif précédente)
 - **Slots explicites** dans les tableaux : tant que les joueurs d'un match ne sont pas connus, les cartes affichent « gagnant wb1-001 » / « perdant lb2-003 » / « blanc » (une ligne par slot)
 - **Byes exclus du classement** : un match contre blanc ne compte ni gagné ni perdu dans les stats
 - **Email masqué** sur la page compte du joueur

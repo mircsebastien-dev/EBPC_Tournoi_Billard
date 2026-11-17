@@ -108,6 +108,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - Installable (manifest : nom « Pink City Billard — Tournois », short_name « Tournoi EBPC », icônes 192/512 + apple-touch + **favicon.svg bille 8**)
 - iOS : **obligatoirement via Safari** → « Sur l'écran d'accueil », puis activer dans l'app
 - **Tests push manuels** : `POST /api/push/test` (bouton « Tester la notification » dans le compte) + `POST /api/admin/push-test-ami {joueur_id}` (bouton admin)
+- **Rappel « inscriptions ouvertes »** : `POST /api/admin/tournoi/rappel-inscriptions` (bouton 🔔 de la table de marque, phase inscription uniquement — 409 après le tirage —, push à tous les abonnés du club, même `tag` que la notif de création → le rappel remplace la précédente au lieu de s'empiler ; action auditée `rappel_inscriptions` avec le nombre envoyé)
 - Push VAPID : « 🎱 À toi de jouer ! » au lancement (joueurs) + « 👥 Match d'un ami » (amis) ; **clic sur la notif → ouvre `/match.html?id=<match>` directement** (SW robuste : navigate+focus si onglet ouvert, openWindow URL absolue sinon, fallback accueil)
 - Abonnement stocké par compte, révocable
 
@@ -155,7 +156,7 @@ Un joueur invité qui crée un compte avec le **même pseudo** est rattaché aut
 - **Déploiement** : push sur `main` → déploiement auto Fly depuis GitHub (prod `ebpc-tournoi-billard`) ; **app de test** séparée (`ebpc-tournoi-billard-test`) : volume neuf ou restauré depuis snapshot prod (jamais partagé), secrets recopiés à la main (Fly ne les lit pas), PIN différent conseillé
 - **Snapshots volume** : `fly volumes snapshots list/create tournoi_data` pour backup/restauration
 - **Tests** (serveur frais sur DB temporaire : `PORT=xxxx DB_PATH=/tmp/x.db ADMIN_PIN=0000 node src/server.js`) :
-  - `BASE=http://127.0.0.1:PORT node test/batterie.js` → **237 checks** (`test/rapport.md`) : sécurité PIN + confirm_pin, tournois, comptes, matchs, DKO, amis, règles, **rollback point-in-time (401/404/200, état restauré, match en cours → pret 0-0 + table libérée)**, slots API, byes exclus du classement, lancements lisibles, **robustesse (section 13 : health, 400/413/404 JSON, id NaN, pseudo tronqué/nettoyé, injection SQL, 20 manches parallèles sans 500 ni double comptage)**
+  - `BASE=http://127.0.0.1:PORT node test/batterie.js` → **241 checks** (`test/rapport.md`) : sécurité PIN + confirm_pin, tournois, comptes, matchs, DKO, amis, règles, **rollback point-in-time (401/404/200, état restauré, match en cours → pret 0-0 + table libérée)**, slots API, byes exclus du classement, lancements lisibles, **robustesse (section 13 : health, 400/413/404 JSON, id NaN, pseudo tronqué/nettoyé, injection SQL, 20 manches parallèles sans 500 ni double comptage)**
   - `BASE=… node test/e2e.js` (structure DKO 32 k=2/k=3, distances LB race-to-2, SSE) · `BASE=… node test/fullrun.js` (simulations complètes 16/32 joueurs simple + DKO)
   - `node test/push-unit.js` (push `envoyerTous` avec web-push mocké via `require.cache` : payload « inscriptions ouvertes », cleanup 410/404, 500 conservé) · `node test/purge-unit.js` (purge au boot `audit_log`/`audit_snapshot` > 90 j, test en 2 processus)
   - anti brute-force PIN : `TEST_BRUTEFORCE=1 PIN_MAX_ESSAIS=4 PIN_FENETRE_MS=1500 PIN_BLOCAGE_MS=2000` (côté serveur ET côté batterie) active la section 12 (429 après N échecs, lockout même pour le bon code, déblocage après délai)
