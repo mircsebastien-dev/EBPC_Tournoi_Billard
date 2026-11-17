@@ -38,7 +38,9 @@ async function jouerMatch(m, gagnantId, opts = {}) {
   if (cur && cur.casseur == null) await api(`/api/match/${m.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m.joueur1.id } });
   if (m.etat !== 'en_cours') await post(`/api/admin/match/${m.id}/lancer`, { table_id: opts.table_id ?? null });
   for (let i = 0; i < m.manches; i++) await api(`/api/match/${m.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: gagnantId } });
-  return (await api('/api/etat')).data.actif.matchs.find(x => x.id === m.id);
+  // le tournoi peut se terminer automatiquement sur ce dernier match (actif -> null)
+  const apres = (await api('/api/etat')).data.actif;
+  return apres ? apres.matchs.find(x => x.id === m.id) : null;
 }
 async function jouerTournoiSimple(gagnantId) {
   for (let step = 0; step < 100; step++) {
