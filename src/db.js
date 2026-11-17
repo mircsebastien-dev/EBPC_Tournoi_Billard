@@ -303,6 +303,13 @@ if (!db.prepare("PRAGMA table_info(push_subscription)").all().some(c => c.name =
   db.prepare('UPDATE audit_snapshot SET club_id = COALESCE((SELECT t.club_id FROM tournoi t WHERE t.id = audit_snapshot.tournoi_id), ?) WHERE club_id IS NULL').run(defId);
   db.prepare('UPDATE push_subscription SET club_id = ? WHERE club_id IS NULL').run(defId);
 }
+// rattrapage des comptes créés avant le rattachement étendu aux tournois passés:
+// rattache au boot chaque joueur anonyme au compte portant le même pseudo (idempotent)
+db.exec(`
+  UPDATE joueur SET compte_id = (SELECT c.id FROM compte c WHERE c.pseudo = joueur.pseudo COLLATE NOCASE LIMIT 1)
+  WHERE compte_id IS NULL
+    AND EXISTS (SELECT 1 FROM compte c WHERE c.pseudo = joueur.pseudo COLLATE NOCASE)
+`);
 
 function setSetting(key, value) {
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')

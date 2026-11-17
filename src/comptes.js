@@ -110,13 +110,12 @@ function validerPassword(p) {
 // ---------- routes ----------
 
 // Rattache les joueurs anonymes du tournoi actif au même pseudo -> compte (création de compte ou connexion)
-function rattacherJoueursAnonymes(compteId, pseudo, tournoiActif, clubId) {
-  if (!tournoiActif) return;
-  const t = tournoiActif(clubId);
-  if (t && (t.statut === 'inscription' || t.statut === 'en_cours')) {
-    db.prepare('UPDATE joueur SET compte_id = ? WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND compte_id IS NULL')
-      .run(compteId, t.id, pseudo);
-  }
+function rattacherJoueursAnonymes(compteId, pseudo) {
+  // rattache TOUS les joueurs anonymes de ce pseudo (tournois passés et autres clubs inclus),
+  // pas seulement celui du tournoi actif: une fois le compte posé, idsMemeJoueur agrège par
+  // compte (plus par pseudo), donc sans ce rattachement la fiche joueur et les stats du
+  // compte perdraient tout l historique des tournois joués en anonyme
+  db.prepare('UPDATE joueur SET compte_id = ? WHERE pseudo = ? COLLATE NOCASE AND compte_id IS NULL').run(compteId, pseudo);
 }
 
 function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueMatch }) {
@@ -135,7 +134,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     const salt = nouveauSalt();
     const info = db.prepare(`INSERT INTO compte (pseudo, email, pass_hash, salt, last_login_at) VALUES (?, ?, ?, ?, datetime('now'))`)
       .run(pseudo, email, hashPassword(password, salt), salt);
-    rattacherJoueursAnonymes(info.lastInsertRowid, pseudo, tournoiActif, req.club ? req.club.id : undefined);
+    rattacherJoueursAnonymes(info.lastInsertRowid, pseudo);
     const compte = db.prepare('SELECT id, pseudo, email FROM compte WHERE id = ?').get(info.lastInsertRowid);
     const token = creerSession(compte.id);
     setSessionCookie(res, token, SESSION_JOURS);
@@ -153,7 +152,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!c || !verifierPassword(password, c.salt, c.pass_hash)) {
       return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect' });
     }
-    rattacherJoueursAnonymes(c.id, c.pseudo, tournoiActif, req.club ? req.club.id : undefined);
+    rattacherJoueursAnonymes(c.id, c.pseudo);
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     const token = creerSession(c.id);
     setSessionCookie(res, token, SESSION_JOURS);

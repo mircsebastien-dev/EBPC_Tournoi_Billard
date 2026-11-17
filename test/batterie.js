@@ -866,8 +866,43 @@ async function nouveauTournoi(body) {
   await del('/api/admin/tournoi', { club: 'clubb' }).catch(() => {});
   await del('/api/admin/tournoi').catch(() => {});
 
-  // ---------- 18. Front: retour contextuel de la card match ----------
-  sec('18. Front: card match avec retour contextuel (?retour=/referrer) + menu nav');
+  // ---------- 18. Rattachement des anciens joueurs anonymes à leur compte ----------
+  sec('18. Rattachement compte <-> anciens joueurs anonymes (même pseudo, tournois passés)');
+  r = await nouveauTournoi({ nom: 'Retro1', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
+  check('création tournoi Retro1', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  await post('/api/admin/joueur', { pseudo: 'Legende' });
+  await post('/api/admin/joueur', { pseudo: 'Adverse' });
+  let t18 = (await api('/api/etat')).data.actif;
+  for (const p of ['Legende', 'Adverse']) await post(`/api/admin/joueur/${t18.joueurs.find(j => j.pseudo === p).id}/paiement`, { statut: 'paye' });
+  r = await post('/api/admin/tirage', {});
+  check('tirage Retro1', r.status === 200, r.status);
+  t18 = (await api('/api/etat')).data.actif;
+  const legende = t18.joueurs.find(j => j.pseudo === 'Legende');
+  const m18 = t18.matchs.find(m => m.etat === 'pret' && m.joueur1 && m.joueur2);
+  await jouerMatch(m18, legende.id);
+  r = await api('/api/etat');
+  check('Retro1 terminé automatiquement (Legende champion), plus de tournoi actif', !r.data.actif, r.data.actif && r.data.actif.tournoi.statut);
+  // création du compte APRÈS le tournoi (sans tournoi actif): le rattachement doit
+  // fonctionner même hors tournoi actif et couvrir les tournois passés
+  // (X-Forwarded-For distinct: la limite de création de comptes est keyée par IP)
+  const rIns18 = await fetch(BASE + '/api/compte/inscription', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '203.0.113.77' },
+    body: JSON.stringify({ pseudo: 'Legende', email: 'legende@test.fr', password: 'test1234' }),
+  });
+  const dIns18 = await rIns18.json().catch(() => ({}));
+  check('compte Legende créé après le tournoi (sans tournoi actif)', rIns18.status === 201, rIns18.status + ' ' + (dIns18.error || ''));
+  r = await api('/api/admin/comptes');
+  const c18 = r.data.comptes.find(c => c.pseudo === 'Legende');
+  check('joueur anonyme du tournoi archivé rattaché au compte (joueurs=1)', !!(c18 && c18.joueurs === 1), JSON.stringify(c18 && c18.joueurs));
+  r = await api(`/api/joueur/${legende.id}/stats`);
+  check('fiche joueur: stats du tournoi passé comptées via le compte (1 joué, 1 gagné)', r.status === 200 && r.data.joues === 1 && r.data.gagnes === 1, JSON.stringify({ j: r.data.joues, g: r.data.gagnes }));
+  r = await api('/api/stats-joueurs', { pin: null });
+  const s18 = r.data.joueurs.find(p => p.pseudo === 'Legende');
+  check('classement: Legende garde ses stats après rattachement (1 joué, 1 titre)', !!(s18 && s18.joues === 1 && s18.titres === 1), JSON.stringify(s18));
+
+  // ---------- 19. Front: retour contextuel de la card match ----------
+  sec('19. Front: card match avec retour contextuel (?retour=/referrer) + menu nav');
   const mhtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'match.html'), 'utf8');
   check('match.html: lien retour dynamique (?retour= > referrer > /suivi.html) + menu nav()', mhtml.includes('lien-retour') && mhtml.includes('document.referrer') && mhtml.includes("nav('')"), '');
   const cjs18 = fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8');
@@ -900,6 +935,7 @@ async function nouveauTournoi(body) {
   md += `- Lot fiabilité admin (section 15): export JSON du tournoi, import avec remap des ids + FK validées au COMMIT (401 sans/bon confirm_pin, 400 invalide, 409 si actif sans replace), diff avant rollback (resume + matchs modifiés), filtre du journal ?q=/?action=\n`;
   md += `- Rôles (section 16): compte role=admin -> session suffit pour requireAdmin ET confirm_pin (destructif); sinon PIN requis (401 sans), confirm_pin requis sur destructifs; POST /api/admin/compte/:id/role (admin/user, 400 invalide)\n`;
   md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
+  md += `- Rattachement compte/joueurs anonymes (section 18): compte créé après un tournoi archivé (sans tournoi actif) rattache quand même les lignes anonymes du même pseudo (tournois passés inclus), fiche joueur + classement conservent les stats\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);
