@@ -169,15 +169,22 @@ function grouperParRound(matchs, rounds) {
 }
 
 function connecterSSE(onUpdate) {
-  const src = new EventSource('/api/events');
-  src.addEventListener('update', async () => {
+  const refetch = async () => {
     try {
       const s = await api('/api/etat', { pin: null }); // payload SSE léger -> re-fetch état complet
       // le broadcast global ne contient pas le compte de la session -> on le réinjecte
       if (s && !s.compte && compteCourant) s.compte = compteCourant;
       onUpdate(s);
     } catch {}
-  });
+  };
+  const src = new EventSource('/api/events');
+  src.addEventListener('update', refetch);
+  // reconnexion du flux (coupure réseau, sortie de veille): les événements émis pendant
+  // la coupure ne sont pas rejoués -> on re-synchronise dès que le flux est réouvert
+  src.addEventListener('open', refetch);
+  // retour sur la page (onglet ravivé, écran déverrouillé, PWA sortie de l'arrière-plan):
+  // les navigateurs suspendent EventSource en arrière-plan -> re-sync immédiate à l'affichage
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refetch(); });
   src.onerror = () => {};
   return src;
 }

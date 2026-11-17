@@ -638,6 +638,7 @@ async function nouveauTournoi(body) {
   check('liste amis = 1 (Seb)', nf_r.status === 200 && nf_r.data.amis.length === 1 && nf_r.data.amis[0].pseudo === 'Seb', nf_r.status);
   check('ami a un statut de tournoi', ['pret', 'en_cours', 'inscrit'].includes(nf_r.data.amis[0].statut.type), nf_r.data.amis[0].statut.type);
   check('ami inscrit expose joueur_id (lien fiche joueur)', typeof nf_r.data.amis[0].joueur_id === 'number', JSON.stringify(nf_r.data.amis[0].joueur_id));
+  // affiche du prochain tournoi (poster auto-généré, phase inscription)
   const idxHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
   check('front: panneau amis page tournoi -> clic nom renvoie /joueur.html?id=', idxHtml.includes('/joueur.html?id=${a.joueur_id}'), '');
   nf_t = (await api('/api/etat')).data.actif;
@@ -685,6 +686,9 @@ async function nouveauTournoi(body) {
   check('front: bouton Rappel inscriptions ouvertes (admin-tournoi, phase inscription)', atHtml.includes('rappel-inscriptions') && atHtml.includes('Rappel inscriptions ouvertes') && atHtml.includes('rappelInscriptions'), '');
   // affiche du prochain tournoi (poster auto-généré, phase inscription)
   check('front: affiche tournoi à venir (poster) : eyebrow + jauge inscrits, sans QR ni emojis', idxHtml.includes('poster-eyebrow') && idxHtml.includes('poster-bar') && idxHtml.includes('restantes') && idxHtml.includes('Inscriptions ouvertes') && !idxHtml.includes('/api/qrcode.svg') && !idxHtml.includes('📅') && !idxHtml.includes('📍'), '');
+  // re-sync SSE robuste : re-fetch à la reconnexion du flux et au retour visible sur la page
+  const cjsCommon = fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8');
+  check('front: SSE re-sync au retour sur la page (visibilitychange) et à la reconnexion (open)', cjsCommon.includes('visibilitychange') && cjsCommon.includes("addEventListener('open'") && cjsCommon.includes('!document.hidden'), '');
   const styCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
   check('front: styles poster accueil (or/sombre + boule 8 filigrane)', styCss.includes('.poster-eyebrow') && styCss.includes('.poster-bar') && styCss.includes('.poster-ball-num'), '');
   nf_r = await del('/api/compte/amis/' + nf_sebId, { pin: null, useCookie: true });
