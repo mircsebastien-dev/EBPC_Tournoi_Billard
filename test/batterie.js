@@ -664,11 +664,16 @@ async function nouveauTournoi(body) {
   // admin voit les amis et pseudos suivis de chaque compte (/api/admin/comptes)
   nf_r = await post('/api/compte/amis', { pseudo: 'Seb' }, { pin: null, useCookie: true });
   check('re-ajout ami Seb (pour test admin)', nf_r.status === 200, nf_r.status);
+  // push: abonnement du compte, visible par l'admin (colonne Push de admin-comptes)
+  nf_r = await api('/api/push/subscribe', { method: 'POST', pin: null, useCookie: true, body: { subscription: { endpoint: 'https://push.example/batterie-ep1', keys: { p256dh: 'k', auth: 'a' } } } });
+  check('push: abonnement enregistré (session compte)', nf_r.status === 200, nf_r.status);
   const nf_sebId = (await api('/api/comptes/recherche?q=seb', { pin: null, useCookie: true })).data.comptes.find(c => c.pseudo === 'Seb').id;
   const nf_adminL = (await api('/api/admin/comptes')).data.comptes.find(c => c.pseudo === 'AliceBT');
   check('admin comptes: amis_comptes (Seb) + amis_pseudos (Ghost) exposés', !!(nf_adminL && (nf_adminL.amis_comptes || '').includes('Seb') && (nf_adminL.amis_pseudos || '').includes('Ghost')), JSON.stringify({ a: nf_adminL && nf_adminL.amis_comptes, p: nf_adminL && nf_adminL.amis_pseudos }));
+  check('admin comptes: push_abonnements exposé (1 appareil pour le compte abonné)', !!(nf_adminL && nf_adminL.push_abonnements === 1), JSON.stringify(nf_adminL && nf_adminL.push_abonnements));
   const admHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
   check('front: colonne Amis dans admin-comptes (comptes + sans compte)', admHtml.includes('amis_comptes') && admHtml.includes('amis_pseudos') && admHtml.includes('sans compte'), '');
+  check('front: colonne Push (abonnements notifs) + total notifiables dans admin-comptes', admHtml.includes('push_abonnements') && admHtml.includes('🔔') && admHtml.includes('notifs push activées'), '');
   const cptHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'compte.html'), 'utf8');
   check('front: bouton « Me désinscrire » (accueil + page compte)', idxHtml.includes('Me désinscrire') && cptHtml.includes('Me désinscrire') && (idxHtml + cptHtml).includes('/api/tournoi/desinscrire'), '');
   check('front: self-désinscription masquée si déjà payé', idxHtml.includes('la désinscription se fait auprès de la table de marque') && cptHtml.includes('la désinscription se fait auprès de la table de marque'), '');

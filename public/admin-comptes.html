@@ -42,9 +42,10 @@ function render(comptes) {
   const rows = comptes.filter(c => !filtre || c.pseudo.toLowerCase().includes(filtre) || (c.email || '').toLowerCase().includes(filtre));
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, `${rows.length} compte(s)`),
+    el('p', { class: 'hero-sub' }, `${rows.filter(c => c.push_abonnements > 0).length} avec 🔔 notifs push activées`),
     rows.length === 0 ? el('p', { class: 'muted' }, 'Aucun compte.') :
     el('table', { style: 'width:100%;border-collapse:collapse' },
-      el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Sessions', 'Amis', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
+      el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Sessions', 'Push', 'Amis', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
       el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
         el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo, (c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑 admin') : null)),
         el('td', { style: 'padding:6px 8px', title: c.email }, maskEmail(c.email)),
@@ -53,6 +54,8 @@ function render(comptes) {
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.joueurs)),
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.matchs)),
         el('td', { style: 'padding:6px 8px;text-align:center' }, String(c.sessions)),
+        el('td', { style: 'padding:6px 8px;text-align:center', title: c.push_abonnements > 0 ? `${c.push_abonnements} appareil(s) avec notifs activées` : 'Aucune notification activée' },
+          c.push_abonnements > 0 ? `🔔 ${c.push_abonnements}` : '—'),
         el('td', { style: 'padding:6px 8px', class: 'muted small', title: [c.amis_comptes, c.amis_pseudos].filter(Boolean).join(' · ') || 'Aucun ami' }, (() => {
           const t = [];
           if (c.amis_comptes) t.push(c.amis_comptes);
