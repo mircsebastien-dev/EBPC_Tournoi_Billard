@@ -508,6 +508,7 @@ const I18N = {
   "Ou": "Or",
   "⚙️ Paramètres": "⚙️ Settings",
   "Mode clair": "Light mode",
+  "👤 Connexion / Créer un compte": "👤 Log in / Create an account",
 };
 const I18N_DYN = [
   [/^Erreur (\d+)$/, "Error $1"],
@@ -684,8 +685,12 @@ function nav(active) {
   ];
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
   // dropdown + scrim dans le BODY (hors du header sticky) pour un z-index fiable sur iOS
+  // entree compte dans le burger : libelle dynamique selon l'etat de connexion
+  const lienCompte = el('a', { href: '/compte.html', id: 'nav-lien-compte', class: active === 'compte' ? 'active' : null, role: 'menuitem' }, '👤 Compte');
   const drop = el('div', { class: 'nav-dropdown', role: 'menu' },
-    ...links.map(([href, key, label]) => el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)));
+    ...links.map(([href, key, label]) => el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)),
+    lienCompte);
+  api('/api/compte/moi').then((r) => { lienCompte.textContent = t(r && r.compte ? '👤 Mon compte' : '👤 Connexion / Cr' + String.fromCharCode(233) + 'er un compte'); }).catch(() => {});
   const scrim = el('div', { class: 'nav-scrim' });
   document.body.appendChild(drop);
   document.body.appendChild(scrim);

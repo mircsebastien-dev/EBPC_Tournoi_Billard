@@ -107,7 +107,7 @@ const btnNotif = notifOk
       try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
       catch (e) { alert(e.message); }
     } }, 'Tester la notification');
-    panneauParams.append(
+    panneauParams.append(...[
       el('div', { class: 'pref-sub' }, 'Notifications'),
       el('p', { class: 'muted small' }, 'Reçois une notification push quand un de tes matchs est lancé (même écran verrouillé).'),
       estIOS() && !estPWA() ? el('p', { class: 'muted small' }, '📱 Sur iPhone : ajoute d\'abord le site à l\'écran d\'accueil (Safari → Partager → « Sur l\'écran d\'accueil »), puis active les notifications.') : null,
@@ -115,19 +115,19 @@ const btnNotif = notifOk
       el('div', { style: 'margin-top:10px' }, btnTest),
       el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
         el('span', {}, '🔔 Notifier quand un ami s\'inscrit à un tournoi'),
-        el('input', { id: 'pref-ami-inscription', type: 'checkbox', checked: !prefs || prefs.notif_amis_inscription !== false, onchange: async (e) => {
+        el('input', { id: 'pref-ami-inscription', type: 'checkbox', class: 'toggle-mini', checked: !prefs || prefs.notif_amis_inscription !== false, onchange: async (e) => {
           const actif = e.target.checked;
           try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ notif_amis_inscription: actif }) }); }
           catch (err) { e.target.checked = !actif; alert(err.message); }
         } })),
       el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
         el('span', {}, '🔔 Notifier quand le match d\'un ami commence'),
-        el('input', { id: 'pref-ami-match', type: 'checkbox', checked: !prefs || prefs.notif_amis_match !== false, onchange: async (e) => {
+        el('input', { id: 'pref-ami-match', type: 'checkbox', class: 'toggle-mini', checked: !prefs || prefs.notif_amis_match !== false, onchange: async (e) => {
           const actif = e.target.checked;
           try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ notif_amis_match: actif }) }); }
           catch (err) { e.target.checked = !actif; alert(err.message); }
         } })),
-    );
+    ].filter(Boolean));
     // panneau amis
     async function renderAmis() {
       const box = document.getElementById('amis-box');

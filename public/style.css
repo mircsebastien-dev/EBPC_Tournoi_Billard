@@ -45,6 +45,11 @@ button.toggle-mini.on::after { left: 23px; background: var(--pink); }
 .pref-sub { margin: 14px 0 2px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .pref-row { display: grid; grid-template-columns: 1fr 26px 46px 26px; align-items: center; gap: 8px; padding: 7px 0; }
 .pref-row .hint { text-align: center; font-weight: 800; }
+/* Cases à cocher habillèes en interrupteur 0-1 (mème look que .toggle-mini, sèmantique checkbox conservèe) */
+input[type="checkbox"].toggle-mini { appearance: none; -webkit-appearance: none; width: 46px; height: 25px; min-height: 0; padding: 0; margin: 0; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); position: relative; display: inline-block; cursor: pointer; flex: 0 0 auto; }
+input[type="checkbox"].toggle-mini::after { content: ''; position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: var(--muted); transition: left 0.15s ease, background 0.15s ease; }
+input[type="checkbox"].toggle-mini:checked { background: rgba(214, 51, 108, 0.25); border-color: var(--pink); }
+input[type="checkbox"].toggle-mini:checked::after { left: 23px; background: var(--pink); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { scroll-behavior: smooth; }
 body {
