@@ -47,7 +47,7 @@ function render() {
             if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Erreur'); }
             state = await api('/api/etat'); render();
           } catch (e) { alert(e.message); }
-        } }, '🗑 Supprimer') : null));
+        } }, ['🗑 ', 'Supprimer']) : null));
     main.append(card);
   }
 }

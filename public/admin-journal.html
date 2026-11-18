@@ -57,7 +57,7 @@ async function render() {
       if (!confirm('Vider tout le journal d\'audit ? (irréversible)')) return;
       try {
         const r = await adminApiDestructif('/api/admin/audit', { method: 'DELETE' }, 'vider tout le journal d\'audit');
-        alert('🗑 ' + r.supprimes + ' entrées supprimées');
+        alert('🗑 ' + t(r.supprimes + ' entrées supprimées'));
         await render();
       } catch (e) { alert(e.message); }
     } }, 'Vider le journal')),
