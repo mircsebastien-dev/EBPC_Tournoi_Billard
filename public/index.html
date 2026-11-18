@@ -172,6 +172,8 @@ function lignesFil(tv) {
     `🏆 ${tv.champion.pseudo} décroche le titre !`,
     `🏆 Fin du suspense : ${tv.champion.pseudo} est champion !`,
     `🏆 ${tv.champion.pseudo} a eu le dernier mot : le titre est à lui !`,
+    `🏆 ${tv.champion.pseudo} entre au palmarès du club !`,
+    `🏆 ${tv.champion.pseudo} règne sur le tournoi !`,
   ])] });
   // instants chauds : la belle (manche décisive en cours, les deux à une manche du match)
   const belles = new Set();
@@ -185,10 +187,14 @@ function lignesFil(tv) {
             `Ça se joue à la belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table})`,
             `Manche décisive entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table}) !`,
             `Tous debout : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} disputent la belle à la table ${m.table} !`,
+            `Le tournoi se joue maintenant : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la belle à la table ${m.table} !`,
+            `Dernière manche pour ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la table ${m.table} !`,
           ])
         : filPick(String(m.id) + 'b', [
             `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle`,
             `La belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !`,
+            `Ça se joue à la belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !`,
+            `Manche décisive entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !`,
           ])] });
     }
   }
@@ -205,6 +211,8 @@ function lignesFil(tv) {
         `🔥 Fierté en jeu : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !`,
         `🔥 ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent, bilan parfaitement équilibré !`,
         `🔥 Égalité parfaite avant ce round : ${m.joueur1.pseudo} vs ${m.joueur2.pseudo} !`,
+        `🔥 Vieilles connaissances dos à dos : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !`,
+        `🔥 Rien à départager : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} rejouent leur histoire !`,
       ]));
     } else {
       const dom = h.v1 < h.v2 ? m.joueur1 : m.joueur2;   // bilan défavorable contre lui : une revanche à prendre
@@ -215,6 +223,8 @@ function lignesFil(tv) {
         `🔥 ${dom.pseudo} retente sa chance contre ${adv.pseudo} !`,
         `🔥 ${dom.pseudo} veut renverser la vapeur contre ${adv.pseudo} !`,
         `🔥 À ${dom.pseudo} de trouver la faille face à ${adv.pseudo} !`,
+        `🔥 Un compte à régler pour ${dom.pseudo} face à ${adv.pseudo} !`,
+        `🔥 Ce match sent la revanche : ${dom.pseudo} défie ${adv.pseudo} !`,
       ]));
       parties.push(`${adv.pseudo} mène ${Math.max(h.v1, h.v2)}-${Math.min(h.v1, h.v2)}`);
     }
@@ -239,6 +249,8 @@ function lignesFil(tv) {
         `forfait de ${p.pseudo}, ${g.pseudo} passe au tour suivant`,
         `${p.pseudo} jette l'éponge, ${g.pseudo} passe au tour suivant`,
         `forfait de ${p.pseudo}, ${g.pseudo} avance sans jouer`,
+        `${p.pseudo} ne se présente pas, ${g.pseudo} passe au tour suivant`,
+        `forfait de ${p.pseudo} : ${g.pseudo} file au tour suivant`,
       ]));
       else {
         parties.push(filPick(String(m.id), [
@@ -247,6 +259,8 @@ function lignesFil(tv) {
           `${g.pseudo} vient à bout de ${p.pseudo} ${gs}-${ps}`,
           `${g.pseudo} domine ${p.pseudo} ${gs}-${ps}`,
           `${g.pseudo} écarte ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} surclasse ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} fait la loi face à ${p.pseudo} ${gs}-${ps}`,
         ]));
         if (m.table != null) parties.push(`· table ${m.table}`);
         const du = dureeFil(m.duree_s);

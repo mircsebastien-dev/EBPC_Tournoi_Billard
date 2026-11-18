@@ -1039,7 +1039,7 @@ async function nouveauTournoi(body) {
   await del('/api/admin/tournoi').catch(() => {});
   // front : variantes déterministes, durées, lignes revanche (i18n 5 langues)
   const idx21 = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-  check('fil: variantes déterministes (filHash/filPick) - victoires, forfaits, champion, belles (5 variantes chaque)', idx21.includes('function filHash') && idx21.includes('function filPick')
+  check('fil: variantes déterministes (filHash/filPick) - victoires, forfaits, champion, belles avec table/sans table 7/4, revanches underdog 7, égalités 6 (complément : +2 par catégorie)', idx21.includes('function filHash') && idx21.includes('function filPick')
     && idx21.includes("s'impose face à ${p.pseudo} ${gs}-${ps}") && idx21.includes("vient à bout de ${p.pseudo} ${gs}-${ps}")
     && idx21.includes("${g.pseudo} domine ${p.pseudo} ${gs}-${ps}") && idx21.includes("${g.pseudo} écarte ${p.pseudo} ${gs}-${ps}")
     && idx21.includes("${p.pseudo} abandonne, ${g.pseudo} passe au tour suivant") && idx21.includes("forfait de ${p.pseudo}, ${g.pseudo} passe au tour suivant")
@@ -1048,7 +1048,17 @@ async function nouveauTournoi(body) {
     && idx21.includes("Fin du suspense : ${tv.champion.pseudo} est champion !") && idx21.includes("a eu le dernier mot : le titre est à lui !")
     && idx21.includes("La belle ! ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la table ${m.table}") && idx21.includes("Ça se joue à la belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table})") && idx21.includes(`sont à la belle à la table`)
     && idx21.includes("Manche décisive entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table}) !") && idx21.includes("Tous debout : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} disputent la belle à la table ${m.table} !")
-    && idx21.includes("La belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !"), '');
+    && idx21.includes("La belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !") &&
+    idx21.includes("surclasse ${p.pseudo} ${gs}-${ps}") &&
+    idx21.includes("fait la loi face à ${p.pseudo} ${gs}-${ps}") &&
+    idx21.includes("${p.pseudo} ne se présente pas, ${g.pseudo} passe au tour suivant") &&
+    idx21.includes("forfait de ${p.pseudo} : ${g.pseudo} file au tour suivant") &&
+    idx21.includes(`entre au palmarès du club !`) &&
+    idx21.includes(`règne sur le tournoi !`) &&
+    idx21.includes("Le tournoi se joue maintenant : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la belle à la table ${m.table} !") &&
+    idx21.includes("Dernière manche pour ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la table ${m.table} !") &&
+    idx21.includes("Ça se joue à la belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !") &&
+    idx21.includes("Manche décisive entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !"), '');
   check('fil: durées des matchs finis composées dans les lignes (dureeFil + duree_s du payload)', idx21.includes('function dureeFil') && idx21.includes('dureeFil(m.duree_s)') && idx21.includes('Math.round(d / 60)') && idx21.includes("padStart(2, '0')") && idx21.includes("· durée ${min} min") && idx21.includes("· durée ${Math.floor(min / 60)} h"), '');
   check('fil: lignes revanche (déjà rencontrés via actif.h2h, underdog « une revanche à prendre », égalité, mène X-Y, pas de double si à la belle)',
     idx21.includes('tv.h2h || {}') && idx21.includes("🔥 Revanche : ${dom.pseudo} joue contre ${adv.pseudo}, une revanche à prendre !")
@@ -1056,10 +1066,46 @@ async function nouveauTournoi(body) {
     && idx21.includes("🔥 ${dom.pseudo} veut renverser la vapeur contre ${adv.pseudo} !") && idx21.includes("🔥 À ${dom.pseudo} de trouver la faille face à ${adv.pseudo} !")
     && idx21.includes(`se retrouvent à égalité !`) && idx21.includes("🔥 Fierté en jeu : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !")
     && idx21.includes("🔥 ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent, bilan parfaitement équilibré !") && idx21.includes("🔥 Égalité parfaite avant ce round : ${m.joueur1.pseudo} vs ${m.joueur2.pseudo} !")
-    && idx21.includes("${adv.pseudo} mène ${Math.max(h.v1, h.v2)}-${Math.min(h.v1, h.v2)}") && idx21.includes('belles.has(String(m.id))') && idx21.includes(`h.n < 1`), '');
-  check('fil: i18n EN - les 29 règles du fil (variantes victoire/forfait/champion/belle, revanche, mène, durée)', cjs20.includes(`$1 gets the better of $2 $3-$4`) && cjs20.includes(`$1 overcomes $2 $3-$4`) && cjs20.includes(`$1 dominates $2 $3-$4`) && cjs20.includes(`$1 brushes $2 aside $3-$4`) && cjs20.includes(`$1 withdraws, $2 moves on to the next round`) && cjs20.includes(`forfeit by $1, $2 moves on to the next round`) && cjs20.includes(`$1 throws in the towel, $2 moves on to the next round`) && cjs20.includes(`$2 advances without playing`) && cjs20.includes(`$1 lifts the trophy!`) && cjs20.includes(`$1 takes the title!`) && cjs20.includes(`End of the suspense: $1 is the champion!`) && cjs20.includes(`$1 had the last word: the title is his!`) && cjs20.includes(`The decider! $1 and $2 at table $3`) && cjs20.includes(`the decider between $1 and $2 (table $3)`) && cjs20.includes(`Deciding frame between $1 and $2 (table $3)!`) && cjs20.includes(`On your feet: $1 and $2 play the decider at table $3!`) && cjs20.includes(`The decider between $1 and $2!`) && cjs20.includes(`🔥 Revenge match: $1 plays $2, a revenge to take!`) && cjs20.includes(`$1 plays his revenge match against $2!`) && cjs20.includes(`$1 tries his luck again against $2!`) && cjs20.includes(`$1 wants to turn the tide against $2!`) && cjs20.includes(`Up to $1 to find a way past $2!`) && cjs20.includes(`dead even!`) && cjs20.includes(`🔥 Pride at stake: $1 and $2 meet again!`) && cjs20.includes(`record perfectly balanced!`) && cjs20.includes(`Perfect tie before this round: $1 vs $2!`) && cjs20.includes(`$1 leads $2-$3`) && cjs20.includes(`· duration $1 min`) && cjs20.includes(`· duration $1 h $2`), '');
-  check('fil: i18n ES/IT/DE - variantes et revanche traduites (se impone/ha la meglio/setzt sich durch, domine/tira la toalla/getta la spugna/wirft das Handtuch, revanche adoucie, durées, conduce/führt)', repsES.includes(`$1 se impone a $2 $3-$4`) && repsIT.includes(`$1 ha la meglio su $2 $3-$4`) && repsDE.includes(`$1 setzt sich mit $3-$4 gegen $2 durch`) && repsES.includes(`$1 domina a $2 $3-$4`) && repsIT.includes(`$1 domina $2 $3-$4`) && repsDE.includes(`$1 dominiert $2 mit $3-$4`) && repsES.includes(`$1 tira la toalla, $2 pasa a la ronda siguiente`) && repsIT.includes(`$1 getta la spugna, $2 passa al turno successivo`) && repsDE.includes(`$1 wirft das Handtuch, $2 kommt in die nächste Runde`) && repsES.includes(`forfait de $1, $2 avanza sin jugar`) && repsIT.includes(`forfait di $1, $2 avanza senza giocare`) && repsDE.includes(`Forfait von $1, $2 kommt ohne Spielen weiter`) && repsES.includes(`con una revancha por delante`) && repsIT.includes(`una rivincita da prendere`) && repsDE.includes(`eine Revanche zu holen`) && repsES.includes(`Fin del suspenso: ¡$1 es campeón!`) && repsIT.includes(`Fine del suspense: $1 è il campione!`) && repsDE.includes(`Ende der Spannung: $1 ist Champion!`) && repsES.includes(`forfait de $1, $2 pasa a la ronda siguiente`) && repsIT.includes(`$1 conduce $2-$3`) && repsDE.includes(`$1 führt $2-$3`) && repsES.includes(`· duración $1 min`) && repsIT.includes(`· durata $1 min`) && repsDE.includes(`· Dauer $1 Min.`), '');
-  check('fil: i18n - 4 tableaux toujours alignés après les 29 règles du fil (cDyn = 106)', cDyn(dynSrc) === cReps(repsES) && cReps(repsES) === cReps(repsIT) && cReps(repsIT) === cReps(repsDE) && cDyn(dynSrc) === 106, `${cDyn(dynSrc)} / ${cReps(repsES)} / ${cReps(repsIT)} / ${cReps(repsDE)}`);
+    && idx21.includes("${adv.pseudo} mène ${Math.max(h.v1, h.v2)}-${Math.min(h.v1, h.v2)}") && idx21.includes('belles.has(String(m.id))') && idx21.includes(`h.n < 1`) &&
+    idx21.includes("🔥 Un compte à régler pour ${dom.pseudo} face à ${adv.pseudo} !") &&
+    idx21.includes("🔥 Ce match sent la revanche : ${dom.pseudo} défie ${adv.pseudo} !") &&
+    idx21.includes("🔥 Vieilles connaissances dos à dos : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !") &&
+    idx21.includes("🔥 Rien à départager : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} rejouent leur histoire !"), '');
+  check('fil: i18n EN - les 43 règles du fil (variantes victoire/forfait/champion/belle, revanche, mène, durée)', cjs20.includes(`$1 gets the better of $2 $3-$4`) && cjs20.includes(`$1 overcomes $2 $3-$4`) && cjs20.includes(`$1 dominates $2 $3-$4`) && cjs20.includes(`$1 brushes $2 aside $3-$4`) && cjs20.includes(`$1 withdraws, $2 moves on to the next round`) && cjs20.includes(`forfeit by $1, $2 moves on to the next round`) && cjs20.includes(`$1 throws in the towel, $2 moves on to the next round`) && cjs20.includes(`$2 advances without playing`) && cjs20.includes(`$1 lifts the trophy!`) && cjs20.includes(`$1 takes the title!`) && cjs20.includes(`End of the suspense: $1 is the champion!`) && cjs20.includes(`$1 had the last word: the title is his!`) && cjs20.includes(`The decider! $1 and $2 at table $3`) && cjs20.includes(`the decider between $1 and $2 (table $3)`) && cjs20.includes(`Deciding frame between $1 and $2 (table $3)!`) && cjs20.includes(`On your feet: $1 and $2 play the decider at table $3!`) && cjs20.includes(`The decider between $1 and $2!`) && cjs20.includes(`🔥 Revenge match: $1 plays $2, a revenge to take!`) && cjs20.includes(`$1 plays his revenge match against $2!`) && cjs20.includes(`$1 tries his luck again against $2!`) && cjs20.includes(`$1 wants to turn the tide against $2!`) && cjs20.includes(`Up to $1 to find a way past $2!`) && cjs20.includes(`dead even!`) && cjs20.includes(`🔥 Pride at stake: $1 and $2 meet again!`) && cjs20.includes(`record perfectly balanced!`) && cjs20.includes(`Perfect tie before this round: $1 vs $2!`) && cjs20.includes(`$1 leads $2-$3`) && cjs20.includes(`· duration $1 min`) && cjs20.includes(`· duration $1 h $2`) &&
+    cjs20.includes(`$1 outclasses $2 $3-$4`) &&
+    cjs20.includes(`$1 lays down the law against $2 $3-$4`) &&
+    cjs20.includes(`$1 doesn't show up, $2 moves on to the next round`) &&
+    cjs20.includes(`forfeit by $1: $2 races into the next round`) &&
+    cjs20.includes(`🏆 $1 enters the club's roll of honour!`) &&
+    cjs20.includes(`🏆 $1 rules the tournament!`) &&
+    cjs20.includes(`The tournament is decided now: $1 and $2 in the decider at table $3!`) &&
+    cjs20.includes(`Last frame for $1 and $2 at table $3!`) &&
+    cjs20.includes(`It all comes down to the decider between $1 and $2!`) &&
+    cjs20.includes(`Deciding frame between $1 and $2!`) &&
+    cjs20.includes(`🔥 A score to settle for $1 against $2!`) &&
+    cjs20.includes(`🔥 This one smells like revenge: $1 takes on $2!`) &&
+    cjs20.includes(`🔥 Old rivals dead even: $1 and $2 meet again!`) &&
+    cjs20.includes(`🔥 Nothing to split them: $1 and $2 write a new chapter!`), '');
+  check('fil: i18n ES/IT/DE - variantes et revanche traduites (se impone/ha la meglio/setzt sich durch, domine/tira la toalla/getta la spugna/wirft das Handtuch, revanche adoucie, durées, conduce/führt)', repsES.includes(`$1 se impone a $2 $3-$4`) && repsIT.includes(`$1 ha la meglio su $2 $3-$4`) && repsDE.includes(`$1 setzt sich mit $3-$4 gegen $2 durch`) && repsES.includes(`$1 domina a $2 $3-$4`) && repsIT.includes(`$1 domina $2 $3-$4`) && repsDE.includes(`$1 dominiert $2 mit $3-$4`) && repsES.includes(`$1 tira la toalla, $2 pasa a la ronda siguiente`) && repsIT.includes(`$1 getta la spugna, $2 passa al turno successivo`) && repsDE.includes(`$1 wirft das Handtuch, $2 kommt in die nächste Runde`) && repsES.includes(`forfait de $1, $2 avanza sin jugar`) && repsIT.includes(`forfait di $1, $2 avanza senza giocare`) && repsDE.includes(`Forfait von $1, $2 kommt ohne Spielen weiter`) && repsES.includes(`con una revancha por delante`) && repsIT.includes(`una rivincita da prendere`) && repsDE.includes(`eine Revanche zu holen`) && repsES.includes(`Fin del suspenso: ¡$1 es campeón!`) && repsIT.includes(`Fine del suspense: $1 è il campione!`) && repsDE.includes(`Ende der Spannung: $1 ist Champion!`) && repsES.includes(`forfait de $1, $2 pasa a la ronda siguiente`) && repsIT.includes(`$1 conduce $2-$3`) && repsDE.includes(`$1 führt $2-$3`) && repsES.includes(`· duración $1 min`) && repsIT.includes(`· durata $1 min`) && repsDE.includes(`· Dauer $1 Min.`) &&
+    repsES.includes(`$1 supera con autoridad a $2 $3-$4`) &&
+    repsES.includes(`$1 no se presenta, $2 pasa a la ronda siguiente`) &&
+    repsES.includes(`🏆 ¡$1 entra al palmarés del club!`) &&
+    repsES.includes(`¡Última manga para $1 y $2 en la mesa $3!`) &&
+    repsES.includes(`🔥 ¡$1 tiene cuentas pendientes con $2!`) &&
+    repsES.includes(`🔥 Nada que los separe: ¡$1 y $2 escriben un nuevo capítulo!`) &&
+    repsIT.includes(`$1 surclassa $2 $3-$4`) &&
+    repsIT.includes(`$1 non si presenta, $2 passa al turno successivo`) &&
+    repsIT.includes(`🏆 $1 entra nell'albo d'oro del club!`) &&
+    repsIT.includes(`Ultima manche per $1 e $2 al tavolo $3!`) &&
+    repsIT.includes(`🔥 $1 ha un conto in sospeso con $2!`) &&
+    repsIT.includes(`🔥 Vecchi rivali a pari merito: $1 e $2 si ritrovano!`) &&
+    repsDE.includes(`$1 übertrumpft $2 mit $3-$4`) &&
+    repsDE.includes(`$1 erscheint nicht, $2 kommt in die nächste Runde`) &&
+    repsDE.includes(`🏆 $1 geht in die Siegerliste des Clubs ein!`) &&
+    repsDE.includes(`Letzter Frame für $1 und $2 am Tisch $3!`) &&
+    repsDE.includes(`🔥 $1 hat mit $2 noch eine Rechnung offen!`) &&
+    repsDE.includes(`🔥 Alte Bekannte auf Augenhöhe: $1 und $2 treffen erneut aufeinander!`), '');
+  check('fil: i18n - 4 tableaux toujours alignés après les 43 règles du fil (cDyn = 120)', cDyn(dynSrc) === cReps(repsES) && cReps(repsES) === cReps(repsIT) && cReps(repsIT) === cReps(repsDE) && cDyn(dynSrc) === 120, `${cDyn(dynSrc)} / ${cReps(repsES)} / ${cReps(repsIT)} / ${cReps(repsDE)}`);
 
   // ---------- 22. Menu principal : liens tournoi masqués sans tournoi ouvert + suivi renommé ----------
   sec('22. Menu principal : liens Tableau/TV/« Mon tournoi » masqués sans tournoi ouvert');
@@ -1171,7 +1217,7 @@ async function nouveauTournoi(body) {
   md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
   md += `- Rattachement compte/joueurs anonymes (section 18): compte créé après un tournoi archivé (sans tournoi actif) rattache quand même les lignes anonymes du même pseudo (tournois passés inclus), fiche joueur + classement conservent les stats\n`;
   md += `- Fil du tournoi (section 20): chronique du tournoi dérivée de l'état (aucun stockage -> cohérente avec les tableaux, rollback et corrections inclus), lignes victoire/forfait/champion/belle, élimination définitive mentionnée uniquement en double KO (LB/F) et fusionnée dans la ligne, 3 dernières lignes + « Voir tout » sur l'accueil, horodatage relatif, dernier tournoi terminé consultable sans tournoi actif (/api/tournois/:id public), phrases i18n dans les 5 langues (clés statiques + règles dynamiques alignées I18N_DYN/REPS_DYN_*)\n`;
-  md += `- Variantes, durées et revanche (section 21): phrases variées par hachage déterministe (5 variantes victoires/forfaits/champion/belles, 4 égalités, 5 revanches underdog), durée des matchs finis dans les lignes (· durée 42 min), lignes « revanche » en direct pour les paires déjà croisées (actif.h2h, historique du club complet, underdog « une revanche à prendre », « mène X-Y », égalité), pas de double ligne si à la belle ; 29 règles i18n du fil alignées dans les 5 langues (cDyn = 106)\n`;
+  md += `- Variantes, durées et revanche (section 21): phrases variées par hachage déterministe (7 variantes victoires/forfaits/champion/belles, 4 belles sans table, 6 égalités, 7 revanches underdog), durée des matchs finis dans les lignes (· durée 42 min), lignes « revanche » en direct pour les paires déjà croisées (actif.h2h, historique du club complet, underdog « une revanche à prendre », « mène X-Y », égalité), pas de double ligne si à la belle ; 43 règles i18n du fil alignées dans les 5 langues (cDyn = 120)\n`;
   md += `- Menu principal (section 22): liens Tableau / TV / « Mon tournoi » masqués tant qu'aucun tournoi n'est actif (ré-évalué à chaque ouverture du burger, affichés par défaut avant la réponse), lien suivi.html renommé « Mon tournoi » (ex-« Joueur »), traduit dans les 5 langues\n`;
   md += `- Journal d'audit (section 23): colonne « Par » = pseudo du compte admin à l'origine de chaque modification (null si code PIN ou action automatique, migration incluse), corrections de score et forfaits porteurs de l'auteur ; les modifications de préférences du compte (langue des push, notifs amis) ne sont plus loggées ; burger Compte sans emojis, labels traduits dans les 4 langues\n`;
   md += `- Tableaux responsive (section 24): enveloppe .table-wrap (overflow-x: auto) autour de chaque table de données (stats joueurs, fiche joueur face-à-face/historique, journal d'audit admin, classement du compte, comptes admin) : sur petit écran la table défile horizontalement à l'intérieur du panneau, les bordures du panneau englobent toujours toute la table\n`;
