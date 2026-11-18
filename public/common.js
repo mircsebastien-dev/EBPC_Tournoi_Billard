@@ -508,7 +508,12 @@ const I18N = {
   "Ou": "Or",
   "⚙️ Paramètres": "⚙️ Settings",
   "Mode clair": "Light mode",
-  "👤 Connexion / Créer un compte": "👤 Log in / Create an account",
+  "🔑 Connexion": "🔑 Log in",
+  "👤 Ma fiche joueur": "👤 My player page",
+  "🛠 Table de marque": "🛠 Scoreboard",
+  "🧑‍💼 Comptes": "🧑‍💼 Accounts",
+  "📜 Journal": "📜 Audit log",
+  "🚪 Se déconnecter": "🚪 Log out",
 };
 const I18N_DYN = [
   [/^Erreur (\d+)$/, "Error $1"],
@@ -671,6 +676,38 @@ function fmtDuree(s) {
   return m > 0 ? `${m} min ${String(sec).padStart(2, '0')} s` : `${sec} s`;
 }
 
+// menu deroulant reutilisable (burger navigation et burger compte) : dropdown + scrim dans le body,
+// contenu reconstruit a chaque ouverture (entrees dynamiques), fermeture au clic exterieur / scrim / resize
+function menuDeroulant(btn, remplir) {
+  const drop = el('div', { class: 'nav-dropdown', role: 'menu' });
+  const scrim = el('div', { class: 'nav-scrim' });
+  document.body.appendChild(drop);
+  document.body.appendChild(scrim);
+  const fermer = () => { drop.classList.remove('open'); scrim.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (drop.classList.contains('open')) return fermer();
+    drop.innerHTML = '';
+    remplir(drop);
+    // positionner le dropdown sous le bouton (fixed) -> PAS de scrollY/scrollX (sinon le menu part hors ecran quand on est scrolle)
+    const r = btn.getBoundingClientRect();
+    drop.style.top = (r.bottom + 6) + 'px';
+    const w = Math.min(260, window.innerWidth - 16);
+    drop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+    // si le menu depasserait en bas du viewport, le limiter en hauteur (scroll interne)
+    const maxH = window.innerHeight - r.bottom - 14;
+    drop.style.maxHeight = Math.max(120, maxH) + 'px';
+    drop.classList.add('open'); scrim.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
+  });
+  scrim.addEventListener('click', fermer);
+  scrim.addEventListener('touchstart', fermer, { passive: true });
+  drop.addEventListener('click', (e) => { if (e.target.closest('a')) fermer(); });
+  document.addEventListener('click', (e) => { if (!btn.contains(e.target) && !drop.contains(e.target)) fermer(); });
+  document.addEventListener('touchstart', (e) => { if (!btn.contains(e.target) && !drop.contains(e.target) && !scrim.contains(e.target)) fermer(); }, { passive: true });
+  window.addEventListener('resize', fermer);
+}
+
 function nav(active) {
   const links = [
     ['/', 'home', 'Tournoi'],
@@ -681,42 +718,33 @@ function nav(active) {
     ['/historique.html', 'hist', 'Historique'],
     ['/admin.html', 'admin', 'Table de marque'],
     ['/aide.html', 'aide', 'Aide'],
-    ['/confidentialite.html', '', 'Confidentialité'],
+    ['/confidentialite.html', '', 'Confidentialitè'],
   ];
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
-  // dropdown + scrim dans le BODY (hors du header sticky) pour un z-index fiable sur iOS
-  // entree compte dans le burger : libelle dynamique selon l'etat de connexion
-  const lienCompte = el('a', { href: '/compte.html', id: 'nav-lien-compte', class: active === 'compte' ? 'active' : null, role: 'menuitem' }, '👤 Compte');
-  const drop = el('div', { class: 'nav-dropdown', role: 'menu' },
-    ...links.map(([href, key, label]) => el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)),
-    lienCompte);
-  api('/api/compte/moi').then((r) => { lienCompte.textContent = t(r && r.compte ? '👤 Mon compte' : '👤 Connexion / Cr' + String.fromCharCode(233) + 'er un compte'); }).catch(() => {});
-  const scrim = el('div', { class: 'nav-scrim' });
-  document.body.appendChild(drop);
-  document.body.appendChild(scrim);
+  menuDeroulant(btn, (drop) => { for (const [href, key, label] of links) drop.append(el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)); });
   const wrap = el('div', { class: 'nav-menu' }, btn);
-  const fermer = () => { drop.classList.remove('open'); scrim.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (drop.classList.contains('open')) return fermer();
-    // positionner le dropdown sous le bouton (fixed)
-    const r = btn.getBoundingClientRect();
-    // position: fixed = relatif au viewport -> PAS de scrollY/scrollX (sinon le menu part hors écran quand on est scrollé)
-    drop.style.top = (r.bottom + 6) + 'px';
-    const w = Math.min(260, window.innerWidth - 16);
-    drop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
-    // si le menu dépasserait en bas du viewport, l'ouvrir vers le haut
-    const maxH = window.innerHeight - r.bottom - 14;
-    drop.style.maxHeight = Math.max(120, maxH) + 'px';
-    drop.classList.add('open'); scrim.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
+  // burger compte : entrees dynamiques selon l etat de connexion et le role (admin ou joueur)
+  let compteNav = null, joueurIdNav = null;
+  api('/api/compte/moi').then((r) => { compteNav = r && r.compte ? r.compte : null; joueurIdNav = r ? (r.joueur_id || null) : null; }).catch(() => {});
+  const btnCompte = el('a', { href: '/compte.html', class: 'nav-login' + (active === 'compte' ? ' active' : ''), 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Mon compte' }, '👤 Compte');
+  menuDeroulant(btnCompte, (drop) => {
+    if (!compteNav) {
+      drop.append(el('a', { href: '/compte.html#connexion', role: 'menuitem' }, '🔑 Connexion'));
+      drop.append(el('a', { href: '/compte.html#creer', role: 'menuitem' }, '✨ Créer un compte'));
+      return;
+    }
+    drop.append(el('a', { href: '/compte.html#parametres', role: 'menuitem' }, '⚙️ Paramètres'));
+    drop.append(el('a', { href: '/compte.html#amis', role: 'menuitem' }, '👥 Amis'));
+    drop.append(el('a', { href: '/compte.html#mes-matchs', role: 'menuitem' }, '🎱 Mes matchs'));
+    drop.append(el('a', { href: joueurIdNav ? '/joueur.html?id=' + joueurIdNav : '/compte.html', role: 'menuitem' }, '👤 Ma fiche joueur'));
+    if (compteNav.role === 'admin') {
+      drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, '🛠 Table de marque'));
+      drop.append(el('a', { href: '/admin-comptes.html', role: 'menuitem' }, '🧑‍💼 Comptes'));
+      drop.append(el('a', { href: '/admin-journal.html', role: 'menuitem' }, '📜 Journal'));
+    }
+    drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, '🚪 Se déconnecter'));
   });
-  scrim.addEventListener('click', fermer);
-  scrim.addEventListener('touchstart', fermer, { passive: true });
-  drop.querySelectorAll('a').forEach(a => a.addEventListener('click', fermer));
-  document.addEventListener('click', (e) => { if (!wrap.contains(e.target) && !drop.contains(e.target)) fermer(); });
-  document.addEventListener('touchstart', (e) => { if (!wrap.contains(e.target) && !drop.contains(e.target) && !scrim.contains(e.target)) fermer(); }, { passive: true });
-  window.addEventListener('resize', fermer);
-  return el('nav', {}, wrap, el('a', { href: '/compte.html', class: 'nav-login' + (active === 'compte' ? ' active' : ''), title: 'Mon compte' }, '👤 Compte'));
+  return el('nav', {}, wrap, btnCompte);
 }
 
 function codeMatch(m) {

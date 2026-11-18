@@ -23,13 +23,13 @@ const val = (id) => document.getElementById(id)?.value;
 
 function panelConnexion() {
   return el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto' },
-    el('h2', {}, '🔑 Connexion'),
+    el('h2', { id: 'connexion' }, '🔑 Connexion'),
     el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'c-pseudo', maxlength: 24, autocomplete: 'username' })),
     el('div', {}, el('label', {}, 'Mot de passe'), el('input', { id: 'c-pass', type: 'password', autocomplete: 'current-password' })),
     el('div', { style: 'margin-top:10px' }, el('button', { style: 'width:100%', onclick: connexion }, 'Se connecter')),
     el('p', { class: 'muted small', style: 'text-align:center' }, el('a', { href: '/oubli.html' }, 'Mot de passe oublié ?')),
     el('hr', {}),
-    el('h2', {}, '✨ Créer un compte'),
+    el('h2', { id: 'creer' }, '✨ Créer un compte'),
     el('p', { class: 'muted small' }, 'Juste un pseudo, un email et un mot de passe. Rien d\'autre.'),
     el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'i-pseudo', maxlength: 24, placeholder: 'ex: BlackMamba31' })),
     el('div', {}, el('label', {}, 'Email (pour réinit du mot de passe)'), el('input', { id: 'i-email', type: 'email', maxlength: 190, autocomplete: 'email' })),
@@ -70,7 +70,7 @@ async function init() {
     el('span', {}, 'Langue'),
     el('span', { class: 'hint muted small' }, 'FR'), swLang,
     el('span', { class: 'hint muted small' }, 'EN'));
-  const panneauParams = el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto 20px' },
+  const panneauParams = el('div', { id: 'parametres', class: 'panel', style: 'max-width:420px;margin:20px auto 20px' },
     el('h2', {}, '⚙️ Paramètres'),
     el('div', { class: 'pref-sub' }, 'Préférences'),
     prefTheme, prefLangue);
@@ -180,7 +180,7 @@ const btnNotif = notifOk
           } }, '🗑')));
       }
     }
-    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
+    main.append(el('div', { id: 'amis', class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
       el('h2', {}, '👥 Amis'),
       el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence ou quand ils s\'inscrivent à un tournoi, et leur statut ici. Pas besoin de compte pour eux : entre son pseudo dans la recherche puis « Suivre ».'),
       el('div', { id: 'amis-box' })));
@@ -204,7 +204,7 @@ const btnNotif = notifOk
                 el('p', { class: 'muted small', style: 'margin-top:6px' }, 'Possible tant que les inscriptions sont ouvertes et que tu n\'as pas payé.'))) : null));
     }
     if (mm.matchs && mm.matchs.length) {
-      main.append(el('div', { class: 'panel' },
+      main.append(el('div', { id: 'mes-matchs', class: 'panel' },
         el('h2', {}, '🎱 Mes matchs'),
         el('div', { class: 'matchs-grid' }, mm.matchs.map(m => matchCard(m))))); // tous les matchs, pas de limite
     }
@@ -222,6 +222,9 @@ const btnNotif = notifOk
       } else {
     main.append(panelConnexion());
   }
+  // ancres (#parametres, #amis, #mes-matchs, #connexion, #creer) : les panneaux sont construits dynamiquement,
+  // on fait defiler vers la cible une fois la page construite (le scroll natif echoue au chargement)
+  if (location.hash.length > 1) { const cible = document.querySelector(location.hash); if (cible) setTimeout(() => cible.scrollIntoView({ behavior: 'smooth' }), 60); }
 }
 init();
 </script>
