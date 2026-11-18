@@ -17,7 +17,6 @@ const I18N = {
   "Aide": "Help",
   "Amis": "Friends",
   "Annuler": "Cancel",
-  "Apparence": "Appearance",
   "Aucun ami pour le moment": "No friends yet",
   "Aucun historique": "No history",
   "Aucun match pour le moment": "No matches yet",
@@ -354,7 +353,6 @@ const I18N = {
   "📱 Sur iPhone : ajoute d'abord le site à l'écran d'accueil (Safari → Partager → « Sur l'écran d'accueil »), puis active les notifications.": "📱 On iPhone: first add the site to the home screen (Safari → Share → \"Add to Home Screen\"), then enable notifications.",
   "🎱 Mes matchs": "🎱 My matches",
   "🔍 Rechercher un pseudo… (Entrée)": "🔍 Search a username… (Enter)",
-  "Interrupteurs 0-1 : thème 0 = sombre (défaut), 1 = clair ; langue FR = francais, EN = anglais. La page TV reste toujours sombre.": "Toggle 0-1: theme 0 = dark (default), 1 = light; language FR = French, EN = English. The TV page always stays dark.",
   "🎱 Match en direct": "🎱 Live match",
   "← Mes matchs": "← My matches",
   "+1 manche": "+1 frame",
@@ -508,6 +506,8 @@ const I18N = {
   "Retour à": "Back to",
   "Restaurer le tournoi actif à l'état de cet événement ?": "Restore the active tournament to this event's state?",
   "Ou": "Or",
+  "⚙️ Paramètres": "⚙️ Settings",
+  "Mode clair": "Light mode",
 };
 const I18N_DYN = [
   [/^Erreur (\d+)$/, "Error $1"],

@@ -57,24 +57,24 @@ async function deconnexion() {
 async function init() {
   main.innerHTML = '';
   const { compte, joueur_id, prefs } = await api('/api/compte/moi');
-  // panneau apparence : thème clair/sombre (préférence locale, disponible même sans compte)
-  // interrupteur 0-1 discret : 0 = sombre (défaut), 1 = clair
+  // panneau parametres : theme clair/sombre + langue (preferences locales, disponibles meme sans compte)
+  // interrupteurs 0-1 alignes (grille .pref-row) : theme 0 = sombre (defaut) / 1 = clair - langue FR / EN
   const majSwTheme = () => { const on = themeActuel() === 'light'; swTheme.className = 'toggle-mini' + (on ? ' on' : ''); swTheme.setAttribute('aria-pressed', on ? 'true' : 'false'); };
   const swTheme = el('button', { class: 'toggle-mini' + (themeActuel() === 'light' ? ' on' : ''), 'aria-pressed': themeActuel() === 'light' ? 'true' : 'false', 'aria-label': 'Interrupteur mode clair', title: '0 = sombre · 1 = clair', onclick: () => { basculerTheme(); majSwTheme(); } });
   const swLang = el('button', { class: 'toggle-mini' + (LANG === 'en' ? ' on' : ''), 'aria-pressed': LANG === 'en' ? 'true' : 'false', 'aria-label': 'Interrupteur langue anglaise', title: 'FR = francais · EN = anglais', onclick: () => { choisirLang(LANG === 'en' ? 'fr' : 'en'); } });
-  main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto 20px' },
-    el('h2', {}, '🌗 Apparence'),
-    el('div', { class: 'row', style: 'justify-content:flex-end;align-items:center;gap:8px;flex-wrap:nowrap' },
-      el('span', { class: 'muted small', style: 'font-weight:800' }, 'Mode clair'),
-      el('span', { class: 'muted small', style: 'font-weight:800' }, '0'),
-      swTheme,
-      el('span', { class: 'muted small', style: 'font-weight:800' }, '1')),
-    el('div', { class: 'row', style: 'justify-content:flex-end;align-items:center;gap:8px;flex-wrap:nowrap' },
-      el('span', { class: 'muted small', style: 'font-weight:800' }, 'Langue'),
-      el('span', { class: 'muted small', style: 'font-weight:800' }, 'FR'),
-      swLang,
-      el('span', { class: 'muted small', style: 'font-weight:800' }, 'EN')),
-    el('p', { class: 'muted small' }, 'Interrupteurs 0-1 : thème 0 = sombre (défaut), 1 = clair ; langue FR = francais, EN = anglais. La page TV reste toujours sombre.')));
+  const prefTheme = el('div', { class: 'pref-row' },
+    el('span', {}, 'Mode clair'),
+    el('span', { class: 'hint muted small' }, '0'), swTheme,
+    el('span', { class: 'hint muted small' }, '1'));
+  const prefLangue = el('div', { class: 'pref-row' },
+    el('span', {}, 'Langue'),
+    el('span', { class: 'hint muted small' }, 'FR'), swLang,
+    el('span', { class: 'hint muted small' }, 'EN'));
+  const panneauParams = el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto 20px' },
+    el('h2', {}, '⚙️ Paramètres'),
+    el('div', { class: 'pref-sub' }, 'Préférences'),
+    prefTheme, prefLangue);
+  main.append(panneauParams);
   function choisirLang(l) { try { localStorage.setItem('ebpc_lang', l); } catch {} location.reload(); }
   if (compte) {
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto;text-align:center' },
@@ -98,7 +98,7 @@ async function init() {
             alert('✅ Email mis à jour'); location.reload();
           } catch (e) { alert(e.message); }
         } }, 'Enregistrer')))));
-    // panneau notifications push
+    // sous-section Notifications du panneau parametres (push + preferences notifs amis)
     const notifOk = await pushEstActif().catch(() => false);
 const btnNotif = notifOk
       ? el('button', { class: 'secondary', style: 'width:100%', onclick: async () => { try { await pushDesactiver(); alert('Notifications désactivées'); location.reload(); } catch (e) { alert(e.message); } } }, 'Désactiver')
@@ -107,12 +107,27 @@ const btnNotif = notifOk
       try { const r = await api('/api/push/test', { method: 'POST', pin: null }); alert(r.envoyes > 0 ? '📨 Notif de test envoyée (' + r.envoyes + ' appareil(s)) !' : '⚠️ Aucun appareil abonné — active les notifications avant.'); }
       catch (e) { alert(e.message); }
     } }, 'Tester la notification');
-    main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
-      el('h2', {}, '🔔 Notifications'),
+    panneauParams.append(
+      el('div', { class: 'pref-sub' }, 'Notifications'),
       el('p', { class: 'muted small' }, 'Reçois une notification push quand un de tes matchs est lancé (même écran verrouillé).'),
       estIOS() && !estPWA() ? el('p', { class: 'muted small' }, '📱 Sur iPhone : ajoute d\'abord le site à l\'écran d\'accueil (Safari → Partager → « Sur l\'écran d\'accueil »), puis active les notifications.') : null,
       el('div', {}, btnNotif),
-      el('div', { style: 'margin-top:10px' }, btnTest)));
+      el('div', { style: 'margin-top:10px' }, btnTest),
+      el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
+        el('span', {}, '🔔 Notifier quand un ami s\'inscrit à un tournoi'),
+        el('input', { id: 'pref-ami-inscription', type: 'checkbox', checked: !prefs || prefs.notif_amis_inscription !== false, onchange: async (e) => {
+          const actif = e.target.checked;
+          try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ notif_amis_inscription: actif }) }); }
+          catch (err) { e.target.checked = !actif; alert(err.message); }
+        } })),
+      el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
+        el('span', {}, '🔔 Notifier quand le match d\'un ami commence'),
+        el('input', { id: 'pref-ami-match', type: 'checkbox', checked: !prefs || prefs.notif_amis_match !== false, onchange: async (e) => {
+          const actif = e.target.checked;
+          try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ notif_amis_match: actif }) }); }
+          catch (err) { e.target.checked = !actif; alert(err.message); }
+        } })),
+    );
     // panneau amis
     async function renderAmis() {
       const box = document.getElementById('amis-box');
@@ -168,20 +183,6 @@ const btnNotif = notifOk
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:0 auto 20px' },
       el('h2', {}, '👥 Amis'),
       el('p', { class: 'muted small' }, 'Suis des joueurs : tu reçois une notif quand leur match commence ou quand ils s\'inscrivent à un tournoi, et leur statut ici. Pas besoin de compte pour eux : entre son pseudo dans la recherche puis « Suivre ».'),
-      el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
-        el('span', {}, '🔔 Notifier quand un ami s\'inscrit à un tournoi'),
-        el('input', { id: 'pref-ami-inscription', type: 'checkbox', checked: !prefs || prefs.notif_amis_inscription !== false, onchange: async (e) => {
-          const actif = e.target.checked;
-          try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ notif_amis_inscription: actif }) }); }
-          catch (err) { e.target.checked = !actif; alert(err.message); }
-        } })),
-      el('label', { class: 'row', style: 'justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;cursor:pointer' },
-        el('span', {}, '🔔 Notifier quand le match d\'un ami commence'),
-        el('input', { id: 'pref-ami-match', type: 'checkbox', checked: !prefs || prefs.notif_amis_match !== false, onchange: async (e) => {
-          const actif = e.target.checked;
-          try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ notif_amis_match: actif }) }); }
-          catch (err) { e.target.checked = !actif; alert(err.message); }
-        } })),
       el('div', { id: 'amis-box' })));
     renderAmis();
     // mes matchs (inscriptions en cours / matchs joués)
