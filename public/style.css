@@ -272,12 +272,16 @@ table.audit th { color: var(--muted); }
 .legend-bottom { margin: 18px 0 8px; opacity: .85; }
 .round-select { min-width: 220px; max-width: 100%; }
 /* nav compacte : ☰ menu déroulant + bouton compte visible */
-nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+/* #nav s'étire entre le titre et le bord droit : les burgers restent groupés à gauche du bandeau,
+   le sélecteur de langue est poussé à l'extrémité droite de l'écran (margin-left: auto) */
+#nav { flex: 1 1 auto; min-width: 0; }
+nav { display: flex; align-items: center; gap: 10px; justify-content: flex-start; }
 .nav-menu { position: relative; }
 .nav-burger { cursor: pointer; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); font-weight: 700; font-size: 15px; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .nav-burger:hover { border-color: var(--pink); }
-/* selecteur de langue du bandeau : meme gabarit que le burger, un peu plus compact */
-.nav-lang { cursor: pointer; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); font-weight: 700; font-size: 15px; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+/* selecteur de langue du bandeau : meme gabarit que le burger, un peu plus compact ;
+   margin-left: auto le colle a l extremite droite du bandeau, a l oppose des burgers */
+.nav-lang { cursor: pointer; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); font-weight: 700; font-size: 15px; -webkit-tap-highlight-color: transparent; touch-action: manipulation; margin-left: auto; }
 .nav-lang:hover { border-color: var(--pink); }
 .nav-dropdown { display: none; position: fixed; min-width: 220px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px; flex-direction: column; gap: 2px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 1000; }
 .nav-dropdown.open { display: flex; }

@@ -721,7 +721,7 @@ function menuDeroulant(btn, remplir) {
 
 function nav(active) {
   const links = [
-    ['/', 'home', 'Tournoi'],
+    ['/', 'home', 'Accueil'],
     ['/tableau.html', 'tableau', 'Tableau'],
     ['/tv.html', 'tv', 'TV'],
     ['/suivi.html', 'joueur', 'Joueur'],
@@ -734,7 +734,7 @@ function nav(active) {
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
   menuDeroulant(btn, (drop) => { for (const [href, key, label] of links) drop.append(el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)); });
   const wrap = el('div', { class: 'nav-menu' }, btn);
-  // selecteur de langue a l extremite opposee au menu principal (apres le burger compte),
+  // selecteur de langue a l extremite droite du bandeau (pousse par margin-left auto en CSS),
   // liste deroulante FR/EN avec drapeaux (meme mecanique que les burgers),
   // bouton affichant la langue courante ; libelles en langue native (Francais / English)
   const btnLang = el('button', { class: 'nav-lang', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Langue · Language' }, LANG === 'en' ? '🇬🇧 EN' : '🇫🇷 FR');
