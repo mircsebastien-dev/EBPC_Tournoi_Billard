@@ -354,3 +354,16 @@ button, .btn-score, .btn-manche, .btn-bande, .nav-burger, .nav-login, .nav-lang,
   .poster .row { justify-content: center !important; }
   .poster-fill { margin-left: auto; margin-right: auto; }
 }
+
+/* ===== Fil du tournoi (accueil) : chronique dérivée de l'état, 3 lignes + « Voir tout » ===== */
+.fil h2 { margin-top: 0; }
+.fil-ligne { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding: 8px 2px; }
+.fil-ligne:first-of-type { border-top: none; }
+.fil-txt { flex: 1 1 auto; min-width: 0; }
+.fil-temps { flex: 0 0 auto; white-space: nowrap; }
+.fil-live .fil-txt { color: var(--pink-soft); font-weight: 700; }
+.fil-live .fil-temps { color: var(--pink); font-weight: 700; }
+@media (max-width: 560px) {
+  .fil-ligne { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .fil-temps { order: 2; }
+}

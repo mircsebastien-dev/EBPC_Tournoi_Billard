@@ -28,6 +28,9 @@ function render() {
     main.append(el('div', { class: 'panel', style: 'text-align:center;padding:40px 20px' },
       el('div', { class: 'hero-title' }, '🎱 Aucun tournoi pour le moment'),
       el('p', { class: 'muted' }, 'Revenez bientôt !')));
+    // sans tournoi actif : fil du dernier tournoi terminé (la finale et le champion restent lisibles)
+    main.append(el('div', { id: 'fil-panneau' }));
+    chargerFilDernier();
     return;
   }
   const tn = t.tournoi;
@@ -106,6 +109,10 @@ function render() {
       el('div', { class: 'matchs-grid' }, enCours.map(m => matchCard(m, { t, onClick: () => location.href = matchUrl(m) })))));
   }
 
+  // ---- Fil du tournoi (3 dernières lignes, « Voir tout » pour étendre) ----
+  const pFil = panneauFil(t);
+  if (pFil) main.append(pFil);
+
   // lien vers le tableau complet (rose, comme les autres liens de contenu)
   main.append(el('div', { style: 'text-align:center;margin-top:6px' },
     el('a', { href: '/tableau.html', class: 'small' }, '🗺 Voir le tableau complet →')));
@@ -133,6 +140,98 @@ async function desinscrireCompte() {
     state = await api('/api/etat');
     render();
   } catch (e) { alert(e.message); }
+}
+
+
+// ---- Fil du tournoi (accueil) : lignes dérivées de l'état à CHAQUE rendu (SSE compris) ----
+// Pas de stockage : le fil raconte exactement ce que montrent les tableaux (rollback/correction
+// compris, jamais de doublon ni de ligne contredite par l'état). Fragment sur les faits (victoires,
+// forfaits, champion), ton « fun » uniquement pour les instants chauds (la belle).
+let filOuvert = false;    // panneau étendu (« Voir tout ») ou replié (3 lignes)
+let filDernier = null;    // cache du dernier tournoi terminé (fil sans tournoi actif)
+
+function lignesFil(tv) {
+  if (!tv) return [];
+  const L = [];
+  // champion en tête de fil : le titre du feuilleton, pas une ligne de plus dans la masse
+  if (tv.champion && tv.champion.pseudo) L.push({ live: false, quand: null, parties: [`🏆 ${tv.champion.pseudo} remporte le tournoi !`] });
+  // instants chauds : la belle (manche décisive en cours, les deux à une manche du match)
+  for (const m of (tv.matchs || [])) {
+    if (m.etat === 'en_cours' && m.joueur1 && m.joueur2 && m.score1 === m.manches - 1 && m.score2 === m.manches - 1) {
+      L.push({ live: true, quand: null, parties: [m.table != null
+        ? `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle à la table ${m.table}`
+        : `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle`] });
+    }
+  }
+  // faits : fins de match (les byes contre blanc ne font pas de ligne), plus récents d'abord
+  const res = [];
+  // défaite éliminatoire définitive : uniquement en double KO (WB perdant -> repêché en LB) ;
+  // en élimination directe chaque défaite élimine, la mention n'apporterait rien -> pas de mention
+  const elim = (m) => tv.tournoi.format === 'double' && (m.bracket === 'LB' || m.bracket === 'F');
+  for (const m of (tv.matchs || [])) {
+    if ((m.etat === 'termine' || m.etat === 'forfait') && m.gagnant_id != null && m.joueur1 && m.joueur2) {
+      const g = m.gagnant_id === m.joueur1.id ? m.joueur1 : m.joueur2;
+      const p = m.gagnant_id === m.joueur1.id ? m.joueur2 : m.joueur1;
+      const gs = m.gagnant_id === m.joueur1.id ? m.score1 : m.score2;
+      const ps = m.gagnant_id === m.joueur1.id ? m.score2 : m.score1;
+      const parties = [];
+      if (m.etat === 'forfait') parties.push(`${p.pseudo} déclare forfait, ${g.pseudo} passe au tour suivant`);
+      else {
+        parties.push(`${g.pseudo} bat ${p.pseudo} ${gs}-${ps}`);
+        if (m.table != null) parties.push(`· table ${m.table}`);
+      }
+      if (elim(m)) parties.push(`· tournoi terminé pour ${p.pseudo}`);
+      res.push({ live: false, quand: m.ended_at || null, parties });
+    }
+  }
+  res.sort((a, b) => String(b.quand || '').localeCompare(String(a.quand || '')));
+  return L.concat(res);
+}
+
+function filAgo(quand) {
+  if (!quand) return '';
+  const d = new Date(String(quand).replace(' ', 'T') + 'Z');
+  const s = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+  if (s < 60) return t("à l'instant");
+  const min = Math.floor(s / 60);
+  if (min < 60) return t(`il y a ${min} min`);
+  const h = Math.floor(min / 60);
+  if (h < 24) return t(`il y a ${h} h`);
+  return t(`il y a ${Math.floor(h / 24)} j`);
+}
+
+function panneauFil(tv) {
+  const lignes = lignesFil(tv);
+  if (!lignes.length) return null;
+  const box = el('div', { class: 'panel fil' });
+  box.append(el('h2', {}, 'Fil du tournoi'));
+  const vis = filOuvert ? lignes : lignes.slice(0, 3);
+  for (const l of vis) {
+    const txt = el('span', { class: 'fil-txt' });
+    txt.textContent = l.parties.map(x => t(x)).join(' ');
+    box.append(el('div', { class: 'fil-ligne' + (l.live ? ' fil-live' : '') },
+      txt,
+      el('span', { class: 'fil-temps muted small' }, l.live ? t('en direct') : filAgo(l.quand))));
+  }
+  if (lignes.length > 3) {
+    box.append(el('button', { class: 'secondary small fil-toggle', style: 'width:100%;margin-top:8px', onclick: () => { filOuvert = !filOuvert; render(); } }, filOuvert ? 'Replier' : 'Voir tout'));
+  }
+  return box;
+}
+
+// sans tournoi actif : fil du dernier tournoi terminé (payload public /api/tournois/:id)
+async function chargerFilDernier() {
+  const box = document.getElementById('fil-panneau');
+  if (!box) return;
+  const h = (state && state.historique || [])[0];
+  if (!h) { box.remove(); return; }
+  if (!filDernier || filDernier.tournoi.id !== h.id) {
+    filDernier = null;
+    try { filDernier = (await api(`/api/tournois/${h.id}`)).tournoi; } catch { filDernier = null; }
+  }
+  if (!document.contains(box)) return; // un autre rendu a déjà remplacé la page
+  const p = filDernier && panneauFil(filDernier);
+  if (p) box.replaceWith(p); else box.remove();
 }
 
 

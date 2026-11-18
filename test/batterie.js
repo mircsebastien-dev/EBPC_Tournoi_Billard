@@ -954,6 +954,55 @@ async function nouveauTournoi(body) {
   const at19 = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-tournoi.html'), 'utf8');
   check('front: burger compte a entrees dynamiques vers des pages dediees (login/register/parametres hors connexion, parametres/amis/mes matchs/ma fiche/deconnexion connecte, table de marque seule si role admin) + checkboxes toggle-mini + append filtre null', cjs18.includes('menuDeroulant') && cjs18.includes('nav-login') && cjs18.includes('/compte.html#connexion') && cjs18.includes('/compte.html#creer') && cjs18.includes('/parametres.html') && cjs18.includes('/amis.html') && cjs18.includes('/mes-matchs.html') && cjs18.includes('compteNav.role') && !cjs18.includes("href: '/admin-comptes.html'") && !cjs18.includes("href: '/admin-journal.html'") && cpte19.includes("id: 'connexion'") && cpte19.includes("id: 'creer'") && cv19.includes('].filter(Boolean));') && css19.includes('input[type="checkbox"].toggle-mini') && (cv19.split("type: 'checkbox', class: 'toggle-mini'").length - 1) >= 2 && (at19.split("type: 'checkbox', class: 'toggle-mini'").length - 1) === 3, '');
   check('front: pages dediees parametres/amis/mes matchs (vues partagees compte-vues.js, garde connexion vers compte.html#connexion sur amis et mes matchs, push-client sur parametres, titres traduits)', cv19.includes('async function vueParametres') && cv19.includes('async function vueAmis') && cv19.includes('async function vueMesMatchs') && am19.includes('vueAmis') && mm19.includes('vueMesMatchs') && p19.includes('push-client.js') && (cv19.split("location.replace('/compte.html#connexion')").length - 1) === 2 && cjs18.includes('Paramètres — Pink City Billard') && cjs18.includes('Amis — Pink City Billard') && cjs18.includes('Mes matchs — Pink City Billard'), '');
+  // ---------- 20. Fil du tournoi (accueil) : payload dérivé de l'état + front 5 langues ----------
+  sec('20. Fil du tournoi (accueil: faits + belle + champion, 3 lignes + étendre, i18n 5 langues)');
+  await del('/api/admin/tournoi').catch(() => {});
+  r = await post('/api/admin/tournoi', { nom: 'FilT', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
+  check('fil: création tournoi FilT', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  await post('/api/admin/joueurs/simulation', { count: 4, prefix: 'F' });
+  let t20 = (await api('/api/etat')).data.actif;
+  for (const j of t20.joueurs) await post(`/api/admin/joueur/${j.id}/paiement`, { statut: 'paye' });
+  await post('/api/admin/tirage', {});
+  t20 = (await api('/api/etat')).data.actif;
+  const m20 = t20.matchs.find(m => m.etat === 'pret' && m.joueur1 && m.joueur2);
+  await post(`/api/admin/match/${m20.id}/lancer`, { table_id: t20.tables[0].id });
+  await api(`/api/match/${m20.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m20.joueur1.id } });
+  for (let i = 0; i < m20.manches; i++) await api(`/api/match/${m20.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: m20.joueur1.id } });
+  // le fil est dérivé de l'état côté client : ce que /api/tournois/:id (public) expose suffit à écrire chaque ligne
+  r = await api(`/api/tournois/${t20.tournoi.id}`, { pin: null });
+  const fini20 = (r.data.tournoi || {}).matchs.find(m => m.etat === 'termine' && m.gagnant_id != null && m.joueur1 && m.joueur2);
+  check('fil: /api/tournois/:id public expose gagnant + perdant + scores + table + ended_at (contrat du fil)', r.status === 200 && !!(fini20 && fini20.gagnant && fini20.joueur1.pseudo && fini20.joueur2.pseudo && fini20.ended_at && fini20.table === 1 && typeof fini20.score1 === 'number'), JSON.stringify(fini20 && { g: fini20.gagnant, e: fini20.ended_at, t: fini20.table }));
+  const m20b = (await api('/api/etat')).data.actif.matchs.find(m => m.etat === 'pret' && m.joueur1 && m.joueur2);
+  r = await post(`/api/admin/match/${m20b.id}/forfait`, { joueur_id: m20b.joueur2.id });
+  check('fil: forfait exposé (etat forfait + gagnant + ended_at pour la ligne dédiée)', r.status === 200 && r.data.match.etat === 'forfait' && r.data.match.gagnant_id === m20b.joueur1.id && !!r.data.match.ended_at, r.status + ' ' + JSON.stringify(r.data.match && r.data.match.etat));
+  await del('/api/admin/tournoi').catch(() => {});
+  // front : le panneau, les phrases, l'élimination DKO, l'horodatage, le dernier tournoi sans actif
+  const idx20 = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  check('fil: front accueil (lignesFil + panneauFil + 3 lignes + Voir tout/Replier + chargerFilDernier)', idx20.includes('function lignesFil') && idx20.includes('function panneauFil') && idx20.includes('function filAgo') && idx20.includes('chargerFilDernier') && idx20.includes('Fil du tournoi') && idx20.includes('Voir tout') && idx20.includes('Replier') && idx20.includes('lignes.slice(0, 3)'), '');
+  check('fil: phrases des lignes (victoire + table + forfait + champion + belle)', idx20.includes(' bat ') && idx20.includes('· table ${m.table}') && idx20.includes('déclare forfait, ') && idx20.includes('remporte le tournoi !') && idx20.includes('sont à la belle'), '');
+  check('fil: élimination définitive uniquement en double KO (LB/F), fusionnée dans la ligne de victoire', idx20.includes("tv.tournoi.format === 'double' && (m.bracket === 'LB' || m.bracket === 'F')") && idx20.includes('· tournoi terminé pour ${p.pseudo}'), '');
+  check('fil: horodatage relatif (à l\'instant / il y a N min/h/j) + tri par ended_at décroissant', idx20.includes('function filAgo') && idx20.includes("il y a ") && idx20.includes("localeCompare"), '');
+  check('fil: sans tournoi actif, fil du dernier tournoi terminé via /api/tournois/:id (public, champion visible)', idx20.includes('chargerFilDernier') && idx20.includes('/api/tournois/'), '');
+  // i18n : règles dynamiques fil ajoutées et alignées dans les 4 langues cibles
+  const cjs20 = fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8');
+  check('fil: i18n EN — règles dyn du fil dans I18N_DYN (beats / table / tournament over / forfeits / wins the tournament / one frame from victory / ago)', cjs20.includes('$1 beats $2 $3-$4') && cjs20.includes('· table $1') && cjs20.includes('· tournament over for $1') && cjs20.includes('$1 forfeits, $2 moves on to the next round') && cjs20.includes('🏆 $1 wins the tournament!') && cjs20.includes('one frame from victory at table $3') && cjs20.includes('$1 min ago'), '');
+  const sliceArr = (src, a, b) => { const i = src.indexOf(a); return i === -1 ? '' : src.slice(i, src.indexOf(b, i) >= 0 ? src.indexOf(b, i) : src.length); };
+  const cDyn = (s) => (s.match(/\n\s*\[\//g) || []).length;   // règles [/..
+  const cReps = (s) => (s.match(/\n\s*"/g) || []).length;      // remplacements "..."
+  const dynSrc = sliceArr(cjs20, 'const I18N_DYN = [', 'const I18N_ES');
+  const repsES = sliceArr(cjs20, 'const REPS_DYN_ES = [', 'const I18N_IT');
+  const repsIT = sliceArr(cjs20, 'const REPS_DYN_IT = [', 'const I18N_DE');
+  const repsDE = sliceArr(cjs20, 'const REPS_DYN_DE = [', 'const DICTS');
+  check('fil: i18n ES/IT/DE — remplacements du fil présents (vence/batte/schlägt + champion + hace/fa/vor)', repsES.includes('$1 vence a $2 $3-$4') && repsIT.includes('$1 batte $2 $3-$4') && repsDE.includes('$1 schlägt $2 $3-$4') && repsES.includes('hace $1 min') && repsIT.includes('$1 min fa') && repsDE.includes('vor $1 Min.'), '');
+  check('fil: i18n — 4 tableaux dynamiques alignés (I18N_DYN = REPS_DYN_ES = REPS_DYN_IT = REPS_DYN_DE)', cDyn(dynSrc) === cReps(repsES) && cReps(repsES) === cReps(repsIT) && cReps(repsIT) === cReps(repsDE) && cDyn(dynSrc) >= 77, `${cDyn(dynSrc)} / ${cReps(repsES)} / ${cReps(repsIT)} / ${cReps(repsDE)}`);
+  const fEn = sliceArr(cjs20, 'const I18N = {', 'const I18N_DYN');
+  const fEs = sliceArr(cjs20, 'const I18N_ES = {', 'const REPS_DYN_ES');
+  const fIt = sliceArr(cjs20, 'const I18N_IT = {', 'const REPS_DYN_IT');
+  const fDe = sliceArr(cjs20, 'const I18N_DE = {', 'const REPS_DYN_DE');
+  check('fil: i18n — clés statiques du fil dans les 4 dictionnaires (Fil du tournoi + Replier + en direct)', fEn.includes('"Fil du tournoi": "Tournament feed"') && fEs.includes('"Fil du tournoi": "Crónica del torneo"') && fIt.includes('"Fil du tournoi": "Cronaca del torneo"') && fDe.includes('"Fil du tournoi": "Turnier-Feed"') && fEn.includes('"Replier": "Show less"') && fEs.includes('"Replier": "Ver menos"') && fIt.includes('"Replier": "Mostra meno"') && fDe.includes('"Replier": "Weniger anzeigen"') && fEn.includes('"en direct": "live"') && fEs.includes('"en direct": "en directo"') && fIt.includes('"en direct": "in diretta"') && fDe.includes('"en direct": "live"'), '');
+  const css20 = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
+  check('fil: styles du panneau (.fil-ligne, live en rose, colonne sur mobile)', css20.includes('.fil-ligne') && css20.includes('.fil-live') && css20.includes('.fil-txt') && css20.includes('.fil-temps'), '');
+
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
@@ -983,6 +1032,7 @@ async function nouveauTournoi(body) {
   md += `- Rôles (section 16): compte role=admin -> session suffit pour requireAdmin ET confirm_pin (destructif); sinon PIN requis (401 sans), confirm_pin requis sur destructifs; POST /api/admin/compte/:id/role (admin/user, 400 invalide)\n`;
   md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
   md += `- Rattachement compte/joueurs anonymes (section 18): compte créé après un tournoi archivé (sans tournoi actif) rattache quand même les lignes anonymes du même pseudo (tournois passés inclus), fiche joueur + classement conservent les stats\n`;
+  md += `- Fil du tournoi (section 20): chronique du tournoi dérivée de l'état (aucun stockage -> cohérente avec les tableaux, rollback et corrections inclus), lignes victoire/forfait/champion/belle, élimination définitive mentionnée uniquement en double KO (LB/F) et fusionnée dans la ligne, 3 dernières lignes + « Voir tout » sur l'accueil, horodatage relatif, dernier tournoi terminé consultable sans tournoi actif (/api/tournois/:id public), phrases i18n dans les 5 langues (clés statiques + règles dynamiques alignées I18N_DYN/REPS_DYN_*)\n`;
   md += `- i18n FR/EN/ES/IT/DE (section 19): header X-Lang (en/es/it/de) -> erreurs API traduites (Route inconnue -> Unknown route / Ruta desconocida / Percorso sconosciuto / Unbekannte Route), defaut fr inchange, couverture front complete dans common.js (~490 entrees x 4 langues cibles + ~66 regles dynamiques x 4 via I18N_ES/IT/DE + REPS_DYN, LANG multi-valeurs, t(), traduireDomStatique, X-Lang sur api() ET les appels admin, alert/confirm natifs traduits, titre de page traduit, attributs placeholder/title/aria-label/alt), selecteur de langue 5 entrees dans le bandeau (FR/EN/ES/IT/DE data-driven via LANGUES, drapeaux + libelles natifs, ancienne rangee Langue retiree de parametres.html ; interrupteurs theme alignes .pref-row, sous-sections Preferences et Notifications, sans texte d aide; checkboxes de reglages habillees en interrupteurs toggle-mini, burger compte a entrees dynamiques vers des pages dediees (login/register, parametres, amis, mes matchs, ma fiche, deconnexion, table de marque seule si role admin), append filtre les null; selecteur langue colle a l extremite droite de l ecran, sur desktop comme sur mobile <=560px (#nav flex + margin-left auto, #nav pleine largeur en colonne mobile ; listes deroulantes du bandeau alignees sur le bord droit de leur bouton ; entree Accueil ex-Tournoi du menu principal, traduite Home en EN) ; push traduits par destinataire en 5 langues (compte.lang, repli X-Lang pour le test manuel, payloads par langue dans push.js + envoyerTous versions {en,es,it,de}) ; limite restante: payload SSE restent en francais)\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);

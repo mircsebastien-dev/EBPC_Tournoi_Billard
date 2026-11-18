@@ -516,6 +516,10 @@ const I18N = {
   "👤 Ma fiche joueur": "👤 My player page",
   "🛠 Table de marque": "🛠 Scoreboard",
   "🚪 Se déconnecter": "🚪 Log out",
+  // --- fil du tournoi (accueil) ---
+  "Fil du tournoi": "Tournament feed",
+  "Replier": "Show less",
+  "en direct": "live",
 };
 const I18N_DYN = [
   [/^Erreur (\d+)$/, "Error $1"],
@@ -584,6 +588,18 @@ const I18N_DYN = [
   [/^⏱ durée moyenne (.+)$/, "⏱ average duration $1"],
   [/^(\d{2}\/\d{2}\/\d{4}) à (\d{2})h(\d{2})$/, "$1 at $2:$3"],
   [/^(\S+) (\d{2}\/\d{2}\/\d{4}) à (\d{2})h(\d{2})$/, "$1 $2 at $3:$4"],
+  // --- fil du tournoi (accueil) : fragments de lignes ---
+  [/^(.+) bat (.+) (\d+)-(\d+)$/, "$1 beats $2 $3-$4"],
+  [/^· table (\d+)$/, "· table $1"],
+  [/^· tournoi terminé pour (.+)$/, "· tournament over for $1"],
+  [/^(.+) déclare forfait, (.+) passe au tour suivant$/, "$1 forfeits, $2 moves on to the next round"],
+  [/^🏆 (.+) remporte le tournoi !$/, "🏆 $1 wins the tournament!"],
+  [/^Suspense : (.+) et (.+) sont à la belle à la table (\d+)$/, "Suspense: $1 and $2 are both one frame from victory at table $3"],
+  [/^Suspense : (.+) et (.+) sont à la belle$/, "Suspense: $1 and $2 are both one frame from victory"],
+  [/^à l'instant$/, "just now"],
+  [/^il y a (\d+) min$/, "$1 min ago"],
+  [/^il y a (\d+) h$/, "$1 h ago"],
+  [/^il y a (\d+) j$/, "$1 d ago"],
 ];
 // --- i18n ES : dictionnaire espagnol (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
 const I18N_ES = {
@@ -1089,6 +1105,9 @@ const I18N_ES = {
   "👤 Ma fiche joueur": "👤 Mi ficha de jugador",
   "🛠 Table de marque": "🛠 Mesa de control",
   "🚪 Se déconnecter": "🚪 Cerrar sesión",
+  "Fil du tournoi": "Crónica del torneo",
+  "Replier": "Ver menos",
+  "en direct": "en directo",
 };
 // remplacements dynamiques ES : meme ordre que les regex de I18N_DYN
 const REPS_DYN_ES = [
@@ -1158,6 +1177,17 @@ const REPS_DYN_ES = [
   "⏱ duración media $1",
   "$1 a las $2:$3",
   "$1 $2 a las $3:$4",
+  "$1 vence a $2 $3-$4",
+  "· mesa $1",
+  "· torneo terminado para $1",
+  "$1 declara forfait, $2 pasa a la ronda siguiente",
+  "🏆 ¡$1 gana el torneo!",
+  "¡Emoción! $1 y $2 están a un frame de ganar en la mesa $3",
+  "¡Emoción! $1 y $2 están a un frame de ganar",
+  "hace un instante",
+  "hace $1 min",
+  "hace $1 h",
+  "hace $1 d",
 ];
 
 // --- i18n IT : dictionnaire italien (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
@@ -1664,6 +1694,9 @@ const I18N_IT = {
   "👤 Ma fiche joueur": "👤 La mia scheda giocatore",
   "🛠 Table de marque": "🛠 Tavolo arbitrale",
   "🚪 Se déconnecter": "🚪 Disconnetti",
+  "Fil du tournoi": "Cronaca del torneo",
+  "Replier": "Mostra meno",
+  "en direct": "in diretta",
 };
 // remplacements dynamiques IT : meme ordre que les regex de I18N_DYN
 const REPS_DYN_IT = [
@@ -1733,6 +1766,17 @@ const REPS_DYN_IT = [
   "⏱ durata media $1",
   "$1 alle $2:$3",
   "$1 $2 alle $3:$4",
+  "$1 batte $2 $3-$4",
+  "· tavolo $1",
+  "· torneo finito per $1",
+  "$1 dà forfait, $2 passa al turno successivo",
+  "🏆 $1 vince il torneo!",
+  "Che suspense: $1 e $2 sono a un frame dalla vittoria al tavolo $3",
+  "Che suspense: $1 e $2 sono a un frame dalla vittoria",
+  "proprio ora",
+  "$1 min fa",
+  "$1 h fa",
+  "$1 g fa",
 ];
 
 // --- i18n DE : dictionnaire allemand (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
@@ -2239,6 +2283,9 @@ const I18N_DE = {
   "👤 Ma fiche joueur": "👤 Meine Spielerseite",
   "🛠 Table de marque": "🛠 Schreibertisch",
   "🚪 Se déconnecter": "🚪 Abmelden",
+  "Fil du tournoi": "Turnier-Feed",
+  "Replier": "Weniger anzeigen",
+  "en direct": "live",
 };
 // remplacements dynamiques DE : meme ordre que les regex de I18N_DYN
 const REPS_DYN_DE = [
@@ -2308,6 +2355,17 @@ const REPS_DYN_DE = [
   "⏱ durchschnittliche Dauer $1",
   "$1 um $2:$3",
   "$1 $2 um $3:$4",
+  "$1 schlägt $2 $3-$4",
+  "· Tisch $1",
+  "· Turnier beendet für $1",
+  "$1 gibt Forfait, $2 kommt in die nächste Runde",
+  "🏆 $1 gewinnt das Turnier!",
+  "Spannung: $1 und $2 sind beide einen Frame vom Sieg entfernt, am Tisch $3",
+  "Spannung: $1 und $2 sind beide einen Frame vom Sieg entfernt",
+  "gerade eben",
+  "vor $1 Min.",
+  "vor $1 Std.",
+  "vor $1 T",
 ];
 
 ;
