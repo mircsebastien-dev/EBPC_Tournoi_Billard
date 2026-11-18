@@ -165,6 +165,30 @@ const push = require('../src/push');
   check('pref inscription désactivée -> 0 envoi', nInsP2 === 0, `n=${nInsP2}`);
   db.prepare('UPDATE compte SET notif_amis_inscription = 1 WHERE id = ?').run(cF.lastInsertRowid);
 
+  // --- i18n par destinataire: chaque push part dans la langue du compte (compte.lang, defaut fr) ---
+  console.log('\n--- i18n par destinataire (compte.lang) ---');
+  const cAnglo = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt, lang) VALUES ('Anglo', 'en@x.fr', 'h', 's', 'en')").run();
+  db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epEN', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(cAnglo.lastInsertRowid);
+  envois.length = 0;
+  const nTous = await push.envoyerTous({ title: 'FR', body: 'fr', url: '/', tag: 't' }, null, { title: 'EN', body: 'en', url: '/', tag: 't' });
+  const envoiEN = envois.find(e => e.endpoint === 'https://push.example/epEN');
+  check('envoyerTous bilingue: compte "en" reçoit EN, les autres FR (9 envois)', nTous === 9 && envois.length === 9 && envoiEN && envoiEN.payload.title === 'EN' && envois.filter(e => e.endpoint !== 'https://push.example/epEN').every(e => e.payload.title === 'FR'), `n=${nTous} envois=${envois.map(e => e.endpoint + ':' + e.payload.title).join(',')}`);
+  // test manuel: langue stockee prioritaire sur le header X-Lang, url vers /parametres.html
+  const rTestEN = await push.envoyerTest(cAnglo.lastInsertRowid, 'fr');
+  const envoiTestEN = envois.find(e => e.endpoint === 'https://push.example/epEN' && e.payload.tag.startsWith('test-'));
+  check('envoyerTest: langue stockee "en" prioritaire sur le hint fr, payload anglais + /parametres.html', rTestEN.envoyes === 1 && envoiTestEN && envoiTestEN.payload.title.includes('Notification test') && envoiTestEN.payload.url === '/parametres.html', JSON.stringify(envoiTestEN && envoiTestEN.payload));
+  const rTestHint = await push.envoyerTest(c3.lastInsertRowid, 'en'); // c3 sans lang -> repli sur le hint X-Lang "en"
+  const envoiTestHint = envois.find(e => e.endpoint === 'https://push.example/epA' && e.payload.tag.startsWith('test-'));
+  check('envoyerTest: compte sans lang -> repli sur le hint (X-Lang en)', rTestHint.envoyes === 1 && envoiTestHint && envoiTestHint.payload.title.includes('Notification test'), JSON.stringify(envoiTestHint && envoiTestHint.payload));
+  // match d'un ami: payload selon la langue du destinataire
+  db.prepare("UPDATE compte SET lang = 'en' WHERE id = ?").run(c6.lastInsertRowid); // epM1 (ami de JoueurA) passe en anglais
+  envois.length = 0;
+  await push.notifierMatchLance({ id: 1002, joueur1_id: jA.lastInsertRowid, joueur2_id: jB.lastInsertRowid }, 'JoueurA', 'JoueurB', 2, 'wb1-004');
+  const envoiAmiEN = envois.find(e => e.endpoint === 'https://push.example/epM1');
+  const envoiAmiFR = envois.find(e => e.endpoint === 'https://push.example/epM2');
+  check('notifierMatchLance: ami "en" reçoit "A friend\'s match is live", ami fr reste en français', envoiAmiEN && envoiAmiEN.payload.title.includes("A friend's match") && envoiAmiFR && envoiAmiFR.payload.title.includes("Match d'un ami"), `epM1=${envoiAmiEN && envoiAmiEN.payload.title} epM2=${envoiAmiFR && envoiAmiFR.payload.title}`);
+  db.prepare('UPDATE compte SET lang = NULL WHERE id = ?').run(c6.lastInsertRowid);
+
   db.close();
   for (const ext of ['', '-wal', '-shm']) { try { fs.unlinkSync(DB_PATH + ext); } catch (e) {} }
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC ===`);

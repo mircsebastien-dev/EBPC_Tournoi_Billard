@@ -34,6 +34,7 @@ const STATIQUES = {
   "Les inscriptions ne sont pas ouvertes (tirage déjà effectué)": "Registration is not open (draw already done)",
   "Les inscriptions sont fermées (tournoi lancé)": "Registration is closed (tournament started)",
   "Lien invalide ou expiré (valable 1h)": "Invalid or expired link (valid for 1h)",
+  "Langue invalide": "Invalid language",
   "Lien invalide": "Invalid link",
   "Mot de passe trop court (min 4 caractères)": "Password too short (min 4 characters)",
   "Non connecté": "Not logged in",

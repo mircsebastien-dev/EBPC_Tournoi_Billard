@@ -294,7 +294,8 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   app.post('/api/push/test', async (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
     const { envoyerTest } = require('./push');
-    const r = await envoyerTest(req.compte.id);
+    // langue du compte prioritaire, repli sur le header X-Lang du client (langue affichée actuellement)
+    const r = await envoyerTest(req.compte.id, req.lang);
     res.json({ ok: true, ...r });
   });
 
@@ -321,7 +322,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     });
   });
 
-  // préférences du compte (notif "inscription d'un ami", notif "match d'un ami" — désactivables depuis /compte.html)
+  // préférences du compte (notifs amis — désactivables depuis /parametres.html ; langue fr/en des notifications push)
   app.post('/api/compte/preferences', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
     const maj = {};
@@ -330,6 +331,10 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
       if (v === undefined) continue;
       if (v !== true && v !== false && v !== 0 && v !== 1) return res.status(400).json({ error: 'Valeur invalide' });
       maj[cle] = (v === true || v === 1) ? 1 : 0;
+    }
+    if (req.body.lang !== undefined) {
+      if (req.body.lang !== 'fr' && req.body.lang !== 'en') return res.status(400).json({ error: 'Langue invalide' });
+      maj.lang = req.body.lang;
     }
     if (!Object.keys(maj).length) return res.status(400).json({ error: 'Aucune préférence reconnue' });
     const set = Object.keys(maj).map(c => `${c} = ?`).join(', ');

@@ -567,7 +567,12 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
         body: `« ${t.nom} » · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} joueurs · ${dateH}`,
         url: '/',
         tag: 'tournoi-' + t.id,
-      }, req.club.id).catch(() => {}); // push scopé au club courant
+      }, req.club.id, { // version anglaise pour les comptes dont la langue est "en" (compte.lang)
+        title: '🎱 New tournament — registration open',
+        body: `"${t.nom}" · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} players · ${dateH}`,
+        url: '/',
+        tag: 'tournoi-' + t.id,
+      }).catch(() => {}); // push scopé au club courant
     } catch {}
   }
   majEtBroadcast();
@@ -947,7 +952,12 @@ app.post('/api/admin/tournoi/rappel-inscriptions', requireAdmin, async (req, res
     body: `« ${t.nom} » · ${inscrits}/${t.taille} inscrits · ${dateH}`,
     url: '/',
     tag: 'tournoi-' + t.id, // même tag que la notif de création : le rappel remplace la précédente au lieu de s'empiler
-  }, req.club.id).catch(() => 0);
+  }, req.club.id, { // version anglaise pour les comptes dont la langue est "en" (compte.lang)
+    title: '🎱 Reminder — registration open',
+    body: `"${t.nom}" · ${inscrits}/${t.taille} signed up · ${dateH}`,
+    url: '/',
+    tag: 'tournoi-' + t.id,
+  }).catch(() => 0);
   logAuditReq(req, 'rappel_inscriptions', `tournoi ${t.id}`, null, { envoyes });
   res.json({ ok: true, envoyes });
 });

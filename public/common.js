@@ -679,7 +679,13 @@ function fmtDuree(s) {
 }
 
 // choix de langue persistant (ebpc_lang) + rechargement immediat ; appele par le selecteur FR/EN du bandeau
-function choisirLangue(l) { try { localStorage.setItem('ebpc_lang', l); } catch {} location.reload(); }
+// persiste la langue cote client (localStorage) ET cote serveur (compte.lang) pour les notifications push ;
+// attend la reponse du POST avant le reload, sinon la requete est annulee par le unload de la page
+async function choisirLangue(l) {
+  try { localStorage.setItem('ebpc_lang', l); } catch {}
+  try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ lang: l }) }); } catch {} // silencieux si non connecte (401)
+  location.reload();
+}
 
 // menu deroulant reutilisable (burger navigation, burger compte, selecteur de langue) : dropdown + scrim dans le body,
 // contenu reconstruit a chaque ouverture (entrees dynamiques), fermeture au clic exterieur / scrim / resize
@@ -728,7 +734,8 @@ function nav(active) {
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
   menuDeroulant(btn, (drop) => { for (const [href, key, label] of links) drop.append(el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)); });
   const wrap = el('div', { class: 'nav-menu' }, btn);
-  // selecteur de langue dans le bandeau : liste deroulante FR/EN avec drapeaux (meme mecanique que les burgers),
+  // selecteur de langue a l extremite opposee au menu principal (apres le burger compte),
+  // liste deroulante FR/EN avec drapeaux (meme mecanique que les burgers),
   // bouton affichant la langue courante ; libelles en langue native (Francais / English)
   const btnLang = el('button', { class: 'nav-lang', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Langue · Language' }, LANG === 'en' ? '🇬🇧 EN' : '🇫🇷 FR');
   menuDeroulant(btnLang, (drop) => {
@@ -754,7 +761,7 @@ function nav(active) {
     if (compteNav.role === 'admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, '🛠 Table de marque'));
     drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, '🚪 Se déconnecter'));
   });
-  return el('nav', {}, wrap, btnLang, btnCompte);
+  return el('nav', {}, wrap, btnCompte, btnLang);
 }
 
 function codeMatch(m) {

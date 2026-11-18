@@ -270,6 +270,8 @@ if (matchCols.length > 0) {
     db.exec('ALTER TABLE compte ADD COLUMN notif_amis_inscription INTEGER NOT NULL DEFAULT 1'); // pref "notification inscription amis"
   if (!db.prepare("PRAGMA table_info(compte)").all().some(c => c.name === 'notif_amis_match'))
     db.exec('ALTER TABLE compte ADD COLUMN notif_amis_match INTEGER NOT NULL DEFAULT 1'); // pref "notification match d'un ami"
+  if (!db.prepare("PRAGMA table_info(compte)").all().some(c => c.name === 'lang'))
+    db.exec('ALTER TABLE compte ADD COLUMN lang TEXT'); // langue des notifications push (null = fr), persistée par le sélecteur du bandeau
   if (!db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id'))
     db.exec('ALTER TABLE match ADD COLUMN casseur_id INTEGER REFERENCES joueur(id)');
 }
