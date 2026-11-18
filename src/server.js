@@ -7,6 +7,7 @@ const M = require('./matchs');
 const comptes = require('./comptes');
 const QRCode = require('qrcode');
 const push = require('./push');
+const { traduireErreur } = require('./i18n');
 
 // robustesse process: on logue sans crasher (écritures SQLite synchrones + WAL = état toujours cohérent)
 process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e));
@@ -23,6 +24,21 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: '256kb' })); // body > 256ko -> 413 (géré par le middleware d'erreur)
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
+
+// i18n API : X-Lang: en -> traduit les champs error/message des reponses JSON (defaut fr, repli francais)
+app.use((req, res, next) => {
+  req.lang = req.headers['x-lang'] === 'en' ? 'en' : 'fr';
+  const jsonOrig = res.json.bind(res);
+  res.json = (data) => {
+    if (req.lang === 'en' && data && typeof data === 'object' && !Array.isArray(data)) {
+      let modifie = false;
+      if (typeof data.error === 'string') { const tr = traduireErreur(data.error, 'en'); if (tr !== data.error) { data = { ...data, error: tr }; modifie = true; } }
+      if (typeof data.message === 'string') { const tr = traduireErreur(data.message, 'en'); if (tr !== data.message) { data = { ...data, message: tr }; modifie = true; } }
+    }
+    return jsonOrig(data);
+  };
+  next();
+});
 
 // nettoie un pseudo: retire les caractères de contrôle, trim, tronque
 function cleanPseudo(v, max = 40) {

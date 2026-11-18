@@ -10,6 +10,79 @@ function clubHeaders() {
   try { const c = localStorage.getItem(CLUB_KEY); return c ? { 'X-Club': c } : {}; } catch { return {}; }
 }
 
+// i18n front : langue choisie dans le compte (ebpc_lang), defaut fr. t() traduit via le dictionnaire,
+// avec repli sur le francais si la chaine est absente (aucun changement en mode fr).
+const LANG = (() => { try { return localStorage.getItem('ebpc_lang') === 'en' ? 'en' : 'fr'; } catch { return 'fr'; } })();
+const I18N = {
+  "Aide": "Help", "Amis": "Friends", "Annuler": "Cancel", "Apparence": "Appearance",
+  "Aucun ami pour le moment": "No friends yet", "Aucun historique": "No history",
+  "Aucun match pour le moment": "No matches yet", "Aucun tournoi pour le moment": "No tournament right now",
+  "Aucun tournoi": "No tournament", "Aucune donnée": "No data",
+  "Bille perdue": "Ball lost", "Bille perdue ?": "Ball lost?",
+  "Classement": "Ranking", "Club": "Club", "Compte": "Account", "Confidentialité": "Privacy",
+  "Confirmation": "Confirmation", "Connecté": "Logged in", "Connecte-toi pour t'inscrire": "Log in to enter",
+  "Créer mon compte": "Create my account", "Créer un compte": "Create an account",
+  "Déconnexion": "Log out", "Défaite": "Loss", "Défaillant": "Losing", "Détails": "Details",
+  "Distance": "Distance", "En cours": "Ongoing", "Enregistrer": "Save", "En cours de match": "Playing now",
+  "Envoi du lien de réinitialisation...": "Sending the reset link...",
+  "Envoi...": "Sending...", "Erreur": "Error", "Fermer": "Close", "Final": "Final", "Finale": "Final",
+  "Forfait": "Forfeit", "Gagnant": "Winner", "gagnant": "winner", "Gagné": "Won",
+  "Historique": "History", "Honnêteté": "Sportsmanship", "Inconnu": "Unknown",
+  "Inscrits": "Registered", "Inscription": "Entry", "Inséré": "Entered", "Interrompu": "Interrupted",
+  "Joueur": "Player", "Joueurs": "Players", "jour": "day", "Langue": "Language",
+  "Manche": "Frame", "Manches": "Frames", "Manches gagnées": "Frames won",
+  "Match": "Match", "Matchs": "Matches", "Matchs en direct": "Live matches",
+  "Me désinscrire": "Unregister me", "Mon espace": "My space", "Mot de passe": "Password",
+  "Mot de passe oublié ?": "Forgot password?", "Modifier": "Edit", "Mute": "Mute",
+  "Notifications": "Notifications", "Nom": "Name", "Non": "No", "Oui": "Yes",
+  "Ouvrir": "Open", "Paramètres": "Settings", "Perdu": "Lost", "Perdant": "Loser", "perdant": "loser",
+  "Pseudo": "Username", "Prévu": "Scheduled", "Prêt": "Ready", "Points": "Points",
+  "Quitter": "Leave", "Rafraîchir": "Refresh", "Rejouer": "Replay", "Remerciements": "Credits",
+  "Retour": "Back", "Réduire": "Collapse", "Réglages": "Settings", "Score": "Score",
+  "Se connecter": "Log in", "Se déconnecter": "Log out", "Sécurité": "Security",
+  "Statistiques": "Statistics", "Stats": "Stats", "Suivre": "Follow", "Suivi": "Following",
+  "Suivre un joueur": "Follow a player", "Table de marque": "Scoreboard", "Tables": "Tables",
+  "Terminé": "Finished", "Terminer": "Finish", "Thème": "Theme",
+  "Titres": "Titles", "Ton compte": "Your account", "Tournoi": "Tournament",
+  "Tournoi précédent": "Previous tournament", "Tournois": "Tournaments",
+  "Tout voir": "See all", "Tableau": "Bracket", "Vainqueur": "Winner", "Valider": "Submit",
+  "Victoire": "Win", "Victoires": "Wins", "Vues": "Views",
+  "Échec": "Failed", "Éditer": "Edit",
+  "Préférences": "Preferences", "Prénom": "First name", "Email": "Email",
+  "Chargement...": "Loading...", "Charger plus": "Load more", "Changer de club": "Change club",
+  "M'inscrire": "Enter", "Inscriptions": "Entries",
+  "Nombre de joueurs": "Number of players", "Numéro de match": "Match number",
+  "Aucun joueur trouvé": "No player found", "Aucun résultat": "No result",
+  "Tournoi terminé": "Tournament finished", "Tournoi en cours": "Tournament ongoing",
+  "Tirage au sort": "Draw", "tirage": "draw", "Faute": "Foul", "Fautes": "Fouls",
+  "Meilleure série": "Best run", "Membre": "Member", "Membres": "Members",
+  "Suite": "Next", "Suivant": "Next", "Précédent": "Previous", "Accueil": "Home",
+  "Aucun": "None", "Aucune": "None", "Ajouter": "Add", "Supprimer": "Delete",
+  "Confirmer": "Confirm", "Copier": "Copy", "Copié !": "Copied!",
+  "Attention": "Warning", "Info": "Info", "Libre": "Free", "Occupée": "Busy",
+  "Manche en cours": "Frame ongoing", "Match en cours": "Match ongoing",
+  "Clic = éditer (admin)": "Click = edit (admin)",
+  "Déjà suivi": "Already followed", "Ne plus suivre": "Unfollow",
+  "Face à face": "Head to head", "Adversaire": "Opponent", "Adversaires": "Opponents",
+  "Série": "Run", "Séries": "Runs", "Trois quarts": "Quarter finals", "Quarts": "Quarters",
+  "Demis": "Semis", "Demi-finales": "Semi finals", "Poules": "Groups", "Poule": "Group",
+  "Vidéos": "Videos", "A propos": "About", "Voir": "See", "Voir tout": "See all"
+};
+function t(s) { return LANG === 'en' && typeof s === 'string' ? (I18N[s] || s) : s; }
+// traduit les textes statiques du HTML (titres, paragraphes) au chargement; les contenus dynamiques passent par el()/t()
+function traduireDomStatique(root) {
+  if (LANG !== 'en' || !root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const noeuds = [];
+  while (walker.nextNode()) noeuds.push(walker.currentNode);
+  for (const n of noeuds) {
+    const brut = n.nodeValue;
+    const cle = brut.trim();
+    if (cle && I18N[cle]) n.nodeValue = brut.replace(cle, () => I18N[cle]);
+  }
+}
+traduireDomStatique(document.body);
+
 // Thème clair/sombre : préférence locale (ebpc_theme), appliquée tôt dans <head> par un petit script inline anti-flash.
 // La page TV reste toujours sombre (pas de script anti-flash là-bas).
 function themeActuel() { try { return localStorage.getItem('ebpc_theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } }
@@ -19,7 +92,7 @@ function basculerTheme() { const t = themeActuel() === 'light' ? 'dark' : 'light
 let compteCourant = null; // mémo du compte connecté (le broadcast SSE ne le renvoie pas)
 async function api(path, opts = {}) {
   const res = await fetch(API + path, {
-    headers: { 'Content-Type': 'application/json', ...clubHeaders(), ...(opts.headers || {}) },
+    headers: { 'Content-Type': 'application/json', 'X-Lang': LANG, ...clubHeaders(), ...(opts.headers || {}) },
     ...opts,
   });
   const data = await res.json().catch(() => ({}));
@@ -33,12 +106,12 @@ function el(tag, attrs = {}, ...children) {
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'class') e.className = v;
     else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
-    else if (v != null && v !== false) e.setAttribute(k, v === true ? '' : v);
+    else if (v != null && v !== false) e.setAttribute(k, (k === 'placeholder' || k === 'title' || k === 'aria-label') && typeof v === 'string' ? t(v) : (v === true ? '' : v));
   }
   for (const c of children) {
     if (c == null || c === false) continue;
-    if (Array.isArray(c)) { for (const cc of c) e.append(cc.nodeType ? cc : document.createTextNode(cc)); continue; }
-    e.append(c.nodeType ? c : document.createTextNode(c));
+    if (Array.isArray(c)) { for (const cc of c) e.append(cc.nodeType ? cc : document.createTextNode(t(cc))); continue; }
+    e.append(c.nodeType ? c : document.createTextNode(typeof c === 'string' ? t(c) : c));
   }
   return e;
 }

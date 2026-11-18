@@ -917,6 +917,15 @@ async function nouveauTournoi(body) {
   const pages19 = fs.readdirSync(path.join(__dirname, '..', 'public')).filter(f => f.endsWith('.html') && f !== 'tv.html');
   const sansSnippet = pages19.filter(f => !fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf8').includes("localStorage.getItem('ebpc_theme')"));
   check('script anti-flash theme present sur toutes les pages sauf TV', sansSnippet.length === 0, 'manquantes: ' + sansSnippet.join(', '));
+  // i18n fr/en : erreurs API traduites avec X-Lang: en, defaut fr inchange, dictionnaire front + switch FR/EN
+  const rrLang = await fetch(BASE + '/api/rien-du-tout', { headers: { 'Content-Type': 'application/json', 'X-Lang': 'en' } });
+  const dLang = await rrLang.json().catch(() => ({}));
+  check('i18n: erreur API traduite avec X-Lang: en (Route inconnue -> Unknown route)', rrLang.status === 404 && dLang.error === 'Unknown route', JSON.stringify(dLang));
+  const rrFr = await fetch(BASE + '/api/rien-du-tout', { headers: { 'Content-Type': 'application/json' } });
+  const dFr = await rrFr.json().catch(() => ({}));
+  check('i18n: sans X-Lang, erreur API en francais (defaut inchange)', rrFr.status === 404 && dFr.error === 'Route inconnue', JSON.stringify(dFr));
+  check('i18n: serveur traduit les erreurs (src/i18n.js + middleware X-Lang dans server.js)', fs.readFileSync(path.join(__dirname, '..', 'src', 'i18n.js'), 'utf8').includes('traduireErreur') && fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8').includes('X-Lang: en -> traduit'), '');
+  check('i18n: front traduit (LANG + t() + X-Lang + dictionnaire dans common.js, switch FR/EN dans compte.html)', cjs18.includes('const LANG') && cjs18.includes('function t(') && cjs18.includes('X-Lang') && cjs18.includes('ebpc_lang') && cjs18.includes('traduireDomStatique') && cpte19.includes('choisirLang') && cpte19.includes('FR') && cpte19.includes('EN'), '');
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
@@ -946,6 +955,7 @@ async function nouveauTournoi(body) {
   md += `- Rôles (section 16): compte role=admin -> session suffit pour requireAdmin ET confirm_pin (destructif); sinon PIN requis (401 sans), confirm_pin requis sur destructifs; POST /api/admin/compte/:id/role (admin/user, 400 invalide)\n`;
   md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
   md += `- Rattachement compte/joueurs anonymes (section 18): compte créé après un tournoi archivé (sans tournoi actif) rattache quand même les lignes anonymes du même pseudo (tournois passés inclus), fiche joueur + classement conservent les stats\n`;
+  md += `- i18n FR/EN (section 19): header X-Lang: en -> erreurs API traduites (Route inconnue -> Unknown route), defaut fr inchange, dictionnaire front common.js (LANG, t(), traduireDomStatique, X-Lang sur api()), switch FR/EN dans compte.html\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);

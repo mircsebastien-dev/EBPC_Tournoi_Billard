@@ -68,7 +68,12 @@ async function init() {
       el('span', { class: 'muted small', style: 'font-weight:800' }, '0'),
       swTheme,
       el('span', { class: 'muted small', style: 'font-weight:800' }, '1')),
+    el('div', { class: 'row', style: 'justify-content:flex-end;align-items:center;gap:8px;flex-wrap:nowrap' },
+      el('span', { class: 'muted small', style: 'font-weight:800' }, 'Langue'),
+      el('button', { class: LANG === 'fr' ? '' : 'secondary', onclick: () => choisirLang('fr') }, 'FR'),
+      el('button', { class: LANG === 'en' ? '' : 'secondary', onclick: () => choisirLang('en') }, 'EN')),
     el('p', { class: 'muted small' }, 'Interrupteur 0-1 : 0 = sombre (défaut), 1 = clair. La page TV reste toujours sombre.')));
+  function choisirLang(l) { try { localStorage.setItem('ebpc_lang', l); } catch {} location.reload(); }
   if (compte) {
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto;text-align:center' },
       el('div', { class: 'hero-title' }, `👤 ${compte.pseudo}`),
