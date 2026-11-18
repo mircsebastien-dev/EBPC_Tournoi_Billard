@@ -25,15 +25,16 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '256kb' })); // body > 256ko -> 413 (géré par le middleware d'erreur)
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
-// i18n API : X-Lang: en -> traduit les champs error/message des reponses JSON (defaut fr, repli francais)
+// i18n API : X-Lang: en/es/it/de -> traduit les champs error/message des reponses JSON (defaut fr, repli francais)
 app.use((req, res, next) => {
-  req.lang = req.headers['x-lang'] === 'en' ? 'en' : 'fr';
+  const l = String(req.headers['x-lang'] || '');
+  req.lang = ['en', 'es', 'it', 'de'].includes(l) ? l : 'fr';
   const jsonOrig = res.json.bind(res);
   res.json = (data) => {
-    if (req.lang === 'en' && data && typeof data === 'object' && !Array.isArray(data)) {
+    if (req.lang !== 'fr' && data && typeof data === 'object' && !Array.isArray(data)) {
       let modifie = false;
-      if (typeof data.error === 'string') { const tr = traduireErreur(data.error, 'en'); if (tr !== data.error) { data = { ...data, error: tr }; modifie = true; } }
-      if (typeof data.message === 'string') { const tr = traduireErreur(data.message, 'en'); if (tr !== data.message) { data = { ...data, message: tr }; modifie = true; } }
+      if (typeof data.error === 'string') { const tr = traduireErreur(data.error, req.lang); if (tr !== data.error) { data = { ...data, error: tr }; modifie = true; } }
+      if (typeof data.message === 'string') { const tr = traduireErreur(data.message, req.lang); if (tr !== data.message) { data = { ...data, message: tr }; modifie = true; } }
     }
     return jsonOrig(data);
   };
@@ -567,11 +568,31 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
         body: `« ${t.nom} » · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} joueurs · ${dateH}`,
         url: '/',
         tag: 'tournoi-' + t.id,
-      }, req.club.id, { // version anglaise pour les comptes dont la langue est "en" (compte.lang)
-        title: '🎱 New tournament — registration open',
-        body: `"${t.nom}" · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} players · ${dateH}`,
-        url: '/',
-        tag: 'tournoi-' + t.id,
+      }, req.club.id, { // versions traduites pour les comptes selon leur langue (compte.lang)
+        en: {
+          title: '🎱 New tournament — registration open',
+          body: `"${t.nom}" · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} players · ${dateH}`,
+          url: '/',
+          tag: 'tournoi-' + t.id,
+        },
+        es: {
+          title: '🎱 Nuevo torneo — inscripciones abiertas',
+          body: `« ${t.nom} » · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} jugadores · ${dateH}`,
+          url: '/',
+          tag: 'tournoi-' + t.id,
+        },
+        it: {
+          title: '🎱 Nuovo torneo — iscrizioni aperte',
+          body: `« ${t.nom} » · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} giocatori · ${dateH}`,
+          url: '/',
+          tag: 'tournoi-' + t.id,
+        },
+        de: {
+          title: '🎱 Neues Turnier — Anmeldung offen',
+          body: `« ${t.nom} » · ${t.regle === 'blackball' ? 'Blackball' : 'Ultimate'} · ${t.taille} Spieler · ${dateH}`,
+          url: '/',
+          tag: 'tournoi-' + t.id,
+        },
       }).catch(() => {}); // push scopé au club courant
     } catch {}
   }
@@ -952,11 +973,31 @@ app.post('/api/admin/tournoi/rappel-inscriptions', requireAdmin, async (req, res
     body: `« ${t.nom} » · ${inscrits}/${t.taille} inscrits · ${dateH}`,
     url: '/',
     tag: 'tournoi-' + t.id, // même tag que la notif de création : le rappel remplace la précédente au lieu de s'empiler
-  }, req.club.id, { // version anglaise pour les comptes dont la langue est "en" (compte.lang)
-    title: '🎱 Reminder — registration open',
-    body: `"${t.nom}" · ${inscrits}/${t.taille} signed up · ${dateH}`,
-    url: '/',
-    tag: 'tournoi-' + t.id,
+  }, req.club.id, { // versions traduites pour les comptes selon leur langue (compte.lang)
+    en: {
+      title: '🎱 Reminder — registration open',
+      body: `"${t.nom}" · ${inscrits}/${t.taille} signed up · ${dateH}`,
+      url: '/',
+      tag: 'tournoi-' + t.id, // même tag que la notif de création : le rappel remplace la précédente au lieu de s'empiler
+    },
+    es: {
+      title: '🎱 Recordatorio — inscripciones abiertas',
+      body: `« ${t.nom} » · ${inscrits}/${t.taille} inscritos · ${dateH}`,
+      url: '/',
+      tag: 'tournoi-' + t.id,
+    },
+    it: {
+      title: '🎱 Promemoria — iscrizioni aperte',
+      body: `« ${t.nom} » · ${inscrits}/${t.taille} iscritti · ${dateH}`,
+      url: '/',
+      tag: 'tournoi-' + t.id,
+    },
+    de: {
+      title: '🎱 Erinnerung — Anmeldung offen',
+      body: `« ${t.nom} » · ${inscrits}/${t.taille} eingeschrieben · ${dateH}`,
+      url: '/',
+      tag: 'tournoi-' + t.id,
+    },
   }).catch(() => 0);
   logAuditReq(req, 'rappel_inscriptions', `tournoi ${t.id}`, null, { envoyes });
   res.json({ ok: true, envoyes });

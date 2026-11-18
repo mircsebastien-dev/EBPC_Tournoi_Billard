@@ -189,6 +189,26 @@ const push = require('../src/push');
   check('notifierMatchLance: ami "en" reçoit "A friend\'s match is live", ami fr reste en français', envoiAmiEN && envoiAmiEN.payload.title.includes("A friend's match") && envoiAmiFR && envoiAmiFR.payload.title.includes("Match d'un ami"), `epM1=${envoiAmiEN && envoiAmiEN.payload.title} epM2=${envoiAmiFR && envoiAmiFR.payload.title}`);
   db.prepare('UPDATE compte SET lang = NULL WHERE id = ?').run(c6.lastInsertRowid);
 
+  // --- i18n étendu: espagnol / allemand (payloads par langue du compte) ---
+  console.log('\n--- i18n étendu (es/de) ---');
+  const cEs = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt, lang) VALUES ('Hispano', 'es@x.fr', 'h', 's', 'es')").run();
+  db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epES', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(cEs.lastInsertRowid);
+  envois.length = 0;
+  const nTous5 = await push.envoyerTous({ title: 'FR', body: 'fr', url: '/', tag: 't5' }, null, { en: { title: 'EN', body: 'en', url: '/', tag: 't5' }, es: { title: 'ES', body: 'es', url: '/', tag: 't5' }, it: { title: 'IT', body: 'it', url: '/', tag: 't5' }, de: { title: 'DE', body: 'de', url: '/', tag: 't5' } });
+  const envoiES = envois.find(e => e.endpoint === 'https://push.example/epES');
+  const envoiEN5 = envois.find(e => e.endpoint === 'https://push.example/epEN');
+  check('envoyerTous 5 langues: compte "es" reçoit ES, "en" reçoit EN, les autres FR (10 envois)', nTous5 === 10 && envois.length === 10 && envoiES && envoiES.payload.title === 'ES' && envoiEN5 && envoiEN5.payload.title === 'EN' && envois.filter(e => !['https://push.example/epES', 'https://push.example/epEN'].includes(e.endpoint)).every(e => e.payload.title === 'FR'), `n=${nTous5} envois=${envois.map(e => e.endpoint + ':' + e.payload.title).join(',')}`);
+  const rTestES = await push.envoyerTest(cEs.lastInsertRowid, 'fr');
+  const envoiTestES = envois.find(e => e.endpoint === 'https://push.example/epES' && e.payload.tag.startsWith('test-'));
+  check('envoyerTest: compte "es" -> payload espagnol + /parametres.html', rTestES.envoyes === 1 && envoiTestES && envoiTestES.payload.title.includes('Notificación de prueba') && envoiTestES.payload.url === '/parametres.html', JSON.stringify(envoiTestES && envoiTestES.payload));
+  const cDe = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt, lang) VALUES ('Deutsche', 'de@x.fr', 'h', 's', 'de')").run();
+  db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epDE', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(cDe.lastInsertRowid);
+  db.prepare('INSERT INTO ami (compte_id, ami_compte_id) VALUES (?, ?)').run(cDe.lastInsertRowid, cA.lastInsertRowid);
+  envois.length = 0;
+  await push.notifierMatchLance({ id: 1003, joueur1_id: jA.lastInsertRowid, joueur2_id: jB.lastInsertRowid }, 'JoueurA', 'JoueurB', 3, 'wb1-005');
+  const envoiAmiDE = envois.find(e => e.endpoint === 'https://push.example/epDE');
+  check('notifierMatchLance: ami "de" reçoit « Spiel eines Freundes läuft »', envoiAmiDE && envoiAmiDE.payload.title.includes('Spiel eines Freundes läuft') && envoiAmiDE.payload.url === '/match.html?id=1003', `epDE=${envoiAmiDE && envoiAmiDE.payload.title}`);
+
   db.close();
   for (const ext of ['', '-wal', '-shm']) { try { fs.unlinkSync(DB_PATH + ext); } catch (e) {} }
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC ===`);

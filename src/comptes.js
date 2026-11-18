@@ -322,7 +322,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     });
   });
 
-  // préférences du compte (notifs amis — désactivables depuis /parametres.html ; langue fr/en des notifications push)
+  // préférences du compte (notifs amis — désactivables depuis /parametres.html ; langue fr/en/es/it/de des notifications push)
   app.post('/api/compte/preferences', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
     const maj = {};
@@ -333,7 +333,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
       maj[cle] = (v === true || v === 1) ? 1 : 0;
     }
     if (req.body.lang !== undefined) {
-      if (req.body.lang !== 'fr' && req.body.lang !== 'en') return res.status(400).json({ error: 'Langue invalide' });
+      if (!['fr', 'en', 'es', 'it', 'de'].includes(req.body.lang)) return res.status(400).json({ error: 'Langue invalide' });
       maj.lang = req.body.lang;
     }
     if (!Object.keys(maj).length) return res.status(400).json({ error: 'Aucune préférence reconnue' });

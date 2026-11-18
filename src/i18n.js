@@ -1,5 +1,5 @@
-// i18n serveur : traduction fr -> en des messages d'erreur / confirmation renvoyés par l'API.
-// Active uniquement si le client envoie le header "X-Lang: en" (defaut: fr, aucun changement).
+// i18n serveur : traduction fr -> en/es/it/de des messages d'erreur / confirmation renvoyés par l'API.
+// Active uniquement si le client envoie le header "X-Lang" (defaut: fr, aucun changement).
 // Repli gracieux : toute chaine absente du dictionnaire est renvoyee telle quelle (en francais).
 
 // messages statiques (cles = textes exacts cotes serveur, apostrophes reels)
@@ -76,6 +76,231 @@ const STATIQUES = {
   "slug invalide (2-30 car. a-z 0-9 -)": "invalid slug (2-30 chars a-z 0-9 -)"
 };
 
+// --- espagnol (mêmes clés que STATIQUES) ---
+const STATIQUES_ES = {
+  "Aucun compte avec ce pseudo": "Ninguna cuenta con este pseudónimo",
+  "Aucun snapshot pour cet événement": "No hay instantánea para este evento",
+  "Aucun tournoi actif": "Ningún torneo activo",
+  "Aucun tournoi ouvert aux inscriptions (le précédent doit être terminé et le prochain créé)": "Ningún torneo abierto a inscripciones (el anterior debe estar terminado y el siguiente creado)",
+  "Aucun tournoi ouvert aux inscriptions — attendez que le tournoi en cours soit terminé et que le prochain soit créé": "Ningún torneo abierto a inscripciones — espere a que el torneo en curso termine y se cree el siguiente",
+  "Aucun tournoi": "Ningún torneo",
+  "Aucune préférence reconnue": "Ninguna preferencia reconocida",
+  "Body trop volumineux (max 256ko)": "Cuerpo demasiado voluminoso (máx. 256 KB)",
+  "Ce pseudo appartient à un compte : ajoute-le comme ami normal": "Este pseudónimo pertenece a una cuenta: añádelo como amigo normal",
+  "Ce pseudo appartient à un compte : connecte-toi pour t'inscrire, ou choisis un autre pseudo": "Este pseudónimo pertenece a una cuenta: inicia sesión para inscribirte, o elige otro pseudónimo",
+  "Cet email est déjà utilisé par un autre compte": "Este email ya está utilizado por otra cuenta",
+  "Code administrateur requis pour confirmer cette suppression": "Código de administrador requerido para confirmar esta eliminación",
+  "Compte connecté : inscris-toi avec le bouton « M'inscrire » de ton compte": "Cuenta conectada: inscríbete con el botón « Inscribirme » de tu cuenta",
+  "Compte introuvable": "Cuenta no encontrada",
+  "Connecte-toi à ton compte pour te désinscrire": "Inicia sesión en tu cuenta para anular la inscripción",
+  "Crée un compte ou connecte-toi d'abord (pseudo + email + mot de passe)": "Crea una cuenta o inicia sesión primero (pseudónimo + email + contraseña)",
+  "Déjà dans tes amis": "Ya está en tus amigos",
+  "Déjà suivi": "Ya seguido",
+  "Email invalide": "Email no válido",
+  "Format invalide": "Formato no válido",
+  "Inscriptions closes : le tournoi en cours n'est pas terminé": "Inscripciones cerradas: el torneo en curso no está terminado",
+  "Inscriptions closes": "Inscripciones cerradas",
+  "JSON invalide": "JSON no válido",
+  "Joueur introuvable": "Jugador no encontrado",
+  "joueur introuvable": "jugador no encontrado",
+  "Match introuvable": "Partido no encontrado",
+  "Le tournoi doit être en cours (faites le tirage d'abord)": "El torneo debe estar en curso (haga primero el sorteo)",
+  "Les inscriptions ne sont pas ouvertes (tirage déjà effectué)": "Las inscripciones no están abiertas (sorteo ya realizado)",
+  "Les inscriptions sont fermées (tournoi lancé)": "Las inscripciones están cerradas (torneo iniciado)",
+  "Lien invalide ou expiré (valable 1h)": "Enlace no válido o caducado (válido 1 h)",
+  "Langue invalide": "Idioma no válido",
+  "Lien invalide": "Enlace no válido",
+  "Mot de passe trop court (min 4 caractères)": "Contraseña demasiado corta (mín. 4 caracteres)",
+  "Non connecté": "No conectado",
+  "PIN administrateur invalide (ou connectez-vous avec un compte admin)": "PIN de administrador no válido (o inicie sesión con una cuenta de admin)",
+  "Pseudo déjà pris dans ce tournoi": "Pseudónimo ya utilizado en este torneo",
+  "Pseudo déjà pris": "Pseudónimo ya utilizado",
+  "Pseudo invalide (2-24 caractères : lettres, chiffres, _ -)": "Pseudónimo no válido (2-24 caracteres: letras, cifras, _ -)",
+  "Pseudo ou email déjà utilisé": "Pseudónimo o email ya utilizado",
+  "Pseudo ou mot de passe incorrect": "Pseudónimo o contraseña incorrectos",
+  "Pseudo requis": "Pseudónimo requerido",
+  "QR invalide": "QR no válido",
+  "Route inconnue": "Ruta desconocida",
+  "Règle invalide": "Regla no válida",
+  "Seul le tournoi actif peut être comparé (ce snapshot concerne un autre tournoi)": "Solo el torneo activo puede compararse (esta instantánea corresponde a otro torneo)",
+  "Seul le tournoi actif peut être restauré (ce snapshot concerne un autre tournoi)": "Solo el torneo activo puede restaurarse (esta instantánea corresponde a otro torneo)",
+  "Si un compte existe pour cet email, un lien de réinitialisation vient d'être envoyé.": "Si existe una cuenta para este email, se acaba de enviar un enlace de restablecimiento.",
+  "Tableau déjà plein": "Cuadro ya completo",
+  "Taille invalide (max)": "Tamaño no válido (máx.)",
+  "Tirage déjà effectué": "Sorteo ya realizado",
+  "Tournoi complet": "Torneo completo",
+  "Tournoi déjà terminé": "Torneo ya terminado",
+  "Tournoi introuvable (ou aucun tournoi actif)": "Torneo no encontrado (o ningún torneo activo)",
+  "Tournoi introuvable": "Torneo no encontrado",
+  "Tournoi lancé": "Torneo iniciado",
+  "Tournoi terminé, config verrouillée": "Torneo terminado, configuración bloqueada",
+  "Trop de demandes, réessaie plus tard": "Demasiadas solicitudes, reinténtalo más tarde",
+  "Trop de tentatives, réessaie dans 10 min": "Demasiados intentos, reinténtalo en 10 min",
+  "Tu n'es pas inscrit à ce tournoi": "No estás inscrito en este torneo",
+  "Tu ne peux pas t'ajouter toi-même": "No puedes añadirte a ti mismo",
+  "Tu ne peux pas te suivre toi-même": "No puedes seguirte a ti mismo",
+  "Valeur invalide": "Valor no válido",
+  "distances requis": "distancias requeridas",
+  "joueur_id requis (à qui retirer la manche)": "joueur_id requerido (a quién quitar el frame)",
+  "joueur_id requis (doit être l'un des 2 joueurs du match)": "joueur_id requerido (debe ser uno de los 2 jugadores del partido)",
+  "joueur_id requis (gagnant de la manche)": "joueur_id requerido (ganador del frame)",
+  "joueur_id requis": "joueur_id requerido",
+  "nom requis": "nombre requerido",
+  "role invalide ('admin' ou 'user')": "rol no válido ('admin' o 'user')",
+  "slug invalide (2-30 car. a-z 0-9 -)": "slug no válido (2-30 car. a-z 0-9 -)"
+};
+
+// --- italien (mêmes clés que STATIQUES) ---
+const STATIQUES_IT = {
+  "Aucun compte avec ce pseudo": "Nessun account con questo pseudonimo",
+  "Aucun snapshot pour cet événement": "Nessuna istantanea per questo evento",
+  "Aucun tournoi actif": "Nessun torneo attivo",
+  "Aucun tournoi ouvert aux inscriptions (le précédent doit être terminé et le prochain créé)": "Nessun torneo aperto alle iscrizioni (il precedente deve essere terminato e il prossimo creato)",
+  "Aucun tournoi ouvert aux inscriptions — attendez que le tournoi en cours soit terminé et que le prochain soit créé": "Nessun torneo aperto alle iscrizioni — attendere che il torneo in corso termini e che il prossimo venga creato",
+  "Aucun tournoi": "Nessun torneo",
+  "Aucune préférence reconnue": "Nessuna preferenza riconosciuta",
+  "Body trop volumineux (max 256ko)": "Corpo troppo voluminoso (max 256 KB)",
+  "Ce pseudo appartient à un compte : ajoute-le comme ami normal": "Questo pseudonimo appartiene a un account: aggiungilo come normale amico",
+  "Ce pseudo appartient à un compte : connecte-toi pour t'inscrire, ou choisis un autre pseudo": "Questo pseudonimo appartiene a un account: accedi per iscriverti, o scegli un altro pseudonimo",
+  "Cet email est déjà utilisé par un autre compte": "Questa email è già utilizzata da un altro account",
+  "Code administrateur requis pour confirmer cette suppression": "Codice amministratore richiesto per confermare questa eliminazione",
+  "Compte connecté : inscris-toi avec le bouton « M'inscrire » de ton compte": "Account connesso: iscriviti con il pulsante « Iscrivimi » del tuo account",
+  "Compte introuvable": "Account non trovato",
+  "Connecte-toi à ton compte pour te désinscrire": "Accedi al tuo account per annullare l'iscrizione",
+  "Crée un compte ou connecte-toi d'abord (pseudo + email + mot de passe)": "Crea un account o accedi prima (pseudonimo + email + password)",
+  "Déjà dans tes amis": "Già tra i tuoi amici",
+  "Déjà suivi": "Già seguito",
+  "Email invalide": "Email non valida",
+  "Format invalide": "Formato non valido",
+  "Inscriptions closes : le tournoi en cours n'est pas terminé": "Iscrizioni chiuse: il torneo in corso non è terminato",
+  "Inscriptions closes": "Iscrizioni chiuse",
+  "JSON invalide": "JSON non valido",
+  "Joueur introuvable": "Giocatore non trovato",
+  "joueur introuvable": "giocatore non trovato",
+  "Match introuvable": "Partita non trovata",
+  "Le tournoi doit être en cours (faites le tirage d'abord)": "Il torneo deve essere in corso (effettuare prima il sorteggio)",
+  "Les inscriptions ne sont pas ouvertes (tirage déjà effectué)": "Le iscrizioni non sono aperte (sorteggio già effettuato)",
+  "Les inscriptions sont fermées (tournoi lancé)": "Le iscrizioni sono chiuse (torneo avviato)",
+  "Lien invalide ou expiré (valable 1h)": "Link non valido o scaduto (valido 1 h)",
+  "Langue invalide": "Lingua non valida",
+  "Lien invalide": "Link non valido",
+  "Mot de passe trop court (min 4 caractères)": "Password troppo corta (min 4 caratteri)",
+  "Non connecté": "Non connesso",
+  "PIN administrateur invalide (ou connectez-vous avec un compte admin)": "PIN amministratore non valido (o accedere con un account admin)",
+  "Pseudo déjà pris dans ce tournoi": "Pseudonimo già utilizzato in questo torneo",
+  "Pseudo déjà pris": "Pseudonimo già utilizzato",
+  "Pseudo invalide (2-24 caractères : lettres, chiffres, _ -)": "Pseudonimo non valido (2-24 caratteri: lettere, cifre, _ -)",
+  "Pseudo ou email déjà utilisé": "Pseudonimo o email già utilizzati",
+  "Pseudo ou mot de passe incorrect": "Pseudonimo o password errati",
+  "Pseudo requis": "Pseudonimo richiesto",
+  "QR invalide": "QR non valido",
+  "Route inconnue": "Percorso sconosciuto",
+  "Règle invalide": "Regola non valida",
+  "Seul le tournoi actif peut être comparé (ce snapshot concerne un autre tournoi)": "Solo il torneo attivo può essere confrontato (questa istantanea riguarda un altro torneo)",
+  "Seul le tournoi actif peut être restauré (ce snapshot concerne un autre tournoi)": "Solo il torneo attivo può essere ripristinato (questa istantanea riguarda un altro torneo)",
+  "Si un compte existe pour cet email, un lien de réinitialisation vient d'être envoyé.": "Se esiste un account per questa email, un link di reset è appena stato inviato.",
+  "Tableau déjà plein": "Tabellone già completo",
+  "Taille invalide (max)": "Dimensione non valida (max)",
+  "Tirage déjà effectué": "Sorteggio già effettuato",
+  "Tournoi complet": "Torneo completo",
+  "Tournoi déjà terminé": "Torneo già terminato",
+  "Tournoi introuvable (ou aucun tournoi actif)": "Torneo non trovato (o nessun torneo attivo)",
+  "Tournoi introuvable": "Torneo non trovato",
+  "Tournoi lancé": "Torneo avviato",
+  "Tournoi terminé, config verrouillée": "Torneo terminato, configurazione bloccata",
+  "Trop de demandes, réessaie plus tard": "Troppe richieste, riprova più tardi",
+  "Trop de tentatives, réessaie dans 10 min": "Troppi tentativi, riprova tra 10 min",
+  "Tu n'es pas inscrit à ce tournoi": "Non sei iscritto a questo torneo",
+  "Tu ne peux pas t'ajouter toi-même": "Non puoi aggiungere te stesso",
+  "Tu ne peux pas te suivre toi-même": "Non puoi seguire te stesso",
+  "Valeur invalide": "Valore non valido",
+  "distances requis": "distances richieste",
+  "joueur_id requis (à qui retirer la manche)": "joueur_id richiesto (a chi togliere il frame)",
+  "joueur_id requis (doit être l'un des 2 joueurs du match)": "joueur_id richiesto (deve essere uno dei 2 giocatori della partita)",
+  "joueur_id requis (gagnant de la manche)": "joueur_id richiesto (vincitore del frame)",
+  "joueur_id requis": "joueur_id richiesto",
+  "nom requis": "nome richiesto",
+  "role invalide ('admin' ou 'user')": "ruolo non valido ('admin' o 'user')",
+  "slug invalide (2-30 car. a-z 0-9 -)": "slug non valido (2-30 car. a-z 0-9 -)"
+};
+
+// --- allemand (mêmes clés que STATIQUES) ---
+const STATIQUES_DE = {
+  "Aucun compte avec ce pseudo": "Kein Konto mit diesem Benutzernamen",
+  "Aucun snapshot pour cet événement": "Kein Snapshot für dieses Ereignis",
+  "Aucun tournoi actif": "Kein aktives Turnier",
+  "Aucun tournoi ouvert aux inscriptions (le précédent doit être terminé et le prochain créé)": "Kein Turnier zur Anmeldung offen (das vorherige muss beendet und das nächste erstellt sein)",
+  "Aucun tournoi ouvert aux inscriptions — attendez que le tournoi en cours soit terminé et que le prochain soit créé": "Kein Turnier zur Anmeldung offen — warten Sie, bis das laufende Turnier beendet und das nächste erstellt ist",
+  "Aucun tournoi": "Kein Turnier",
+  "Aucune préférence reconnue": "Keine erkannte Einstellung",
+  "Body trop volumineux (max 256ko)": "Body zu groß (max. 256 KB)",
+  "Ce pseudo appartient à un compte : ajoute-le comme ami normal": "Dieser Benutzername gehört zu einem Konto: füge ihn als normalen Freund hinzu",
+  "Ce pseudo appartient à un compte : connecte-toi pour t'inscrire, ou choisis un autre pseudo": "Dieser Benutzername gehört zu einem Konto: melde dich an, um dich einzuschreiben, oder wähle einen anderen Benutzernamen",
+  "Cet email est déjà utilisé par un autre compte": "Diese E-Mail wird bereits von einem anderen Konto verwendet",
+  "Code administrateur requis pour confirmer cette suppression": "Admin-Code erforderlich, um diese Löschung zu bestätigen",
+  "Compte connecté : inscris-toi avec le bouton « M'inscrire » de ton compte": "Konto angemeldet: schreibe dich mit der Schaltfläche « Einschreiben » deines Kontos ein",
+  "Compte introuvable": "Konto nicht gefunden",
+  "Connecte-toi à ton compte pour te désinscrire": "Melde dich bei deinem Konto an, um die Anmeldung zurückzuziehen",
+  "Crée un compte ou connecte-toi d'abord (pseudo + email + mot de passe)": "Erstelle zuerst ein Konto oder melde dich an (Benutzername + E-Mail + Passwort)",
+  "Déjà dans tes amis": "Bereits in deinen Freunden",
+  "Déjà suivi": "Bereits gefolgt",
+  "Email invalide": "Ungültige E-Mail",
+  "Format invalide": "Ungültiges Format",
+  "Inscriptions closes : le tournoi en cours n'est pas terminé": "Anmeldung geschlossen: das laufende Turnier ist nicht beendet",
+  "Inscriptions closes": "Anmeldung geschlossen",
+  "JSON invalide": "Ungültiges JSON",
+  "Joueur introuvable": "Spieler nicht gefunden",
+  "joueur introuvable": "spieler nicht gefunden",
+  "Match introuvable": "Spiel nicht gefunden",
+  "Le tournoi doit être en cours (faites le tirage d'abord)": "Das Turnier muss laufen (führen Sie zuerst die Auslosung durch)",
+  "Les inscriptions ne sont pas ouvertes (tirage déjà effectué)": "Die Anmeldung ist nicht offen (Auslosung bereits durchgeführt)",
+  "Les inscriptions sont fermées (tournoi lancé)": "Die Anmeldung ist geschlossen (Turnier gestartet)",
+  "Lien invalide ou expiré (valable 1h)": "Ungültiger oder abgelaufener Link (1 h gültig)",
+  "Langue invalide": "Ungültige Sprache",
+  "Lien invalide": "Ungültiger Link",
+  "Mot de passe trop court (min 4 caractères)": "Passwort zu kurz (min. 4 Zeichen)",
+  "Non connecté": "Nicht angemeldet",
+  "PIN administrateur invalide (ou connectez-vous avec un compte admin)": "Ungültiger Admin-PIN (oder mit einem Admin-Konto anmelden)",
+  "Pseudo déjà pris dans ce tournoi": "Benutzername in diesem Turnier bereits vergeben",
+  "Pseudo déjà pris": "Benutzername bereits vergeben",
+  "Pseudo invalide (2-24 caractères : lettres, chiffres, _ -)": "Ungültiger Benutzername (2-24 Zeichen: Buchstaben, Ziffern, _ -)",
+  "Pseudo ou email déjà utilisé": "Benutzername oder E-Mail bereits verwendet",
+  "Pseudo ou mot de passe incorrect": "Falscher Benutzername oder falsches Passwort",
+  "Pseudo requis": "Benutzername erforderlich",
+  "QR invalide": "Ungültiger QR-Code",
+  "Route inconnue": "Unbekannte Route",
+  "Règle invalide": "Ungültige Regel",
+  "Seul le tournoi actif peut être comparé (ce snapshot concerne un autre tournoi)": "Nur das aktive Turnier kann verglichen werden (dieser Snapshot betrifft ein anderes Turnier)",
+  "Seul le tournoi actif peut être restauré (ce snapshot concerne un autre tournoi)": "Nur das aktive Turnier kann wiederhergestellt werden (dieser Snapshot betrifft ein anderes Turnier)",
+  "Si un compte existe pour cet email, un lien de réinitialisation vient d'être envoyé.": "Wenn ein Konto für diese E-Mail existiert, wurde gerade ein Reset-Link gesendet.",
+  "Tableau déjà plein": "Turnierbaum bereits voll",
+  "Taille invalide (max)": "Ungültige Größe (max)",
+  "Tirage déjà effectué": "Auslosung bereits durchgeführt",
+  "Tournoi complet": "Turnier voll",
+  "Tournoi déjà terminé": "Turnier bereits beendet",
+  "Tournoi introuvable (ou aucun tournoi actif)": "Turnier nicht gefunden (oder kein aktives Turnier)",
+  "Tournoi introuvable": "Turnier nicht gefunden",
+  "Tournoi lancé": "Turnier gestartet",
+  "Tournoi terminé, config verrouillée": "Turnier beendet, Konfiguration gesperrt",
+  "Trop de demandes, réessaie plus tard": "Zu viele Anfragen, versuche es später erneut",
+  "Trop de tentatives, réessaie dans 10 min": "Zu viele Versuche, versuche es in 10 Min. erneut",
+  "Tu n'es pas inscrit à ce tournoi": "Du bist nicht für dieses Turnier eingeschrieben",
+  "Tu ne peux pas t'ajouter toi-même": "Du kannst dich nicht selbst hinzufügen",
+  "Tu ne peux pas te suivre toi-même": "Du kannst dir nicht selbst folgen",
+  "Valeur invalide": "Ungültiger Wert",
+  "distances requis": "distances erforderlich",
+  "joueur_id requis (à qui retirer la manche)": "joueur_id erforderlich (bei wem der Frame abgezogen wird)",
+  "joueur_id requis (doit être l'un des 2 joueurs du match)": "joueur_id erforderlich (muss einer der 2 Spieler des Spiels sein)",
+  "joueur_id requis (gagnant de la manche)": "joueur_id erforderlich (Frame-Gewinner)",
+  "joueur_id requis": "joueur_id erforderlich",
+  "nom requis": "Name erforderlich",
+  "role invalide ('admin' ou 'user')": "ungültige Rolle ('admin' oder 'user')",
+  "slug invalide (2-30 car. a-z 0-9 -)": "ungültiger Slug (2-30 Z. a-z 0-9 -)"
+};
+
+// tous les dictionnaires statiques par langue (fr = source, pas de traduction)
+const STATIQUES_ALL = { en: STATIQUES, es: STATIQUES_ES, it: STATIQUES_IT, de: STATIQUES_DE };
+
 // messages dynamiques: regex sur le texte fr, remplacement par le template en
 const DYNAMIQUES = [
   [/^Au moins 2 joueurs payés requis \(actuellement (\d+)\)$/, "At least 2 paid players required (currently $1)"],
@@ -91,10 +316,62 @@ const DYNAMIQUES = [
   [/^slug « (.+) » déjà pris$/, 'slug "$1" already taken']
 ];
 
+// remplacements dynamiques par langue (meme ordre que DYNAMIQUES)
+const REPS_DYN_SRV = {
+  es: [
+    "Se requieren al menos 2 jugadores pagados (actualmente $1)",
+    'Club desconocido « $1 »',
+    "Distancia no válida para $1",
+    "Ya inscrito como $1",
+    "No se puede bajar a $1 mesa(s): $2 mesa(s) ocupada(s) por un partido en curso",
+    "Cuadro completo (máx. $1 jugadores)",
+    'El pseudónimo « $1 » pertenece a una cuenta (pseudónimo reservado)',
+    'Ya existe una cuenta con el pseudónimo « $1 » — ¿inscribir de todos modos a este jugador en lugar del titular?',
+    "Hay un torneo activo ($1). Envíe replace=true + confirm_pin para sustituirlo por la importación.",
+    "Sigue habiendo un torneo activo ($1). Termínelo o elimínelo primero.",
+    'slug « $1 » ya utilizado'
+  ],
+  it: [
+    "Sono richiesti almeno 2 giocatori pagati (attualmente $1)",
+    'Club sconosciuto « $1 »',
+    "Distanza non valida per $1",
+    "Già iscritto come $1",
+    "Impossibile scendere a $1 tavolo/i: $2 tavolo/i occupati da una partita in corso",
+    "Tabellone completo (max $1 giocatori)",
+    'Lo pseudonimo « $1 » appartiene a un account (pseudonimo riservato)',
+    'Esiste già un account con lo pseudonimo « $1 » — iscrivere comunque questo giocatore al posto del titolare?',
+    "C'è un torneo attivo ($1). Inviare replace=true + confirm_pin per sostituirlo con l'importazione.",
+    "Un torneo è ancora attivo ($1). Terminarlo o eliminarlo prima.",
+    'slug « $1 » già utilizzato'
+  ],
+  de: [
+    "Mindestens 2 bezahlte Spieler erforderlich (derzeit $1)",
+    'Unbekannter Club « $1 »',
+    "Ungültige Distanz für $1",
+    "Bereits eingeschrieben als $1",
+    "Reduzierung auf $1 Tisch(e) nicht möglich: $2 Tisch(e) durch ein laufendes Spiel belegt",
+    "Turnierbaum voll (max. $1 Spieler)",
+    'Der Benutzername « $1 » gehört zu einem Konto (reservierter Benutzername)',
+    'Mit dem Benutzernamen « $1 » existiert bereits ein Konto — diesen Spieler trotzdem anstelle des Inhabers einschreiben?',
+    "Ein Turnier ist aktiv ($1). Senden Sie replace=true + confirm_pin, um es durch den Import zu ersetzen.",
+    "Ein Turnier ist noch aktiv ($1). Beenden oder löschen Sie es zuerst.",
+    'Slug « $1 » bereits vergeben'
+  ]
+};
+
+// regles dynamiques par langue (meme regex, remplacement traduit)
+const DYN_ALL = {
+  en: DYNAMIQUES,
+  es: DYNAMIQUES.map(([re], i) => [re, REPS_DYN_SRV.es[i]]),
+  it: DYNAMIQUES.map(([re], i) => [re, REPS_DYN_SRV.it[i]]),
+  de: DYNAMIQUES.map(([re], i) => [re, REPS_DYN_SRV.de[i]])
+};
+
 function traduireErreur(msg, lang) {
-  if (lang !== 'en' || typeof msg !== 'string' || !msg) return msg;
-  if (STATIQUES[msg]) return STATIQUES[msg];
-  for (const [re, rep] of DYNAMIQUES) {
+  if (lang === 'fr' || typeof msg !== 'string' || !msg) return msg;
+  const st = STATIQUES_ALL[lang] || STATIQUES;
+  if (st[msg]) return st[msg];
+  for (const [re, rep] of (DYN_ALL[lang] || DYNAMIQUES)) {
     if (re.test(msg)) return msg.replace(re, rep);
   }
   return msg; // repli: francais

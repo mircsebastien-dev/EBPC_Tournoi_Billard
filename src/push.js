@@ -90,6 +90,24 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
         url: `/match.html?id=${m.id}`,
         tag: 'match-' + m.id,
       }),
+      es: JSON.stringify({
+        title: '🎱 ¡Te toca jugar!',
+        body: `${pseudo1} vs ${pseudo2} — Mesa ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
+        url: `/match.html?id=${m.id}`,
+        tag: 'match-' + m.id,
+      }),
+      it: JSON.stringify({
+        title: '🎱 Tocca a te!',
+        body: `${pseudo1} vs ${pseudo2} — Tavolo ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
+        url: `/match.html?id=${m.id}`,
+        tag: 'match-' + m.id,
+      }),
+      de: JSON.stringify({
+        title: '🎱 Du bist dran!',
+        body: `${pseudo1} vs ${pseudo2} — Tisch ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
+        url: `/match.html?id=${m.id}`,
+        tag: 'match-' + m.id,
+      }),
     };
     const payloadAmi = {
       fr: JSON.stringify({
@@ -101,6 +119,24 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
       en: JSON.stringify({
         title: "👥 A friend's match is live",
         body: `${pseudo1} vs ${pseudo2} — Table ${tableNumero}`,
+        url: `/match.html?id=${m.id}`,
+        tag: 'ami-match-' + m.id,
+      }),
+      es: JSON.stringify({
+        title: '👥 Partido de un amigo en curso',
+        body: `${pseudo1} vs ${pseudo2} — Mesa ${tableNumero}`,
+        url: `/match.html?id=${m.id}`,
+        tag: 'ami-match-' + m.id,
+      }),
+      it: JSON.stringify({
+        title: '👥 Partita di un amico in corso',
+        body: `${pseudo1} vs ${pseudo2} — Tavolo ${tableNumero}`,
+        url: `/match.html?id=${m.id}`,
+        tag: 'ami-match-' + m.id,
+      }),
+      de: JSON.stringify({
+        title: '👥 Spiel eines Freundes läuft',
+        body: `${pseudo1} vs ${pseudo2} — Tisch ${tableNumero}`,
         url: `/match.html?id=${m.id}`,
         tag: 'ami-match-' + m.id,
       }),
@@ -170,6 +206,24 @@ async function notifierInscriptionAmi(compteId, pseudoAmi, tournoiNom, clubId) {
         url: '/tournoi.html',
         tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
       }),
+      es: JSON.stringify({
+        title: '👥 Un amigo se ha inscrito',
+        body: `${pseudoAmi} acaba de inscribirse en el torneo « ${tournoiNom} »`,
+        url: '/tournoi.html',
+        tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
+      }),
+      it: JSON.stringify({
+        title: '👥 Un amico si è iscritto',
+        body: `${pseudoAmi} si è appena iscritto al torneo « ${tournoiNom} »`,
+        url: '/tournoi.html',
+        tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
+      }),
+      de: JSON.stringify({
+        title: '👥 Ein Freund hat sich eingeschrieben',
+        body: `${pseudoAmi} hat sich gerade für das Turnier « ${tournoiNom} » eingeschrieben`,
+        url: '/tournoi.html',
+        tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
+      }),
     };
     let n = 0;
     for (const s of subs) {
@@ -188,18 +242,24 @@ async function notifierInscriptionAmi(compteId, pseudoAmi, tournoiNom, clubId) {
 
 // Notifie les comptes abonnés (ex: nouveau tournoi -> inscriptions ouvertes).
 // clubId optionnel: si fourni, seuls les abonnements du club visé reçoivent le push (multi-club).
-async function envoyerTous(payloadObj, clubId, payloadEn) {
+async function envoyerTous(payloadObj, clubId, autres) {
   try {
     getVapid();
     const subs = clubId != null
       ? db.prepare('SELECT s.endpoint, s.keys_json, COALESCE(c.lang, ?) AS lang FROM push_subscription s LEFT JOIN compte c ON c.id = s.compte_id WHERE s.compte_id IS NOT NULL AND s.club_id = ?').all('fr', clubId)
       : db.prepare('SELECT s.endpoint, s.keys_json, COALESCE(c.lang, ?) AS lang FROM push_subscription s LEFT JOIN compte c ON c.id = s.compte_id WHERE s.compte_id IS NOT NULL').all('fr');
     const payload = JSON.stringify(payloadObj);
-    const payloadAnglais = payloadEn ? JSON.stringify(payloadEn) : null;
+    // versions traduites par langue du destinataire (compte.lang) ; autres = { en: {...}, es: {...}, ... }
+    // (compat: un 3e arg payload simple avec .title = version "en" seule, comme avant)
+    const traduits = {};
+    if (autres) {
+      if (autres.title != null) traduits.en = JSON.stringify(autres);
+      else for (const l of ['en', 'es', 'it', 'de']) if (autres[l]) traduits[l] = JSON.stringify(autres[l]);
+    }
     let n = 0;
     for (const s of subs) {
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, (payloadAnglais && s.lang === 'en') ? payloadAnglais : payload);
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, traduits[s.lang] || payload);
         n++;
       } catch (e) {
         if (e.statusCode === 404 || e.statusCode === 410) {
@@ -230,10 +290,15 @@ async function envoyerTest(compteId, langHint) {
   getVapid();
   const subs = db.prepare('SELECT endpoint, keys_json FROM push_subscription WHERE compte_id = ?').all(compteId);
   // langue stockee sur le compte prioritaire, repli sur l en-tete X-Lang de la requete
-  const c = db.prepare('SELECT COALESCE(lang, ?) AS lang FROM compte WHERE id = ?').get(langHint === 'en' ? 'en' : 'fr', compteId);
-  const payload = JSON.stringify(c.lang === 'en'
-    ? { title: '🔔 Notification test', body: 'If you can see this, push works!', url: '/parametres.html', tag: 'test-' + Date.now() }
-    : { title: '🔔 Test de notification', body: 'Si tu vois ça, le push marche !', url: '/parametres.html', tag: 'test-' + Date.now() });
+  const c = db.prepare('SELECT COALESCE(lang, ?) AS lang FROM compte WHERE id = ?').get(['en', 'es', 'it', 'de'].includes(langHint) ? langHint : 'fr', compteId);
+  const payloadsTest = {
+    fr: { title: '🔔 Test de notification', body: 'Si tu vois ça, le push marche !', url: '/parametres.html', tag: 'test-' + Date.now() },
+    en: { title: '🔔 Notification test', body: 'If you can see this, push works!', url: '/parametres.html', tag: 'test-' + Date.now() },
+    es: { title: '🔔 Notificación de prueba', body: 'Si ves esto, ¡el push funciona!', url: '/parametres.html', tag: 'test-' + Date.now() },
+    it: { title: '🔔 Notifica di prova', body: 'Se vedi questo, il push funziona!', url: '/parametres.html', tag: 'test-' + Date.now() },
+    de: { title: '🔔 Testbenachrichtigung', body: 'Wenn du das siehst, funktioniert Push!', url: '/parametres.html', tag: 'test-' + Date.now() },
+  };
+  const payload = JSON.stringify(payloadsTest[c.lang] || payloadsTest.fr);
   let n = 0;
   for (const s of subs) { try { await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payload); n++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); } }
   return { envoyes: n, subs: subs.length };
@@ -260,6 +325,9 @@ async function envoyerTestAmi(joueurId) {
   const payloadsAmiTest = {
     fr: JSON.stringify({ title: "👥 Match d'un ami en cours (TEST)", body: `${j.pseudo} est en match — ceci est une notification de test`, url: '/', tag: 'test-ami-' + Date.now() }),
     en: JSON.stringify({ title: "👥 A friend's match is live (TEST)", body: `${j.pseudo} is playing — this is a test notification`, url: '/', tag: 'test-ami-' + Date.now() }),
+    es: JSON.stringify({ title: "👥 Partido de un amigo en curso (TEST)", body: `${j.pseudo} está jugando — esto es una notificación de prueba`, url: '/', tag: 'test-ami-' + Date.now() }),
+    it: JSON.stringify({ title: "👥 Partita di un amico in corso (TEST)", body: `${j.pseudo} sta giocando — questa è una notifica di prova`, url: '/', tag: 'test-ami-' + Date.now() }),
+    de: JSON.stringify({ title: "👥 Spiel eines Freundes läuft (TEST)", body: `${j.pseudo} spielt gerade — dies ist eine Testbenachrichtigung`, url: '/', tag: 'test-ami-' + Date.now() }),
   };
   let n = 0;
   for (const s of subs) { try { await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payloadsAmiTest[s.lang] || payloadsAmiTest.fr); n++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); } }
