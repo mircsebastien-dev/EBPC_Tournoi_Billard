@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   cible TEXT,
   avant TEXT,
   apres TEXT,
+  auteur TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -176,6 +177,13 @@ CREATE TABLE IF NOT EXISTS audit_snapshot (
 CREATE INDEX IF NOT EXISTS idx_audit_snapshot_audit ON audit_snapshot(audit_id);
 CREATE INDEX IF NOT EXISTS idx_audit_snapshot_tournoi ON audit_snapshot(tournoi_id);
 `);
+
+// migration : colonne auteur du journal d'audit (pseudo du compte admin à l'origine de l'action ;
+// null pour les actions au code PIN ou automatiques). Inoffensive si la colonne existe déjà.
+try {
+  const auditCols = db.prepare('PRAGMA table_info(audit_log)').all().map(c => c.name);
+  if (auditCols.length > 0 && !auditCols.includes('auteur')) db.exec('ALTER TABLE audit_log ADD COLUMN auteur TEXT');
+} catch (e) { console.error('migration audit_log.auteur:', e.message); }
 
 // purge auto du journal d'audit > 90 jours (après création du schéma) + snapshots idem
 try {
@@ -343,13 +351,14 @@ function snapshotTournoiActif(auditId, clubId) {
   } catch (e) { console.error('snapshot:', e.message); }
 }
 
-function logAudit(action, cible, avant, apres, clubId) {
+function logAudit(action, cible, avant, apres, clubId, auteur) {
   if (clubId == null) clubId = clubParDefaut().id;
-  const info = db.prepare('INSERT INTO audit_log (action, cible, avant, apres, club_id) VALUES (?, ?, ?, ?, ?)')
+  const info = db.prepare('INSERT INTO audit_log (action, cible, avant, apres, club_id, auteur) VALUES (?, ?, ?, ?, ?, ?)')
     .run(action, cible != null ? String(cible) : null,
       avant != null ? JSON.stringify(avant) : null,
       apres != null ? JSON.stringify(apres) : null,
-      clubId);
+      clubId,
+      auteur != null ? String(auteur) : null);
   snapshotTournoiActif(Number(info.lastInsertRowid), clubId);
 }
 

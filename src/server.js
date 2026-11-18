@@ -176,7 +176,9 @@ function tournoiDuClub(req, id) { const t = db.prepare('SELECT * FROM tournoi WH
 function matchDuClub(req, id) { return db.prepare('SELECT m.* FROM match m JOIN tournoi t ON t.id = m.tournoi_id WHERE m.id = ? AND t.club_id = ?').get(Number(id), req.club.id) || null; }
 function joueurDuClub(req, id) { return db.prepare('SELECT j.* FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id WHERE j.id = ? AND t.club_id = ?').get(Number(id), req.club.id) || null; }
 // audit toujours rattaché au club de la requête
-function logAuditReq(req, action, cible, avant, apres) { logAudit(action, cible, avant, apres, req && req.club ? req.club.id : undefined); }
+// pseudo du compte admin à l'origine d'une action (session admin), null si auth par code PIN ou action auto
+function auteurAdmin(req) { return estAdminSession(req) ? req.compte.pseudo : null; }
+function logAuditReq(req, action, cible, avant, apres) { logAudit(action, cible, avant, apres, req && req.club ? req.club.id : undefined, auteurAdmin(req)); }
 
 function distancesMap(tournoiId) {
   const rows = db.prepare('SELECT round, manches FROM distance_round WHERE tournoi_id = ?').all(tournoiId);
@@ -962,7 +964,7 @@ app.post('/api/admin/match/:id/table', requireAdmin, (req, res) => {
 app.post('/api/admin/match/:id/correction', requireAdmin, (req, res) => {
   if (!matchDuClub(req, req.params.id)) return res.status(404).json({ error: "Match introuvable" }); // isolation club
   const { score1, score2, manches, motif } = req.body;
-  const m = M.corrigerScore(Number(req.params.id), Number(score1) || 0, Number(score2) || 0, Number(manches) || 3, motif || '');
+  const m = M.corrigerScore(Number(req.params.id), Number(score1) || 0, Number(score2) || 0, Number(manches) || 3, motif || '', auteurAdmin(req));
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });
@@ -983,7 +985,7 @@ app.post('/api/admin/match/:id/forfait', requireAdmin, (req, res) => {
   if (!jid || (m0.joueur1_id !== jid && m0.joueur2_id !== jid)) {
     return res.status(400).json({ error: 'joueur_id requis (doit être l\'un des 2 joueurs du match)' });
   }
-  const m = M.declarerForfait(mid, jid);
+  const m = M.declarerForfait(mid, jid, auteurAdmin(req));
   majEtBroadcast();
   res.json({ ok: true, match: vueMatch(m) });
 });

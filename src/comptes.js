@@ -337,9 +337,10 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
       maj.lang = req.body.lang;
     }
     if (!Object.keys(maj).length) return res.status(400).json({ error: 'Aucune préférence reconnue' });
+    // préférences (langue des push + notifs amis) : modifiées par l'utilisateur lui-même, PAS loggées dans l'audit
+    // (le journal d'audit trace les actions tournoi/admin ; le pseudo admin y figure via la colonne auteur)
     const set = Object.keys(maj).map(c => `${c} = ?`).join(', ');
     db.prepare(`UPDATE compte SET ${set} WHERE id = ?`).run(...Object.values(maj), req.compte.id);
-    logAuditC(req, 'compte_preferences', `compte ${req.compte.id}`, null, maj);
     res.json({ ok: true, prefs: Object.fromEntries(Object.entries(maj).map(([c, v]) => [c, !!v])) });
   });
 

@@ -2,7 +2,7 @@
 
 ## S'inscrire au tournoi
 1. Ouvre le site (ou l'app « Tournoi EBPC » sur l'écran d'accueil)
-2. Crée un **compte** (pseudo + email + mot de passe) ou connecte-toi → bouton **👤 Compte**
+2. Crée un **compte** (pseudo + email + mot de passe) ou connecte-toi → bouton **Compte**
 3. Sur l'accueil, clique **« M'inscrire »** → tu es inscrit ✅
 
 > Sans compte, tu peux t'inscrire avec juste un pseudo (champ sur l'accueil), mais tu n'auras pas les notifications push ni ton historique perso.

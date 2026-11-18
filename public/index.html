@@ -170,6 +170,8 @@ function lignesFil(tv) {
     `🏆 ${tv.champion.pseudo} remporte le tournoi !`,
     `🏆 ${tv.champion.pseudo} soulève le trophée !`,
     `🏆 ${tv.champion.pseudo} décroche le titre !`,
+    `🏆 Fin du suspense : ${tv.champion.pseudo} est champion !`,
+    `🏆 ${tv.champion.pseudo} a eu le dernier mot : le titre est à lui !`,
   ])] });
   // instants chauds : la belle (manche décisive en cours, les deux à une manche du match)
   const belles = new Set();
@@ -181,8 +183,13 @@ function lignesFil(tv) {
             `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle à la table ${m.table}`,
             `La belle ! ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la table ${m.table}`,
             `Ça se joue à la belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table})`,
+            `Manche décisive entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table}) !`,
+            `Tous debout : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} disputent la belle à la table ${m.table} !`,
           ])
-        : `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle`] });
+        : filPick(String(m.id) + 'b', [
+            `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle`,
+            `La belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !`,
+          ])] });
     }
   }
   // instants chauds : la revanche (déjà rencontrés avant, historique du club via actif.h2h)
@@ -196,6 +203,8 @@ function lignesFil(tv) {
       parties.push(filPick(String(m.id) + 'e', [
         `🔥 Revanche : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent à égalité !`,
         `🔥 Fierté en jeu : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !`,
+        `🔥 ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent, bilan parfaitement équilibré !`,
+        `🔥 Égalité parfaite avant ce round : ${m.joueur1.pseudo} vs ${m.joueur2.pseudo} !`,
       ]));
     } else {
       const dom = h.v1 < h.v2 ? m.joueur1 : m.joueur2;   // bilan défavorable contre lui : une revanche à prendre
@@ -204,6 +213,8 @@ function lignesFil(tv) {
         `🔥 Revanche : ${dom.pseudo} joue contre ${adv.pseudo}, une revanche à prendre !`,
         `🔥 ${dom.pseudo} joue sa revanche contre ${adv.pseudo} !`,
         `🔥 ${dom.pseudo} retente sa chance contre ${adv.pseudo} !`,
+        `🔥 ${dom.pseudo} veut renverser la vapeur contre ${adv.pseudo} !`,
+        `🔥 À ${dom.pseudo} de trouver la faille face à ${adv.pseudo} !`,
       ]));
       parties.push(`${adv.pseudo} mène ${Math.max(h.v1, h.v2)}-${Math.min(h.v1, h.v2)}`);
     }
@@ -226,12 +237,16 @@ function lignesFil(tv) {
         `${p.pseudo} déclare forfait, ${g.pseudo} passe au tour suivant`,
         `${p.pseudo} abandonne, ${g.pseudo} passe au tour suivant`,
         `forfait de ${p.pseudo}, ${g.pseudo} passe au tour suivant`,
+        `${p.pseudo} jette l'éponge, ${g.pseudo} passe au tour suivant`,
+        `forfait de ${p.pseudo}, ${g.pseudo} avance sans jouer`,
       ]));
       else {
         parties.push(filPick(String(m.id), [
           `${g.pseudo} bat ${p.pseudo} ${gs}-${ps}`,
           `${g.pseudo} s'impose face à ${p.pseudo} ${gs}-${ps}`,
           `${g.pseudo} vient à bout de ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} domine ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} écarte ${p.pseudo} ${gs}-${ps}`,
         ]));
         if (m.table != null) parties.push(`· table ${m.table}`);
         const du = dureeFil(m.duree_s);
@@ -307,7 +322,7 @@ async function renderAmisPanel() {
   try { amis = (await api('/api/compte/amis')).amis; } catch { amis = []; }
   box.innerHTML = '';
   box.append(el('h2', {}, '👥 Amis' + (amis.length ? ` (${amis.length})` : '')));
-  if (!amis.length) { box.append(el('p', { class: 'muted small' }, 'Aucun ami — ajoute-en depuis ton compte (👤).')); return; }
+  if (!amis.length) { box.append(el('p', { class: 'muted small' }, 'Aucun ami — ajoute-en depuis le menu Compte.')); return; }
   for (const a of amis) {
     const st = a.statut || {};
     const txt = { en_cours: `🟢 en cours vs ${st.vs || '?'} (${st.score}${st.table ? ' · table ' + st.table : ''})`, pret: `🕐 programmé vs ${st.vs || '?'}`, inscrit: '📝 inscrit au tournoi', hors_tournoi: '— hors tournoi' }[st.type] || '—';

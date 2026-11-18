@@ -1,8 +1,8 @@
 const { db, logAudit } = require('./db');
-// audit scopé au club du tournoi concerné (multi-club)
-function logAuditTournoi(action, cible, avant, apres, tournoiId) {
+// audit scopé au club du tournoi concerné (multi-club) ; auteur = pseudo du compte admin si session admin
+function logAuditTournoi(action, cible, avant, apres, tournoiId, auteur) {
   const t = tournoiId != null ? db.prepare('SELECT club_id FROM tournoi WHERE id = ?').get(tournoiId) : null;
-  logAudit(action, cible, avant, apres, t && t.club_id != null ? t.club_id : undefined);
+  logAudit(action, cible, avant, apres, t && t.club_id != null ? t.club_id : undefined, auteur);
 }
 
 function httpError(status, message) {
@@ -308,7 +308,7 @@ function rouvrirMatch(matchId) {
   return matchById(matchId);
 }
 
-function corrigerScore(matchId, score1, score2, manches, motif) {
+function corrigerScore(matchId, score1, score2, manches, motif, auteur) {
   let m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   const avant = { score1: m.score1, score2: m.score2, manches: m.manches, etat: m.etat, gagnant_id: m.gagnant_id };
@@ -325,7 +325,7 @@ function corrigerScore(matchId, score1, score2, manches, motif) {
   db.prepare(`UPDATE match SET score1 = ?, score2 = ?, manches = ?, etat = ?, gagnant_id = ?, ended_at = CASE WHEN ? = 'termine' THEN COALESCE(ended_at, datetime('now')) ELSE ended_at END, updated_at = datetime('now') WHERE id = ?`)
     .run(s1, s2, manches, etat, gagnant, etat, matchId);
   insererEvent(matchId, null, 'correction', { avant, apres: { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant }, motif });
-  logAuditTournoi('correction_score', `match ${matchId}`, avant, { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant }, m.tournoi_id);
+  logAuditTournoi('correction_score', `match ${matchId}`, avant, { score1: s1, score2: s2, manches, etat, gagnant_id: gagnant }, m.tournoi_id, auteur);
   if (etat === 'termine' && gagnant != null) {
     const perdant = gagnant === m.joueur1_id ? m.joueur2_id : m.joueur1_id;
     propagerGagnant(matchId, gagnant);
@@ -335,7 +335,7 @@ function corrigerScore(matchId, score1, score2, manches, motif) {
   return matchById(matchId);
 }
 
-function declarerForfait(matchId, forfaitJoueurId) {
+function declarerForfait(matchId, forfaitJoueurId, auteur) {
   const m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
   if (m.etat === 'termine') throw httpError(409, 'Match déjà terminé');
@@ -343,7 +343,7 @@ function declarerForfait(matchId, forfaitJoueurId) {
   const autre = forfaitJoueurId === m.joueur1_id ? m.joueur2_id : m.joueur1_id;
   db.prepare(`UPDATE match SET etat = 'forfait', gagnant_id = ?, ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE id = ?`).run(autre, matchId);
   insererEvent(matchId, forfaitJoueurId, 'forfait', { perdant: pseudo(forfaitJoueurId), gagnant: pseudo(autre) });
-  logAuditTournoi('forfait', `match ${matchId}`, { etat: m.etat }, { forfait: pseudo(forfaitJoueurId), gagnant: pseudo(autre) }, m.tournoi_id);
+  logAuditTournoi('forfait', `match ${matchId}`, { etat: m.etat }, { forfait: pseudo(forfaitJoueurId), gagnant: pseudo(autre) }, m.tournoi_id, auteur);
   propagerGagnant(matchId, autre);
   propagerPerdant(matchId, forfaitJoueurId);
   verifierFinTournoi(matchById(matchId));
