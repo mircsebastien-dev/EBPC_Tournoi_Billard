@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amis — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Pink City Billard</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/compte-vues.js"></script>
+<script>
+document.getElementById('nav').append(nav('compte'));
+vueAmis(document.getElementById('main'));
+</script>
+</body>
+</html>

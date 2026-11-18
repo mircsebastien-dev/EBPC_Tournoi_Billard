@@ -181,6 +181,9 @@ const I18N = {
   "Voir tout": "See all",
   "Eight Ball Pink City — Tournoi": "Eight Ball Pink City — Tournament",
   "Mon compte — Pink City Billard": "My account — Pink City Billard",
+  "Paramètres — Pink City Billard": "Settings — Pink City Billard",
+  "Amis — Pink City Billard": "Friends — Pink City Billard",
+  "Mes matchs — Pink City Billard": "My matches — Pink City Billard",
   "Match — Pink City Billard": "Match — Pink City Billard",
   "Fiche joueur — Pink City Billard": "Player page — Pink City Billard",
   "Stats joueurs — Pink City Billard": "Player stats — Pink City Billard",
@@ -352,6 +355,7 @@ const I18N = {
   "Reçois une notification push quand un de tes matchs est lancé (même écran verrouillé).": "Get a push notification when one of your matches starts (even on the lock screen).",
   "📱 Sur iPhone : ajoute d'abord le site à l'écran d'accueil (Safari → Partager → « Sur l'écran d'accueil »), puis active les notifications.": "📱 On iPhone: first add the site to the home screen (Safari → Share → \"Add to Home Screen\"), then enable notifications.",
   "🎱 Mes matchs": "🎱 My matches",
+  "Pas (encore !) d'inscription ni de match à afficher.": "No registration or match to display (yet!).",
   "🔍 Rechercher un pseudo… (Entrée)": "🔍 Search a username… (Enter)",
   "🎱 Match en direct": "🎱 Live match",
   "← Mes matchs": "← My matches",
@@ -511,8 +515,6 @@ const I18N = {
   "🔑 Connexion": "🔑 Log in",
   "👤 Ma fiche joueur": "👤 My player page",
   "🛠 Table de marque": "🛠 Scoreboard",
-  "🧑‍💼 Comptes": "🧑‍💼 Accounts",
-  "📜 Journal": "📜 Audit log",
   "🚪 Se déconnecter": "🚪 Log out",
 };
 const I18N_DYN = [
@@ -723,7 +725,8 @@ function nav(active) {
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
   menuDeroulant(btn, (drop) => { for (const [href, key, label] of links) drop.append(el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)); });
   const wrap = el('div', { class: 'nav-menu' }, btn);
-  // burger compte : entrees dynamiques selon l etat de connexion et le role (admin ou joueur)
+  // burger compte : entrees dynamiques selon l etat de connexion et le role (admin ou joueur),
+  // vers des pages dediees (parametres / amis / mes matchs) + fiche joueur ; admin : table de marque uniquement
   let compteNav = null, joueurIdNav = null;
   api('/api/compte/moi').then((r) => { compteNav = r && r.compte ? r.compte : null; joueurIdNav = r ? (r.joueur_id || null) : null; }).catch(() => {});
   const btnCompte = el('a', { href: '/compte.html', class: 'nav-login' + (active === 'compte' ? ' active' : ''), 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Mon compte' }, '👤 Compte');
@@ -731,17 +734,14 @@ function nav(active) {
     if (!compteNav) {
       drop.append(el('a', { href: '/compte.html#connexion', role: 'menuitem' }, '🔑 Connexion'));
       drop.append(el('a', { href: '/compte.html#creer', role: 'menuitem' }, '✨ Créer un compte'));
+      drop.append(el('a', { href: '/parametres.html', role: 'menuitem' }, '⚙️ Paramètres'));
       return;
     }
-    drop.append(el('a', { href: '/compte.html#parametres', role: 'menuitem' }, '⚙️ Paramètres'));
-    drop.append(el('a', { href: '/compte.html#amis', role: 'menuitem' }, '👥 Amis'));
-    drop.append(el('a', { href: '/compte.html#mes-matchs', role: 'menuitem' }, '🎱 Mes matchs'));
+    drop.append(el('a', { href: '/parametres.html', role: 'menuitem' }, '⚙️ Paramètres'));
+    drop.append(el('a', { href: '/amis.html', role: 'menuitem' }, '👥 Amis'));
+    drop.append(el('a', { href: '/mes-matchs.html', role: 'menuitem' }, '🎱 Mes matchs'));
     drop.append(el('a', { href: joueurIdNav ? '/joueur.html?id=' + joueurIdNav : '/compte.html', role: 'menuitem' }, '👤 Ma fiche joueur'));
-    if (compteNav.role === 'admin') {
-      drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, '🛠 Table de marque'));
-      drop.append(el('a', { href: '/admin-comptes.html', role: 'menuitem' }, '🧑‍💼 Comptes'));
-      drop.append(el('a', { href: '/admin-journal.html', role: 'menuitem' }, '📜 Journal'));
-    }
+    if (compteNav.role === 'admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, '🛠 Table de marque'));
     drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, '🚪 Se déconnecter'));
   });
   return el('nav', {}, wrap, btnCompte);
