@@ -61,6 +61,7 @@ async function init() {
   // interrupteur 0-1 discret : 0 = sombre (défaut), 1 = clair
   const majSwTheme = () => { const on = themeActuel() === 'light'; swTheme.className = 'toggle-mini' + (on ? ' on' : ''); swTheme.setAttribute('aria-pressed', on ? 'true' : 'false'); };
   const swTheme = el('button', { class: 'toggle-mini' + (themeActuel() === 'light' ? ' on' : ''), 'aria-pressed': themeActuel() === 'light' ? 'true' : 'false', 'aria-label': 'Interrupteur mode clair', title: '0 = sombre · 1 = clair', onclick: () => { basculerTheme(); majSwTheme(); } });
+  const swLang = el('button', { class: 'toggle-mini' + (LANG === 'en' ? ' on' : ''), 'aria-pressed': LANG === 'en' ? 'true' : 'false', 'aria-label': 'Interrupteur langue anglaise', title: 'FR = francais · EN = anglais', onclick: () => { choisirLang(LANG === 'en' ? 'fr' : 'en'); } });
   main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto 20px' },
     el('h2', {}, '🌗 Apparence'),
     el('div', { class: 'row', style: 'justify-content:flex-end;align-items:center;gap:8px;flex-wrap:nowrap' },
@@ -70,9 +71,10 @@ async function init() {
       el('span', { class: 'muted small', style: 'font-weight:800' }, '1')),
     el('div', { class: 'row', style: 'justify-content:flex-end;align-items:center;gap:8px;flex-wrap:nowrap' },
       el('span', { class: 'muted small', style: 'font-weight:800' }, 'Langue'),
-      el('button', { class: LANG === 'fr' ? '' : 'secondary', onclick: () => choisirLang('fr') }, 'FR'),
-      el('button', { class: LANG === 'en' ? '' : 'secondary', onclick: () => choisirLang('en') }, 'EN')),
-    el('p', { class: 'muted small' }, 'Interrupteur 0-1 : 0 = sombre (défaut), 1 = clair. La page TV reste toujours sombre.')));
+      el('span', { class: 'muted small', style: 'font-weight:800' }, 'FR'),
+      swLang,
+      el('span', { class: 'muted small', style: 'font-weight:800' }, 'EN')),
+    el('p', { class: 'muted small' }, 'Interrupteurs 0-1 : thème 0 = sombre (défaut), 1 = clair ; langue FR = francais, EN = anglais. La page TV reste toujours sombre.')));
   function choisirLang(l) { try { localStorage.setItem('ebpc_lang', l); } catch {} location.reload(); }
   if (compte) {
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto;text-align:center' },

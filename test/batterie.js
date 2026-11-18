@@ -925,7 +925,9 @@ async function nouveauTournoi(body) {
   const dFr = await rrFr.json().catch(() => ({}));
   check('i18n: sans X-Lang, erreur API en francais (defaut inchange)', rrFr.status === 404 && dFr.error === 'Route inconnue', JSON.stringify(dFr));
   check('i18n: serveur traduit les erreurs (src/i18n.js + middleware X-Lang dans server.js)', fs.readFileSync(path.join(__dirname, '..', 'src', 'i18n.js'), 'utf8').includes('traduireErreur') && fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8').includes('X-Lang: en -> traduit'), '');
-  check('i18n: front traduit (LANG + t() + X-Lang + dictionnaire dans common.js, switch FR/EN dans compte.html)', cjs18.includes('const LANG') && cjs18.includes('function t(') && cjs18.includes('X-Lang') && cjs18.includes('ebpc_lang') && cjs18.includes('traduireDomStatique') && cpte19.includes('choisirLang') && cpte19.includes('FR') && cpte19.includes('EN'), '');
+  check('i18n: front traduit (LANG + t() + X-Lang + dictionnaire common.js, interrupteur 0-1 FR/EN comme le theme dans compte.html)', cjs18.includes('const LANG') && cjs18.includes('function t(') && cjs18.includes('X-Lang') && cjs18.includes('ebpc_lang') && cjs18.includes('traduireDomStatique') && cpte19.includes('choisirLang') && cpte19.includes('swLang') && cpte19.includes('toggle-mini'), '');
+  check('i18n: couverture complete (~490 entrees + regles dynamiques dans common.js)', (cjs18.match(/": "/g) || []).length >= 450 && cjs18.includes('const I18N_DYN') && (cjs18.match(/\[\//g) || []).length >= 60, '');
+  check('i18n: appels admin traduits aussi (X-Lang dans adminHeaders de admin-common.js + adminCall)', fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-common.js'), 'utf8').includes('X-Lang') && cjs18.includes('X-Lang'), '');
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
@@ -955,7 +957,7 @@ async function nouveauTournoi(body) {
   md += `- Rôles (section 16): compte role=admin -> session suffit pour requireAdmin ET confirm_pin (destructif); sinon PIN requis (401 sans), confirm_pin requis sur destructifs; POST /api/admin/compte/:id/role (admin/user, 400 invalide)\n`;
   md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
   md += `- Rattachement compte/joueurs anonymes (section 18): compte créé après un tournoi archivé (sans tournoi actif) rattache quand même les lignes anonymes du même pseudo (tournois passés inclus), fiche joueur + classement conservent les stats\n`;
-  md += `- i18n FR/EN (section 19): header X-Lang: en -> erreurs API traduites (Route inconnue -> Unknown route), defaut fr inchange, dictionnaire front common.js (LANG, t(), traduireDomStatique, X-Lang sur api()), switch FR/EN dans compte.html\n`;
+  md += `- i18n FR/EN (section 19): header X-Lang: en -> erreurs API traduites (Route inconnue -> Unknown route), defaut fr inchange, couverture front complete dans common.js (~490 entrees + ~65 regles dynamiques, LANG, t(), traduireDomStatique, X-Lang sur api() ET les appels admin, alert/confirm natifs traduits, titre de page traduit, attributs placeholder/title/aria-label/alt), interrupteur 0-1 FR/EN comme le theme dans compte.html (limites v1: payload SSE et push restent en francais)\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);
   process.exit(failed ? 1 : 0);

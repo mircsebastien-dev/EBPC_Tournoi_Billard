@@ -30,7 +30,7 @@ const params = new URLSearchParams(location.search);
   }
   const lien = document.getElementById('lien-retour');
   lien.href = cible;
-  lien.title = 'Retour à ' + cible;
+  lien.title = t('Retour à ' + cible);
   if (cible === '/suivi.html') lien.textContent = '← Mes matchs';
   document.getElementById('nav').append(nav(''));
 })();
