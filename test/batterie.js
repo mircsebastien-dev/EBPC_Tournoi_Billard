@@ -1069,7 +1069,13 @@ async function nouveauTournoi(body) {
   // ---------- 23. Audit : auteur des actions (pseudo admin) + préférences du compte non loggées ----------
   sec('23. Journal d\'audit : auteur (pseudo admin des modifications), préférences du compte non loggées, burger Compte sans emojis');
   // compte dédié au test, promu admin : ses modifications doivent être attribuées dans le journal (colonne auteur)
-  r = await post('/api/compte/inscription', { pseudo: 'JRNaudit', email: 'jrn@test.fr', password: '1234' }, { pin: null });
+  // (X-Forwarded-For distinct : la limite de 5 créations de comptes / 10 min est keyée par IP, déjà consommée par Seb/Bad/AliceBT)
+  const rIns23 = await fetch(BASE + '/api/compte/inscription', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '203.0.113.88' },
+    body: JSON.stringify({ pseudo: 'JRNaudit', email: 'jrn@test.fr', password: '1234' }),
+  });
+  r = { status: rIns23.status, data: await rIns23.json().catch(() => ({})) };
   check('audit: création du compte de test JRNaudit (201)', r.status === 201, r.status + ' ' + (r.data.error || ''));
   const cJ23 = (await api('/api/admin/comptes')).data.comptes.find(x => x.pseudo === 'JRNaudit');
   r = await post(`/api/admin/compte/${cJ23.id}/role`, { role: 'admin' });
