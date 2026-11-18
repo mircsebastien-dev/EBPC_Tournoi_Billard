@@ -80,7 +80,7 @@ async function render() {
     const box = document.getElementById('audit');
     box.innerHTML = '';
     box.append(el('p', { class: 'muted small' }, `${audit.length} entrée(s)` + (filtreQ || filtreAction ? ` — filtre ${[filtreQ && `texte="${filtreQ}"`, filtreAction && `action="${filtreAction}"`].filter(Boolean).join(' ')}` : '')),
-    el('table', { class: 'audit' },
+    el('div', { class: 'table-wrap' }, el('table', { class: 'audit' },
       el('tr', {}, el('th', {}, ''), el('th', {}, 'Date'), el('th', {}, 'Action'), el('th', {}, 'Cible'), el('th', {}, 'Par'), el('th', {}, 'Détails')),
       ...audit.slice(0, 500).map(a => el('tr', {},
         el('td', {}, a.has_snapshot ? el('button', {
@@ -89,7 +89,7 @@ async function render() {
         }, '⏪ Restaurer à ce point') : null),
         el('td', {}, a.created_at), el('td', {}, a.action), el('td', {}, a.cible || ''),
         el('td', {}, a.auteur || ''), // pseudo du compte admin à l'origine de l'action (vide si code PIN ou automatique)
-        el('td', { class: 'small muted' }, `${a.avant || ''} → ${a.apres || ''}`)))));
+        el('td', { class: 'small muted' }, `${a.avant || ''} → ${a.apres || ''}`))))));
   } catch (e) {
     document.getElementById('audit').textContent = e.message;
   }

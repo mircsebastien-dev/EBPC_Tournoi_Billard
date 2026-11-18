@@ -32,7 +32,7 @@ async function init() {
   joueurs.sort((a, b) => (b.points || 0) - (a.points || 0) || b.gagnes - a.gagnes);
   const rang = (p) => 1 + joueurs.filter(q => (q.points || 0) > (p.points || 0)).length; // ex-aequo: 1,1,1,4…
   main.append(el('div', { class: 'panel' },
-    el('table', { class: 'audit' },
+    el('div', { class: 'table-wrap' }, el('table', { class: 'audit' },
       el('tr', {}, el('th', {}, '#'), el('th', {}, 'Joueur'), el('th', {}, 'Tournois'), el('th', {}, '🏆 Titres'), el('th', {}, 'Joués'), el('th', {}, 'Gagnés'), el('th', {}, 'Perdus'), el('th', {}, '% victoires'), el('th', {}, '⭐ Pts'), el('th', {}, 'Manches'), el('th', {}, '💥 Run-outs')),
       ...joueurs.map((p) => el('tr', {},
         el('td', {}, String(rang(p))),
@@ -44,7 +44,7 @@ async function init() {
         el('td', {}, String(p.perdus)),
         el('td', { style: 'font-weight:700;color:var(--pink-soft)' }, `${p.pct} %`),
         el('td', { style: 'font-weight:800;color:var(--gold)' }, String(p.points || 0)),
-        el('td', {}, String(p.manches || 0)), el('td', {}, p.runouts ? `💥 ${p.runouts}` : '—'))))));
+        el('td', {}, String(p.manches || 0)), el('td', {}, p.runouts ? `💥 ${p.runouts}` : '—')))))));
 }
 init();
 </script>

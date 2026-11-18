@@ -65,14 +65,14 @@ async function init() {
       } }, `Tout voir (${h.h2h.length})`) : null;
       main.append(el('div', { class: 'panel' },
         el('h2', {}, `⚔️ Face-à-face (${h.h2h.length} adversaire${h.h2h.length > 1 ? 's' : ''})`),
-        tblH2H,
+        el('div', { class: 'table-wrap' }, tblH2H),
         btnH2H,
         el('div', { style: 'color:var(--muted);font-size:.85em;margin-top:8px' }, 'Bilan tous tournois confondus.')));
     }
     if (h.historique && h.historique.length) {
       main.append(el('div', { class: 'panel' },
         el('h2', {}, `🧾 Historique (${h.historique.length} matchs)`),
-        el('table', { class: 'audit' },
+        el('div', { class: 'table-wrap' }, el('table', { class: 'audit' },
           el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Tournoi'), el('th', {}, 'Match'), el('th', {}, 'Adversaire'), el('th', {}, 'Score'), el('th', {}, 'Résultat')),
           ...h.historique.map(x => el('tr', {},
             el('td', {}, fmtDateHeureSql(x.date || '')),
@@ -82,7 +82,7 @@ async function init() {
             el('td', { style: 'font-weight:800' }, `${x.moi} – ${x.lui}`),
             el('td', {}, x.victoire
               ? el('span', { style: 'color:var(--green);font-weight:800' }, `✅ V (${x.gagnant})`)
-              : el('span', { style: 'color:var(--muted)' }, `❌ D${x.forfait ? ' (forfait)' : ''}`)))))));
+              : el('span', { style: 'color:var(--muted)' }, `❌ D${x.forfait ? ' (forfait)' : ''}`))))))));
     }
   } catch (e) {
     main.append(el('div', { class: 'panel', style: 'text-align:center' }, e.message));
