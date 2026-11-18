@@ -193,6 +193,7 @@ function confirmer(msg) { return window.confirm(msg); }
 
 /* ===== Bracket visuel partagé (tableau.html actif + tournoi.html archivé) ===== */
 let bracketTab = (typeof localStorage !== 'undefined' && localStorage.getItem('ebpc_bracket_tab')) || 'tout';
+let bracketLinksOnlyTab = null; // onglet autorisé pour les liens (renseigné par renderBracket, anti lignes parasites)
 
 function feederLabelBracket(t, src, kind) {
   const nom = src.joueur1 && src.joueur2 ? `${src.joueur1.pseudo}–${src.joueur2.pseudo}` : (src.joueur1 || src.joueur2 || {}).pseudo || '…';
@@ -200,6 +201,7 @@ function feederLabelBracket(t, src, kind) {
 }
 
 function renderBracket(container, t, opts = {}) {
+  bracketLinksOnlyTab = opts.linksOnlyTab || null; // garde-fou global appliqué dans drawBracketLinks
   const rounds = t.rounds;
   const byKey = {};
   for (const m of t.matchs) {
@@ -327,6 +329,8 @@ function drawBracketLinks(t) {
   const bracket = document.getElementById('bracket');
   const svg = document.getElementById('bracket-svg');
   if (!bracket || !svg || !t) return;
+  // appels directs (resize, etc.) : jamais de liens hors de l onglet autorisé par renderBracket
+  if (bracketLinksOnlyTab && bracketTab !== bracketLinksOnlyTab) { svg.innerHTML = ''; return; }
   const rect = bracket.getBoundingClientRect();
   // Pas de viewBox : 1 unité SVG = 1 px CSS, pour que les liens collent exactement aux nœuds
   svg.setAttribute('width', Math.ceil(rect.width));

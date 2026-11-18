@@ -909,6 +909,7 @@ async function nouveauTournoi(body) {
   check('match.html: lien retour dynamique (?retour= > referrer > /suivi.html) + menu nav()', mhtml.includes('lien-retour') && mhtml.includes('document.referrer') && mhtml.includes("nav('')"), '');
   const cjs18 = fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8');
   check('common.js: matchUrl propage ?retour= depuis les cards', cjs18.includes('function matchUrl') && cjs18.includes('&retour=') && cjs18.includes('location.href = matchUrl(m)'), '');
+  check('common.js: garde-fou onglet dans drawBracketLinks (fix lignes parasites du bracket complet apres resize)', cjs18.includes('bracketLinksOnlyTab') && cjs18.includes('opts.linksOnlyTab') && cjs18.includes('bracketTab !== bracketLinksOnlyTab'), '');
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
