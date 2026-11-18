@@ -910,6 +910,13 @@ async function nouveauTournoi(body) {
   const cjs18 = fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8');
   check('common.js: matchUrl propage ?retour= depuis les cards', cjs18.includes('function matchUrl') && cjs18.includes('&retour=') && cjs18.includes('location.href = matchUrl(m)'), '');
   check('common.js: garde-fou onglet dans drawBracketLinks (fix lignes parasites du bracket complet apres resize)', cjs18.includes('bracketLinksOnlyTab') && cjs18.includes('opts.linksOnlyTab') && cjs18.includes('bracketTab !== bracketLinksOnlyTab'), '');
+  const css19 = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
+  check('style.css: theme clair (variables + header + liens bracket + score adaptes)', css19.includes('html[data-theme="light"]') && css19.includes('path.to-wb') && css19.includes('.scoreboard .s') && css19.includes('header.top'), '');
+  const cpte19 = fs.readFileSync(path.join(__dirname, '..', 'public', 'compte.html'), 'utf8');
+  check('compte.html: switch theme clair/sombre (basculerTheme dans common.js + libelle dynamique)', cpte19.includes('basculerTheme') && cpte19.includes('Apparence') && cjs18.includes('function basculerTheme') && cjs18.includes('function themeActuel'), '');
+  const pages19 = fs.readdirSync(path.join(__dirname, '..', 'public')).filter(f => f.endsWith('.html') && f !== 'tv.html');
+  const sansSnippet = pages19.filter(f => !fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf8').includes("localStorage.getItem('ebpc_theme')"));
+  check('script anti-flash theme present sur toutes les pages sauf TV', sansSnippet.length === 0, 'manquantes: ' + sansSnippet.join(', '));
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);

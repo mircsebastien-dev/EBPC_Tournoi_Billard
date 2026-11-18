@@ -10,6 +10,12 @@ function clubHeaders() {
   try { const c = localStorage.getItem(CLUB_KEY); return c ? { 'X-Club': c } : {}; } catch { return {}; }
 }
 
+// Thème clair/sombre : préférence locale (ebpc_theme), appliquée tôt dans <head> par un petit script inline anti-flash.
+// La page TV reste toujours sombre (pas de script anti-flash là-bas).
+function themeActuel() { try { return localStorage.getItem('ebpc_theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } }
+function appliquerTheme(t) { try { if (t === 'light') document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme; } catch {} }
+function basculerTheme() { const t = themeActuel() === 'light' ? 'dark' : 'light'; try { localStorage.setItem('ebpc_theme', t); } catch {} appliquerTheme(t); return t; }
+
 let compteCourant = null; // mémo du compte connecté (le broadcast SSE ne le renvoie pas)
 async function api(path, opts = {}) {
   const res = await fetch(API + path, {

@@ -15,6 +15,27 @@
   --red: #e5484d;
   --radius: 1px;
 }
+/* ===== Thème clair (switch dans /compte.html — la page TV reste sombre) ===== */
+html[data-theme="light"] {
+  --bg: #f4f5f7;
+  --bg2: #e9ebef;
+  --panel: #ffffff;
+  --panel2: #f1f2f6;
+  --line: #d9dde4;
+  --text: #22242c;
+  --muted: #646b7a;
+  --pink: #d6336c;
+  --pink-soft: #c2255c;
+  --pink-glow: rgba(214, 51, 108, 0.16);
+  --gold: #8a6a2b;
+  --green: #1a9e63;
+  --red: #d63947;
+}
+html[data-theme="light"] header.top { background: rgba(255, 255, 255, 0.92); }
+html[data-theme="light"] .nav-dropdown { box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18); }
+html[data-theme="light"] #bracket-svg path.to-wb { stroke: rgba(34, 36, 44, 0.5); }
+html[data-theme="light"] #bracket-svg path.to-wb.halo { stroke: rgba(34, 36, 44, 0.08); }
+html[data-theme="light"] .scoreboard .s { background: linear-gradient(180deg, var(--text), var(--pink)); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { scroll-behavior: smooth; }
 body {
