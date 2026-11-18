@@ -276,13 +276,16 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
 .nav-menu { position: relative; }
 .nav-burger { cursor: pointer; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); font-weight: 700; font-size: 15px; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .nav-burger:hover { border-color: var(--pink); }
+/* selecteur de langue du bandeau : meme gabarit que le burger, un peu plus compact */
+.nav-lang { cursor: pointer; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); font-weight: 700; font-size: 15px; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.nav-lang:hover { border-color: var(--pink); }
 .nav-dropdown { display: none; position: fixed; min-width: 220px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px; flex-direction: column; gap: 2px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 1000; }
 .nav-dropdown.open { display: flex; }
 .nav-dropdown a { padding: 9px 12px; border-radius: 8px; text-decoration: none; color: var(--text); font-weight: 600; }
 .nav-dropdown a:hover, .nav-dropdown a.active { background: rgba(214,51,108,.12); color: var(--pink-soft); }
 .nav-login { padding: 8px 14px; border-radius: 10px; background: var(--pink); color: #fff !important; font-weight: 800; text-decoration: none; }
 @media (max-width: 700px) {
-  .nav-burger, .nav-login { padding: 7px 10px; font-size: 14px; }
+  .nav-burger, .nav-login, .nav-lang { padding: 7px 10px; font-size: 14px; }
   header.top { flex-wrap: wrap; }
   /* mobile: vrai dropdown sous le bouton, largeur écran, liens tactiles */
   .nav-dropdown.open { min-width: 0; width: min(260px, calc(100vw - 16px)); max-height: 70vh; overflow-y: auto; z-index: 9999; }
@@ -306,7 +309,7 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-end; 
 }
 
 /* harmonisation globale: tous les boutons radius 1px */
-button, .btn-score, .btn-manche, .btn-bande, .nav-burger, .nav-login, a.btn, .chip-btn { border-radius: 1px !important; }
+button, .btn-score, .btn-manche, .btn-bande, .nav-burger, .nav-login, .nav-lang, a.btn, .chip-btn { border-radius: 1px !important; }
 
 /* ===== Bracket: alignement strict ===== */
 .bracket .match-card { height: 78px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }

@@ -678,7 +678,10 @@ function fmtDuree(s) {
   return m > 0 ? `${m} min ${String(sec).padStart(2, '0')} s` : `${sec} s`;
 }
 
-// menu deroulant reutilisable (burger navigation et burger compte) : dropdown + scrim dans le body,
+// choix de langue persistant (ebpc_lang) + rechargement immediat ; appele par le selecteur FR/EN du bandeau
+function choisirLangue(l) { try { localStorage.setItem('ebpc_lang', l); } catch {} location.reload(); }
+
+// menu deroulant reutilisable (burger navigation, burger compte, selecteur de langue) : dropdown + scrim dans le body,
 // contenu reconstruit a chaque ouverture (entrees dynamiques), fermeture au clic exterieur / scrim / resize
 function menuDeroulant(btn, remplir) {
   const drop = el('div', { class: 'nav-dropdown', role: 'menu' });
@@ -725,6 +728,13 @@ function nav(active) {
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
   menuDeroulant(btn, (drop) => { for (const [href, key, label] of links) drop.append(el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)); });
   const wrap = el('div', { class: 'nav-menu' }, btn);
+  // selecteur de langue dans le bandeau : liste deroulante FR/EN avec drapeaux (meme mecanique que les burgers),
+  // bouton affichant la langue courante ; libelles en langue native (Francais / English)
+  const btnLang = el('button', { class: 'nav-lang', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Langue · Language' }, LANG === 'en' ? '🇬🇧 EN' : '🇫🇷 FR');
+  menuDeroulant(btnLang, (drop) => {
+    drop.append(el('a', { href: '#', role: 'menuitem', class: LANG === 'fr' ? 'active' : null, onclick: (e) => { e.preventDefault(); if (LANG !== 'fr') choisirLangue('fr'); } }, '🇫🇷 Français'));
+    drop.append(el('a', { href: '#', role: 'menuitem', class: LANG === 'en' ? 'active' : null, onclick: (e) => { e.preventDefault(); if (LANG !== 'en') choisirLangue('en'); } }, '🇬🇧 English'));
+  });
   // burger compte : entrees dynamiques selon l etat de connexion et le role (admin ou joueur),
   // vers des pages dediees (parametres / amis / mes matchs) + fiche joueur ; admin : table de marque uniquement
   let compteNav = null, joueurIdNav = null;
@@ -744,7 +754,7 @@ function nav(active) {
     if (compteNav.role === 'admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, '🛠 Table de marque'));
     drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, '🚪 Se déconnecter'));
   });
-  return el('nav', {}, wrap, btnCompte);
+  return el('nav', {}, wrap, btnLang, btnCompte);
 }
 
 function codeMatch(m) {

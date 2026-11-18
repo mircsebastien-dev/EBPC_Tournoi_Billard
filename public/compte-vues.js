@@ -5,24 +5,18 @@
 
 async function vueParametres(main) {
   const { compte, prefs } = await api('/api/compte/moi');
-  // panneau parametres : theme clair/sombre + langue (preferences locales, disponibles meme sans compte)
-  // interrupteurs 0-1 alignes (grille .pref-row) : theme 0 = sombre (defaut) / 1 = clair - langue FR / EN
+  // panneau parametres : theme clair/sombre (preferences locales, disponibles meme sans compte) ;
+  // interrupteur 0-1 aligne (grille .pref-row) : 0 = sombre (defaut) / 1 = clair ; la langue se choisit dans le bandeau (liste deroulante FR/EN)
   const majSwTheme = () => { const on = themeActuel() === 'light'; swTheme.className = 'toggle-mini' + (on ? ' on' : ''); swTheme.setAttribute('aria-pressed', on ? 'true' : 'false'); };
   const swTheme = el('button', { class: 'toggle-mini' + (themeActuel() === 'light' ? ' on' : ''), 'aria-pressed': themeActuel() === 'light' ? 'true' : 'false', 'aria-label': 'Interrupteur mode clair', title: '0 = sombre · 1 = clair', onclick: () => { basculerTheme(); majSwTheme(); } });
-  function choisirLang(l) { try { localStorage.setItem('ebpc_lang', l); } catch {} location.reload(); }
-  const swLang = el('button', { class: 'toggle-mini' + (LANG === 'en' ? ' on' : ''), 'aria-pressed': LANG === 'en' ? 'true' : 'false', 'aria-label': 'Interrupteur langue anglaise', title: 'FR = francais · EN = anglais', onclick: () => { choisirLang(LANG === 'en' ? 'fr' : 'en'); } });
   const prefTheme = el('div', { class: 'pref-row' },
     el('span', {}, 'Mode clair'),
     el('span', { class: 'hint muted small' }, '0'), swTheme,
     el('span', { class: 'hint muted small' }, '1'));
-  const prefLangue = el('div', { class: 'pref-row' },
-    el('span', {}, 'Langue'),
-    el('span', { class: 'hint muted small' }, 'FR'), swLang,
-    el('span', { class: 'hint muted small' }, 'EN'));
   const panneauParams = el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto' },
     el('h2', {}, '⚙️ Paramètres'),
     el('div', { class: 'pref-sub' }, 'Préférences'),
-    prefTheme, prefLangue);
+    prefTheme);
   main.append(panneauParams);
   if (!compte) return;
   // sous-section Notifications (connecte uniquement) : push + preferences notifs amis
