@@ -65,7 +65,7 @@ function renderIo(t) {
 function renderCreer() {
   if (adminState.historique && adminState.historique.length > 0) {
     main.append(el('div', { class: 'panel' },
-      el('h2', {}, `🗂 Historique (${adminState.historique.length}) — géré dans sa page dédiée`),
+      el('h2', {}, ['🗂 ', 'Historique', ` (${adminState.historique.length}) — `, 'géré dans sa page dédiée']),
       el('a', { href: '/admin-historique.html' }, el('button', { class: 'secondary' }, 'Ouvrir l\'historique'))));
   }
   main.append(el('div', { class: 'panel' },
@@ -114,7 +114,7 @@ function renderPanneauAuto() {
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🤖 Gestion automatique'),
     el('p', { class: 'muted small' }, 'Lance automatiquement le prochain match dès qu\'un match se termine (priorité : Tour 1, puis LB1#1, WB2#1, LB2#1…).'),
-    el('button', { id: 'btn-auto', onclick: toggleAuto }, 'Mode auto : ' + (autoOn ? 'ACTIF ' : 'inactif')),
+    el('button', { id: 'btn-auto', onclick: toggleAuto }, ['Mode auto : ', autoOn ? 'ACTIF ' : 'inactif']),
     el('div', { class: 'row', style: 'margin-top:10px' },
       el('div', { style: 'flex:1 1 auto' },
         el('label', {}, 'Ordre des tables (mode auto)'),
@@ -241,7 +241,7 @@ function renderTournoi(t) {
     el('p', { class: 'hero-sub' }, `${tn.regle} · ${tn.taille} joueurs · ${tn.format === 'double' ? 'DKO ' + tn.dko_tours + ' tours' : 'élim. directe'} · ${t.tables.length} tables · ${t.joueurs.length} inscrits`),
     el('div', { class: 'row' },
       el('span', { class: 'chip' }, `${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués`)),
-    t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, `🏆 Champion : ${t.champion.pseudo}`) : null));
+    t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, ['🏆 Champion : ', t.champion.pseudo]) : null));
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🎱 Tables disponibles'),
@@ -269,7 +269,7 @@ function renderTournoi(t) {
         t.tables.map(tb => el('option', { value: tb.id, ...(occupees.has(tb.numero) ? { disabled: '' } : {}) }, `Table ${tb.numero}${occupees.has(tb.numero) ? ' (occupée)' : ''}`)));
       p.append(el('div', { class: 'match-admin' },
         el('div', { style: 'font-weight:700;font-size:16px' }, `${m.joueur1 ? m.joueur1.pseudo : '—'} vs ${m.joueur2 ? m.joueur2.pseudo : '—'}`),
-        el('div', { class: 'muted small' }, `${m.bracket === 'WB' ? 'Tour' : m.bracket === 'LB' ? 'Loser bracket' : 'Tableau final'} ${m.tour} · race to ${m.manches}`),
+        el('div', { class: 'muted small' }, [m.bracket === 'WB' ? 'Tour' : m.bracket === 'LB' ? 'Loser bracket' : 'Tableau final', ` ${m.tour} · race to ${m.manches}`]),
         el('div', { class: 'actions' }, sel, el('button', { onclick: () => lancer(m.id, sel.value ? Number(sel.value) : null) }, '▶ Lancer'))));
     }
     main.append(p);
@@ -381,7 +381,7 @@ async function toggleAuto() {
   try {
     await adminApi('/api/admin/auto', { method: 'POST', body: JSON.stringify({ on: autoOn }) });
     const b = document.getElementById('btn-auto');
-    if (b) b.textContent = '🤖 Mode auto : ' + (autoOn ? 'ACTIF ✅' : 'inactif');
+    if (b) b.textContent = t('🤖 Mode auto : ') + (autoOn ? t('ACTIF ✅') : t('inactif'));
   } catch (e) { autoOn = !autoOn; alert(e.message); }
 }
 
