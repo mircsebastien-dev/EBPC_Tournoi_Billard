@@ -1003,6 +1003,57 @@ async function nouveauTournoi(body) {
   const css20 = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
   check('fil: styles du panneau (.fil-ligne, live en rose, colonne sur mobile)', css20.includes('.fil-ligne') && css20.includes('.fil-live') && css20.includes('.fil-txt') && css20.includes('.fil-temps'), '');
 
+  // ---------- 21. Fil : variantes + durées + revanche (confrontations passées du club) ----------
+  sec('21. Fil : variantes de phrases + durées des matchs finis + revanche (confrontations passées, i18n 5 langues)');
+  await del('/api/admin/tournoi').catch(() => {});
+  r = await post('/api/admin/tournoi', { nom: 'RevA', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
+  check('revanche: création RevA (2 joueurs, duel garanti dans le tableau)', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  await post('/api/admin/joueurs/simulation', { count: 2, prefix: 'R' });
+  let t21 = (await api('/api/etat')).data.actif;
+  for (const j of t21.joueurs) await post(`/api/admin/joueur/${j.id}/paiement`, { statut: 'paye' });
+  await post('/api/admin/tirage', {});
+  t21 = (await api('/api/etat')).data.actif;
+  const m21 = t21.matchs.find(m => !m.virtuel && m.etat === 'pret' && m.joueur1 && m.joueur2);
+  check('revanche: /api/etat expose actif.h2h pour les matchs pas terminés (première rencontre: n=0, v1=v2=0, dernier null)', !!m21 && !!t21.h2h && !!t21.h2h[m21.id] && t21.h2h[m21.id].n === 0 && t21.h2h[m21.id].v1 === 0 && t21.h2h[m21.id].v2 === 0 && t21.h2h[m21.id].dernier === null, JSON.stringify((t21.h2h || {})[m21 && m21.id]));
+  await post(`/api/admin/match/${m21.id}/lancer`, { table_id: t21.tables[0].id });
+  await api(`/api/match/${m21.id}/bande`, { method: 'POST', pin: null, body: { joueur_id: m21.joueur1.id } });
+  for (let i = 0; i < m21.manches; i++) await api(`/api/match/${m21.id}/manche`, { method: 'POST', pin: null, body: { joueur_id: m21.joueur1.id } });
+  // R1 remporte le duel -> tournoi terminé (2 joueurs: ce match était la finale), archivé avec sa durée
+  const gA = m21.joueur1.pseudo;
+  r = await api(`/api/tournois/${t21.tournoi.id}`, { pin: null });
+  const duA = (((r.data || {}).tournoi || {}).matchs || []).find(m => !m.virtuel && m.gagnant_id != null && m.joueur1 && m.joueur2);
+  check('revanche: duel de RevA archivé avec sa durée (gagnant + duree_s numérique dans /api/tournois/:id)', !!duA && duA.gagnant === gA && typeof duA.duree_s === 'number' && duA.duree_s >= 0, JSON.stringify(duA && { g: duA.gagnant, d: duA.duree_s }));
+  await del('/api/admin/tournoi').catch(() => {});
+  r = await post('/api/admin/tournoi', { nom: 'RevB', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
+  check('revanche: création RevB (mêmes pseudos, autre tournoi du même club)', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  await post('/api/admin/joueurs/simulation', { count: 2, prefix: 'R' });
+  let t21b = (await api('/api/etat')).data.actif;
+  for (const j of t21b.joueurs) await post(`/api/admin/joueur/${j.id}/paiement`, { statut: 'paye' });
+  await post('/api/admin/tirage', {});
+  t21b = (await api('/api/etat')).data.actif;
+  const m21b = t21b.matchs.find(m => !m.virtuel && m.etat === 'pret' && m.joueur1 && m.joueur2);
+  const h21 = (t21b.h2h || {})[m21b && m21b.id];
+  check('revanche: RevB retrouve la paire dans l historique du club (n=1, victoire du bon côté, dernier = gagnant + score + tournoi RevA)',
+    !!m21b && !!h21 && h21.n === 1 && ((h21.v1 === 1 && h21.v2 === 0 && m21b.joueur1.pseudo === gA) || (h21.v2 === 1 && h21.v1 === 0 && m21b.joueur2.pseudo === gA)) && !!h21.dernier && h21.dernier.gagnant === gA && /^\d+-\d+$/.test(String(h21.dernier.score)) && h21.dernier.tournoi === 'RevA',
+    JSON.stringify(h21));
+  await del('/api/admin/tournoi').catch(() => {});
+  // front : variantes déterministes, durées, lignes revanche (i18n 5 langues)
+  const idx21 = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  check('fil: variantes déterministes (filHash/filPick) - victoires, forfaits, champion, belles', idx21.includes('function filHash') && idx21.includes('function filPick')
+    && idx21.includes("s'impose face à ${p.pseudo} ${gs}-${ps}") && idx21.includes("vient à bout de ${p.pseudo} ${gs}-${ps}")
+    && idx21.includes("${p.pseudo} abandonne, ${g.pseudo} passe au tour suivant") && idx21.includes("forfait de ${p.pseudo}, ${g.pseudo} passe au tour suivant")
+    && idx21.includes(`soulève le trophée !`) && idx21.includes(`décroche le titre !`) && idx21.includes(`remporte le tournoi !`)
+    && idx21.includes("La belle ! ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la table ${m.table}") && idx21.includes("Ça se joue à la belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table})") && idx21.includes(`sont à la belle à la table`), '');
+  check('fil: durées des matchs finis composées dans les lignes (dureeFil + duree_s du payload)', idx21.includes('function dureeFil') && idx21.includes('dureeFil(m.duree_s)') && idx21.includes('Math.round(d / 60)') && idx21.includes("padStart(2, '0')") && idx21.includes("· durée ${min} min") && idx21.includes("· durée ${Math.floor(min / 60)} h"), '');
+  check('fil: lignes revanche (déjà rencontrés via actif.h2h, underdog « pas favori », égalité, mène X-Y, pas de double si à la belle)',
+    idx21.includes('tv.h2h || {}') && idx21.includes("🔥 Revanche : ${dom.pseudo} joue contre ${adv.pseudo} et il n'est pas favori !")
+    && idx21.includes("🔥 ${dom.pseudo} joue sa revanche contre ${adv.pseudo} !") && idx21.includes("🔥 ${dom.pseudo} retente sa chance contre ${adv.pseudo} !")
+    && idx21.includes(`se retrouvent à égalité !`) && idx21.includes("🔥 Fierté en jeu : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !")
+    && idx21.includes("${adv.pseudo} mène ${Math.max(h.v1, h.v2)}-${Math.min(h.v1, h.v2)}") && idx21.includes('belles.has(String(m.id))') && idx21.includes(`h.n < 1`), '');
+  check('fil: i18n EN - les 16 nouvelles règles (variantes victoire/forfait/champion/belle, revanche, mène, durée)', cjs20.includes(`$1 gets the better of $2 $3-$4`) && cjs20.includes(`$1 overcomes $2 $3-$4`) && cjs20.includes(`$1 withdraws, $2 moves on to the next round`) && cjs20.includes(`forfeit by $1, $2 moves on to the next round`) && cjs20.includes(`$1 lifts the trophy!`) && cjs20.includes(`$1 takes the title!`) && cjs20.includes(`The decider! $1 and $2 at table $3`) && cjs20.includes(`the decider between $1 and $2 (table $3)`) && cjs20.includes(`🔥 Revenge match: $1 plays $2 and he is not the favourite!`) && cjs20.includes(`$1 plays his revenge match against $2!`) && cjs20.includes(`$1 tries his luck again against $2!`) && cjs20.includes(`dead even!`) && cjs20.includes(`🔥 Pride at stake: $1 and $2 meet again!`) && cjs20.includes(`$1 leads $2-$3`) && cjs20.includes(`· duration $1 min`) && cjs20.includes(`· duration $1 h $2`), '');
+  check('fil: i18n ES/IT/DE - variantes et revanche traduites (se impone/ha la meglio/setzt sich durch, favorito, durées, conduce/führt)', repsES.includes(`$1 se impone a $2 $3-$4`) && repsIT.includes(`$1 ha la meglio su $2 $3-$4`) && repsDE.includes(`$1 setzt sich mit $3-$4 gegen $2 durch`) && repsES.includes(`y no es el favorito`) && repsIT.includes(`non è il favorito`) && repsDE.includes(`ist nicht der Favorit`) && repsES.includes(`forfait de $1, $2 pasa a la ronda siguiente`) && repsIT.includes(`$1 conduce $2-$3`) && repsDE.includes(`$1 führt $2-$3`) && repsES.includes(`· duración $1 min`) && repsIT.includes(`· durata $1 min`) && repsDE.includes(`· Dauer $1 Min.`), '');
+  check('fil: i18n - 4 tableaux toujours alignés après les 16 nouvelles règles (cDyn = 93)', cDyn(dynSrc) === cReps(repsES) && cReps(repsES) === cReps(repsIT) && cReps(repsIT) === cReps(repsDE) && cDyn(dynSrc) === 93, `${cDyn(dynSrc)} / ${cReps(repsES)} / ${cReps(repsIT)} / ${cReps(repsDE)}`);
+
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
@@ -1033,6 +1084,7 @@ async function nouveauTournoi(body) {
   md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
   md += `- Rattachement compte/joueurs anonymes (section 18): compte créé après un tournoi archivé (sans tournoi actif) rattache quand même les lignes anonymes du même pseudo (tournois passés inclus), fiche joueur + classement conservent les stats\n`;
   md += `- Fil du tournoi (section 20): chronique du tournoi dérivée de l'état (aucun stockage -> cohérente avec les tableaux, rollback et corrections inclus), lignes victoire/forfait/champion/belle, élimination définitive mentionnée uniquement en double KO (LB/F) et fusionnée dans la ligne, 3 dernières lignes + « Voir tout » sur l'accueil, horodatage relatif, dernier tournoi terminé consultable sans tournoi actif (/api/tournois/:id public), phrases i18n dans les 5 langues (clés statiques + règles dynamiques alignées I18N_DYN/REPS_DYN_*)\n`;
+  md += `- Variantes, durées et revanche (section 21): phrases variées par hachage déterministe (victoires/forfaits/champion/belles), durée des matchs finis dans les lignes (· durée 42 min), lignes « revanche » en direct pour les paires déjà croisées (actif.h2h, historique du club complet, underdog « pas favori », « mène X-Y », égalité), pas de double ligne si à la belle ; 16 nouvelles règles i18n alignées dans les 5 langues\n`;
   md += `- i18n FR/EN/ES/IT/DE (section 19): header X-Lang (en/es/it/de) -> erreurs API traduites (Route inconnue -> Unknown route / Ruta desconocida / Percorso sconosciuto / Unbekannte Route), defaut fr inchange, couverture front complete dans common.js (~490 entrees x 4 langues cibles + ~66 regles dynamiques x 4 via I18N_ES/IT/DE + REPS_DYN, LANG multi-valeurs, t(), traduireDomStatique, X-Lang sur api() ET les appels admin, alert/confirm natifs traduits, titre de page traduit, attributs placeholder/title/aria-label/alt), selecteur de langue 5 entrees dans le bandeau (FR/EN/ES/IT/DE data-driven via LANGUES, drapeaux + libelles natifs, ancienne rangee Langue retiree de parametres.html ; interrupteurs theme alignes .pref-row, sous-sections Preferences et Notifications, sans texte d aide; checkboxes de reglages habillees en interrupteurs toggle-mini, burger compte a entrees dynamiques vers des pages dediees (login/register, parametres, amis, mes matchs, ma fiche, deconnexion, table de marque seule si role admin), append filtre les null; selecteur langue colle a l extremite droite de l ecran, sur desktop comme sur mobile <=560px (#nav flex + margin-left auto, #nav pleine largeur en colonne mobile ; listes deroulantes du bandeau alignees sur le bord droit de leur bouton ; entree Accueil ex-Tournoi du menu principal, traduite Home en EN) ; push traduits par destinataire en 5 langues (compte.lang, repli X-Lang pour le test manuel, payloads par langue dans push.js + envoyerTous versions {en,es,it,de}) ; limite restante: payload SSE restent en francais)\n`;
   fs.writeFileSync(RAPPORT, md);
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC en ${duree}s — rapport: ${RAPPORT} ===`);

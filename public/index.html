@@ -150,18 +150,65 @@ async function desinscrireCompte() {
 let filOuvert = false;    // panneau étendu (« Voir tout ») ou replié (3 lignes)
 let filDernier = null;    // cache du dernier tournoi terminé (fil sans tournoi actif)
 
+// choix de variante déterministe : hachage stable de l'id, jamais de saut d'une phrase à l'autre au re-render SSE
+function filHash(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+function filPick(id, variantes) { return variantes[filHash(id) % variantes.length]; }
+
+// durée d'un match fini (duree_s du payload) -> « · durée 42 min » ou « · durée 1 h 05 »
+function dureeFil(d) {
+  if (!d) return null;
+  const min = Math.max(1, Math.round(d / 60));
+  if (min < 60) return `· durée ${min} min`;
+  return `· durée ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
+}
+
 function lignesFil(tv) {
   if (!tv) return [];
   const L = [];
   // champion en tête de fil : le titre du feuilleton, pas une ligne de plus dans la masse
-  if (tv.champion && tv.champion.pseudo) L.push({ live: false, quand: null, parties: [`🏆 ${tv.champion.pseudo} remporte le tournoi !`] });
+  if (tv.champion && tv.champion.pseudo) L.push({ live: false, quand: null, parties: [filPick(String((tv.tournoi || {}).id), [
+    `🏆 ${tv.champion.pseudo} remporte le tournoi !`,
+    `🏆 ${tv.champion.pseudo} soulève le trophée !`,
+    `🏆 ${tv.champion.pseudo} décroche le titre !`,
+  ])] });
   // instants chauds : la belle (manche décisive en cours, les deux à une manche du match)
+  const belles = new Set();
   for (const m of (tv.matchs || [])) {
     if (m.etat === 'en_cours' && m.joueur1 && m.joueur2 && m.score1 === m.manches - 1 && m.score2 === m.manches - 1) {
+      belles.add(String(m.id));
       L.push({ live: true, quand: null, parties: [m.table != null
-        ? `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle à la table ${m.table}`
+        ? filPick(String(m.id) + 'b', [
+            `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle à la table ${m.table}`,
+            `La belle ! ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la table ${m.table}`,
+            `Ça se joue à la belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table})`,
+          ])
         : `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle`] });
     }
+  }
+  // instants chauds : la revanche (déjà rencontrés avant, historique du club via actif.h2h)
+  const h2h = tv.h2h || {};
+  for (const m of (tv.matchs || [])) {
+    if (m.etat !== 'en_cours' || belles.has(String(m.id)) || !m.joueur1 || !m.joueur2) continue;
+    const h = h2h[m.id];
+    if (!h || typeof h.n !== 'number' || h.n < 1) continue;   // jamais joué ensemble : pas de ligne
+    const parties = [];
+    if (h.v1 === h.v2) {
+      parties.push(filPick(String(m.id) + 'e', [
+        `🔥 Revanche : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent à égalité !`,
+        `🔥 Fierté en jeu : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !`,
+      ]));
+    } else {
+      const dom = h.v1 < h.v2 ? m.joueur1 : m.joueur2;   // bilan défavorable contre lui : pas favori
+      const adv = h.v1 < h.v2 ? m.joueur2 : m.joueur1;
+      parties.push(filPick(String(m.id) + 'r', [
+        `🔥 Revanche : ${dom.pseudo} joue contre ${adv.pseudo} et il n'est pas favori !`,
+        `🔥 ${dom.pseudo} joue sa revanche contre ${adv.pseudo} !`,
+        `🔥 ${dom.pseudo} retente sa chance contre ${adv.pseudo} !`,
+      ]));
+      parties.push(`${adv.pseudo} mène ${Math.max(h.v1, h.v2)}-${Math.min(h.v1, h.v2)}`);
+    }
+    if (m.table != null) parties.push(`· table ${m.table}`);
+    L.push({ live: true, quand: null, parties });
   }
   // faits : fins de match (les byes contre blanc ne font pas de ligne), plus récents d'abord
   const res = [];
@@ -175,10 +222,20 @@ function lignesFil(tv) {
       const gs = m.gagnant_id === m.joueur1.id ? m.score1 : m.score2;
       const ps = m.gagnant_id === m.joueur1.id ? m.score2 : m.score1;
       const parties = [];
-      if (m.etat === 'forfait') parties.push(`${p.pseudo} déclare forfait, ${g.pseudo} passe au tour suivant`);
+      if (m.etat === 'forfait') parties.push(filPick(String(m.id) + 'f', [
+        `${p.pseudo} déclare forfait, ${g.pseudo} passe au tour suivant`,
+        `${p.pseudo} abandonne, ${g.pseudo} passe au tour suivant`,
+        `forfait de ${p.pseudo}, ${g.pseudo} passe au tour suivant`,
+      ]));
       else {
-        parties.push(`${g.pseudo} bat ${p.pseudo} ${gs}-${ps}`);
+        parties.push(filPick(String(m.id), [
+          `${g.pseudo} bat ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} s'impose face à ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} vient à bout de ${p.pseudo} ${gs}-${ps}`,
+        ]));
         if (m.table != null) parties.push(`· table ${m.table}`);
+        const du = dureeFil(m.duree_s);
+        if (du) parties.push(du);
       }
       if (elim(m)) parties.push(`· tournoi terminé pour ${p.pseudo}`);
       res.push({ live: false, quand: m.ended_at || null, parties });

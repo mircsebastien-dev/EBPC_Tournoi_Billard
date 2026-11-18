@@ -385,10 +385,57 @@ function notifierAutoLances(tournoiId, avant) {
   }
 }
 
+// « revanche » du fil d'accueil : pour chaque paire de joueurs d'un match pas encore terminé,
+// bilan des confrontations passées de TOUT l'historique du club (tournoi en cours compris) :
+// nombre de duels, victoires de chaque côté, dernière rencontre. Identité historique = pseudo
+// (le rattachement compte/inscriptions se fait déjà par pseudo).
+function h2hPourMatchs(clubId, matchs) {
+  const paires = new Map();
+  for (const m of matchs) {
+    if (m.virtuel || (m.etat !== 'pret' && m.etat !== 'en_cours') || !m.joueur1 || !m.joueur2) continue;
+    const ps = [m.joueur1.pseudo, m.joueur2.pseudo].sort();
+    paires.set(ps[0] + '\u0001' + ps[1], ps);
+  }
+  const bilans = new Map();
+  for (const [k, ps] of paires) {
+    bilans.set(k, db.prepare(`
+      SELECT m.joueur1_id, m.joueur2_id, m.gagnant_id, m.score1, m.score2, m.etat, m.ended_at,
+             j1.pseudo p1, j2.pseudo p2, t.nom AS duel_tournoi
+      FROM match m
+      JOIN tournoi t ON t.id = m.tournoi_id
+      JOIN joueur j1 ON j1.id = m.joueur1_id
+      JOIN joueur j2 ON j2.id = m.joueur2_id
+      WHERE (? IS NULL OR t.club_id = ?)
+        AND ((j1.pseudo = ? AND j2.pseudo = ?) OR (j1.pseudo = ? AND j2.pseudo = ?))
+        AND m.gagnant_id IS NOT NULL
+      ORDER BY m.id DESC
+    `).all(clubId ?? null, clubId ?? null, ps[0], ps[1], ps[1], ps[0]));
+  }
+  const gagnantPseudo = (r) => (r.gagnant_id === r.joueur1_id ? r.p1 : r.p2);
+  const out = {};
+  for (const m of matchs) {
+    if (m.virtuel || (m.etat !== 'pret' && m.etat !== 'en_cours') || !m.joueur1 || !m.joueur2) continue;
+    const ps = [m.joueur1.pseudo, m.joueur2.pseudo].sort();
+    const rows = bilans.get(ps[0] + '\u0001' + ps[1]) || [];
+    const v1 = rows.filter(r => gagnantPseudo(r) === m.joueur1.pseudo).length;
+    const d = rows[0];   // ORDER BY m.id DESC : la dernière rencontre d'abord
+    out[m.id] = { n: rows.length, v1, v2: rows.length - v1, dernier: d ? {
+      gagnant: gagnantPseudo(d),
+      score: d.etat === 'forfait' ? 'forfait' : (d.gagnant_id === d.joueur1_id ? `${d.score1}-${d.score2}` : `${d.score2}-${d.score1}`),
+      quand: d.ended_at,
+      tournoi: d.duel_tournoi,
+    } : null };
+  }
+  return out;
+}
+
 function etatGlobal(req) {
   const clubId = req && req.club ? req.club.id : undefined;
+  const actif = vueTournoiComplet(tournoiActif(clubId));
+  // fil du tournoi (accueil) : confrontations passées des matchs pas terminés (lignes « revanche »)
+  if (actif && Array.isArray(actif.matchs)) actif.h2h = h2hPourMatchs(clubId, actif.matchs);
   return {
-    actif: vueTournoiComplet(tournoiActif(clubId)),
+    actif,
     historique: vueTournoiListe(clubId).filter(t => t.statut === 'termine'),
     club: req && req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom } : null,
     auto: getSetting('auto_on') === '1',
