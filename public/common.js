@@ -2433,15 +2433,18 @@ function menuDeroulant(btn, remplir) {
     if (drop.classList.contains('open')) return fermer();
     drop.innerHTML = '';
     remplir(drop);
+    // ouvrir d'abord (display flex) pour mesurer la largeur REELLE du menu, puis positionner sans flash (meme frame)
+    drop.classList.add('open'); scrim.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
     // positionner le dropdown sous le bouton (fixed) -> PAS de scrollY/scrollX (sinon le menu part hors ecran quand on est scrolle)
     const r = btn.getBoundingClientRect();
     drop.style.top = (r.bottom + 6) + 'px';
-    const w = Math.min(260, window.innerWidth - 16);
+    // bord droit du menu aligne sur le bord droit du bouton : le selecteur de langue etant colle au bord
+    // droit de l'ecran, sa liste deroulante y reste accrochee ; sans jamais deborder a gauche (min 8px)
+    const w = Math.min(Math.max(drop.offsetWidth, 220), window.innerWidth - 16);
     drop.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
     // si le menu depasserait en bas du viewport, le limiter en hauteur (scroll interne)
     const maxH = window.innerHeight - r.bottom - 14;
     drop.style.maxHeight = Math.max(120, maxH) + 'px';
-    drop.classList.add('open'); scrim.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
   });
   scrim.addEventListener('click', fermer);
   scrim.addEventListener('touchstart', fermer, { passive: true });
