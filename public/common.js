@@ -60,6 +60,7 @@ const I18N = {
   "Inséré": "Entered",
   "Interrompu": "Interrupted",
   "Joueur": "Player",
+  "Mon tournoi": "My tournament",
   "Joueurs": "Players",
   "jour": "day",
   "Langue": "Language",
@@ -608,7 +609,7 @@ const I18N_DYN = [
   [/^🏆 (.+) décroche le titre !$/, "🏆 $1 takes the title!"],
   [/^La belle ! (.+) et (.+) à la table (\d+)$/, "The decider! $1 and $2 at table $3"],
   [/^Ça se joue à la belle entre (.+) et (.+) \(table (\d+)\)$/, "It all comes down to the decider between $1 and $2 (table $3)"],
-  [/^🔥 Revanche : (.+) joue contre (.+) et il n'est pas favori !$/, "🔥 Revenge match: $1 plays $2 and he is not the favourite!"],
+  [/^🔥 Revanche : (.+) joue contre (.+), une revanche à prendre !$/, "🔥 Revenge match: $1 plays $2, a revenge to take!"],
   [/^🔥 (.+) joue sa revanche contre (.+) !$/, "🔥 $1 plays his revenge match against $2!"],
   [/^🔥 (.+) retente sa chance contre (.+) !$/, "🔥 $1 tries his luck again against $2!"],
   [/^🔥 Revanche : (.+) et (.+) se retrouvent à égalité !$/, "🔥 Revenge match: $1 and $2 meet again, dead even!"],
@@ -665,6 +666,7 @@ const I18N_ES = {
   "Inséré": "Inscrito",
   "Interrompu": "Interrumpido",
   "Joueur": "Jugador",
+  "Mon tournoi": "Mi torneo",
   "Joueurs": "Jugadores",
   "jour": "día",
   "Langue": "Idioma",
@@ -1212,7 +1214,7 @@ const REPS_DYN_ES = [
   "🏆 ¡$1 se lleva el título!",
   "¡El decisivo! $1 y $2 en la mesa $3",
   "¡Todo se decide entre $1 y $2 (mesa $3)!",
-  "🔥 Revancha: ¡$1 juega contra $2 y no es el favorito!",
+  "🔥 Revancha: ¡$1 juega contra $2 con una revancha por delante!",
   "🔥 ¡$1 juega su revancha contra $2!",
   "🔥 ¡$1 vuelve a intentarlo contra $2!",
   "🔥 Revancha: ¡$1 y $2 se reencuentran en total igualdad!",
@@ -1270,6 +1272,7 @@ const I18N_IT = {
   "Inséré": "Iscritto",
   "Interrompu": "Interrotto",
   "Joueur": "Giocatore",
+  "Mon tournoi": "Il mio torneo",
   "Joueurs": "Giocatori",
   "jour": "giorno",
   "Langue": "Lingua",
@@ -1817,7 +1820,7 @@ const REPS_DYN_IT = [
   "🏆 $1 si aggiudica il titolo!",
   "Il frame decisivo! $1 e $2 al tavolo $3",
   "Tutto si decide tra $1 e $2 (tavolo $3)!",
-  "🔥 Rivincita: $1 gioca contro $2 e non è il favorito!",
+  "🔥 Rivincita: $1 gioca contro $2, una rivincita da prendere!",
   "🔥 $1 gioca la sua rivincita contro $2!",
   "🔥 $1 ci riprova contro $2!",
   "🔥 Rivincita: $1 e $2 si ritrovano in perfetta parità!",
@@ -1875,6 +1878,7 @@ const I18N_DE = {
   "Inséré": "Eingeschrieben",
   "Interrompu": "Unterbrochen",
   "Joueur": "Spieler",
+  "Mon tournoi": "Mein Turnier",
   "Joueurs": "Spieler",
   "jour": "Tag",
   "Langue": "Sprache",
@@ -2422,7 +2426,7 @@ const REPS_DYN_DE = [
   "🏆 $1 holt sich den Titel!",
   "Der Entscheidungsframe! $1 und $2 am Tisch $3",
   "Alles entscheidet sich im Decider zwischen $1 und $2 (Tisch $3)!",
-  "🔥 Revanche: $1 spielt gegen $2 und ist nicht der Favorit!",
+  "🔥 Revanche: $1 spielt gegen $2, eine Revanche zu holen!",
   "🔥 $1 spielt seine Revanche gegen $2!",
   "🔥 $1 versucht es erneut gegen $2!",
   "🔥 Revanche: $1 und $2 treffen erneut aufeinander, komplett gleich!",
@@ -2577,11 +2581,16 @@ function menuDeroulant(btn, remplir) {
 }
 
 function nav(active) {
+  // liens « tournoi seul » (Tableau / TV / Mon tournoi) : masqués tant qu'aucun tournoi n'est ouvert.
+  // null = réponse pas encore arrivée (on affiche par défaut), false = aucun tournoi actif.
+  // le burger (re)remplit son menu à chaque ouverture -> le masquage est ré-évalué à chaque clic.
+  let tournoiOuvert = null;
+  api('/api/etat').then((s) => { tournoiOuvert = !!(s && s.actif); }).catch(() => { tournoiOuvert = true; });
   const links = [
     ['/', 'home', 'Accueil'],
-    ['/tableau.html', 'tableau', 'Tableau'],
-    ['/tv.html', 'tv', 'TV'],
-    ['/suivi.html', 'joueur', 'Joueur'],
+    ['/tableau.html', 'tableau', 'Tableau', true],
+    ['/tv.html', 'tv', 'TV', true],
+    ['/suivi.html', 'joueur', 'Mon tournoi', true],
     ['/stats.html', 'stats', 'Stats'],
     ['/historique.html', 'hist', 'Historique'],
     ['/admin.html', 'admin', 'Table de marque'],
@@ -2589,7 +2598,7 @@ function nav(active) {
     ['/confidentialite.html', '', 'Confidentialitè'],
   ];
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
-  menuDeroulant(btn, (drop) => { for (const [href, key, label] of links) drop.append(el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)); });
+  menuDeroulant(btn, (drop) => { for (const [href, key, label, tournoiSeul] of links) { if (tournoiSeul && tournoiOuvert === false) continue; drop.append(el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)); } });
   const wrap = el('div', { class: 'nav-menu' }, btn);
   // selecteur de langue a l extremite droite du bandeau (pousse par margin-left auto en CSS),
   // liste deroulante FR/EN/ES/IT/DE avec drapeaux (meme mecanique que les burgers),

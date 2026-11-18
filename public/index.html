@@ -198,10 +198,10 @@ function lignesFil(tv) {
         `🔥 Fierté en jeu : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !`,
       ]));
     } else {
-      const dom = h.v1 < h.v2 ? m.joueur1 : m.joueur2;   // bilan défavorable contre lui : pas favori
+      const dom = h.v1 < h.v2 ? m.joueur1 : m.joueur2;   // bilan défavorable contre lui : une revanche à prendre
       const adv = h.v1 < h.v2 ? m.joueur2 : m.joueur1;
       parties.push(filPick(String(m.id) + 'r', [
-        `🔥 Revanche : ${dom.pseudo} joue contre ${adv.pseudo} et il n'est pas favori !`,
+        `🔥 Revanche : ${dom.pseudo} joue contre ${adv.pseudo}, une revanche à prendre !`,
         `🔥 ${dom.pseudo} joue sa revanche contre ${adv.pseudo} !`,
         `🔥 ${dom.pseudo} retente sa chance contre ${adv.pseudo} !`,
       ]));
