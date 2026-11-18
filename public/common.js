@@ -550,6 +550,9 @@ const I18N = {
   "ACTIF": "ACTIVE",
   "ACTIF ✅": "ACTIVE ✅",
   "inactif": "inactive",
+  "· après la belle": "· after the decider",
+  "· revanche prise !": "· revenge taken!",
+  "· revanche manquée": "· revenge missed",
 };
 const I18N_DYN = [
   [/^Erreur (\d+)$/, "Error $1"],
@@ -1218,6 +1221,9 @@ const I18N_ES = {
   "ACTIF": "ACTIVO",
   "ACTIF ✅": "ACTIVO ✅",
   "inactif": "inactivo",
+  "· après la belle": "· tras la bella",
+  "· revanche prise !": "· ¡revancha conseguida!",
+  "· revanche manquée": "· revancha fallida",
 };
 // remplacements dynamiques ES : meme ordre que les regex de I18N_DYN
 const REPS_DYN_ES = [
@@ -1887,6 +1893,9 @@ const I18N_IT = {
   "ACTIF": "ATTIVO",
   "ACTIF ✅": "ATTIVO ✅",
   "inactif": "inattivo",
+  "· après la belle": "· dopo la bella",
+  "· revanche prise !": "· rivincita riuscita!",
+  "· revanche manquée": "· rivincita sfumata",
 };
 // remplacements dynamiques IT : meme ordre que les regex de I18N_DYN
 const REPS_DYN_IT = [
@@ -2556,6 +2565,9 @@ const I18N_DE = {
   "ACTIF": "AKTIV",
   "ACTIF ✅": "AKTIV ✅",
   "inactif": "inaktiv",
+  "· après la belle": "· nach der Belle",
+  "· revanche prise !": "· Revanche geglückt!",
+  "· revanche manquée": "· Revanche verpasst",
 };
 // remplacements dynamiques DE : meme ordre que les regex de I18N_DYN
 const REPS_DYN_DE = [

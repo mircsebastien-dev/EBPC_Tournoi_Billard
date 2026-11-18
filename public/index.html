@@ -243,7 +243,11 @@ function lignesFil(tv) {
       const gs = m.gagnant_id === m.joueur1.id ? m.score1 : m.score2;
       const ps = m.gagnant_id === m.joueur1.id ? m.score2 : m.score1;
       const parties = [];
-      if (m.etat === 'forfait') parties.push(filPick(String(m.id) + 'f', [
+      const hF = h2h[m.id];   // trace persistante : paire déjà croisée avant ce match -> revanche prise ou manquée
+      const revancheF = hF && typeof hF.n === 'number' && hF.n >= 1 && hF.v1 !== hF.v2
+        ? ((hF.v1 < hF.v2 ? m.joueur1 : m.joueur2).id === g.id ? '· revanche prise !' : '· revanche manquée')
+        : null;
+      if (m.etat === 'forfait') { parties.push(filPick(String(m.id) + 'f', [
         `${p.pseudo} déclare forfait, ${g.pseudo} passe au tour suivant`,
         `${p.pseudo} abandonne, ${g.pseudo} passe au tour suivant`,
         `forfait de ${p.pseudo}, ${g.pseudo} passe au tour suivant`,
@@ -252,6 +256,8 @@ function lignesFil(tv) {
         `${p.pseudo} ne se présente pas, ${g.pseudo} passe au tour suivant`,
         `forfait de ${p.pseudo} : ${g.pseudo} file au tour suivant`,
       ]));
+        if (revancheF) parties.push(revancheF);
+      }
       else {
         parties.push(filPick(String(m.id), [
           `${g.pseudo} bat ${p.pseudo} ${gs}-${ps}`,
@@ -262,6 +268,8 @@ function lignesFil(tv) {
           `${g.pseudo} surclasse ${p.pseudo} ${gs}-${ps}`,
           `${g.pseudo} fait la loi face à ${p.pseudo} ${gs}-${ps}`,
         ]));
+        if (ps === m.manches - 1) parties.push('· après la belle');   // trace persistante : la manche décisive a départagé les deux
+        if (revancheF) parties.push(revancheF);
         if (m.table != null) parties.push(`· table ${m.table}`);
         const du = dureeFil(m.duree_s);
         if (du) parties.push(du);

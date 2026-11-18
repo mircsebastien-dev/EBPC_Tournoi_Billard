@@ -388,20 +388,21 @@ function notifierAutoLances(tournoiId, avant) {
 }
 
 // « revanche » du fil d'accueil : pour chaque paire de joueurs d'un match pas encore terminé,
-// bilan des confrontations passées de TOUT l'historique du club (tournoi en cours compris) :
+// + traces « revanche prise / manquée » des matchs TERMINÉS ;
+// bilan des confrontations STRICTEMENT antérieures au match, de TOUT l'historique du club (tournoi en cours compris) :
 // nombre de duels, victoires de chaque côté, dernière rencontre. Identité historique = pseudo
 // (le rattachement compte/inscriptions se fait déjà par pseudo).
 function h2hPourMatchs(clubId, matchs) {
   const paires = new Map();
   for (const m of matchs) {
-    if (m.virtuel || (m.etat !== 'pret' && m.etat !== 'en_cours') || !m.joueur1 || !m.joueur2) continue;
+    if (m.virtuel || (m.etat !== 'pret' && m.etat !== 'en_cours' && m.etat !== 'termine' && m.etat !== 'forfait') || !m.joueur1 || !m.joueur2) continue;
     const ps = [m.joueur1.pseudo, m.joueur2.pseudo].sort();
     paires.set(ps[0] + '\u0001' + ps[1], ps);
   }
   const bilans = new Map();
   for (const [k, ps] of paires) {
     bilans.set(k, db.prepare(`
-      SELECT m.joueur1_id, m.joueur2_id, m.gagnant_id, m.score1, m.score2, m.etat, m.ended_at,
+      SELECT m.id, m.joueur1_id, m.joueur2_id, m.gagnant_id, m.score1, m.score2, m.etat, m.ended_at,
              j1.pseudo p1, j2.pseudo p2, t.nom AS duel_tournoi
       FROM match m
       JOIN tournoi t ON t.id = m.tournoi_id
@@ -416,9 +417,9 @@ function h2hPourMatchs(clubId, matchs) {
   const gagnantPseudo = (r) => (r.gagnant_id === r.joueur1_id ? r.p1 : r.p2);
   const out = {};
   for (const m of matchs) {
-    if (m.virtuel || (m.etat !== 'pret' && m.etat !== 'en_cours') || !m.joueur1 || !m.joueur2) continue;
+    if (m.virtuel || (m.etat !== 'pret' && m.etat !== 'en_cours' && m.etat !== 'termine' && m.etat !== 'forfait') || !m.joueur1 || !m.joueur2) continue;
     const ps = [m.joueur1.pseudo, m.joueur2.pseudo].sort();
-    const rows = bilans.get(ps[0] + '\u0001' + ps[1]) || [];
+    const rows = (bilans.get(ps[0] + '\u0001' + ps[1]) || []).filter(r => r.id < m.id);   // rencontres STRICTEMENT antérieures : jamais le match lui-même ni un duel postérieur
     const v1 = rows.filter(r => gagnantPseudo(r) === m.joueur1.pseudo).length;
     const d = rows[0];   // ORDER BY m.id DESC : la dernière rencontre d'abord
     out[m.id] = { n: rows.length, v1, v2: rows.length - v1, dernier: d ? {
@@ -468,7 +469,9 @@ app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe(req.
 app.get('/api/tournois/:id', (req, res) => {
   const t = tournoiDuClub(req, req.params.id);
   if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
-  res.json({ tournoi: vueTournoiComplet(t) });
+  const v = vueTournoiComplet(t);
+  v.h2h = h2hPourMatchs(req.club.id, v.matchs);   // fil sans tournoi actif : traces « belle / revanche » aussi sur les matchs terminés
+  res.json({ tournoi: v });
 });
 
 app.get('/api/stats-joueurs', (req, res) => {
