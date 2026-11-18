@@ -913,7 +913,7 @@ async function nouveauTournoi(body) {
   const css19 = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
   check('style.css: theme clair (variables + header + liens bracket + score adaptes)', css19.includes('html[data-theme="light"]') && css19.includes('path.to-wb') && css19.includes('.scoreboard .s') && css19.includes('header.top'), '');
   const cpte19 = fs.readFileSync(path.join(__dirname, '..', 'public', 'compte.html'), 'utf8');
-  check('compte.html: switch theme clair/sombre (basculerTheme dans common.js + libelle dynamique)', cpte19.includes('basculerTheme') && cpte19.includes('Apparence') && cjs18.includes('function basculerTheme') && cjs18.includes('function themeActuel'), '');
+  check('compte.html: interrupteur 0-1 theme clair (basculerTheme common.js + .toggle-mini style.css)', cpte19.includes('basculerTheme') && cpte19.includes('toggle-mini') && cpte19.includes('Apparence') && cjs18.includes('function basculerTheme') && cjs18.includes('function themeActuel') && css19.includes('button.toggle-mini'), '');
   const pages19 = fs.readdirSync(path.join(__dirname, '..', 'public')).filter(f => f.endsWith('.html') && f !== 'tv.html');
   const sansSnippet = pages19.filter(f => !fs.readFileSync(path.join(__dirname, '..', 'public', f), 'utf8').includes("localStorage.getItem('ebpc_theme')"));
   check('script anti-flash theme present sur toutes les pages sauf TV', sansSnippet.length === 0, 'manquantes: ' + sansSnippet.join(', '));

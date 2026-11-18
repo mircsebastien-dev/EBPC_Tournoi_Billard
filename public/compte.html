@@ -58,12 +58,17 @@ async function init() {
   main.innerHTML = '';
   const { compte, joueur_id, prefs } = await api('/api/compte/moi');
   // panneau apparence : thème clair/sombre (préférence locale, disponible même sans compte)
-  const lblTheme = () => themeActuel() === 'light' ? 'Passer en mode sombre' : 'Passer en mode clair';
-  const btnTheme = el('button', { style: 'width:100%', onclick: () => { basculerTheme(); btnTheme.textContent = lblTheme(); } }, lblTheme());
+  // interrupteur 0-1 discret : 0 = sombre (défaut), 1 = clair
+  const majSwTheme = () => { const on = themeActuel() === 'light'; swTheme.className = 'toggle-mini' + (on ? ' on' : ''); swTheme.setAttribute('aria-pressed', on ? 'true' : 'false'); };
+  const swTheme = el('button', { class: 'toggle-mini' + (themeActuel() === 'light' ? ' on' : ''), 'aria-pressed': themeActuel() === 'light' ? 'true' : 'false', 'aria-label': 'Interrupteur mode clair', title: '0 = sombre · 1 = clair', onclick: () => { basculerTheme(); majSwTheme(); } });
   main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto 20px' },
     el('h2', {}, '🌗 Apparence'),
-    el('p', { class: 'muted small' }, 'Le site est en sombre par défaut. La page TV reste toujours sombre (pensée pour les grands écrans).'),
-    btnTheme));
+    el('div', { class: 'row', style: 'justify-content:flex-end;align-items:center;gap:8px;flex-wrap:nowrap' },
+      el('span', { class: 'muted small', style: 'font-weight:800' }, 'Mode clair'),
+      el('span', { class: 'muted small', style: 'font-weight:800' }, '0'),
+      swTheme,
+      el('span', { class: 'muted small', style: 'font-weight:800' }, '1')),
+    el('p', { class: 'muted small' }, 'Interrupteur 0-1 : 0 = sombre (défaut), 1 = clair. La page TV reste toujours sombre.')));
   if (compte) {
     main.append(el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto;text-align:center' },
       el('div', { class: 'hero-title' }, `👤 ${compte.pseudo}`),
