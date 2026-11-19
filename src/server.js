@@ -1181,6 +1181,8 @@ app.post('/api/admin/club', requireAdmin, (req, res) => {
   if (clubParSlug(slug)) return res.status(409).json({ error: `slug « ${slug} » déjà pris` });
   const pinHash = req.body.pin ? crypto.createHash('sha256').update(String(req.body.pin)).digest('hex') : null;
   const info = db.prepare('INSERT INTO club (slug, nom, pin_hash) VALUES (?, ?, ?)').run(slug, nom, pinHash);
+  logAuditReq(req, 'club_cree', `club ${slug}`, null, { nom });
+  res.json({ ok: true, club: db.prepare('SELECT id, slug, nom, actif FROM club WHERE id = ?').get(Number(info.lastInsertRowid)) });
 });
 
 // ---------- Multi-club: réglages d'un club (nom, PIN propre, actif) ----------
