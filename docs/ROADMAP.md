@@ -1,6 +1,6 @@
 # 🗺️ Roadmap / idées — EBPC Tournoi Billard
 
-**Objectif final : transformer l'app en produit** (multi-club, invitations, compte joueur valorisé…).
+**Objectif final : transformer l'app en produit** (multi-club, invitations, compte joueur valorisé…) — **cap confirmé : tout centralisé, séparation logique** : une seule plateforme, chaque club / discipline / tournoi isolé logiquement (ses données, son PIN, ses comptes, son vocabulaire), multi-clubs et multi-tournois simultanés, super admin plateforme, KPI d'usage pour piloter.
 Liste des fonctionnalités et améliorations identifiées, triées par thème. ✅ = fait, 🚧 = en cours, ⬜ = à faire.
 
 L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier structurant).
@@ -66,7 +66,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | 28 | Accessibilité : contraste, taille de police réglable, navigation clavier | S-M | ⬜ |
 | 29 | PWA offline : la card match consultable sans réseau (vérifier ce que cache `sw.js`) | S-M | ⬜ |
 | 30 | **Rôles compte (`user`/`admin`)** : session admin = accès `/api/admin/*` sans PIN + exempte de `confirm_pin` sur les destructifs (mais modale front demandant de saisir `SUPPRIMER`) ; PIN conservé en fallback ; bootstrap 1er admin via `ADMIN_EMAIL`/`ADMIN_PASSWORD`, promotion via `POST /api/admin/compte/:id/role` ; pages admin sans PIN si session admin | M | ✅ fait |
-| 31 | **Rapport d'usage par tournoi (KPI joueurs)** : taux d'adoption (joueurs inscrits ayant ouvert l'appli), répartition des pages consultées (Mon tournoi / fil / tableau), persistance après élimination, réactivité post-saisie ; mesure serveur agrégée, rapport généré par tournoi, sans cookie ni tracker | M | ⬜ |
+| 31 | **Rapport d'usage par tournoi (KPI joueurs)** : taux d'adoption (joueurs inscrits ayant ouvert l'appli), répartition des pages consultées (Mon tournoi / fil / tableau), persistance après élimination, réactivité post-saisie, santé d'usage (temps de chargement médian, taux d'erreurs) ; mesure serveur agrégée, rapport généré par tournoi, sans cookie ni tracker | M | ⬜ |
 
 ## 🏗️ Environnements / mise en production
 
@@ -74,6 +74,17 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 |---|---|---|---|
 | 32 | **App de test `ebpc-tournoi-billard-test` déployée automatiquement à chaque push main** (après CI verte) : `fly.test.toml` + job `deploy-test`, volume `tournoi_data` séparé (restaurable depuis un snapshot prod), secrets propres, PIN différent ; notice et saut tant que `FLY_TEST_TOKEN` ou l'app manquent | S-M | 🚧 code poussé, app + token à créer |
 | 33 | **Passage en prod uniquement sur action délibérée** : workflow « Déployer prod » (confirmation `PROD`, secret `FLY_PROD_TOKEN`), auto-deploy GitHub Fly à désactiver sur l'app prod ; voir `docs/GUIDE_DEPLOY.md` | S | 🚧 code poussé, token à créer |
+
+## 🏛️ Plateforme / centralisation (cap confirmé)
+
+Ce que le produit devient : tout centralisé, séparation logique. Chaque club vit sa vie (données, PIN, comptes, vocabulaire), la plateforme pilote l'ensemble.
+
+| # | Idée | Effort | Statut |
+|---|---|---|---|
+| 34 | **Vidéo live du tournoi** : stream intégré sur la page tournoi + écran TV (phase 1 : embed d'un flux externe configuré par l'admin du tournoi, YouTube/Twitch, un lien par tournoi ; phase 2 : diffusion maison WebRTC/HLS si l'usage le justifie) | S / L (phase 2) | ⬜ |
+| 35 | **Chat live modéré** : fil de messages du tournoi visible par tous (SSE, même mécanique que le fil), modération par les comptes admin (suppression, bannissement temporaire, anti-flood / rate-limit) — distinct du chat par match #14 (cercle restreint) | M | ⬜ |
+| 36 | **Disciplines paramétrables par club** : profils par discipline à la place du billard hard-codé (blackball / ultimate / snooker / 8-ball, puis au-delà du billard si un club le demande) : vocabulaire paramétrable (table/terrain, set/leg, « belle »/« manche décisive »), format de score configurable (première à X manches vs premier à X points), règles activables (belles/revanches, forfaits) ; à construire APRÈS le multi-club stabilisé | L | ⬜ |
+| 37 | **Super admin plateforme** : rôle au-dessus des admins de club : création/gestion des clubs (quotas, isolation), KPI globaux (31), modération des abus, journal des opérations plateforme ; s'appuie sur le multi-club #20 (compte_club / role_club) | M-L | ⬜ |
 
 ---
 
@@ -85,3 +96,4 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 3. 🧪 21, 22, 24 — fiabilité admin
 4. 📺 11, 12 — effet « salle »
 5. 🏆 18, puis 19/20/17 selon la stratégie produit (multi-club d'abord si SaaS, poules d'abord si club unique avec beaucoup de tournois)
+6. 🏛️ cap plateforme confirmé : multi-club (20) → super admin (37) → multi-tournois (19) → KPI en continu (31) → disciplines (36) une fois le multi-club stabilisé ; vidéo live et chat modéré (34/35) quand l'usage salle le justifie
