@@ -12,11 +12,16 @@ let adminState = null;
 let adminCompte = null; // compte role=admin connecté (session) -> pas besoin de PIN
 // résolu au chargement de la page : /api/compte/moi renseigne compteCourant (common.js)
 const adminCompteP = api('/api/compte/moi').then(() => {
-  adminCompte = (typeof compteCourant !== 'undefined' && compteCourant && compteCourant.role === 'admin') ? compteCourant : null;
+  adminCompte = (typeof compteCourant !== 'undefined' && estCompteAdmin(compteCourant)) ? compteCourant : null;
 }).catch(() => { adminCompte = null; });
 
+// admin global (role=admin) OU compte rattaché au club courant avec un rôle (multi-club: moi renvoie role_club)
+function estCompteAdmin(c) {
+  return !!(c && (c.role === 'admin' || c.role_club));
+}
+
 function estSessionAdmin() {
-  return !!(adminCompte || (typeof compteCourant !== 'undefined' && compteCourant && compteCourant.role === 'admin'));
+  return !!(adminCompte || (typeof compteCourant !== 'undefined' && estCompteAdmin(compteCourant)));
 }
 
 function verrouillerAdmin() {

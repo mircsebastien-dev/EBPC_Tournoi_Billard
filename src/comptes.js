@@ -312,8 +312,9 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!req.compte) return res.json({ compte: null, joueur_id: null });
     const j = db.prepare('SELECT id FROM joueur WHERE compte_id = ? ORDER BY id DESC LIMIT 1').get(req.compte.id);
     const pref = db.prepare('SELECT notif_amis_inscription, notif_amis_match FROM compte WHERE id = ?').get(req.compte.id);
+    const roleClub = req.club ? db.prepare('SELECT role FROM compte_club WHERE compte_id = ? AND club_id = ?').get(req.compte.id, req.club.id) : null;
     res.json({
-      compte: comptePublic(req.compte),
+      compte: Object.assign(comptePublic(req.compte), { role_club: roleClub ? roleClub.role : null }), // rôle du compte sur le club courant (multi-club)
       joueur_id: j ? j.id : null,
       prefs: {
         notif_amis_inscription: pref ? !!pref.notif_amis_inscription : true,

@@ -914,6 +914,62 @@ async function nouveauTournoi(body) {
   check('audit (club défaut): club_cree et club_modifie journalisés', r.data.audit.some(a => a.action === 'club_cree') && r.data.audit.some(a => a.action === 'club_modifie'), 'nb=' + r.data.audit.length);
   await del('/api/admin/tournoi', { club: 'clubc' }).catch(() => {});
 
+  // ---------- 17c. Multi-club: rôles des comptes sur un club (compte_club: admin / operateur) ----------
+  sec('17c. Multi-club: rôles des comptes par club (admin de club / operateur)');
+  const cookieAvant17c = cookie;
+  // appels avec le cookie précis d'une session (pas la variable globale partagée)
+  const xhrC = (p, cookieX, opts = {}) => fetch(BASE + p, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json', ...(cookieX ? { Cookie: cookieX } : {}), ...(opts.club ? { 'X-Club': opts.club } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  }).then(async r2 => ({ status: r2.status, data: await r2.json().catch(() => ({})) }));
+  r = await post('/api/compte/inscription', { pseudo: 'Xavi', email: 'xavi@test.fr', password: 'xavi1234' }, { pin: null });
+  check('compte Xavi créé (201)', r.status === 201, r.status + ' ' + (r.data.error || ''));
+  const lXavi = await login('Xavi', 'xavi1234');
+  check('login Xavi (role=user) -> 200 + cookie', lXavi.status === 200 && !!lXavi.cookie, lXavi.status);
+  // super-admin attribue le rôle admin de clubc à Xavi
+  r = await put('/api/admin/club/compte', { pseudo: 'Xavi', role: 'admin' }, { pin: PIN, club: 'clubc' });
+  check('attribution du rôle admin de clubc à Xavi par le code global -> 200', r.status === 200 && r.data.role === 'admin', r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/admin/club/comptes', { pin: PIN, club: 'clubc' });
+  check('GET rôles du club: Xavi listé admin (pseudo + role, jamais de hash)', r.status === 200 && r.data.comptes.some(c => c.pseudo === 'Xavi' && c.role === 'admin'), JSON.stringify(r.data.comptes));
+  // la session de Xavi = admin de clubc, SANS aucun code PIN
+  r = await xhrC('/api/admin/audit', lXavi.cookie, { club: 'clubc' });
+  check('session Xavi (admin de clubc) ouvre les routes admin de clubc sans PIN -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/audit', lXavi.cookie);
+  check('session Xavi sans rôle sur le club par défaut -> 401', r.status === 401, r.status);
+  r = await xhrC('/api/admin/tournoi', lXavi.cookie, { method: 'POST', club: 'clubc', body: { nom: 'ClubC-T2', regle: 'blackball', taille: 16, format: 'simple', notif_push: false } });
+  check('Xavi crée un tournoi dans clubc par sa session (session_club) -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/club', lXavi.cookie, { method: 'PUT', club: 'clubc', body: { nom: 'Club C4' } });
+  check('Xavi renomme clubc par session, sans confirm_pin -> 200', r.status === 200 && r.data.club && r.data.club.nom === 'Club C4', r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/club', lXavi.cookie, { method: 'PUT', club: 'clubc', body: { pin: '2468' } });
+  check('Xavi (admin de club) change le PIN de clubc sans confirm_pin -> 200', r.status === 200 && r.data.club && r.data.club.pin_propre === true, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/club', lXavi.cookie, { method: 'PUT', club: 'clubc', body: { slug: 'ebpc', nom: 'Pirate' } });
+  check('Xavi ne peut pas modifier le club par défaut (garde super-admin) -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  // downgrade en operateur: routes ouvertes, mais confirmations destructives et gestion des rôles refusées
+  r = await put('/api/admin/club/compte', { pseudo: 'Xavi', role: 'operateur' }, { pin: PIN, club: 'clubc' });
+  check('downgrade de Xavi en operateur de clubc -> 200', r.status === 200 && r.data.role === 'operateur', r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/audit', lXavi.cookie, { club: 'clubc' });
+  check('session operateur ouvre toujours les routes admin de clubc -> 200', r.status === 200, r.status);
+  r = await xhrC('/api/admin/tournoi', lXavi.cookie, { method: 'DELETE', club: 'clubc' });
+  check('operateur: suppression du tournoi refusée sans code (confirm non levée) -> 401', r.status === 401, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/club/comptes', lXavi.cookie, { club: 'clubc' });
+  check('operateur: gestion des rôles du club interdite -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  // retrait du rôle par le super-admin, puis session Xavi révoquée
+  const xavId = (await api('/api/admin/comptes', {})).data.comptes.find(c => c.pseudo === 'Xavi').id;
+  r = await api('/api/admin/club/compte', { method: 'DELETE', pin: PIN, club: 'clubc', body: { compte_id: xavId, confirm_pin: PIN } });
+  check('retrait du rôle de Xavi (super-admin + confirm_pin) -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/audit', lXavi.cookie, { club: 'clubc' });
+  check('session Xavi révoquée: plus aucune route admin de clubc -> 401', r.status === 401, r.status);
+  r = await api('/api/admin/clubs', {});
+  check('(admin) liste des clubs: nb_comptes retombe à 0 pour clubc après le retrait', r.status === 200 && r.data.clubs.some(c => c.slug === 'clubc' && c.nb_comptes === 0), JSON.stringify(r.data.clubs.map(c => c.slug + ':' + (c.nb_comptes || 0))));
+  r = await api('/api/admin/audit', { pin: PIN, club: 'clubc' });
+  check('audit de clubc: club_role et club_role_retire journalisés', r.data.audit.some(a => a.action === 'club_role') && r.data.audit.some(a => a.action === 'club_role_retire'), 'nb=' + r.data.audit.length);
+  const clubsHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'clubs.html'), 'utf8');
+  const admHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
+  check('front: page Clubs (création, réglages par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien depuis l accueil admin', clubsHtml17c.includes("clubApi('/api/admin/club/comptes', slug") && clubsHtml17c.includes("'/api/admin/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug") && clubsHtml17c.includes('table-wrap') && admHtml17c.includes("href: '/clubs.html'"), '');
+  await del('/api/admin/tournoi', { club: 'clubc' }).catch(() => {});
+  cookie = cookieAvant17c; // restaurer la session du fil principal
+
   // ---------- 18. Rattachement des anciens joueurs anonymes à leur compte ----------
   sec('18. Rattachement compte <-> anciens joueurs anonymes (même pseudo, tournois passés)');
   r = await nouveauTournoi({ nom: 'Retro1', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
@@ -1245,12 +1301,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('336 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('355 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('336 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('355 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;
@@ -1278,6 +1334,7 @@ async function nouveauTournoi(body) {
   md += `- Rôles (section 16): compte role=admin -> session suffit pour requireAdmin ET confirm_pin (destructif); sinon PIN requis (401 sans), confirm_pin requis sur destructifs; POST /api/admin/compte/:id/role (admin/user, 400 invalide)\n`;
   md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
   md += `- Multi-club PIN et réglages (section 17b): PUT /api/admin/club (nom sans confirm / pin 4-8 chiffres avec confirm_pin / actif), club inactif exclu de /api/clubs et 404 à la résolution, réactivation à distance (super-admin: PIN global ou session admin, 403 pour un simple admin de club), GET /api/admin/clubs (pin_propre/actif, jamais de hash), audit club_modifié\n`;
+  md += `- Multi-club comptes et rôles (section 17c): table compte_club, rôles admin (gestion complète du club par session, confirmations levées) et operateur (routes admin ouvertes, confirmations et rôles refusés), attribution/changement/retrait par le super-admin (PUT/DELETE /api/admin/club/compte), GET /api/admin/club/comptes, /api/compte/moi expose role_club, nb_comptes dans GET /api/admin/clubs, page admin /clubs.html (création, réglages, rôles)\n`;
   md += `- Rattachement compte/joueurs anonymes (section 18): compte créé après un tournoi archivé (sans tournoi actif) rattache quand même les lignes anonymes du même pseudo (tournois passés inclus), fiche joueur + classement conservent les stats\n`;
   md += `- Fil du tournoi (section 20): chronique du tournoi dérivée de l'état (aucun stockage -> cohérente avec les tableaux, rollback et corrections inclus), lignes victoire/forfait/champion/belle, élimination définitive mentionnée uniquement en double KO (LB/F) et fusionnée dans la ligne, 3 dernières lignes + « Voir tout » sur l'accueil, horodatage relatif, dernier tournoi terminé consultable sans tournoi actif (/api/tournois/:id public), phrases i18n dans les 5 langues (clés statiques + règles dynamiques alignées I18N_DYN/REPS_DYN_*)\n`;
   md += `- Variantes, durées et revanche (section 21): phrases variées par hachage déterministe (7 variantes victoires/forfaits/champion/belles, 4 belles sans table, 6 égalités, 7 revanches underdog), durée des matchs finis dans les lignes (· durée 42 min), lignes « revanche » en direct pour les paires déjà croisées (actif.h2h, historique du club complet, underdog « une revanche à prendre », « mène X-Y », égalité), pas de double ligne si à la belle ; traces après fin (suffixes « · après la belle » et « · revanche prise ! / manquée » via h2h antérieur sur les résultats, servies aussi sur /api/tournois/:id sans tournoi actif) ; 43 règles i18n du fil alignées dans les 5 langues (cDyn = 120)\n`;

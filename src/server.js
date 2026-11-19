@@ -115,8 +115,17 @@ function verifierPinAdmin(req, pin) {
 // sinon fallback par code PIN (anti brute-force). Le PIN n'est exigé QUE si pas de session admin.
 function estAdminSession(req) { return !!(req.compte && req.compte.role === 'admin'); }
 
+// multi-club: rôle du compte (via sa session) sur le club courant, null sinon.
+// 'admin' = gestion complète du club par session ; 'operateur' = routes admin du club ouvertes, confirmations et rôles refusés.
+function roleClubSession(req) {
+  if (!req.compte || !req.club) return null;
+  const rc = db.prepare('SELECT role FROM compte_club WHERE compte_id = ? AND club_id = ?').get(req.compte.id, req.club.id);
+  return rc ? rc.role : null;
+}
+
 function requireAdmin(req, res, next) {
   if (estAdminSession(req)) { req.adminVia = 'session'; return next(); }
+  if (roleClubSession(req)) { req.adminVia = 'session_club'; return next(); } // session d un compte rattaché au club
   // PAS de req.query.pin: le PIN dans l'URL fuirait dans les logs des proxies
   const pin = req.headers['x-admin-pin'] || (req.body && req.body.pin);
   const r = verifierPinAdmin(req, pin);
@@ -129,7 +138,7 @@ function requireAdmin(req, res, next) {
 // geste admin destructif : exige le code re-saisi dans le body (confirm_pin), pas juste la session PIN —
 // sauf si session d'un compte admin (déjà authentifié fortement par mdp + session)
 function requireConfirmPin(req, res, next) {
-  if (estAdminSession(req)) return next();
+  if (estAdminSession(req) || roleClubSession(req) === 'admin') return next(); // admin global ou admin du club (auth forte par mdp + session)
   const pin = req.body && req.body.confirm_pin;
   const r = verifierPinAdmin(req, pin);
   if (r.bloque) return res.status(429).json({ error: r.message });
@@ -177,7 +186,7 @@ function matchDuClub(req, id) { return db.prepare('SELECT m.* FROM match m JOIN 
 function joueurDuClub(req, id) { return db.prepare('SELECT j.* FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id WHERE j.id = ? AND t.club_id = ?').get(Number(id), req.club.id) || null; }
 // audit toujours rattaché au club de la requête
 // pseudo du compte admin à l'origine d'une action (session admin), null si auth par code PIN ou action auto
-function auteurAdmin(req) { return estAdminSession(req) ? req.compte.pseudo : null; }
+function auteurAdmin(req) { return (req && req.compte && (estAdminSession(req) || roleClubSession(req))) ? req.compte.pseudo : null; }
 function logAuditReq(req, action, cible, avant, apres) { logAudit(action, cible, avant, apres, req && req.club ? req.club.id : undefined, auteurAdmin(req)); }
 
 function distancesMap(tournoiId) {
@@ -1188,8 +1197,12 @@ app.post('/api/admin/club', requireAdmin, (req, res) => {
 // ---------- Multi-club: réglages d'un club (nom, PIN propre, actif) ----------
 // GET /api/admin/clubs : liste complète (super-admin), pin_propre = a son propre PIN, jamais de hash ni PIN en réponse
 app.get('/api/admin/clubs', requireAdmin, (req, res) => {
-  const clubs = db.prepare('SELECT id, slug, nom, actif, pin_hash, created_at FROM club ORDER BY id').all()
-    .map(c => ({ id: c.id, slug: c.slug, nom: c.nom, actif: !!c.actif, pin_propre: !!c.pin_hash, created_at: c.created_at }));
+  const clubs = db.prepare(`
+    SELECT c.id, c.slug, c.nom, c.actif, c.pin_hash, c.created_at,
+      (SELECT COUNT(*) FROM compte_club cc WHERE cc.club_id = c.id) nb_comptes
+    FROM club c ORDER BY c.id
+  `).all()
+    .map(c => ({ id: c.id, slug: c.slug, nom: c.nom, actif: !!c.actif, pin_propre: !!c.pin_hash, nb_comptes: c.nb_comptes || 0, created_at: c.created_at }));
   res.json({ clubs });
 });
 function hashPin(p) { return crypto.createHash('sha256').update(String(p)).digest('hex'); }
@@ -1231,7 +1244,7 @@ app.put('/api/admin/club', requireAdmin, (req, res) => {
     }
   }
   // nom : libre pour l'admin du club ; PIN ou actif : geste sensible, code re-saisi exigé (sauf session admin)
-  if ((pinChange || maj.actif !== undefined) && !estAdminSession(req)) {
+  if ((pinChange || maj.actif !== undefined) && !estAdminSession(req) && roleClubSession(req) !== 'admin') {
     const rc = verifierPinAdmin(req, req.body.confirm_pin);
     if (rc.bloque) return res.status(429).json({ error: rc.message });
     if (!rc.ok) return res.status(401).json({ error: 'Code administrateur requis pour confirmer ce changement' });
@@ -1243,6 +1256,46 @@ app.put('/api/admin/club', requireAdmin, (req, res) => {
   db.prepare(`UPDATE club SET ${sets} WHERE id = ?`).run(...Object.values(maj), cible.id);
   logAuditReq(req, 'club_modifie', `club ${cible.slug}`, null, { changements: Object.keys(maj) }); // jamais le PIN lui-même
   res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: maj.nom != null ? maj.nom : cible.nom, actif: maj.actif != null ? !!maj.actif : !!cible.actif, pin_propre: maj.pin_hash ? true : !!cible.pin_hash } });
+});
+
+// ---------- Multi-club: rôles des comptes sur un club (table compte_club) ----------
+// gestion des rôles réservée: code global (super-admin), session admin du club, ou session admin globale.
+// le simple code PIN du club (ou un compte operateur) ne peut pas s attribuer de rôle persistant.
+function requireRoleClub(req, res, next) {
+  if (superAdminSoumis(req) || roleClubSession(req) === 'admin') return next();
+  return res.status(403).json({ error: 'Gérer les rôles du club nécessite le code global, une session admin du club ou une session admin globale' });
+}
+// rôles du club courant (jamais de hash ni d email en réponse)
+app.get('/api/admin/club/comptes', requireAdmin, requireRoleClub, (req, res) => {
+  const liens = db.prepare(`
+    SELECT cc.compte_id, cc.role, cc.created_at, c.pseudo FROM compte_club cc
+    JOIN compte c ON c.id = cc.compte_id
+    WHERE cc.club_id = ? ORDER BY cc.id
+  `).all(req.club.id);
+  res.json({ comptes: liens });
+});
+// attribuer ou changer le rôle d un compte sur le club courant (idempotent: mise à jour du rôle si déjà lié)
+app.put('/api/admin/club/compte', requireAdmin, requireRoleClub, (req, res) => {
+  const pseudo = String(req.body.pseudo || '').trim().slice(0, 24);
+  const role = req.body.role === 'operateur' ? 'operateur' : (req.body.role === 'admin' ? 'admin' : null);
+  if (!pseudo) return res.status(400).json({ error: 'pseudo requis' });
+  if (!role) return res.status(400).json({ error: 'Rôle invalide (admin ou operateur)' });
+  const cible = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
+  if (!cible) return res.status(404).json({ error: `Compte « ${pseudo} » introuvable` });
+  const deja = db.prepare('SELECT id FROM compte_club WHERE compte_id = ? AND club_id = ?').get(cible.id, req.club.id);
+  if (deja) db.prepare('UPDATE compte_club SET role = ? WHERE id = ?').run(role, deja.id);
+  else db.prepare('INSERT INTO compte_club (compte_id, club_id, role) VALUES (?, ?, ?)').run(cible.id, req.club.id, role);
+  logAuditReq(req, 'club_role', `club ${req.club.slug} : ${cible.pseudo}`, null, { role });
+  res.json({ ok: true, compte_id: cible.id, pseudo: cible.pseudo, role });
+});
+// retirer le rôle d un compte sur le club courant (destructif: confirmation exigée, sauf session admin)
+app.delete('/api/admin/club/compte', requireAdmin, requireRoleClub, requireConfirmPin, (req, res) => {
+  const compteId = Number(req.body.compte_id);
+  if (!compteId) return res.status(400).json({ error: 'compte_id requis' });
+  const info = db.prepare('DELETE FROM compte_club WHERE club_id = ? AND compte_id = ?').run(req.club.id, compteId);
+  if (!info.changes) return res.status(404).json({ error: 'Ce compte n a pas de rôle sur ce club' });
+  logAuditReq(req, 'club_role_retire', `club ${req.club.slug} : compte ${compteId}`, null, null);
+  res.json({ ok: true });
 });
 
 // Rollback point-in-time : restaure le tournoi actif à l'état du snapshot d'un événement d'audit

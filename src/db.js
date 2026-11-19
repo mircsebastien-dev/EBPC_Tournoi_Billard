@@ -25,6 +25,19 @@ CREATE TABLE IF NOT EXISTS club (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- multi-club: rattachement d'un compte à un club avec un rôle
+-- role 'admin' : gestion complète du club par session (confirmations destructives levées)
+-- role 'operateur' : ouvre les routes admin du club par session, MAIS confirmations (PIN) et gestion des rôles refusées
+CREATE TABLE IF NOT EXISTS compte_club (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  compte_id INTEGER NOT NULL REFERENCES compte(id) ON DELETE CASCADE,
+  club_id INTEGER NOT NULL REFERENCES club(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'operateur')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (compte_id, club_id)
+);
+CREATE INDEX IF NOT EXISTS idx_compte_club_club ON compte_club(club_id);
+
 CREATE TABLE IF NOT EXISTS tournoi (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   club_id INTEGER REFERENCES club(id),

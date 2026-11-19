@@ -14,6 +14,19 @@ function clubHeaders() {
 // avec repli sur le francais si la chaine est absente (aucun changement en mode fr).
 const LANG = (() => { try { const v = localStorage.getItem('ebpc_lang'); return ['en','es','it','de'].includes(v) ? v : 'fr'; } catch { return 'fr'; } })();
 const I18N = {
+  "Clubs": "Clubs",
+  "Créer un club": "Create a club",
+  "Nom du club": "Club name",
+  "Code PIN du club": "Club PIN code",
+  "Code PIN propre": "Own PIN code",
+  "Comptes rattachés": "Linked accounts",
+  "Actif": "Active",
+  "Inactif": "Inactive",
+  "Activer": "Activate",
+  "Rôles du club": "Club roles",
+  "Administrateur": "Administrator",
+  "Opérateur": "Operator",
+  "Retirer": "Remove",
   "Aide": "Help",
   "Amis": "Friends",
   "Annuler": "Cancel",
@@ -686,6 +699,19 @@ const I18N_DYN = [
 ];
 // --- i18n ES : dictionnaire espagnol (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
 const I18N_ES = {
+  "Clubs": "Clubes",
+  "Créer un club": "Crear un club",
+  "Nom du club": "Nombre del club",
+  "Code PIN du club": "Código PIN del club",
+  "Code PIN propre": "Código PIN propio",
+  "Comptes rattachés": "Cuentas vinculadas",
+  "Actif": "Activo",
+  "Inactif": "Inactivo",
+  "Activer": "Activar",
+  "Rôles du club": "Roles del club",
+  "Administrateur": "Administrador",
+  "Opérateur": "Operador",
+  "Retirer": "Quitar",
   "Aide": "Ayuda",
   "Amis": "Amigos",
   "Annuler": "Cancelar",
@@ -1358,6 +1384,19 @@ const REPS_DYN_ES = [
 
 // --- i18n IT : dictionnaire italien (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
 const I18N_IT = {
+  "Clubs": "Club",
+  "Créer un club": "Crea un club",
+  "Nom du club": "Nome del club",
+  "Code PIN du club": "Codice PIN del club",
+  "Code PIN propre": "Codice PIN proprio",
+  "Comptes rattachés": "Account collegati",
+  "Actif": "Attivo",
+  "Inactif": "Inattivo",
+  "Activer": "Attiva",
+  "Rôles du club": "Ruoli del club",
+  "Administrateur": "Amministratore",
+  "Opérateur": "Operatore",
+  "Retirer": "Rimuovi",
   "Aide": "Aiuto",
   "Amis": "Amici",
   "Annuler": "Annulla",
@@ -2030,6 +2069,19 @@ const REPS_DYN_IT = [
 
 // --- i18n DE : dictionnaire allemand (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
 const I18N_DE = {
+  "Clubs": "Clubs",
+  "Créer un club": "Club erstellen",
+  "Nom du club": "Clubname",
+  "Code PIN du club": "Club-PIN-Code",
+  "Code PIN propre": "Eigener PIN-Code",
+  "Comptes rattachés": "Verknüpfte Konten",
+  "Actif": "Aktiv",
+  "Inactif": "Inaktiv",
+  "Activer": "Aktivieren",
+  "Rôles du club": "Club-Rollen",
+  "Administrateur": "Administrator",
+  "Opérateur": "Operator",
+  "Retirer": "Entfernen",
   "Aide": "Hilfe",
   "Amis": "Freunde",
   "Annuler": "Abbrechen",
