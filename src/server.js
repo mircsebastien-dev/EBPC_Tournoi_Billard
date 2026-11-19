@@ -1100,7 +1100,24 @@ app.post('/api/admin/simuler', requireAdmin, (req, res) => {
 });
 
 // ---- Gestion des comptes joueurs (admin) ----
+// un compte compte comme « du club courant » s il a un rôle sur le club ou un joueur
+// inscrit dans un tournoi du club (les comptes restent globaux à la plateforme)
+function comptePresentClub(clubId, compteId) {
+  return !!(db.prepare('SELECT 1 FROM compte_club WHERE compte_id = ? AND club_id = ?').get(compteId, clubId)
+    || db.prepare('SELECT 1 FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id WHERE j.compte_id = ? AND t.club_id = ?').get(compteId, clubId));
+}
+// super-admin: tous les comptes. Session de club: uniquement les comptes de son club (404 sinon)
+function requireGestionCompte(req, res, next) {
+  if (superAdminSoumis(req)) return next();
+  if (comptePresentClub(req.club.id, Number(req.params.id))) return next();
+  return res.status(404).json({ error: 'Compte introuvable' });
+}
 app.get('/api/admin/comptes', requireAdmin, (req, res) => {
+  const cid = req.club ? req.club.id : clubParDefaut().id;
+  const scopeClub = !superAdminSoumis(req); // session de club: seulement les comptes liés au club courant
+  const where = scopeClub ? `
+      WHERE EXISTS (SELECT 1 FROM joueur jj JOIN tournoi tt ON tt.id = jj.tournoi_id WHERE jj.compte_id = c.id AND tt.club_id = ?)
+         OR EXISTS (SELECT 1 FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?)` : '';
   const rows = db.prepare(`
     SELECT c.id, c.pseudo, c.email, c.role, c.created_at,
            (SELECT COUNT(*) FROM session s WHERE s.compte_id = c.id) sessions,
@@ -1110,12 +1127,13 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
            (SELECT COUNT(*) FROM push_subscription ps WHERE ps.compte_id = c.id AND ps.club_id = ?) push_abonnements,
            (SELECT group_concat(c2.pseudo, ', ') FROM ami a JOIN compte c2 ON c2.id = a.ami_compte_id WHERE a.compte_id = c.id) amis_comptes,
            (SELECT group_concat(p.pseudo, ', ') FROM ami_pseudo p WHERE p.compte_id = c.id) amis_pseudos
-    FROM compte c ORDER BY c.id DESC
-  `).all(req.club.id);
+    FROM compte c${where}
+    ORDER BY c.id DESC
+  `).all(cid, ...(scopeClub ? [cid, cid] : []));
   res.json({ comptes: rows });
 });
 
-app.post('/api/admin/compte/:id/pseudo', requireAdmin, (req, res) => {
+app.post('/api/admin/compte/:id/pseudo', requireAdmin, requireGestionCompte, (req, res) => {
   try {
     const id = Number(req.params.id);
     const c = db.prepare('SELECT id FROM compte WHERE id = ?').get(id);
@@ -1126,8 +1144,9 @@ app.post('/api/admin/compte/:id/pseudo', requireAdmin, (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
-// rôle d'un compte (user/admin) — géré par un admin (PIN ou session admin)
-app.post('/api/admin/compte/:id/role', requireAdmin, (req, res) => {
+// rôle GLOBAL d'un compte (user/admin): réglage plateforme, super-admin uniquement.
+// Les rôles de club (admin/operateur d un club) se gèrent via /api/admin/club/compte.
+app.post('/api/admin/compte/:id/role', requireAdmin, requireSuperAdmin, (req, res) => {
   const role = req.body && req.body.role;
   if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: "role invalide ('admin' ou 'user')" });
   const id = Number(req.params.id);
@@ -1139,7 +1158,7 @@ app.post('/api/admin/compte/:id/role', requireAdmin, (req, res) => {
   res.json({ ok: true, id, role });
 });
 
-app.post('/api/admin/compte/:id/password', requireAdmin, (req, res) => {
+app.post('/api/admin/compte/:id/password', requireAdmin, requireGestionCompte, (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!db.prepare('SELECT id FROM compte WHERE id = ?').get(id)) return res.status(404).json({ error: 'Compte introuvable' });
@@ -1149,7 +1168,7 @@ app.post('/api/admin/compte/:id/password', requireAdmin, (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
-app.delete('/api/admin/compte/:id', requireAdmin, requireConfirmPin, (req, res) => {
+app.delete('/api/admin/compte/:id', requireAdmin, requireGestionCompte, requireConfirmPin, (req, res) => {
   const id = Number(req.params.id);
   const c = comptes.supprimerCompte(id);
   if (!c) return res.status(404).json({ error: 'Compte introuvable' });

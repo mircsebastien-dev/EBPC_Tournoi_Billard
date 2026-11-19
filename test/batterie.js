@@ -962,6 +962,21 @@ async function nouveauTournoi(body) {
   check('Seb (admin de club) change le PIN de clubc sans confirm_pin -> 200', r.status === 200 && r.data.club && r.data.club.pin_propre === true, r.status + ' ' + (r.data.error || ''));
   r = await xhrC('/api/admin/club', lSeb17c.cookie, { method: 'PUT', club: 'clubc', body: { slug: 'ebpc', nom: 'Pirate' } });
   check('Seb ne peut pas modifier le club par défaut (garde super-admin) -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  // cloisonnement de la gestion des comptes: une session de club ne voit et ne gère que les comptes
+  // de SON club; le rôle global (user/admin) est un réglage super-admin
+  const cidAlice17c = (await api('/api/admin/comptes', {})).data.comptes.find(c => c.pseudo === 'AliceBT');
+  r = await xhrC('/api/admin/comptes', lSeb17c.cookie, { club: 'clubc' });
+  check('admin de club: liste des comptes limitée à son club (Seb présent, AliceBT absente)', r.status === 200 && !!r.data.comptes.some(c => c.pseudo === 'Seb') && !r.data.comptes.some(c => c.pseudo === 'AliceBT'), 'n=' + r.data.comptes.length + ' ' + JSON.stringify(r.data.comptes.map(c => c.pseudo)));
+  r = await xhrC(`/api/admin/compte/${cidAlice17c.id}/role`, lSeb17c.cookie, { method: 'POST', club: 'clubc', body: { role: 'admin' } });
+  check('admin de club: promotion au rôle GLOBAL refusée (super-admin uniquement) -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC(`/api/admin/compte/${cidAlice17c.id}/pseudo`, lSeb17c.cookie, { method: 'POST', club: 'clubc', body: { pseudo: 'Pirate17c' } });
+  check('admin de club: renommage d un compte hors de son club -> 404', r.status === 404, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC(`/api/admin/compte/${cidAlice17c.id}/password`, lSeb17c.cookie, { method: 'POST', club: 'clubc', body: { password: 'hijack1' } });
+  check('admin de club: reset du mot de passe d un compte hors de son club -> 404', r.status === 404, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC(`/api/admin/compte/${cidAlice17c.id}`, lSeb17c.cookie, { method: 'DELETE', club: 'clubc' });
+  check('admin de club: suppression d un compte hors de son club -> 404', r.status === 404, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/admin/comptes', {});
+  check('super-admin: liste complète conservée (AliceBT et Seb visibles depuis le club par défaut)', r.status === 200 && !!r.data.comptes.some(c => c.pseudo === 'AliceBT') && !!r.data.comptes.some(c => c.pseudo === 'Seb'), 'n=' + r.data.comptes.length);
   // gestion des clubs (liste complète, création) = super-admin uniquement: refus pour un compte de club
   r = await xhrC('/api/admin/clubs', lSeb17c.cookie, { club: 'clubc' });
   check('admin de club: liste des clubs interdite (super-admin uniquement) -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
@@ -993,8 +1008,10 @@ async function nouveauTournoi(body) {
   check('audit de clubc: club_role et club_role_retire journalisés', r.data.audit.some(a => a.action === 'club_role') && r.data.audit.some(a => a.action === 'club_role_retire'), 'nb=' + r.data.audit.length);
   const clubsHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'clubs.html'), 'utf8');
   const admHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
+  const admCpt17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
   check('front: page Clubs (création, réglages par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien depuis l accueil admin', clubsHtml17c.includes("clubApi('/api/admin/club/comptes', slug") && clubsHtml17c.includes("'/api/admin/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug") && clubsHtml17c.includes('table-wrap') && admHtml17c.includes("href: '/clubs.html'"), '');
   check('front: menu Clubs réservé au super-admin (/api/admin/super conditionne le bouton, page Clubs affiche un message si 403)', admHtml17c.includes("/api/admin/super") && admHtml17c.includes("superAdminMenu ? [") && clubsHtml17c.includes('Gestion des clubs réservée au super-admin'), '');
+  check('front: bouton 👑 (rôle global) masqué aux sessions de club sur la page Comptes joueurs', admCpt17c.includes("/api/admin/super") && admCpt17c.includes("superAdminComptes ? ["), '');
   // suppression d un club: super-admin uniquement, défaut protégé, refus si des tournois sont rattachés
   r = await api('/api/admin/club', { method: 'DELETE', pin: PIN, club: 'clubc', body: { slug: 'clubc', confirm_pin: PIN } });
   check('suppression clubc refusée: un tournoi est encore rattaché -> 409', r.status === 409, r.status + ' ' + (r.data.error || ''));
@@ -1351,12 +1368,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('377 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('384 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('377 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('384 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;

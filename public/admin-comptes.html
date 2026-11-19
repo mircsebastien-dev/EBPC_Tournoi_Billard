@@ -19,6 +19,7 @@
 <script>
 document.getElementById('nav').append(nav('admin'));
 const main = document.getElementById('main');
+let superAdminComptes = true; // rôle global (user/admin) = super-admin seulement: bouton 👑 masqué sinon
 let filtre = '';
 
 async function charger() {
@@ -64,12 +65,12 @@ function render(comptes) {
           return t.length ? t.join(' · ') : '—';
         })()),
         el('td', { style: 'padding:6px 8px;text-align:right' },
-          el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: c.role === 'admin' ? 'Rétrograder en simple utilisateur (le PIN restera nécessaire pour l\\u2019admin)' : 'Promouvoir administrateur (sa session suffira pour l\\u2019admin, sans PIN)', onclick: async () => {
+          ...(superAdminComptes ? [el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: c.role === 'admin' ? 'Rétrograder en simple utilisateur (le PIN restera nécessaire pour l\\u2019admin)' : 'Promouvoir administrateur (sa session suffira pour l\\u2019admin, sans PIN)', onclick: async () => {
             const cible = c.role === 'admin' ? 'user' : 'admin';
             if (!confirm(`${cible === 'admin' ? 'Promouvoir' : 'Rétrograder'} « ${c.pseudo} » en ${cible === 'admin' ? 'admin' : 'user'} ?`)) return;
             try { await adminApi(`/api/admin/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: cible }) }); charger(); }
             catch (e) { alert(e.message); }
-          } }, c.role === 'admin' ? '👑\u2193 user' : '👑 admin'),
+          } }, c.role === 'admin' ? '👑\u2193 user' : '👑 admin')] : []),
           el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: 'Renommer le pseudo du compte', onclick: async () => {
             const p = prompt(`Nouveau pseudo pour « ${c.pseudo} » (min 2 caractères) :`, c.pseudo);
             if (!p || p === c.pseudo) return;
@@ -91,6 +92,8 @@ function render(comptes) {
 
 async function init() {
   const ok = await adminInit(() => {});
+  // le rôle global (user/admin) est un réglage super-admin: bouton 👑 réservé aux super-admins
+  if (ok) { try { superAdminComptes = (await adminApi('/api/admin/super')).super_admin === true; } catch (e) { superAdminComptes = false; } }
   if (!ok) { renderAdminLogin(main); return; }
   await charger();
 }
