@@ -916,6 +916,8 @@ async function nouveauTournoi(body) {
 
   // ---------- 17c. Multi-club: rôles des comptes sur un club (compte_club: admin / operateur) ----------
   sec('17c. Multi-club: rôles des comptes par club (admin de club / operateur)');
+  // N.B. pas de nouvelle inscription ici: le rate limit /api/compte/inscription (5 essais/10min/IP) est déjà consommé par les sections précédentes.
+  // On réutilise le compte Seb (role=user, mdp nouveau1), le rôle club lui est retiré à la fin.
   const cookieAvant17c = cookie;
   // appels avec le cookie précis d'une session (pas la variable globale partagée)
   const xhrC = (p, cookieX, opts = {}) => fetch(BASE + p, {
@@ -923,43 +925,43 @@ async function nouveauTournoi(body) {
     headers: { 'Content-Type': 'application/json', ...(cookieX ? { Cookie: cookieX } : {}), ...(opts.club ? { 'X-Club': opts.club } : {}) },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   }).then(async r2 => ({ status: r2.status, data: await r2.json().catch(() => ({})) }));
-  r = await post('/api/compte/inscription', { pseudo: 'Xavi', email: 'xavi@test.fr', password: 'xavi1234' }, { pin: null });
-  check('compte Xavi créé (201)', r.status === 201, r.status + ' ' + (r.data.error || ''));
-  const lXavi = await login('Xavi', 'xavi1234');
-  check('login Xavi (role=user) -> 200 + cookie', lXavi.status === 200 && !!lXavi.cookie, lXavi.status);
-  // super-admin attribue le rôle admin de clubc à Xavi
-  r = await put('/api/admin/club/compte', { pseudo: 'Xavi', role: 'admin' }, { pin: PIN, club: 'clubc' });
-  check('attribution du rôle admin de clubc à Xavi par le code global -> 200', r.status === 200 && r.data.role === 'admin', r.status + ' ' + (r.data.error || ''));
+  const lSeb17c = await login('Seb', 'nouveau1');
+  check('login Seb (17c): session fraîche -> 200 + cookie', lSeb17c.status === 200 && !!lSeb17c.cookie, lSeb17c.status);
+  // super-admin attribue le rôle admin de clubc à Seb
+  r = await put('/api/admin/club/compte', { pseudo: 'Seb', role: 'admin' }, { pin: PIN, club: 'clubc' });
+  check('attribution du rôle admin de clubc à Seb par le code global -> 200', r.status === 200 && r.data.role === 'admin', r.status + ' ' + (r.data.error || ''));
+  const sebId17c = r.data ? r.data.compte_id : undefined;
+  r = await put('/api/admin/club/compte', { pseudo: 'Seb', role: 'chef' }, { pin: PIN, club: 'clubc' });
+  check('rôle inconnu (chef) -> 400', r.status === 400, r.status + ' ' + (r.data.error || ''));
   r = await api('/api/admin/club/comptes', { pin: PIN, club: 'clubc' });
-  check('GET rôles du club: Xavi listé admin (pseudo + role, jamais de hash)', r.status === 200 && r.data.comptes.some(c => c.pseudo === 'Xavi' && c.role === 'admin'), JSON.stringify(r.data.comptes));
-  // la session de Xavi = admin de clubc, SANS aucun code PIN
-  r = await xhrC('/api/admin/audit', lXavi.cookie, { club: 'clubc' });
-  check('session Xavi (admin de clubc) ouvre les routes admin de clubc sans PIN -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
-  r = await xhrC('/api/admin/audit', lXavi.cookie);
-  check('session Xavi sans rôle sur le club par défaut -> 401', r.status === 401, r.status);
-  r = await xhrC('/api/admin/tournoi', lXavi.cookie, { method: 'POST', club: 'clubc', body: { nom: 'ClubC-T2', regle: 'blackball', taille: 16, format: 'simple', notif_push: false } });
-  check('Xavi crée un tournoi dans clubc par sa session (session_club) -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
-  r = await xhrC('/api/admin/club', lXavi.cookie, { method: 'PUT', club: 'clubc', body: { nom: 'Club C4' } });
-  check('Xavi renomme clubc par session, sans confirm_pin -> 200', r.status === 200 && r.data.club && r.data.club.nom === 'Club C4', r.status + ' ' + (r.data.error || ''));
-  r = await xhrC('/api/admin/club', lXavi.cookie, { method: 'PUT', club: 'clubc', body: { pin: '2468' } });
-  check('Xavi (admin de club) change le PIN de clubc sans confirm_pin -> 200', r.status === 200 && r.data.club && r.data.club.pin_propre === true, r.status + ' ' + (r.data.error || ''));
-  r = await xhrC('/api/admin/club', lXavi.cookie, { method: 'PUT', club: 'clubc', body: { slug: 'ebpc', nom: 'Pirate' } });
-  check('Xavi ne peut pas modifier le club par défaut (garde super-admin) -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  check('GET rôles du club: Seb listé admin (pseudo + role, jamais de hash)', r.status === 200 && r.data.comptes.some(c => c.pseudo === 'Seb' && c.role === 'admin'), JSON.stringify(r.data.comptes));
+  // la session de Seb = admin de clubc, SANS aucun code PIN
+  r = await xhrC('/api/admin/audit', lSeb17c.cookie, { club: 'clubc' });
+  check('session Seb (admin de clubc) ouvre les routes admin de clubc sans PIN -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/audit', lSeb17c.cookie);
+  check('session Seb sans rôle sur le club par défaut -> 401', r.status === 401, r.status);
+  r = await xhrC('/api/admin/tournoi', lSeb17c.cookie, { method: 'POST', club: 'clubc', body: { nom: 'ClubC-T2', regle: 'blackball', taille: 16, format: 'simple', notif_push: false } });
+  check('Seb crée un tournoi dans clubc par sa session (session_club) -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/club', lSeb17c.cookie, { method: 'PUT', club: 'clubc', body: { nom: 'Club C4' } });
+  check('Seb renomme clubc par session, sans confirm_pin -> 200', r.status === 200 && r.data.club && r.data.club.nom === 'Club C4', r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/club', lSeb17c.cookie, { method: 'PUT', club: 'clubc', body: { pin: '2468' } });
+  check('Seb (admin de club) change le PIN de clubc sans confirm_pin -> 200', r.status === 200 && r.data.club && r.data.club.pin_propre === true, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/club', lSeb17c.cookie, { method: 'PUT', club: 'clubc', body: { slug: 'ebpc', nom: 'Pirate' } });
+  check('Seb ne peut pas modifier le club par défaut (garde super-admin) -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
   // downgrade en operateur: routes ouvertes, mais confirmations destructives et gestion des rôles refusées
-  r = await put('/api/admin/club/compte', { pseudo: 'Xavi', role: 'operateur' }, { pin: PIN, club: 'clubc' });
-  check('downgrade de Xavi en operateur de clubc -> 200', r.status === 200 && r.data.role === 'operateur', r.status + ' ' + (r.data.error || ''));
-  r = await xhrC('/api/admin/audit', lXavi.cookie, { club: 'clubc' });
+  r = await put('/api/admin/club/compte', { pseudo: 'Seb', role: 'operateur' }, { pin: PIN, club: 'clubc' });
+  check('downgrade de Seb en operateur de clubc -> 200', r.status === 200 && r.data.role === 'operateur', r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/audit', lSeb17c.cookie, { club: 'clubc' });
   check('session operateur ouvre toujours les routes admin de clubc -> 200', r.status === 200, r.status);
-  r = await xhrC('/api/admin/tournoi', lXavi.cookie, { method: 'DELETE', club: 'clubc' });
+  r = await xhrC('/api/admin/tournoi', lSeb17c.cookie, { method: 'DELETE', club: 'clubc' });
   check('operateur: suppression du tournoi refusée sans code (confirm non levée) -> 401', r.status === 401, r.status + ' ' + (r.data.error || ''));
-  r = await xhrC('/api/admin/club/comptes', lXavi.cookie, { club: 'clubc' });
+  r = await xhrC('/api/admin/club/comptes', lSeb17c.cookie, { club: 'clubc' });
   check('operateur: gestion des rôles du club interdite -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
-  // retrait du rôle par le super-admin, puis session Xavi révoquée
-  const xavId = (await api('/api/admin/comptes', {})).data.comptes.find(c => c.pseudo === 'Xavi').id;
-  r = await api('/api/admin/club/compte', { method: 'DELETE', pin: PIN, club: 'clubc', body: { compte_id: xavId, confirm_pin: PIN } });
-  check('retrait du rôle de Xavi (super-admin + confirm_pin) -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
-  r = await xhrC('/api/admin/audit', lXavi.cookie, { club: 'clubc' });
-  check('session Xavi révoquée: plus aucune route admin de clubc -> 401', r.status === 401, r.status);
+  // retrait du rôle par le super-admin, puis session révoquée
+  r = await api('/api/admin/club/compte', { method: 'DELETE', pin: PIN, club: 'clubc', body: { compte_id: sebId17c, confirm_pin: PIN } });
+  check('retrait du rôle de Seb (super-admin + confirm_pin) -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/audit', lSeb17c.cookie, { club: 'clubc' });
+  check('session Seb révoquée: plus aucune route admin de clubc -> 401', r.status === 401, r.status);
   r = await api('/api/admin/clubs', {});
   check('(admin) liste des clubs: nb_comptes retombe à 0 pour clubc après le retrait', r.status === 200 && r.data.clubs.some(c => c.slug === 'clubc' && c.nb_comptes === 0), JSON.stringify(r.data.clubs.map(c => c.slug + ':' + (c.nb_comptes || 0))));
   r = await api('/api/admin/audit', { pin: PIN, club: 'clubc' });
