@@ -859,6 +859,20 @@ async function nouveauTournoi(body) {
   check('events match A depuis clubb -> 404 (isolation)', r.status === 404, r.status);
   r = await api(`/api/match/${mA.id}/manche`, { method: 'POST', pin: null, club: 'clubb', body: { joueur_id: mA.joueur1.id } });
   check('saisie manche match A depuis clubb -> 404 (isolation)', r.status === 404, r.status);
+  // isolation des JOUEURS entre clubs: un homonyme inscrit dans clubb ne doit voir
+  // ni les matchs, ni l historique, ni le face-à-face du joueur du même pseudo du club par défaut
+  r = await post('/api/admin/joueur', { pseudo: mA.joueur1.pseudo }, { club: 'clubb' });
+  check('homonyme du joueur A inscrit dans clubb (ClubB-T) -> 200 (+id)', r.status === 200 && !!r.data.id, r.status + ' ' + (r.data.error || ''));
+  const idHomoB = r.data && r.data.id;
+  await jouerMatch(mA, mA.joueur1.id); // le joueur du club par défaut a désormais un match joué (et gagné)
+  r = await api(`/api/joueur/${idHomoB}/stats`, { pin: null, club: 'clubb' });
+  check('fiche de l homonyme vue depuis clubb: 0 match joué (le club par défaut ne fuit pas)', r.status === 200 && r.data.joues === 0, JSON.stringify(r.data.joues != null ? { j: r.data.joues } : r.data));
+  r = await api(`/api/joueur/${idHomoB}/matchs`, { pin: null, club: 'clubb' });
+  check('matchs de l homonyme depuis clubb: aucune ligne du club par défaut', r.status === 200 && r.data.matchs.length === 0, 'nb=' + (r.data.matchs || []).length);
+  r = await api(`/api/joueur/${idHomoB}/historique`, { pin: null, club: 'clubb' });
+  check('historique de l homonyme depuis clubb: vide, face-à-face vide aussi', r.status === 200 && r.data.historique.length === 0 && r.data.h2h.length === 0, 'h=' + (r.data.historique || []).length + ' h2h=' + (r.data.h2h || []).length);
+  r = await api(`/api/joueur/${mA.joueur1.id}/stats`, { pin: null });
+  check('fiche du joueur du club par défaut: son match ClubA reste compté (1 joué / 1 gagné)', r.status === 200 && r.data.joues === 1 && r.data.gagnes === 1, JSON.stringify({ j: r.data.joues, g: r.data.gagnes }));
   // audit scopé par club
   r = await api('/api/admin/audit', { club: 'clubb' });
   check('audit clubb: toutes les entrées appartiennent à clubb', r.data.audit.length > 0 && r.data.audit.every(a => a.club_id === clubBId), 'nb=' + r.data.audit.length);
@@ -1337,12 +1351,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('372 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('377 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('372 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('377 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;

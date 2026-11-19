@@ -197,12 +197,19 @@ function distancesMap(tournoiId) {
 }
 
 // Tous les ids joueur d'un même joueur (même pseudo, ou même compte) -> agrège tous les tournois
-function idsMemeJoueur(id) {
+function idsMemeJoueur(id, clubId) {
   const j = db.prepare('SELECT pseudo, compte_id FROM joueur WHERE id = ?').get(id);
   if (!j) return { pseudo: null, ids: [] };
   let ids;
-  if (j.compte_id) ids = db.prepare('SELECT id FROM joueur WHERE compte_id = ?').all(j.compte_id).map(r => r.id);
-  else ids = db.prepare('SELECT id FROM joueur WHERE LOWER(pseudo) = LOWER(?)').all(j.pseudo).map(r => r.id);
+  if (j.compte_id) {
+    ids = clubId != null
+      ? db.prepare('SELECT j.id FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id WHERE j.compte_id = ? AND t.club_id = ?').all(j.compte_id, clubId).map(r => r.id)
+      : db.prepare('SELECT id FROM joueur WHERE compte_id = ?').all(j.compte_id).map(r => r.id);
+  } else {
+    ids = clubId != null
+      ? db.prepare('SELECT j.id FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id WHERE LOWER(j.pseudo) = LOWER(?) AND t.club_id = ?').all(j.pseudo, clubId).map(r => r.id)
+      : db.prepare('SELECT id FROM joueur WHERE LOWER(pseudo) = LOWER(?)').all(j.pseudo).map(r => r.id);
+  }
   if (!ids.includes(id)) ids.push(id);
   return { pseudo: j.pseudo, ids };
 }
@@ -1559,7 +1566,7 @@ app.get('/api/joueur/:id/stats', (req, res) => {
   const id = Number(req.params.id);
   const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(id);
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
-  const { ids } = idsMemeJoueur(id);
+  const { ids } = idsMemeJoueur(id, req.club.id);
   const ph = ids.map(() => '?').join(',');
   const matchs = db.prepare(`SELECT * FROM match WHERE (joueur1_id IN (${ph}) OR joueur2_id IN (${ph})) AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL`).all(...ids, ...ids);
   const evs = db.prepare(`SELECT e.type, e.detail, e.match_id, m.tournoi_id FROM match_event e JOIN match m ON m.id = e.match_id WHERE e.joueur_id IN (${ph})`).all(...ids);
@@ -1588,7 +1595,7 @@ app.post('/api/match/:id/retirer', (req, res) => {
 app.get('/api/joueur/:id/matchs', (req, res) => {
   if (!joueurDuClub(req, req.params.id)) return res.status(404).json({ error: "Joueur introuvable" }); // isolation club
   const id = Number(req.params.id);
-  const { ids: idsM } = idsMemeJoueur(id);
+  const { ids: idsM } = idsMemeJoueur(id, req.club.id);
   const phM = idsM.map(() => '?').join(',');
   const rows = db.prepare(`
     SELECT * FROM match WHERE joueur1_id IN (${phM}) OR joueur2_id IN (${phM})
@@ -1602,7 +1609,7 @@ app.get('/api/joueur/:id/historique', (req, res) => {
   const id = Number(req.params.id);
   const j = db.prepare('SELECT id, pseudo FROM joueur WHERE id = ?').get(id);
   if (!j) return res.status(404).json({ error: 'Joueur introuvable' });
-  const { ids: idsH } = idsMemeJoueur(id);
+  const { ids: idsH } = idsMemeJoueur(id, req.club.id);
   const phH = idsH.map(() => '?').join(',');
   const rows = db.prepare(`
     SELECT m.*, t.nom AS tournoi_nom, t.date_heure AS tournoi_date, t.statut AS tournoi_statut,
@@ -1624,7 +1631,7 @@ app.get('/api/joueur/:id/historique', (req, res) => {
     if (m.gagnant_id == null) continue; // tournoi arrêté : ni V ni D
     const advRowId = idsH.includes(m.joueur1_id) ? m.joueur2_id : m.joueur1_id;
     if (advRowId == null) continue;
-    const cle = Math.min(...idsMemeJoueur(advRowId).ids);
+    const cle = Math.min(...idsMemeJoueur(advRowId, req.club.id).ids);
     const gagne = idsH.includes(m.gagnant_id);
     let e = h2hMap.get(cle);
     if (!e) {
