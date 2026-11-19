@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
   workflow_dispatch:
 
@@ -90,7 +90,7 @@ jobs:
 
   deploy-test:
     name: App de test (auto après CI verte)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
     needs: tests
     runs-on: ubuntu-latest
     concurrency:
