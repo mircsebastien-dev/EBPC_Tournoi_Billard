@@ -72,8 +72,8 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 
 | # | Idée | Effort | Statut |
 |---|---|---|---|
-| 32 | **App de test `ebpc-tournoi-billard-test` déployée automatiquement à chaque push main** (après CI verte) : `fly.test.toml` + job `deploy-test`, volume `tournoi_data` séparé (restaurable depuis un snapshot prod), secrets propres, PIN différent ; notice et saut tant que `FLY_TEST_TOKEN` ou l'app manquent | S-M | 🚧 code poussé, app + token à créer |
-| 33 | **Passage en prod uniquement sur action délibérée** : workflow « Déployer prod » (confirmation `PROD`, secret `FLY_PROD_TOKEN`), auto-deploy GitHub Fly à désactiver sur l'app prod ; voir `docs/GUIDE_DEPLOY.md` | S | 🚧 code poussé, token à créer |
+| 32 | **App de test `ebpc-tournoi-billard-test` déployée automatiquement à chaque push sur la branche `staging`** (après CI verte) : `fly.test.toml` + job `deploy-test`, volume `tournoi_data` séparé (restaurable depuis un snapshot prod), secrets propres, PIN différent ; notice et saut tant que `FLY_TEST_TOKEN` ou l'app manquent | S-M | ✅ fait |
+| 33 | **Flux à deux branches** : `staging` → app de test (auto via CI), `main` → prod (auto via l'intégration GitHub de Fly, conservée) ; mise en prod = fusion `staging` → `main` une fois validé sur le test ; workflow manuel « Déployer prod » conservé en plan B ; voir `docs/GUIDE_DEPLOY.md` | S | ✅ fait |
 
 ## 🏛️ Plateforme / centralisation (cap confirmé)
 
@@ -90,7 +90,7 @@ Ce que le produit devient : tout centralisé, séparation logique. Chaque club v
 
 ## Ordre conseillé
 
-0. 🏗️ 32, 33 — app de test + prod à la demande : le socle avant tout chantier conséquent
+0. 🏗️ 32, 33 (✅) — flux à deux branches : staging → app de test automatiquement, main → prod : le socle avant tout chantier conséquent
 1. 🔒 1 (✅), 2, 3, 4 — sécurité + fiabilité
 2. 👥 5, 6 — confort au quotidien pendant un tournoi
 3. 🧪 21, 22, 24 — fiabilité admin
