@@ -1285,7 +1285,9 @@ app.delete('/api/admin/club', requireAdmin, requireSuperAdmin, requireConfirmPin
   db.pragma('foreign_keys = OFF'); // le journal d audit du club est conservé
   try { db.prepare('DELETE FROM club WHERE id = ?').run(club.id); }
   finally { db.pragma('foreign_keys = ON'); }
-  logAuditReq(req, 'club_supprime', `club ${club.slug}`, null, { nom: club.nom, comptes_rattaches: nbComptes }); // jamais de hash ni de PIN
+  // trace dans le journal du club par défaut: le journal du club supprimé disparaît avec lui,
+  // et une insertion visant le club effacé violerait la clé étrangère. Jamais de hash ni de PIN.
+  logAudit('club_supprime', `club ${club.slug}`, { nom: club.nom, nb_tournois: nbT, comptes_rattaches: nbComptes }, null, clubParDefaut().id, auteurAdmin(req));
   res.json({ ok: true });
 });
 
