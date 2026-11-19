@@ -19,6 +19,7 @@
 <script>
 document.getElementById('nav').append(nav('admin'));
 const main = document.getElementById('main');
+let superAdminMenu = false; // menu Clubs réservé au super-admin (code global ou compte admin global)
 
 function render() {
   main.innerHTML = '';
@@ -36,7 +37,7 @@ function render() {
       el('a', { href: '/admin-historique.html' }, el('button', { class: 'secondary' }, ['Historique', ` (${adminState.historique.length})`])),
       el('a', { href: '/admin-journal.html' }, el('button', { class: 'secondary' }, 'Journal d\'audit')),
       el('a', { href: '/admin-comptes.html' }, el('button', { class: 'secondary' }, 'Comptes joueurs')),
-      el('a', { href: '/clubs.html' }, el('button', { class: 'secondary' }, '🏛️ Clubs')),
+      ...(superAdminMenu ? [el('a', { href: '/clubs.html' }, el('button', { class: 'secondary' }, '🏛️ Clubs'))] : []),
       el('a', { href: '/admin-aide.html' }, el('button', { class: 'secondary' }, 'Guide admin')),
       el('a', { href: '/admin-data.html' }, el('button', { class: 'secondary' }, 'Données')))));
   main.append(el('div', { class: 'panel' },
@@ -53,6 +54,8 @@ function render() {
 
 async function init() {
   const ok = await adminInit(render);
+  // super-admin ? (le serveur seul sait si le code saisi est le code global ou celui d'un club)
+  if (ok) { try { superAdminMenu = (await adminApi('/api/admin/super')).super_admin === true; } catch (e) { superAdminMenu = false; } }
   render();
 }
 init();

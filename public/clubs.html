@@ -24,9 +24,16 @@ const main = document.getElementById('main');
 const clubApi = (path, slug, opts = {}) => adminApi(path, { ...opts, headers: adminHeaders({ 'X-Club': slug }) });
 
 async function charger() {
-  const { clubs } = await adminApi('/api/admin/clubs');
-  render(clubs);
-  if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(main);
+  try {
+    const { clubs } = await adminApi('/api/admin/clubs');
+    render(clubs);
+    if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(main);
+  } catch (e) {
+    main.innerHTML = '';
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + (e.status === 403
+      ? 'Gestion des clubs réservée au super-admin (code global ou compte admin global).'
+      : e.message))));
+  }
 }
 
 async function sectionRoles(slug) {

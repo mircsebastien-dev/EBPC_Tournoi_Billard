@@ -1182,7 +1182,18 @@ app.get('/api/admin/audit', requireAdmin, (req, res) => {
 });
 
 // ---------- Multi-club: gestion des clubs (réservé admin global/super-admin pour l'instant) ----------
-app.post('/api/admin/club', requireAdmin, (req, res) => {
+// super-admin uniquement (code global OU session admin globale): liste complète et création des clubs.
+// un compte de club (admin comme operateur) ou le seul PIN d'un club ne doivent pas gérer les clubs.
+function requireSuperAdmin(req, res, next) {
+  if (superAdminSoumis(req)) return next();
+  return res.status(403).json({ error: 'Gestion des clubs réservée au super-admin (code global ou compte admin global)' });
+}
+// le front s'en sert pour ne proposer le menu Clubs qu aux super-admins (jamais aux comptes de club)
+app.get('/api/admin/super', requireAdmin, (req, res) => {
+  res.json({ super_admin: superAdminSoumis(req), via: req.adminVia });
+});
+
+app.post('/api/admin/club', requireAdmin, requireSuperAdmin, (req, res) => {
   const slug = String(req.body.slug || '').trim().toLowerCase();
   const nom = String(req.body.nom || '').trim().slice(0, 80);
   if (!/^[a-z0-9][a-z0-9-]{1,29}$/.test(slug)) return res.status(400).json({ error: 'slug invalide (2-30 car. a-z 0-9 -)' });
@@ -1196,7 +1207,7 @@ app.post('/api/admin/club', requireAdmin, (req, res) => {
 
 // ---------- Multi-club: réglages d'un club (nom, PIN propre, actif) ----------
 // GET /api/admin/clubs : liste complète (super-admin), pin_propre = a son propre PIN, jamais de hash ni PIN en réponse
-app.get('/api/admin/clubs', requireAdmin, (req, res) => {
+app.get('/api/admin/clubs', requireAdmin, requireSuperAdmin, (req, res) => {
   const clubs = db.prepare(`
     SELECT c.id, c.slug, c.nom, c.actif, c.pin_hash, c.created_at,
       (SELECT COUNT(*) FROM compte_club cc WHERE cc.club_id = c.id) nb_comptes

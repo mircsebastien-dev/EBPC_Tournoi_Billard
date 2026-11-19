@@ -948,6 +948,17 @@ async function nouveauTournoi(body) {
   check('Seb (admin de club) change le PIN de clubc sans confirm_pin -> 200', r.status === 200 && r.data.club && r.data.club.pin_propre === true, r.status + ' ' + (r.data.error || ''));
   r = await xhrC('/api/admin/club', lSeb17c.cookie, { method: 'PUT', club: 'clubc', body: { slug: 'ebpc', nom: 'Pirate' } });
   check('Seb ne peut pas modifier le club par défaut (garde super-admin) -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  // gestion des clubs (liste complète, création) = super-admin uniquement: refus pour un compte de club
+  r = await xhrC('/api/admin/clubs', lSeb17c.cookie, { club: 'clubc' });
+  check('admin de club: liste des clubs interdite (super-admin uniquement) -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/club', lSeb17c.cookie, { method: 'POST', club: 'clubc', body: { slug: 'pirate17', nom: 'Club Pirate' } });
+  check('admin de club: création d un club interdite -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  r = await xhrC('/api/admin/super', lSeb17c.cookie, { club: 'clubc' });
+  check('GET /api/admin/super: session de club -> super_admin false (menu Clubs masqué)', r.status === 200 && r.data.super_admin === false, r.status + ' ' + JSON.stringify(r.data));
+  r = await api('/api/admin/super', { pin: PIN });
+  check('GET /api/admin/super: code global -> super_admin true', r.status === 200 && r.data.super_admin === true, r.status + ' ' + JSON.stringify(r.data));
+  r = await api('/api/admin/super', { club: 'clubc', pin: '2468' });
+  check('GET /api/admin/super: code PIN du club -> super_admin false', r.status === 200 && r.data.super_admin === false, r.status + ' ' + JSON.stringify(r.data));
   // downgrade en operateur: routes ouvertes, mais confirmations destructives et gestion des rôles refusées
   r = await put('/api/admin/club/compte', { pseudo: 'Seb', role: 'operateur' }, { pin: PIN, club: 'clubc' });
   check('downgrade de Seb en operateur de clubc -> 200', r.status === 200 && r.data.role === 'operateur', r.status + ' ' + (r.data.error || ''));
@@ -969,6 +980,7 @@ async function nouveauTournoi(body) {
   const clubsHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'clubs.html'), 'utf8');
   const admHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
   check('front: page Clubs (création, réglages par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien depuis l accueil admin', clubsHtml17c.includes("clubApi('/api/admin/club/comptes', slug") && clubsHtml17c.includes("'/api/admin/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug") && clubsHtml17c.includes('table-wrap') && admHtml17c.includes("href: '/clubs.html'"), '');
+  check('front: menu Clubs réservé au super-admin (/api/admin/super conditionne le bouton, page Clubs affiche un message si 403)', admHtml17c.includes("/api/admin/super") && admHtml17c.includes("superAdminMenu ? [") && clubsHtml17c.includes('Gestion des clubs réservée au super-admin'), '');
   await del('/api/admin/tournoi', { club: 'clubc' }).catch(() => {});
   cookie = cookieAvant17c; // restaurer la session du fil principal
 
@@ -1303,12 +1315,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('355 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('361 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('355 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('361 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;
