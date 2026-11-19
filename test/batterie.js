@@ -868,6 +868,46 @@ async function nouveauTournoi(body) {
   await del('/api/admin/tournoi', { club: 'clubb' }).catch(() => {});
   await del('/api/admin/tournoi').catch(() => {});
 
+  // ---------- 17b. Sauvegarde complète de la base (export/import JSON, réservé au code global) ----------
+  sec('17b. Sauvegarde complète de la base (export/import JSON, réservé au code global)');
+  r = await api('/api/admin/base/export');
+  const E = r.data;
+  check('export base: 200 + format complet (marqueur ebpc-tournoi-billard, genere_le, tables)', r.status === 200 && E && E.sauvegarde === 'ebpc-tournoi-billard' && !!E.genere_le && E.tables && typeof E.tables === 'object' && !Array.isArray(E.tables), r.status + ' ' + JSON.stringify(E && Object.keys(E)).slice(0, 120));
+  check('export base: toutes les tables du schéma présentes (15)', ['settings', 'club', 'tournoi', 'distance_round', 'joueur', 'compte', 'ami', 'ami_pseudo', 'session', 'push_subscription', 'table_billard', 'match', 'match_event', 'audit_log', 'audit_snapshot'].every(t => Array.isArray(E.tables && E.tables[t])), Object.keys((E && E.tables) || {}).join(','));
+  check('export base: téléchargeable (Content-Disposition attachment)', /^attachment/.test(r.headers.get('content-disposition') || ''), r.headers.get('content-disposition') || 'absent');
+  const attendu17b = E.tables.audit_log.filter(a => a.club_id === 1).length;
+  check('export base: contenu non vide (clubs, tournois, joueurs, audit)', E.tables.club.length >= 2 && E.tables.tournoi.length >= 1 && E.tables.joueur.length >= 1 && E.tables.audit_log.length >= 1 && attendu17b >= 1, JSON.stringify({ club: E.tables.club.length, tournoi: E.tables.tournoi.length, joueur: E.tables.joueur.length, audit: E.tables.audit_log.length }));
+  // casse volontairement la base (vidage du journal) puis restaure par l'import complet
+  r = await del('/api/admin/audit');
+  check('vidage du journal du club défaut (confirm_pin) -> 200, supprimées >= 1', r.status === 200 && r.data.ok === true && r.data.supprimes >= 1, r.status + ' ' + JSON.stringify(r.data));
+  r = await api('/api/admin/audit');
+  check('journal vidé: il ne reste que le log du vidage (audit_purge)', r.status === 200 && r.data.audit.length === 1 && r.data.audit[0].action === 'audit_purge', 'nb=' + r.data.audit.length);
+  r = await post('/api/admin/base/import', { payload: E, confirm_pin: PIN });
+  check('import base: 200 + ok (base restaurée)', r.status === 200 && r.data.ok === true, r.status + ' ' + (r.data.error || ''));
+  const apres17b = (r.data && r.data.tables) || {};
+  check('import base: chaque table retrouve exactement ses lignes (identique à l export)', Object.keys(E.tables).every(t => apres17b[t] === E.tables[t].length), JSON.stringify(Object.keys(E.tables).map(t => t + ':' + E.tables[t].length + '->' + (apres17b[t] !== undefined ? apres17b[t] : '?'))).slice(0, 220));
+  r = await api('/api/clubs');
+  const ebpc17b = r.data.clubs.find(c => c.slug === 'ebpc');
+  check('import base: les ids sont préservés (club ebpc garde son id)', !!ebpc17b && ebpc17b.id === E.tables.club.find(c => c.slug === 'ebpc').id, JSON.stringify({ ebpc: ebpc17b && ebpc17b.id }));
+  r = await api('/api/admin/audit');
+  check('import base: journal du club défaut restauré (entrées de retour)', r.status === 200 && r.data.audit.length >= attendu17b, 'nb=' + r.data.audit.length + ' attendu>=' + attendu17b);
+  // un code de CLUB administre son club: il n'a pas accès à la base entière (403)
+  await post('/api/admin/club', { slug: 'clubsb', nom: 'Club SB', pin: '4321' });
+  r = await api('/api/admin/base/export', { club: 'clubsb', pin: '4321' });
+  check('export base avec un code de club -> 403 (réservé au code global)', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  r = await post('/api/admin/base/import', { payload: E, confirm_pin: '4321' }, { club: 'clubsb', pin: '4321' });
+  check('import base avec un code de club -> 403 (aucune écriture)', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  r = await post('/api/admin/base/import', { payload: { format: 'poubelle' } });
+  check('import base: payload sans marqueur de sauvegarde -> 400 (aucune écriture)', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  r = await post('/api/admin/base/import', { payload: { sauvegarde: 'ebpc-tournoi-billard', tables: { poubelle: [{ id: 1 }] } } });
+  check('import base: table inconnue -> 400 (aucune écriture)', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  const adH17b = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-data.html'), 'utf8');
+  check('front: panneau 💾 sauvegarde base dans admin-data.html (export téléchargeant, import fichier avec confirmation destructible)', adH17b.includes('/api/admin/base/export') && adH17b.includes('/api/admin/base/import') && adH17b.includes('Télécharger la sauvegarde (JSON)') && adH17b.includes('Restaurer depuis un fichier') && adH17b.includes('adminApiDestructif'), '');
+  const spec17b = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
+  const ga17b = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
+  const srv17b = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
+  check("doc: SPEC 17b + GUIDE_ADMIN dédié + serveur (estAdminGlobal, limite 25mb sur l'import UNIQUEMENT)", spec17b.includes('17b. Sauvegarde complète de la base') && spec17b.includes('332 checks') && ga17b.includes('Sauvegarde / restauration de la base') && srv17b.includes("app.use('/api/admin/base/import', express.json({ limit: '25mb' }))") && srv17b.includes('function estAdminGlobal') && srv17b.includes('requireAdminGlobal'), '');
+
   // ---------- 18. Rattachement des anciens joueurs anonymes à leur compte ----------
   sec('18. Rattachement compte <-> anciens joueurs anonymes (même pseudo, tournois passés)');
   r = await nouveauTournoi({ nom: 'Retro1', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
@@ -1199,12 +1239,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('316 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('332 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('316 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('332 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;

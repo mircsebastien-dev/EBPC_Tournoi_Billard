@@ -134,3 +134,12 @@ node test/purge-unit.js                             # purge auto audit_log/audit
 ```
 
 Fly.io : secrets `ADMIN_PIN`, `RESEND_API_KEY`, `MAIL_FROM`, `VAPID_*` (ne JAMAIS définir `BASE_URL`) ; volume `tournoi_data` sur `/data` ; snapshots dans Volumes → Snapshots pour restaurer.
+
+## 13. 💾 Sauvegarde / restauration de la base (`/admin-data.html`)
+
+**Où :** panneau « 💾 Base complète : sauvegarde / restauration » en haut de `/admin-data.html` (lien « 🗄 Données »).
+
+- **Sauvegarder** : bouton « ⬇️ Télécharger la sauvegarde (JSON) » → télécharge un fichier `base-AAAA-MM-JJ-HH-MM-SS.json` contenant TOUTE la base : tous les clubs, tournois (même terminés), joueurs, comptes (hashs, pas de mots de passe en clair), matchs, events, journal d'audit. À conserver en lieu sûr (cloud perso + clé USB par exemple).
+- **Restaurer** : bouton « ⬆️ Restaurer depuis un fichier… » → choisir un fichier JSON d'export → confirmation → la base actuelle est ENTIÈREMENT REMPLACÉE par le contenu du fichier (transaction : tout ou rien, aucune donnée mixée).
+- **Réservé au code administrateur global** (super-admin) : un code PIN de club reçoit 403, il ne peut ni télécharger ni restaurer la base des autres clubs. Une session de compte `admin` est acceptée (mot `SUPPRIMER` demandé en confirmation).
+- Fréquence conseillée : un export après chaque tournoi terminé, et avant toute opération risquée (migration, gros correctif). C'est le complément des snapshots du volume Fly (infrastructure).
