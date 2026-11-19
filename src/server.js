@@ -1269,6 +1269,26 @@ app.put('/api/admin/club', requireAdmin, (req, res) => {
   res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: maj.nom != null ? maj.nom : cible.nom, actif: maj.actif != null ? !!maj.actif : !!cible.actif, pin_propre: maj.pin_hash ? true : !!cible.pin_hash } });
 });
 
+// DELETE /api/admin/club (super-admin uniquement): supprime un club créé par erreur.
+// - club par défaut protégé (400) - un club avec des tournois (même terminés) est refusé (409): pas d effacement d historique par accident
+// - rôles compte_club et abonnements push du club purgés ; le journal d audit du club est conservé (FK coupé le temps de la suppression)
+app.delete('/api/admin/club', requireAdmin, requireSuperAdmin, requireConfirmPin, (req, res) => {
+  const slug = String(req.body.slug || '').trim().toLowerCase();
+  const club = slug ? db.prepare('SELECT * FROM club WHERE slug = ? COLLATE NOCASE').get(slug) : null;
+  if (!club) return res.status(404).json({ error: `Club inconnu « ${slug} »` });
+  if (club.id === clubParDefaut().id) return res.status(400).json({ error: 'Le club par défaut ne peut pas être supprimé' });
+  const nbT = db.prepare('SELECT COUNT(*) AS n FROM tournoi WHERE club_id = ?').get(club.id).n;
+  if (nbT > 0) return res.status(409).json({ error: `Impossible de supprimer « ${club.nom} » : ${nbT} tournoi(s) rattaché(s) à ce club` });
+  const nbComptes = db.prepare('SELECT COUNT(*) AS n FROM compte_club WHERE club_id = ?').get(club.id).n;
+  db.prepare('DELETE FROM compte_club WHERE club_id = ?').run(club.id); // rôles purgés
+  db.prepare('DELETE FROM push_subscription WHERE club_id = ?').run(club.id); // abonnements push du club
+  db.pragma('foreign_keys = OFF'); // le journal d audit du club est conservé
+  try { db.prepare('DELETE FROM club WHERE id = ?').run(club.id); }
+  finally { db.pragma('foreign_keys = ON'); }
+  logAuditReq(req, 'club_supprime', `club ${club.slug}`, null, { nom: club.nom, comptes_rattaches: nbComptes }); // jamais de hash ni de PIN
+  res.json({ ok: true });
+});
+
 // ---------- Multi-club: rôles des comptes sur un club (table compte_club) ----------
 // gestion des rôles réservée: code global (super-admin), session admin du club, ou session admin globale.
 // le simple code PIN du club (ou un compte operateur) ne peut pas s attribuer de rôle persistant.

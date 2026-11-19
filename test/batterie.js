@@ -981,7 +981,29 @@ async function nouveauTournoi(body) {
   const admHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
   check('front: page Clubs (création, réglages par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien depuis l accueil admin', clubsHtml17c.includes("clubApi('/api/admin/club/comptes', slug") && clubsHtml17c.includes("'/api/admin/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug") && clubsHtml17c.includes('table-wrap') && admHtml17c.includes("href: '/clubs.html'"), '');
   check('front: menu Clubs réservé au super-admin (/api/admin/super conditionne le bouton, page Clubs affiche un message si 403)', admHtml17c.includes("/api/admin/super") && admHtml17c.includes("superAdminMenu ? [") && clubsHtml17c.includes('Gestion des clubs réservée au super-admin'), '');
+  // suppression d un club: super-admin uniquement, défaut protégé, refus si des tournois sont rattachés
+  r = await api('/api/admin/club', { method: 'DELETE', pin: PIN, club: 'clubc', body: { slug: 'clubc', confirm_pin: PIN } });
+  check('suppression clubc refusée: un tournoi est encore rattaché -> 409', r.status === 409, r.status + ' ' + (r.data.error || ''));
   await del('/api/admin/tournoi', { club: 'clubc' }).catch(() => {});
+  r = await api('/api/admin/club', { method: 'DELETE', pin: PIN, club: 'clubc', body: { slug: 'clubc' } });
+  check('suppression clubc sans confirm_pin -> 401', r.status === 401, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/admin/club', { method: 'DELETE', pin: PIN, body: { slug: 'ebpc', confirm_pin: PIN } });
+  check('le club par défaut ne peut pas être supprimé -> 400', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/admin/club', { method: 'DELETE', pin: PIN, body: { slug: 'zzzz', confirm_pin: PIN } });
+  check('suppression d un club inconnu -> 404', r.status === 404, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/admin/club', { method: 'DELETE', pin: PIN, club: 'clubc', body: { slug: 'clubc', confirm_pin: PIN } });
+  check('suppression du clubc par le super-admin (confirm_pin) -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/admin/clubs', {});
+  check('clubc absent de la liste des clubs après suppression', r.status === 200 && !r.data.clubs.some(c => c.slug === 'clubc'), JSON.stringify(r.data.clubs.map(c => c.slug)));
+  r = await put('/api/admin/club/compte', { pseudo: 'Seb', role: 'admin' }, { pin: PIN, club: 'clubb' });
+  check('rôle admin de Seb sur clubb (la suppression du club devra purger ce rattachement)', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/admin/club', { method: 'DELETE', pin: PIN, club: 'clubb', body: { slug: 'clubb', confirm_pin: PIN } });
+  check('suppression de clubb avec un compte rattaché -> 200 (rôles purgés)', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/admin/clubs', {});
+  check('clubb absent de la liste des clubs après suppression', r.status === 200 && !r.data.clubs.some(c => c.slug === 'clubb'), JSON.stringify(r.data.clubs.map(c => c.slug)));
+  r = await api('/api/admin/audit', { pin: PIN });
+  check('audit: club_supprime journalisé (clubc et clubb)', r.data.audit.filter(a => a.action === 'club_supprime').length >= 2, 'nb=' + r.data.audit.length);
+  check('front: bouton Supprimer sur chaque ligne sauf le club par défaut (confirmation destructive)', clubsHtml17c.includes("adminApiDestructif('/api/admin/club', { method: 'DELETE'") && clubsHtml17c.includes('rowClub(c, i === 0)'), '');
   cookie = cookieAvant17c; // restaurer la session du fil principal
 
   // ---------- 18. Rattachement des anciens joueurs anonymes à leur compte ----------
@@ -1315,12 +1337,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('361 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('372 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('361 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('372 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;

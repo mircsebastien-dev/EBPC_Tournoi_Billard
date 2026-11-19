@@ -71,7 +71,7 @@ async function sectionRoles(slug) {
   } catch (e) { p.append(el('p', { class: 'muted' }, e.message)); }
 }
 
-function rowClub(c) {
+function rowClub(c, estDefaut) {
   return el('tr', { style: 'border-top:1px solid var(--line)' },
     el('td', { style: 'padding:6px 8px' }, el('strong', {}, c.nom), el('div', { class: 'muted', style: 'font-size:12px' }, c.slug)),
     el('td', { style: 'padding:6px 8px' }, c.actif ? '✅ Actif' : '⛔ Inactif'),
@@ -95,7 +95,13 @@ function rowClub(c) {
         try { await adminApi('/api/admin/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug, actif: !c.actif, confirm_pin: adminPin }) }); charger(); }
         catch (e) { alert(e.message); }
       } }, c.actif ? '⛔ Désactiver' : '✅ Activer'),
-      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px', onclick: () => sectionRoles(c.slug) }, '👥 Rôles')));
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px', onclick: () => sectionRoles(c.slug) }, '👥 Rôles'),
+      ...(estDefaut ? [] : [el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px;margin-left:6px', onclick: async () => {
+        try {
+          await adminApiDestructif('/api/admin/club', { method: 'DELETE', body: JSON.stringify({ slug: c.slug }) }, `supprimer définitivement le club « ${c.nom} » (rôles purgés)`);
+          charger();
+        } catch (e) { alert(e.message); }
+      } }, 'Supprimer')])));
 }
 
 function render(clubs) {
@@ -117,7 +123,7 @@ function render(clubs) {
   main.append(el('div', { class: 'panel' }, el('h2', {}, 'Créer un club'), el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' }, slugI, nomI, pinI, creer)));
   // liste des clubs
   const thead = el('thead', {}, el('tr', {}, ['Club', 'Actif', 'Code PIN propre', 'Comptes rattachés', 'Créé le', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h))));
-  const tbody = el('tbody', {}, ...clubs.map(rowClub));
+  const tbody = el('tbody', {}, ...clubs.map((c, i) => rowClub(c, i === 0)));
   const table = el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' }, thead, tbody));
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, `${clubs.length} club(s)`),
