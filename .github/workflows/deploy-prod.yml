@@ -1,0 +1,35 @@
+name: Déployer prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirme:
+        description: "Tape PROD pour confirmer le déploiement en production"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Confirmation puis déploiement ebpc-tournoi-billard
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_PROD_TOKEN }}
+          CONFIRME: ${{ github.event.inputs.confirme }}
+        run: |
+          if [ "$CONFIRME" != "PROD" ]; then
+            echo "::error::Confirmation manquante : relance le workflow et tape PROD dans le champ."
+            exit 1
+          fi
+          if [ -z "${FLY_API_TOKEN}" ]; then
+            echo "::error::Secret FLY_PROD_TOKEN absent. Mise en place : docs/GUIDE_DEPLOY.md"
+            exit 1
+          fi
+          flyctl deploy

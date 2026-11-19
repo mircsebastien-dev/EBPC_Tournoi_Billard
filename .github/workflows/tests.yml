@@ -87,3 +87,27 @@ jobs:
           git add -A
           git commit -qm "Résultats CI — run ${{ github.run_id }}"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:ci-rapport
+
+  deploy-test:
+    name: App de test (auto après CI verte)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: tests
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Déployer ebpc-tournoi-billard-test
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_TEST_TOKEN }}
+        run: |
+          if [ -z "${FLY_API_TOKEN}" ]; then
+            echo "::notice::Secret FLY_TEST_TOKEN absent : déploiement de l'app de test sauté. Mise en place : docs/GUIDE_DEPLOY.md"
+            exit 0
+          fi
+          if ! flyctl status -a ebpc-tournoi-billard-test >/dev/null 2>&1; then
+            echo "::error::App ebpc-tournoi-billard-test inexistante. Commandes de création : docs/GUIDE_DEPLOY.md"
+            exit 1
+          fi
+          flyctl deploy --config fly.test.toml

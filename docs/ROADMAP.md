@@ -66,11 +66,20 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | 28 | Accessibilité : contraste, taille de police réglable, navigation clavier | S-M | ⬜ |
 | 29 | PWA offline : la card match consultable sans réseau (vérifier ce que cache `sw.js`) | S-M | ⬜ |
 | 30 | **Rôles compte (`user`/`admin`)** : session admin = accès `/api/admin/*` sans PIN + exempte de `confirm_pin` sur les destructifs (mais modale front demandant de saisir `SUPPRIMER`) ; PIN conservé en fallback ; bootstrap 1er admin via `ADMIN_EMAIL`/`ADMIN_PASSWORD`, promotion via `POST /api/admin/compte/:id/role` ; pages admin sans PIN si session admin | M | ✅ fait |
+| 31 | **Rapport d'usage par tournoi (KPI joueurs)** : taux d'adoption (joueurs inscrits ayant ouvert l'appli), répartition des pages consultées (Mon tournoi / fil / tableau), persistance après élimination, réactivité post-saisie ; mesure serveur agrégée, rapport généré par tournoi, sans cookie ni tracker | M | ⬜ |
+
+## 🏗️ Environnements / mise en production
+
+| # | Idée | Effort | Statut |
+|---|---|---|---|
+| 32 | **App de test `ebpc-tournoi-billard-test` déployée automatiquement à chaque push main** (après CI verte) : `fly.test.toml` + job `deploy-test`, volume `tournoi_data` séparé (restaurable depuis un snapshot prod), secrets propres, PIN différent ; notice et saut tant que `FLY_TEST_TOKEN` ou l'app manquent | S-M | 🚧 code poussé, app + token à créer |
+| 33 | **Passage en prod uniquement sur action délibérée** : workflow « Déployer prod » (confirmation `PROD`, secret `FLY_PROD_TOKEN`), auto-deploy GitHub Fly à désactiver sur l'app prod ; voir `docs/GUIDE_DEPLOY.md` | S | 🚧 code poussé, token à créer |
 
 ---
 
 ## Ordre conseillé
 
+0. 🏗️ 32, 33 — app de test + prod à la demande : le socle avant tout chantier conséquent
 1. 🔒 1 (✅), 2, 3, 4 — sécurité + fiabilité
 2. 👥 5, 6 — confort au quotidien pendant un tournoi
 3. 🧪 21, 22, 24 — fiabilité admin
