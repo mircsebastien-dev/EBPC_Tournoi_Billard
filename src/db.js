@@ -296,7 +296,8 @@ function clubParDefaut() {
   return c;
 }
 function clubParSlug(slug) {
-  return db.prepare('SELECT * FROM club WHERE slug = ? COLLATE NOCASE').get(String(slug || '').trim().toLowerCase()) || null;
+  // club inactif = hors résolution publique (X-Club/?club= -> 404) ; réactivation admin par slug direct
+  return db.prepare('SELECT * FROM club WHERE slug = ? COLLATE NOCASE AND actif = 1').get(String(slug || '').trim().toLowerCase()) || null;
 }
 if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'club_id'))
   db.exec('ALTER TABLE tournoi ADD COLUMN club_id INTEGER REFERENCES club(id)');

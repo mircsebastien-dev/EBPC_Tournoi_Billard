@@ -45,7 +45,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | 17 | **Phase de poules (round-robin) puis KO** : nouveau bracket 'P' + points par poule dans `bracket.js` | L | ⬜ |
 | 18 | **Handicap** : X manches d'avance pour un joueur (colonne `joueur.handicap`, score de départ) | S | ⬜ |
 | 19 | **Plusieurs tournois actifs simultanés** (ex. blackball + ultimate le même soir) : `tournoi_id` dans le flux SSE + sélecteur de tournoi dans le header (`tournoiActif()` appelé partout → refactor) | L | ⬜ |
-| 20 | **Multi-club / multi-tenant** : plusieurs clubs sur une instance (sous-domaine ou préfixe), chacun son PIN et sa BDD logique — **le chantier « produit »**. 🟡 étapes 1-2 faites : table `club` + `club_id` backfillé, `req.club` (X-Club/?club=), routes scopées + isolation cross-club (404), `POST /api/admin/club`, push scopé. Reste : sous-domaines, `club_settings`, `compte_club`/role_club, multi-tournois actifs par club | L | 🟡 1-2 faits |
+| 20 | **Multi-club / multi-tenant** : plusieurs clubs sur une instance (sous-domaine ou préfixe), chacun son PIN et sa BDD logique — **le chantier « produit »**. 🟡 étapes 1-3 faites : table `club` + `club_id` backfillé, `req.club` (X-Club/?club=), routes scopées + isolation cross-club (404), `POST /api/admin/club`, push scopé ; **étape 3 : PIN par club + réglages via `PUT /api/admin/club` (nom / PIN 4-8 chiffres confirmé / actif, garde super-admin 403), `GET /api/admin/clubs`, clubs inactifs hors résolution (404)**. Reste : sous-domaines, `compte_club`/role_club, multi-tournois actifs par club, UI admin des clubs | L | 🟡 1-3 faits |
 
 ## 🧪 Table de marque / admin
 

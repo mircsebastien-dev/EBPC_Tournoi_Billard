@@ -868,6 +868,52 @@ async function nouveauTournoi(body) {
   await del('/api/admin/tournoi', { club: 'clubb' }).catch(() => {});
   await del('/api/admin/tournoi').catch(() => {});
 
+  // ---------- 17b. Multi-club: PIN par club, réglages (nom/pin/actif), garde super-admin ----------
+  sec('17b. Multi-club: PIN par club + réglages du club + garde super-admin');
+  r = await post('/api/admin/club', { slug: 'clubc', nom: 'Club C', pin: '1357' }, { pin: PIN });
+  check('clubc créé avec son PIN propre -> 200', r.status === 200 && r.data.club && r.data.club.slug === 'clubc', r.status + ' ' + (r.data.error || ''));
+  const clubCId = r.data.club && r.data.club.id;
+  r = await post('/api/admin/tournoi', { nom: 'ClubC-T', regle: 'blackball', taille: 16, format: 'simple', notif_push: false }, { club: 'clubc', pin: '1357' });
+  const rC = await api('/api/etat', { pin: null, club: 'clubc' });
+  check('tournoi ClubC-T créé dans clubc via son PIN seul, club bien clubc', r.status === 200 && rC.data.actif && rC.data.actif.tournoi.nom === 'ClubC-T' && rC.data.club.id === clubCId, r.status + ' ' + (rC.data.club && rC.data.club.slug));
+  r = await api('/api/admin/audit', { pin: '1357' });
+  check('PIN de clubc refusé sur le club par défaut -> 401', r.status === 401, r.status);
+  r = await api('/api/admin/audit', { pin: PIN, club: 'clubc' });
+  check('PIN global ouvre les routes admin de clubc (super-admin) -> 200', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r = await put('/api/admin/club', { nom: 'Club C2' }, { club: 'clubc', pin: '1357' });
+  check('PUT club: renommage par l admin du club, sans re-confirmation -> 200', r.status === 200 && r.data.club && r.data.club.nom === 'Club C2', r.status + ' ' + (r.data.error || ''));
+  r = await put('/api/admin/club', { pin: '12' }, { club: 'clubc', pin: '1357' });
+  check('PUT club: pin trop court -> 400', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  r = await put('/api/admin/club', { pin: '2468' }, { club: 'clubc', pin: '1357' });
+  check('PUT club: nouveau PIN sans confirm_pin -> 401', r.status === 401, r.status);
+  r = await put('/api/admin/club', { pin: '2468', confirm_pin: '1357' }, { club: 'clubc', pin: '1357' });
+  check('PUT club: nouveau PIN confirmé par le code actuel -> 200 + pin_propre', r.status === 200 && r.data.club && r.data.club.pin_propre === true, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/admin/audit', { pin: '2468', club: 'clubc' });
+  check('le nouveau PIN de clubc ouvre les routes admin -> 200', r.status === 200, r.status);
+  r = await api('/api/admin/audit', { pin: '1357', club: 'clubc' });
+  check('ancien PIN de clubc révoqué -> 401', r.status === 401, r.status);
+  r = await put('/api/admin/club', { slug: 'ebpc', nom: 'Pirate' }, { club: 'clubc', pin: '2468' });
+  check('admin de clubc ne peut pas modifier le club par défaut -> 403', r.status === 403, r.status + ' ' + (r.data.error || ''));
+  r = await put('/api/admin/club', { slug: 'clubc', pin: '9753', actif: false, confirm_pin: PIN });
+  check('super-admin (code global): change le PIN et désactive clubc à distance -> 200', r.status === 200 && r.data.club && r.data.club.actif === false && r.data.club.pin_propre === true, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/clubs', { pin: null });
+  check('club désactivé absent de la liste publique des clubs actifs', r.status === 200 && !r.data.clubs.some(c => c.slug === 'clubc'), JSON.stringify(r.data.clubs.map(c => c.slug)));
+  r = await api('/api/etat', { pin: null, club: 'clubc' });
+  check('club désactivé -> 404 à la résolution (X-Club)', r.status === 404, r.status);
+  r = await put('/api/admin/club', { slug: 'clubc', actif: true, confirm_pin: PIN });
+  check('réactivation de clubc à distance par le super-admin -> 200', r.status === 200 && r.data.club && r.data.club.actif === true, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/clubs', { pin: null });
+  check('clubc de retour dans la liste publique des clubs actifs', r.data.clubs.some(c => c.slug === 'clubc'), JSON.stringify(r.data.clubs.map(c => c.slug)));
+  r = await api('/api/admin/clubs', {});
+  check('GET /api/admin/clubs: clubc pin_propre+actif, défaut pin_propre=false', r.status === 200 && r.data.clubs.some(c => c.slug === 'clubc' && c.pin_propre === true && c.actif === true) && r.data.clubs.some(c => c.slug === 'ebpc' && c.pin_propre === false), JSON.stringify(r.data.clubs));
+  r = await put('/api/admin/club', { actif: false, confirm_pin: PIN });
+  check('le club par défaut ne peut pas être désactivé -> 400', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  r = await put('/api/admin/club', { slug: 'zzzz', nom: 'X' });
+  check('PUT club slug inconnu -> 404', r.status === 404, r.status);
+  r = await api('/api/admin/audit', {});
+  check('audit (club défaut): club_cree et club_modifie journalisés', r.data.audit.some(a => a.action === 'club_cree') && r.data.audit.some(a => a.action === 'club_modifie'), 'nb=' + r.data.audit.length);
+  await del('/api/admin/tournoi', { club: 'clubc' }).catch(() => {});
+
   // ---------- 18. Rattachement des anciens joueurs anonymes à leur compte ----------
   sec('18. Rattachement compte <-> anciens joueurs anonymes (même pseudo, tournois passés)');
   r = await nouveauTournoi({ nom: 'Retro1', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2, notif_push: false });
@@ -1199,12 +1245,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('316 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('336 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('316 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('336 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;
@@ -1231,6 +1277,7 @@ async function nouveauTournoi(body) {
   md += `- Lot fiabilité admin (section 15): export JSON du tournoi, import avec remap des ids + FK validées au COMMIT (401 sans/bon confirm_pin, 400 invalide, 409 si actif sans replace), diff avant rollback (resume + matchs modifiés), filtre du journal ?q=/?action=\n`;
   md += `- Rôles (section 16): compte role=admin -> session suffit pour requireAdmin ET confirm_pin (destructif); sinon PIN requis (401 sans), confirm_pin requis sur destructifs; POST /api/admin/compte/:id/role (admin/user, 400 invalide)\n`;
   md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
+  md += `- Multi-club PIN et réglages (section 17b): PUT /api/admin/club (nom sans confirm / pin 4-8 chiffres avec confirm_pin / actif), club inactif exclu de /api/clubs et 404 à la résolution, réactivation à distance (super-admin: PIN global ou session admin, 403 pour un simple admin de club), GET /api/admin/clubs (pin_propre/actif, jamais de hash), audit club_modifié\n`;
   md += `- Rattachement compte/joueurs anonymes (section 18): compte créé après un tournoi archivé (sans tournoi actif) rattache quand même les lignes anonymes du même pseudo (tournois passés inclus), fiche joueur + classement conservent les stats\n`;
   md += `- Fil du tournoi (section 20): chronique du tournoi dérivée de l'état (aucun stockage -> cohérente avec les tableaux, rollback et corrections inclus), lignes victoire/forfait/champion/belle, élimination définitive mentionnée uniquement en double KO (LB/F) et fusionnée dans la ligne, 3 dernières lignes + « Voir tout » sur l'accueil, horodatage relatif, dernier tournoi terminé consultable sans tournoi actif (/api/tournois/:id public), phrases i18n dans les 5 langues (clés statiques + règles dynamiques alignées I18N_DYN/REPS_DYN_*)\n`;
   md += `- Variantes, durées et revanche (section 21): phrases variées par hachage déterministe (7 variantes victoires/forfaits/champion/belles, 4 belles sans table, 6 égalités, 7 revanches underdog), durée des matchs finis dans les lignes (· durée 42 min), lignes « revanche » en direct pour les paires déjà croisées (actif.h2h, historique du club complet, underdog « une revanche à prendre », « mène X-Y », égalité), pas de double ligne si à la belle ; traces après fin (suffixes « · après la belle » et « · revanche prise ! / manquée » via h2h antérieur sur les résultats, servies aussi sur /api/tournois/:id sans tournoi actif) ; 43 règles i18n du fil alignées dans les 5 langues (cDyn = 120)\n`;

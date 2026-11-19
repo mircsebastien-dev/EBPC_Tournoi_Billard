@@ -1181,8 +1181,66 @@ app.post('/api/admin/club', requireAdmin, (req, res) => {
   if (clubParSlug(slug)) return res.status(409).json({ error: `slug « ${slug} » déjà pris` });
   const pinHash = req.body.pin ? crypto.createHash('sha256').update(String(req.body.pin)).digest('hex') : null;
   const info = db.prepare('INSERT INTO club (slug, nom, pin_hash) VALUES (?, ?, ?)').run(slug, nom, pinHash);
-  logAuditReq(req, 'club_cree', `club ${slug}`, null, { nom });
-  res.json({ ok: true, club: db.prepare('SELECT id, slug, nom, actif FROM club WHERE id = ?').get(Number(info.lastInsertRowid)) });
+});
+
+// ---------- Multi-club: réglages d'un club (nom, PIN propre, actif) ----------
+// GET /api/admin/clubs : liste complète (super-admin), pin_propre = a son propre PIN, jamais de hash ni PIN en réponse
+app.get('/api/admin/clubs', requireAdmin, (req, res) => {
+  const clubs = db.prepare('SELECT id, slug, nom, actif, pin_hash, created_at FROM club ORDER BY id').all()
+    .map(c => ({ id: c.id, slug: c.slug, nom: c.nom, actif: !!c.actif, pin_propre: !!c.pin_hash, created_at: c.created_at }));
+  res.json({ clubs });
+});
+function hashPin(p) { return crypto.createHash('sha256').update(String(p)).digest('hex'); }
+// le PIN global (settings) ou une session admin = niveau super-admin ; le seul PIN d'un club ne l'est pas
+function superAdminSoumis(req) {
+  const gh = getSetting('admin_pin_hash');
+  return estAdminSession(req) || [req.headers['x-admin-pin'], req.body && req.body.pin, req.body && req.body.confirm_pin]
+    .some(x => x != null && hashPin(x) === gh);
+}
+// PUT /api/admin/club : modifie le club courant ; body.slug = modifie un autre club (super-admin uniquement)
+app.put('/api/admin/club', requireAdmin, (req, res) => {
+  const slugCible = req.body.slug != null ? String(req.body.slug).trim().toLowerCase() : null;
+  let cible;
+  if (slugCible) {
+    cible = db.prepare('SELECT * FROM club WHERE slug = ? COLLATE NOCASE').get(slugCible);
+    if (!cible) return res.status(404).json({ error: `Club inconnu « ${slugCible} »` });
+    if (cible.id !== req.club.id && !superAdminSoumis(req)) {
+      return res.status(403).json({ error: 'Modifier un autre club nécessite le code global ou un compte admin' });
+    }
+  } else cible = req.club;
+
+  const maj = {};
+  if ('nom' in req.body) {
+    const nom = String(req.body.nom || '').trim().slice(0, 80);
+    if (!nom) return res.status(400).json({ error: 'nom requis' });
+    if (nom !== cible.nom) maj.nom = nom;
+  }
+  let pinChange = false;
+  if ('pin' in req.body) {
+    if (!/^\d{4,8}$/.test(String(req.body.pin))) return res.status(400).json({ error: 'PIN invalide (4 à 8 chiffres)' });
+    const h = hashPin(req.body.pin);
+    if (h !== cible.pin_hash) { maj.pin_hash = h; pinChange = true; }
+  }
+  if ('actif' in req.body) {
+    const actif = !!req.body.actif;
+    if (actif !== !!cible.actif) {
+      if (!actif && cible.id === clubParDefaut().id) return res.status(400).json({ error: 'Le club par défaut ne peut pas être désactivé' });
+      maj.actif = actif ? 1 : 0;
+    }
+  }
+  // nom : libre pour l'admin du club ; PIN ou actif : geste sensible, code re-saisi exigé (sauf session admin)
+  if ((pinChange || maj.actif !== undefined) && !estAdminSession(req)) {
+    const rc = verifierPinAdmin(req, req.body.confirm_pin);
+    if (rc.bloque) return res.status(429).json({ error: rc.message });
+    if (!rc.ok) return res.status(401).json({ error: 'Code administrateur requis pour confirmer ce changement' });
+  }
+  if (!Object.keys(maj).length) {
+    return res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: cible.nom, actif: !!cible.actif, pin_propre: !!cible.pin_hash } });
+  }
+  const sets = Object.keys(maj).map(k => `${k} = ?`).join(', ');
+  db.prepare(`UPDATE club SET ${sets} WHERE id = ?`).run(...Object.values(maj), cible.id);
+  logAuditReq(req, 'club_modifie', `club ${cible.slug}`, null, { changements: Object.keys(maj) }); // jamais le PIN lui-même
+  res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: maj.nom != null ? maj.nom : cible.nom, actif: maj.actif != null ? !!maj.actif : !!cible.actif, pin_propre: maj.pin_hash ? true : !!cible.pin_hash } });
 });
 
 // Rollback point-in-time : restaure le tournoi actif à l'état du snapshot d'un événement d'audit
