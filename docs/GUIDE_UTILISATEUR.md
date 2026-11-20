@@ -12,6 +12,7 @@
 2. Ouvre l'app depuis l'écran d'accueil → **Compte** → 🔔 **Activer les notifications** → autorise
 3. Quand ton match est lancé, tu reçois une notif (même écran verrouillé). **Tap dessus → la card du match s'ouvre directement.**
 4. À la **création d'un nouveau tournoi**, tous les abonnés reçoivent aussi une notif « 🎱 Nouveau tournoi — inscriptions ouvertes »
+5. Dès que ton **adversaire est connu** (le match précédent vient de se terminer), tu reçois « 🕐 Ton prochain match arrive » avec son pseudo : prépare-toi avant même le lancement !
 
 ## Suivre le tournoi
 - **🗺️ Tableau** : vue **bracket** (onglets Tout / WB / LB / Phase finale, liens entre matchs sur l'onglet final) ou **liste** (boutons en haut), liste déroulante « Aller au tour », filtre par joueur (Entrée pour valider). Dans les matchs pas encore joués, les places inconnues s'affichent « gagnant wb1-001 », « perdant lb2-003 » ou « blanc » : tu sais d'où vient le joueur que tu attends. Les matchs en cours sont entourés en rouge, les terminés en vert, les gagnants en gras vert.
