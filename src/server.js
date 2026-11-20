@@ -24,6 +24,7 @@ app.use((req, res, next) => {
 });
 // limite élargie UNIQUEMENT pour la restauration de TOUTE la base (une sauvegarde complète peut dépasser 256ko)
 app.use('/api/admin/base/import', express.json({ limit: '25mb' }));
+app.use('/api/admin/base/import-club', express.json({ limit: '25mb' })); // périmètre club: même limite (journal + snapshots volumineux)
 app.use(express.json({ limit: '256kb' })); // body > 256ko -> 413 (géré par le middleware d'erreur)
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
@@ -1418,6 +1419,131 @@ app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuper
   }
   const apres = {}; for (const t of connues) apres[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
   logAuditReq(req, 'import_base', `${lignes.length} lignes restaurées sur ${connues.length} tables`, { tables: avant }, { tables: apres });
+  majEtBroadcast();
+  res.json({ ok: true, tables: apres, ...etatGlobal(req) });
+});
+
+// ---------- 17e. Sauvegarde / restauration des DONNÉES du club (un code de club administre SON club) ----------
+// Périmètre club uniquement: jamais les comptes, sessions, emails ou préférences des utilisateurs (données plateforme).
+const TABLES_CLUB = {
+  tournoi: 'SELECT r.* FROM tournoi r WHERE r.club_id = ?',
+  distance_round: 'SELECT r.* FROM distance_round r JOIN tournoi t ON t.id = r.tournoi_id WHERE t.club_id = ?',
+  joueur: 'SELECT r.* FROM joueur r JOIN tournoi t ON t.id = r.tournoi_id WHERE t.club_id = ?',
+  table_billard: 'SELECT r.* FROM table_billard r JOIN tournoi t ON t.id = r.tournoi_id WHERE t.club_id = ?',
+  match: 'SELECT r.* FROM "match" r JOIN tournoi t ON t.id = r.tournoi_id WHERE t.club_id = ?',
+  match_event: 'SELECT r.* FROM match_event r JOIN "match" m ON m.id = r.match_id JOIN tournoi t ON t.id = m.tournoi_id WHERE t.club_id = ?',
+  audit_log: 'SELECT r.* FROM audit_log r WHERE r.club_id = ?',
+  audit_snapshot: 'SELECT r.* FROM audit_snapshot r WHERE r.club_id = ?',
+};
+function compterClub(table, clubId) { // compteurs before/after de la restauration ciblée (lignes du périmètre club)
+  const SQL = {
+    tournoi: 'SELECT COUNT(*) n FROM tournoi WHERE club_id = ?',
+    distance_round: 'SELECT COUNT(*) n FROM distance_round WHERE tournoi_id IN (SELECT id FROM tournoi WHERE club_id = ?)',
+    joueur: 'SELECT COUNT(*) n FROM joueur WHERE tournoi_id IN (SELECT id FROM tournoi WHERE club_id = ?)',
+    table_billard: 'SELECT COUNT(*) n FROM table_billard WHERE tournoi_id IN (SELECT id FROM tournoi WHERE club_id = ?)',
+    match: 'SELECT COUNT(*) n FROM "match" WHERE tournoi_id IN (SELECT id FROM tournoi WHERE club_id = ?)',
+    match_event: 'SELECT COUNT(*) n FROM match_event WHERE match_id IN (SELECT m.id FROM "match" m JOIN tournoi t ON t.id = m.tournoi_id WHERE t.club_id = ?)',
+    audit_log: 'SELECT COUNT(*) n FROM audit_log WHERE club_id = ?',
+    audit_snapshot: 'SELECT COUNT(*) n FROM audit_snapshot WHERE club_id = ?',
+  };
+  return db.prepare(SQL[table]).get(clubId).n;
+}
+
+// Export club: les données DU club courant (8 tables périmètre club), ids exacts -> fichier JSON téléchargeable.
+// Ouvert à TOUS les admins du club (code de club accepté): le club sauvegarde SES données, pas celles des autres.
+app.get('/api/admin/base/export-club', requireAdmin, (req, res) => {
+  const tables = {}; let lignes = 0;
+  for (const [nom, sql] of Object.entries(TABLES_CLUB)) { const rs = db.prepare(sql).all(req.club.id); tables[nom] = rs; lignes += rs.length; }
+  const payload = { sauvegarde: 'ebpc-tournoi-billard-club', version: 1, genere_le: new Date().toISOString(),
+    club: { id: req.club.id, slug: req.club.slug, nom: req.club.nom }, tables };
+  logAuditReq(req, 'export_club', `club ${req.club.slug} : ${Object.keys(tables).length} tables / ${lignes} lignes`, null, { format: 1 });
+  res.setHeader('Content-Disposition', `attachment; filename="club-${req.club.slug}-${payload.genere_le.slice(0, 19).replace(/[:T]/g, '-')}.json"`);
+  res.json(payload);
+});
+
+// Import club: REMPLACE uniquement les données du club courant par une sauvegarde de CE club.
+// Jamais les autres clubs, jamais les comptes/sessions de la plateforme. Transaction intégrale, rollback si erreur.
+app.post('/api/admin/base/import-club', requireAdmin, requireConfirmPin, (req, res) => {
+  const err400 = (m) => res.status(400).json({ error: m });
+  const p = req.body && req.body.payload && typeof req.body.payload === 'object' ? req.body.payload : req.body;
+  if (!p || typeof p !== 'object' || Array.isArray(p) || p.sauvegarde !== 'ebpc-tournoi-billard-club' ||
+      !p.tables || typeof p.tables !== 'object' || Array.isArray(p.tables)) return err400("Sauvegarde invalide (format: attend un export de /api/admin/base/export-club)");
+  if (!p.club || typeof p.club !== 'object' || typeof p.club.slug !== 'string' || !p.club.slug) return err400('Sauvegarde invalide (club d origine absent)');
+  if (p.club.slug.toLowerCase() !== String(req.club.slug).toLowerCase()) return err400(`Cette sauvegarde provient du club « ${p.club.slug} » : elle ne peut pas restaurer le club « ${req.club.slug} » (chaque club restaure uniquement ses propres données)`);
+  const connues = Object.keys(TABLES_CLUB);
+  for (const nom of Object.keys(p.tables)) if (!connues.includes(nom)) return err400(`Sauvegarde invalide (table ${nom} hors périmètre club : les comptes et les données de la plateforme ne sont jamais importables par un club)`);
+  const cols = {}; for (const t of connues) cols[t] = new Set(db.prepare(`PRAGMA table_info(${t})`).all().map(c => c.name));
+  const lignes = [];
+  for (const nom of connues) {
+    if (!Array.isArray(p.tables[nom])) return err400(`Sauvegarde invalide (${nom} doit être un tableau)`);
+    for (const row of p.tables[nom]) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) return err400(`Sauvegarde invalide (${nom} : ligne invalide)`);
+      for (const c of Object.keys(row)) if (!cols[nom].has(c)) return err400(`Sauvegarde invalide (${nom} : colonne inconnue ${c})`);
+      lignes.push([nom, row]);
+    }
+  }
+  // cohérence interne: chaque ligne reste STRICTEMENT dans le périmètre du club (aucune ligne d un autre club, aucune référence externe)
+  const idsT = new Set(p.tables.tournoi.map(x => Number(x.id)));
+  const idsM = new Set(p.tables.match.map(x => Number(x.id)));
+  const idsJ = new Set(p.tables.joueur.map(x => Number(x.id)));
+  const idsA = new Set(p.tables.audit_log.map(x => Number(x.id)));
+  const dedans = (v, s) => s.has(Number(v));
+  const absentOk = (v, s) => v === null || v === undefined || s.has(Number(v));
+  for (const [nom, row] of lignes) {
+    if (nom === 'tournoi' && (Number(row.club_id) !== req.club.id || !absentOk(row.champion_id, idsJ))) return err400(`Tournoi ${row.id} : n appartient pas au club courant (club_id ${row.club_id})`);
+    if (['distance_round', 'joueur', 'table_billard', 'match'].includes(nom) && !dedans(row.tournoi_id, idsT)) return err400(`${nom} : tournoi ${row.tournoi_id} absent de la sauvegarde (référence incohérente)`);
+    if (nom === 'match' && (!absentOk(row.joueur1_id, idsJ) || !absentOk(row.joueur2_id, idsJ) || !absentOk(row.gagnant_id, idsJ) || !absentOk(row.suivant_id, idsM) || !absentOk(row.perdant_id, idsM))) return err400(`Match ${row.id} : référence un joueur/match absent de la sauvegarde du club`);
+    if (nom === 'match_event' && (!dedans(row.match_id, idsM) || !absentOk(row.joueur_id, idsJ))) return err400(`Event ${row.id} : référence un match/joueur absent de la sauvegarde du club`);
+    if (nom === 'audit_log' && Number(row.club_id) !== req.club.id) return err400(`Journal ${row.id} : n appartient pas au club courant`);
+    if (nom === 'audit_snapshot' && (Number(row.club_id) !== req.club.id || !dedans(row.audit_id, idsA))) return err400(`Snapshot ${row.id} : n appartient pas au journal du club courant`);
+  }
+  // ids déjà pris par des lignes N appartenant PAS au club (base divergente): refus AVANT toute écriture
+  const CLUB_DE = {
+    tournoi: 'SELECT club_id AS c FROM tournoi WHERE id = ?',
+    joueur: 'SELECT t.club_id AS c FROM joueur r JOIN tournoi t ON t.id = r.tournoi_id WHERE r.id = ?',
+    table_billard: 'SELECT t.club_id AS c FROM table_billard r JOIN tournoi t ON t.id = r.tournoi_id WHERE r.id = ?',
+    match: 'SELECT t.club_id AS c FROM "match" r JOIN tournoi t ON t.id = r.tournoi_id WHERE r.id = ?',
+    match_event: 'SELECT t.club_id AS c FROM match_event r JOIN "match" m ON m.id = r.match_id JOIN tournoi t ON t.id = m.tournoi_id WHERE r.id = ?',
+    audit_log: 'SELECT club_id AS c FROM audit_log WHERE id = ?',
+    audit_snapshot: 'SELECT club_id AS c FROM audit_snapshot WHERE id = ?',
+  };
+  for (const [nom, row] of lignes) {
+    const exist = CLUB_DE[nom] ? db.prepare(CLUB_DE[nom]).get(Number(row.id)) : null;
+    if (exist && exist.c !== req.club.id) return err400(`Sauvegarde incompatible : ${nom} ${row.id} existe déjà avec une autre origine (base divergente). Demandez une restauration de la base complète au super-admin.`);
+  }
+  const avant = {}; for (const t of connues) avant[t] = compterClub(t, req.club.id);
+  db.pragma('foreign_keys = OFF'); // cf. import base: validation par foreign_key_check intégré (FK réactivées dans le finally)
+  let txClub;
+  try {
+    txClub = db.transaction(() => {
+      const SUPPR = {
+        match_event: 'DELETE FROM match_event WHERE match_id IN (SELECT m.id FROM "match" m JOIN tournoi t ON t.id = m.tournoi_id WHERE t.club_id = ?)',
+        match: 'DELETE FROM "match" WHERE tournoi_id IN (SELECT id FROM tournoi WHERE club_id = ?)',
+        table_billard: 'DELETE FROM table_billard WHERE tournoi_id IN (SELECT id FROM tournoi WHERE club_id = ?)',
+        distance_round: 'DELETE FROM distance_round WHERE tournoi_id IN (SELECT id FROM tournoi WHERE club_id = ?)',
+        joueur: 'DELETE FROM joueur WHERE tournoi_id IN (SELECT id FROM tournoi WHERE club_id = ?)',
+        audit_snapshot: 'DELETE FROM audit_snapshot WHERE club_id = ?',
+        audit_log: 'DELETE FROM audit_log WHERE club_id = ?',
+        tournoi: 'DELETE FROM tournoi WHERE club_id = ?',
+      };
+      for (const nom of connues) db.prepare(SUPPR[nom]).run(req.club.id);
+      for (const [nom, row] of lignes) {
+        const cles = Object.keys(row);
+        if (!cles.length) continue;
+        db.prepare(`INSERT INTO ${nom} (${cles.map(c => `"${c}"`).join(', ')}) VALUES (${cles.map(() => '?').join(', ')})`).run(...cles.map(c => row[c]));
+      }
+      const vios = db.prepare('PRAGMA foreign_key_check').all();
+      for (const [nom, row] of lignes) {
+        if (nom === 'distance_round') continue; // pas de colonne id (PK tournoi_id+round): cohérence déjà validée ci-dessus
+        if (vios.some(v => v.table === nom && Number(v.rowid) === Number(row.id))) { const e = new Error(`Sauvegarde invalide : ${nom} ${row.id} laisse une référence cassée`); e.status = 400; throw e; }
+      }
+    });
+    txClub(); // toute erreur -> rollback intégral: le club garde ses données actuelles
+  } finally {
+    db.pragma('foreign_keys = ON'); // contraintes réactivées même en cas d erreur
+  }
+  const apres = {}; for (const t of connues) apres[t] = compterClub(t, req.club.id);
+  logAuditReq(req, 'import_club', `club ${req.club.slug} : ${lignes.length} lignes restaurées sur ${connues.length} tables`, { tables: avant }, { tables: apres });
   majEtBroadcast();
   res.json({ ok: true, tables: apres, ...etatGlobal(req) });
 });

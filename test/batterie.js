@@ -1081,7 +1081,58 @@ async function nouveauTournoi(body) {
   const spec17d = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
   const ga17d = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
   const srv17d = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
-  check("doc: SPEC 17d + GUIDE_ADMIN dédié + serveur (requireSuperAdmin sur export/import, limite 25mb sur l'import UNIQUEMENT)", spec17d.includes('17d. Sauvegarde complète de la base') && spec17d.includes('402 checks') && ga17d.includes('Sauvegarde / restauration de la base') && srv17d.includes("app.use('/api/admin/base/import', express.json({ limit: '25mb' }))") && srv17d.includes("app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin") && srv17d.includes("app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuperAdmin"), '');
+  check("doc: SPEC 17d + GUIDE_ADMIN dédié + serveur (requireSuperAdmin sur export/import, limite 25mb sur l'import UNIQUEMENT)", spec17d.includes('17d. Sauvegarde complète de la base') && spec17d.includes('422 checks') && ga17d.includes('Sauvegarde / restauration de la base') && srv17d.includes("app.use('/api/admin/base/import', express.json({ limit: '25mb' }))") && srv17d.includes("app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin") && srv17d.includes("app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuperAdmin"), '');
+
+  // ---------- 17e. Sauvegarde des données du club (export/import ciblés: un code de club administre SON club) ----------
+  sec('17e. Sauvegarde des données du club (export/import ciblés, code de club)');
+  r = await api('/api/admin/base/export-club');
+  const C = r.data;
+  check('export club: 200 + format club (marqueur ebpc-tournoi-billard-club, club ebpc, genere_le, tables)', r.status === 200 && C && C.sauvegarde === 'ebpc-tournoi-billard-club' && C.club && C.club.slug === 'ebpc' && !!C.genere_le && C.tables && typeof C.tables === 'object' && !Array.isArray(C.tables), r.status + ' ' + JSON.stringify(C && Object.keys(C)).slice(0, 120));
+  check('export club: périmètre club uniquement (8 tables de données, JAMAIS compte/session/email/club)', ['tournoi', 'distance_round', 'joueur', 'table_billard', 'match', 'match_event', 'audit_log', 'audit_snapshot'].every(t => Array.isArray(C.tables && C.tables[t])) && ['settings', 'club', 'compte_club', 'compte', 'ami', 'ami_pseudo', 'session', 'push_subscription'].every(t => !C.tables || C.tables[t] === undefined), Object.keys((C && C.tables) || {}).join(','));
+  check('export club: téléchargeable (Content-Disposition attachment, nom club-ebpc…)', /^attachment/.test(r.headers.get('content-disposition') || '') && /club-ebpc/.test(r.headers.get('content-disposition') || ''), r.headers.get('content-disposition') || 'absent');
+  const attendu17e = (C.tables.audit_log || []).length;
+  check('export club: contenu du club uniquement (tournois/joueurs/matchs du club, aucune ligne d un autre club)', C.tables.tournoi.length >= 1 && C.tables.joueur.length >= 1 && C.tables.match.length >= 1 && attendu17e >= 1 && C.tables.tournoi.every(t => t.club_id === 1) && C.tables.audit_log.every(a => a.club_id === 1) && C.tables.match.every(m => C.tables.tournoi.some(t => t.id === m.tournoi_id)), JSON.stringify({ tournoi: C.tables.tournoi.length, joueur: C.tables.joueur.length, match: C.tables.match.length, audit: attendu17e }));
+  // un code de CLUB administre SON club: l export ciblé marche avec SON code (PAS de 403 ici)
+  r = await api('/api/admin/base/export-club', { club: 'clubsb', pin: '4321' });
+  check('export club avec un code de club -> 200 (le club sauvegarde SES données: club clubsb vide)', r.status === 200 && r.data.club && r.data.club.slug === 'clubsb' && ['tournoi', 'joueur', 'match', 'audit_log'].every(t => Array.isArray(r.data.tables[t]) && r.data.tables[t].length === 0), r.status + ' ' + JSON.stringify(r.data.club || {}));
+  r = await api('/api/admin/base/export-club', { pin: null });
+  check('export club sans code admin -> 401', r.status === 401, r.status + ' ' + (r.data.error || ''));
+  // casse volontairement les données du club (vidage du journal) puis restaure par l import ciblé du club
+  r = await del('/api/admin/audit');
+  check('vidage du journal du club (confirm_pin) -> 200, supprimées >= 1', r.status === 200 && r.data.supprimes >= 1, r.status + ' ' + JSON.stringify(r.data));
+  r = await post('/api/admin/base/import-club', { payload: C, confirm_pin: PIN });
+  check('import club: 200 + ok (données du club restaurées)', r.status === 200 && r.data.ok === true, r.status + ' ' + (r.data.error || ''));
+  const apres17e = (r.data && r.data.tables) || {};
+  check('import club: chaque table du club retrouve exactement ses lignes (identique à l export)', Object.keys(C.tables).every(t => apres17e[t] === C.tables[t].length), JSON.stringify(Object.keys(C.tables).map(t => t + ':' + C.tables[t].length + '->' + (apres17e[t] !== undefined ? apres17e[t] : '?'))).slice(0, 200));
+  r = await api('/api/tournois');
+  check('import club: ids préservés (le 1er tournoi du club garde son id)', C.tables.tournoi.length >= 1 && (r.data.tournois || []).some(x => x.id === C.tables.tournoi[0].id), 'id 1er tournoi=' + (C.tables.tournoi[0] && C.tables.tournoi[0].id));
+  r = await api('/api/admin/audit');
+  check('import club: journal du club restauré (entrées de retour)', r.status === 200 && r.data.audit.length >= attendu17e, 'nb=' + r.data.audit.length + ' attendu>=' + attendu17e);
+  r = await api('/api/etat');
+  check('import club: état du club cohérent après restauration (actif null ou tableau de matchs)', r.status === 200 && (r.data.actif === null || Array.isArray(r.data.actif.matchs)), r.status);
+  // sécurité: la restauration d un club ne doit JAMAIS toucher aux autres
+  r = await post('/api/admin/base/import-club', { payload: C }, { club: 'clubsb', pin: '4321' });
+  check('import club sans confirm_pin (code de club) -> 401 (confirmation destructive exigée)', r.status === 401, r.status + ' ' + (r.data.error || ''));
+  r = await post('/api/admin/base/import-club', { payload: C, confirm_pin: '4321' }, { club: 'clubsb', pin: '4321' });
+  check('import club: sauvegarde d un AUTRE club -> 400 (clubsb ne peut pas importer le fichier d ebpc)', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  r = await post('/api/admin/base/import-club', { payload: { format: 'poubelle' }, confirm_pin: PIN });
+  check('import club: marqueur de sauvegarde absent -> 400 (aucune écriture)', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  r = await post('/api/admin/base/import-club', { payload: { sauvegarde: 'ebpc-tournoi-billard-club', club: { id: 1, slug: 'ebpc', nom: 'EBPC' }, tables: { compte: [{ id: 1 }] } }, confirm_pin: PIN });
+  check('import club: table hors périmètre club (compte) -> 400 (emails/mots de passe jamais importables par un club)', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  const C2 = JSON.parse(JSON.stringify(C));
+  C2.tables.tournoi.push({ id: 900001, club_id: 999, nom: 'Vol', regle: 'blackball', taille: 8, format: 'simple', dko_tours: 0, tetes_de_serie: 0, nb_tables: 4, ajustement_auto: 1, seuil_distance: 'jamais', distance_speciale: 3, statut: 'inscription', created_at: '2026-01-01 00:00:00' });
+  r = await post('/api/admin/base/import-club', { payload: C2, confirm_pin: PIN });
+  check('import club: ligne d un autre club (tournoi club_id 999) -> 400 (aucune écriture)', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  const C3 = JSON.parse(JSON.stringify(C));
+  C3.tables.match_event.push({ id: 900002, match_id: 999999, joueur_id: null, type: 'manche', detail: null, created_at: '2026-01-01 00:00:00' });
+  r = await post('/api/admin/base/import-club', { payload: C3, confirm_pin: PIN });
+  check('import club: référence interne cassée (match_event.match_id 999999) -> 400 (falsification refusée)', r.status === 400, r.status + ' ' + (r.data.error || ''));
+  const adH17e = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-data.html'), 'utf8');
+  check('front: panneau 💾 données du club dans admin-data.html (export club téléchargeant + import fichier avec confirmation destructible)', adH17e.includes('/api/admin/base/export-club') && adH17e.includes('/api/admin/base/import-club') && adH17e.includes('Télécharger la sauvegarde du club') && adH17e.includes('adminApiDestructif'), '');
+  const spec17e = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
+  const ga17e = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
+  const srv17e = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
+  check('doc: SPEC 17e + GUIDE_ADMIN club + serveur (export-club/import-club SANS requireSuperAdmin: un code de club sauvegarde/restaure SON club, limite 25mb)', spec17e.includes('17e. Sauvegarde des données du club') && spec17e.includes('422 checks') && ga17e.includes('Données du club : sauvegarde / restauration') && srv17e.includes("app.get('/api/admin/base/export-club', requireAdmin") && srv17e.includes("app.post('/api/admin/base/import-club', requireAdmin, requireConfirmPin") && srv17e.includes("app.use('/api/admin/base/import-club', express.json({ limit: '25mb' }))"), '');
 
   // ---------- 18. Rattachement des anciens joueurs anonymes à leur compte ----------
   sec('18. Rattachement compte <-> anciens joueurs anonymes (même pseudo, tournois passés)');
@@ -1414,12 +1465,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('402 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('422 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('402 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('422 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;

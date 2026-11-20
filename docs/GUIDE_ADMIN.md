@@ -143,3 +143,11 @@ Fly.io : secrets `ADMIN_PIN`, `RESEND_API_KEY`, `MAIL_FROM`, `VAPID_*` (ne JAMAI
 - **Restaurer** : bouton « ⬆️ Restaurer depuis un fichier… » → choisir un fichier JSON d'export → confirmation → la base actuelle est ENTIÈREMENT REMPLACÉE par le contenu du fichier (transaction : tout ou rien, aucune donnée mixée).
 - **Réservé au super-admin** (code administrateur global ou compte admin global) : un code PIN de club reçoit 403, il ne peut ni télécharger ni restaurer la base des autres clubs. La confirmation destructive reste exigée (PIN re-saisi ou mot `SUPPRIMER` en session).
 - Fréquence conseillée : un export après chaque tournoi terminé, et avant toute opération risquée (migration, gros correctif). C'est le complément des snapshots du volume Fly (infrastructure).
+
+### 💾 Données du club : sauvegarde / restauration
+
+**Où :** panneau « 💾 Données du club : sauvegarde / restauration » de `/admin-data.html`, visible de tous les admins du club (le panneau « base complète » reste réservé au super-admin, il n est plus affiché aux codes de club).
+
+- **Sauvegarder** : bouton « 📤 Télécharger la sauvegarde du club (JSON) » → fichier `club-<slug>-AAAA-MM-JJ-HH-MM-SS.json` contenant UNIQUEMENT les données de votre club (tournois même terminés, joueurs, matchs, events, journal, snapshots). Ni les comptes, ni les emails, ni les données des autres clubs.
+- **Restaurer** : bouton « 📥 Restaurer le club depuis un fichier… » → la restauration REMPLACE les données actuelles du club par le fichier, uniquement si le fichier provient du même club (sinon refus clair, jamais de mélange). Les autres clubs et les comptes ne sont jamais touchés ; transaction intégrale (tout ou rien) + confirmation destructive exigée.
+- **Ouvert à votre code de club** : c est la sauvegarde de VOTRE club, à faire avant chaque tournoi et après chaque clôture. Une sauvegarde de club ne restaure ni les comptes rattachés ni le PIN du club (gérés par le super-admin) ; en cas d ids incompatibles (base divergente), demandez plutôt la restauration de la base complète au super-admin.
