@@ -55,7 +55,7 @@ function importerLogo17k(input) {
   const f = input.files && input.files[0];
   if (!f) return;
   const refusLogo = () => { alert(t('Logo trop volumineux ou format non supporté')); input.value = ''; };
-  if (f.size > 300 * 1024) return refusLogo();
+  if (f.size > 8 * 1024 * 1024) return refusLogo(); // 17k v4: photo acceptée jusqu à 8 Mo, réduite ensuite à 256 px
   const poser = (uri) => { logoChoisi17k = uri; rafraichirLogoPrefs(); };
   if (f.type === 'image/svg+xml' || /\.svg$/i.test(f.name)) {
     f.text().then((txt) => {
@@ -64,7 +64,8 @@ function importerLogo17k(input) {
     }).catch(refusLogo);
     return;
   }
-  if (!/^image\/(png|jpeg)$/.test(f.type)) return refusLogo();
+  // 17k v4: plus de refus abusif sur le type MIME (photo iPhone HEIC, image/jpg, type absent)
+  // on tente le décodage navigateur, seul un échec de chargement refuse
   const imgL = new Image();
   imgL.onload = () => {
     try {
@@ -72,8 +73,16 @@ function importerLogo17k(input) {
       const ech = Math.min(1, 256 / Math.max(imgL.naturalWidth || 256, imgL.naturalHeight || 256));
       c.width = Math.max(1, Math.round((imgL.naturalWidth || 256) * ech));
       c.height = Math.max(1, Math.round((imgL.naturalHeight || 256) * ech));
-      c.getContext('2d').drawImage(imgL, 0, 0, c.width, c.height);
-      poser(c.toDataURL('image/png'));
+      const ctx = c.getContext('2d');
+      ctx.drawImage(imgL, 0, 0, c.width, c.height);
+      let uri = c.toDataURL('image/png');
+      if (uri.length > 190000) { // 17k v4: photo bruitée dont le PNG dépasserait le plafond serveur
+        ctx.globalCompositeOperation = 'destination-over';
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        uri = c.toDataURL('image/jpeg', 0.85);
+      }
+      poser(uri);
     } catch (e) { refusLogo(); }
   };
   imgL.onerror = refusLogo;
@@ -133,7 +142,7 @@ function render() {
         ...LOGOS_PRESETS.map((cle) => el('img', { src: '/logos/' + cle + '.svg', alt: cle, title: cle, 'data-logo': '/logos/' + cle + '.svg', style: 'width:44px;height:44px;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent', onclick: () => { logoChoisi17k = '/logos/' + cle + '.svg'; rafraichirLogoPrefs(); } })),
         el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logoChoisi17k = ''; rafraichirLogoPrefs(); } }, t('Aucun logo'))),
       el('div', { style: 'margin-top:8px' }, el('label', {}, t('Importer une image (PNG/JPG/SVG, réduite à 256 px, 300 Ko max)')),
-        el('input', { id: 'pref-logo-import', type: 'file', accept: 'image/png,image/jpeg,image/svg+xml' })),
+        el('input', { id: 'pref-logo-import', type: 'file', accept: 'image/*' })),
       el('div', { style: 'margin-top:8px' },
         el('label', {}, t('Affichage du logo')),
         el('div', { id: 'pref-logo-mode', class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px' },
