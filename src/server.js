@@ -458,6 +458,18 @@ function h2hPourMatchs(clubId, matchs) {
 
 // 17j. Personnalisation du club : couleur d accent de l interface + défauts de tournoi (nom, jour récurrent, heure)
 // stockés dans club.theme_json (jamais de secret) ; relus et validés à chaque accès (repli sur les valeurs d origine)
+// 17k. Logo du club : bibliothèque de prédéfinis servie statiquement (/public/logos, whitelist stricte)
+// ou logo importé en data:image (png/jpeg/svg+xml;base64), plafonné côté serveur (garde-fou stockage club.theme_json)
+const LOGOS_PRESETS = ['bille-noire', 'bille-8', 'queue', 'triangle', 'table', 'etoile', 'bouclier', 'couronne', 'flamme', 'cercle'];
+const LOGO_DATA_RE = /^data:image\/(?:png|jpeg|svg\+xml);base64,[A-Za-z0-9+/]+={0,2}$/; // jamais text/html ni aucun autre type
+const LOGO_TAILLE_MAX = 200000; // caractères (~150 Ko) : un petit logo réduit à 256 px passe très largement
+function logoClubValide(logo) {
+  if (typeof logo !== 'string') return false;
+  if (logo === '') return true; // aucun logo
+  if (logo.startsWith('/logos/')) return logo.endsWith('.svg') && LOGOS_PRESETS.includes(logo.slice('/logos/'.length, -'.svg'.length)); // whitelist stricte
+  return logo.length <= LOGO_TAILLE_MAX && LOGO_DATA_RE.test(logo);
+}
+
 function themeDuClub(cible) {
   let p = {};
   try { p = cible && cible.theme_json ? (JSON.parse(cible.theme_json) || {}) : {}; } catch (e) { p = {}; }
@@ -468,6 +480,7 @@ function themeDuClub(cible) {
     defaut_nom: typeof p.defaut_nom === 'string' ? p.defaut_nom : '',
     defaut_jour: (jour !== null && jour >= 0 && jour <= 6) ? jour : null, // 0 = dimanche (convention JS getDay)
     defaut_heure: (typeof p.defaut_heure === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(p.defaut_heure)) ? p.defaut_heure : '20:00',
+    logo: (typeof p.logo === 'string' && logoClubValide(p.logo)) ? p.logo : '', // 17k: '' = aucun logo
   };
 }
 
@@ -505,7 +518,8 @@ app.get('/api/clubs', (req, res) => {
 
 // 17j. personnalisation publique : l accent de l interface du club résolu (léger, sans authentification, pour TOUS les visiteurs)
 app.get('/api/club-theme', (req, res) => {
-  res.json({ slug: req.club.slug, nom: req.club.nom, accent: themeDuClub(req.club).accent });
+  const th17k = themeDuClub(req.club);
+  res.json({ slug: req.club.slug, nom: req.club.nom, accent: th17k.accent, logo: th17k.logo }); // 17k: logo public comme l accent
 });
 
 app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe(req.club.id) }));
@@ -1383,6 +1397,11 @@ app.put('/api/admin/club/prefs', requireAdmin, (req, res) => {
     const h = String(req.body.defaut_heure || '').trim();
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(h)) return res.status(400).json({ error: 'Heure invalide (format HH:MM)' });
     prefs.defaut_heure = h;
+  }
+  if ('logo' in req.body) { // 17k: '' = aucun, /logos/<prédéfini>.svg ou data:image (png/jpeg/svg+xml) plafonnée
+    const lg = String(req.body.logo || '').trim();
+    if (!logoClubValide(lg)) return res.status(400).json({ error: 'Logo invalide (prédéfini ou image PNG/JPG/SVG, trop volumineux ?)' });
+    prefs.logo = lg;
   }
   db.prepare('UPDATE club SET theme_json = ? WHERE id = ?').run(JSON.stringify(prefs), cible.id);
   logAuditReq(req, 'club_prefs', `club ${cible.slug}`, null, { changements: Object.keys(req.body).filter(k => k !== 'slug') }); // couleurs et défauts, jamais de secret

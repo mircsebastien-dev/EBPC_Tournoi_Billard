@@ -184,6 +184,8 @@ function panelBase() {
 }
 
 // 17j. Personnalisation des clubs : accent de l interface + défauts de tournoi, réglables à distance (body.slug = club cible)
+const LOGOS_PRESETS_CONSOLE = ['bille-noire', 'bille-8', 'queue', 'triangle', 'table', 'etoile', 'bouclier', 'couronne', 'flamme', 'cercle']; // 17k: même bibliothèque que la table de marque
+
 function panelPersonnalisation(clubs) {
   const sel = el('select', { style: 'max-width:280px' }, ...clubs.map(c => el('option', { value: c.slug }, `${c.nom} (${c.slug})`)));
   const accentI = el('input', { type: 'color', value: '#d6336c', style: 'width:64px;height:34px;padding:2px' });
@@ -192,6 +194,42 @@ function panelPersonnalisation(clubs) {
     ...[[0, 'Dimanche'], [1, 'Lundi'], [2, 'Mardi'], [3, 'Mercredi'], [4, 'Jeudi'], [5, 'Vendredi'], [6, 'Samedi']]
       .map(([v, l]) => el('option', { value: v }, l)));
   const heureI = el('input', { type: 'time', value: '20:00' });
+  // 17k: logo du club (prédéfini ou importé), même logique que la table de marque
+  let logo17k = '';
+  const galerie17k = el('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center' },
+    ...LOGOS_PRESETS_CONSOLE.map((cle) => el('img', { src: '/logos/' + cle + '.svg', alt: cle, title: cle, 'data-logo': '/logos/' + cle + '.svg', style: 'width:44px;height:44px;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent', onclick: () => { logo17k = '/logos/' + cle + '.svg'; marquerLogo17k(); } })),
+    el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logo17k = ''; marquerLogo17k(); } }, 'Aucun logo'));
+  const importI = el('input', { id: 'pref-logo-import-console', type: 'file', accept: 'image/png,image/jpeg,image/svg+xml' });
+  const marquerLogo17k = () => {
+    for (const b of galerie17k.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logo17k) ? '3px solid var(--pink)' : '3px solid transparent';
+    importI.value = '';
+  };
+  const refusLogo17k = () => { alert('Logo trop volumineux ou format non supporté (300 Ko max, PNG/JPG/SVG)'); importI.value = ''; };
+  const importerLogo17k = () => {
+    const f = importI.files && importI.files[0];
+    if (!f) return;
+    if (f.size > 300 * 1024) return refusLogo17k();
+    const poser = (uri) => { logo17k = uri; marquerLogo17k(); };
+    if (f.type === 'image/svg+xml' || /\.svg$/i.test(f.name)) {
+      f.text().then((txt) => { if (!txt || !txt.includes('<svg')) return refusLogo17k(); poser('data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(txt)))); }).catch(refusLogo17k);
+      return;
+    }
+    if (!/^image\/(png|jpeg)$/.test(f.type)) return refusLogo17k();
+    const imgL = new Image();
+    imgL.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        const ech = Math.min(1, 256 / Math.max(imgL.naturalWidth || 256, imgL.naturalHeight || 256));
+        c.width = Math.max(1, Math.round((imgL.naturalWidth || 256) * ech));
+        c.height = Math.max(1, Math.round((imgL.naturalHeight || 256) * ech));
+        c.getContext('2d').drawImage(imgL, 0, 0, c.width, c.height);
+        poser(c.toDataURL('image/png'));
+      } catch (e) { refusLogo17k(); }
+    };
+    imgL.onerror = refusLogo17k;
+    imgL.src = URL.createObjectURL(f);
+  };
+  importI.addEventListener('change', importerLogo17k);
   const chargerPrefs = async () => {
     try {
       const rep = await adminApi('/api/admin/club/prefs?slug=' + encodeURIComponent(sel.value));
@@ -200,17 +238,21 @@ function panelPersonnalisation(clubs) {
       nomI.value = p.defaut_nom || '';
       jourS.value = p.defaut_jour == null ? '' : String(p.defaut_jour);
       heureI.value = p.defaut_heure || '20:00';
+      logo17k = (p && typeof p.logo === 'string') ? p.logo : '';
+      marquerLogo17k();
     } catch (e) {}
   };
   sel.addEventListener('change', chargerPrefs);
   chargerPrefs();
   return el('div', { class: 'panel', style: 'margin-top:12px' },
-    el('h2', {}, '🎨 Personnalisation du club (couleur d interface + défauts de tournoi)'),
-    el('p', { class: 'muted small' }, 'Sélectionne un club puis ajuste sa couleur d accent (visible par tous ses visiteurs) et ses défauts de tournoi : nom, jour récurrent (0 = dimanche) et heure habituelle, prérenseignés à la création.'),
+    el('h2', {}, '🎨 Personnalisation du club (couleur d interface, logo + défauts de tournoi)'),
+    el('p', { class: 'muted small' }, 'Sélectionne un club puis ajuste sa couleur d accent, son logo (prédéfini ou importé, affiché en filigrane discret et à côté du nom du club) et ses défauts de tournoi : nom, jour récurrent (0 = dimanche) et heure habituelle, prérenseignés à la création.'),
     el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, sel, accentI, nomI, jourS, heureI,
+    el('div', { style: 'width:100%;margin-top:6px' }, el('label', {}, 'Logo du club :'), galerie17k,
+      el('div', { style: 'margin-top:6px' }, el('label', {}, 'Importer une image pour ce club (PNG/JPG/SVG, réduite à 256 px) :'), importI)),
       el('button', { onclick: async () => {
         try {
-          await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({ slug: sel.value, accent: accentI.value, defaut_nom: nomI.value.trim(), defaut_jour: jourS.value === '' ? null : Number(jourS.value), defaut_heure: heureI.value || '20:00' }) });
+          await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({ slug: sel.value, accent: accentI.value, defaut_nom: nomI.value.trim(), defaut_jour: jourS.value === '' ? null : Number(jourS.value), defaut_heure: heureI.value || '20:00', logo: logo17k }) });
           alert('✅ Personnalisation du club « ' + sel.value + ' » enregistrée.');
         } catch (e) { alert(e.message); }
       } }, 'Enregistrer pour ce club')));

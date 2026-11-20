@@ -46,10 +46,66 @@ function rafraichirThemeClub() {
       if (!localStorage.getItem(CLUB_KEY)) stocke._defaut = th.accent;
       localStorage.setItem(ACCENT_KEY, JSON.stringify(stocke));
       appliquerAccentClub(th.accent);
+      const stockeL = JSON.parse(localStorage.getItem(LOGO_KEY) || '{}'); // 17k: logo du club, même pattern
+      stockeL[th.slug] = logoValide17k(th.logo) ? (th.logo || '') : '';
+      if (!localStorage.getItem(CLUB_KEY)) stockeL._defaut = stockeL[th.slug];
+      localStorage.setItem(LOGO_KEY, JSON.stringify(stockeL));
+      appliquerLogoClub(th.logo);
     }).catch(() => {});
   } catch {}
 }
+// 17k. Logo du club (prédéfini servi statique ou importé en data:image) : affiché en FILIGRANE très discret
+// centré sur toutes les pages (derrière le contenu, jamais cliquable) + en petit à côté du nom du club.
+// Même pattern anti-flash que l accent : cache localStorage par slug (ebpc_logo_club), AUCUN appel réseau ici
+// (logoDepuisCache est appelé en haut de fichier, avant api()/LANG : mêmes contraintes TDZ que accentDepuisCache).
+const LOGO_KEY = 'ebpc_logo_club';
+function logoValide17k(l) {
+  if (typeof l !== 'string') return false;
+  if (l === '' || /^\/logos\/[a-z0-9-]+\.svg$/.test(l)) return true; // prédéfini de la bibliothèque
+  return /^data:image\/(?:png|jpeg|svg\+xml);base64,[A-Za-z0-9\/]+={0,2}$/.test(l) && l.length <= 200000; // import plafonné
+}
+function appliquerLogoClub(logo) {
+  try {
+    const chemin = logoValide17k(logo) ? logo : '';
+    // filigrane centré : derrière le contenu (z-index:-1, le fond body est propagé au canvas), non cliquable
+    let wm = document.getElementById('filigrane-logo');
+    if (chemin) {
+      if (!wm) {
+        wm = document.createElement('img');
+        wm.id = 'filigrane-logo';
+        wm.alt = '';
+        wm.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-width:min(62vmin,430px);max-height:62vmin;opacity:.045;z-index:-1;pointer-events:none;user-select:none;';
+        document.body.append(wm);
+      }
+      wm.src = chemin;
+    } else if (wm) wm.remove();
+    // petit logo d en-tête, à côté du nom du club
+    const h1 = document.querySelector('header.top h1');
+    if (h1) {
+      let chip = document.getElementById('logo-entete-club');
+      if (chemin) {
+        if (!chip) {
+          chip = document.createElement('img');
+          chip.id = 'logo-entete-club';
+          chip.alt = '';
+          chip.style.cssText = 'height:1.25em;vertical-align:-.25em;margin-right:8px;border-radius:6px;';
+          h1.prepend(chip);
+        }
+        chip.src = chemin;
+      } else if (chip) chip.remove();
+    }
+  } catch {}
+}
+function logoDepuisCache() {
+  try {
+    if (location.pathname.startsWith('/tv.html')) return; // page TV : filigrane exclu comme l accent
+    const stocke = JSON.parse(localStorage.getItem(LOGO_KEY) || '{}');
+    const k = localStorage.getItem(CLUB_KEY) || '_defaut';
+    if (typeof stocke[k] === 'string' && stocke[k]) appliquerLogoClub(stocke[k]);
+  } catch {}
+}
 accentDepuisCache(); // anti-flash: cache local uniquement, AVANT le premier rendu, sans aucun appel réseau
+logoDepuisCache(); // 17k: logo du club, même anti-flash, toujours sans réseau
 
 // i18n front : langue choisie dans le compte (ebpc_lang), defaut fr. t() traduit via le dictionnaire,
 // avec repli sur le francais si la chaine est absente (aucun changement en mode fr).
@@ -62,6 +118,11 @@ const I18N = {
   "Heure habituelle": "Usual time",
   "Personnalisation enregistrée": "Personalization saved",
   "Visible par tous les visiteurs du club.": "Visible to every visitor of the club.",
+  "Logo du club": "Club logo",
+  "Aucun logo": "No logo",
+  "Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.": "Preset or imported logo, shown as a discreet watermark and next to the club name for every visitor.",
+  "Importer une image (PNG/JPG/SVG, réduite à 256 px, 300 Ko max)": "Import an image (PNG/JPG/SVG, shrunk to 256 px, 300 KB max)",
+  "Logo trop volumineux ou format non supporté": "Logo too large or unsupported format",
   "Dimanche": "Sunday",
   "Lundi": "Monday",
   "Mardi": "Tuesday",
@@ -761,6 +822,11 @@ const I18N_ES = {
   "Heure habituelle": "Hora habitual",
   "Personnalisation enregistrée": "Personalización guardada",
   "Visible par tous les visiteurs du club.": "Visible para todos los visitantes del club.",
+  "Logo du club": "Logo del club",
+  "Aucun logo": "Sin logo",
+  "Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.": "Logo predefinido o importado, mostrado como marca de agua discreta y junto al nombre del club para todos los visitantes.",
+  "Importer une image (PNG/JPG/SVG, réduite à 256 px, 300 Ko max)": "Importar una imagen (PNG/JPG/SVG, reducida a 256 px, 300 Ko máx.)",
+  "Logo trop volumineux ou format non supporté": "Logo demasiado grande o formato no compatible",
   "Dimanche": "Domingo",
   "Lundi": "Lunes",
   "Mardi": "Martes",
@@ -1460,6 +1526,11 @@ const I18N_IT = {
   "Heure habituelle": "Ora abituale",
   "Personnalisation enregistrée": "Personalizzazione salvata",
   "Visible par tous les visiteurs du club.": "Visibile a tutti i visitatori del club.",
+  "Logo du club": "Logo del club",
+  "Aucun logo": "Nessun logo",
+  "Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.": "Logo predefinito o importato, mostrato come filigrana discreta e accanto al nome del club per tutti i visitatori.",
+  "Importer une image (PNG/JPG/SVG, réduite à 256 px, 300 Ko max)": "Importa un'immagine (PNG/JPG/SVG, ridotta a 256 px, 300 Ko max)",
+  "Logo trop volumineux ou format non supporté": "Logo troppo grande o formato non supportato",
   "Dimanche": "Domenica",
   "Lundi": "Lunedì",
   "Mardi": "Martedì",
@@ -2159,6 +2230,11 @@ const I18N_DE = {
   "Heure habituelle": "Übliche Zeit",
   "Personnalisation enregistrée": "Personalisierung gespeichert",
   "Visible par tous les visiteurs du club.": "Für alle Besucher des Clubs sichtbar.",
+  "Logo du club": "Clublogo",
+  "Aucun logo": "Kein Logo",
+  "Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.": "Voreingestelltes oder importiertes Logo, dezent als Wasserzeichen und neben dem Vereinsnamen für alle Besucher.",
+  "Importer une image (PNG/JPG/SVG, réduite à 256 px, 300 Ko max)": "Bild importieren (PNG/JPG/SVG, auf 256 px verkleinert, max. 300 Ko)",
+  "Logo trop volumineux ou format non supporté": "Logo zu groß oder Format nicht unterstützt",
   "Dimanche": "Sonntag",
   "Lundi": "Montag",
   "Mardi": "Dienstag",
