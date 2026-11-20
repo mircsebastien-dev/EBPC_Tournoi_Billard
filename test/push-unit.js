@@ -37,8 +37,8 @@ const push = require('../src/push');
   console.log('=== TEST UNIT PUSH (envoyerTous + notifierInscriptionAmi + notifierMatchLance, mock web-push) ===\n');
 
   // 2 comptes abonnés (compte_id est NOT NULL dans le schéma: pas de subscription anonyme possible)
-  const c1 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('Testeur1', 't1@x.fr', 'h', 's')").run();
-  const c2 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('Testeur2', 't2@x.fr', 'h', 's')").run();
+  const c1 = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'Testeur1', 't1@x.fr', 'h', 's')").run();
+  const c2 = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'Testeur2', 't2@x.fr', 'h', 's')").run();
   db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/ep1', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(c1.lastInsertRowid);
   db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/ep2', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(c2.lastInsertRowid);
 
@@ -80,9 +80,9 @@ const push = require('../src/push');
 
   // --- notifierInscriptionAmi: pref "notification inscription amis" + relation ami ---
   console.log('\n--- notifierInscriptionAmi ---');
-  const c3 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('Testeur3', 't3@x.fr', 'h', 's')").run(); // ami de c1, pref active
-  const c4 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('Testeur4', 't4@x.fr', 'h', 's')").run(); // ami de c1, pref désactivée
-  const c5 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('Testeur5', 't5@x.fr', 'h', 's')").run(); // pas ami de c1
+  const c3 = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'Testeur3', 't3@x.fr', 'h', 's')").run(); // ami de c1, pref active
+  const c4 = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'Testeur4', 't4@x.fr', 'h', 's')").run(); // ami de c1, pref désactivée
+  const c5 = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'Testeur5', 't5@x.fr', 'h', 's')").run(); // pas ami de c1
   db.prepare('UPDATE compte SET notif_amis_inscription = 0 WHERE id = ?').run(c4.lastInsertRowid);
   db.prepare('INSERT INTO ami (compte_id, ami_compte_id) VALUES (?, ?)').run(c3.lastInsertRowid, c1.lastInsertRowid);
   db.prepare('INSERT INTO ami (compte_id, ami_compte_id) VALUES (?, ?)').run(c4.lastInsertRowid, c1.lastInsertRowid);
@@ -107,10 +107,10 @@ const push = require('../src/push');
   // --- notifierMatchLance: joueurs + amis, pref "notification match d'un ami" ---
   console.log('\n--- notifierMatchLance ---');
   const tr = db.prepare("INSERT INTO tournoi (nom, regle, taille, format) VALUES ('Tournoi Test', 'blackball', 8, 'simple')").run();
-  const cA = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('JoueurA', 'ja@x.fr', 'h', 's')").run();
-  const cB = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('JoueurB', 'jb@x.fr', 'h', 's')").run();
-  const c6 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('AmiMatch1', 'am1@x.fr', 'h', 's')").run(); // ami de JoueurA, pref match active
-  const c7 = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('AmiMatch2', 'am2@x.fr', 'h', 's')").run(); // ami de JoueurA, pref match désactivée
+  const cA = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'JoueurA', 'ja@x.fr', 'h', 's')").run();
+  const cB = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'JoueurB', 'jb@x.fr', 'h', 's')").run();
+  const c6 = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'AmiMatch1', 'am1@x.fr', 'h', 's')").run(); // ami de JoueurA, pref match active
+  const c7 = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'AmiMatch2', 'am2@x.fr', 'h', 's')").run(); // ami de JoueurA, pref match désactivée
   db.prepare('UPDATE compte SET notif_amis_match = 0 WHERE id = ?').run(c7.lastInsertRowid);
   const jA = db.prepare("INSERT INTO joueur (tournoi_id, pseudo, compte_id) VALUES (?, 'JoueurA', ?)").run(tr.lastInsertRowid, cA.lastInsertRowid);
   const jB = db.prepare("INSERT INTO joueur (tournoi_id, pseudo, compte_id) VALUES (?, 'JoueurB', ?)").run(tr.lastInsertRowid, cB.lastInsertRowid);
@@ -136,7 +136,7 @@ const push = require('../src/push');
 
   // --- suivi par pseudo (ami sans compte): match + inscription + dédoublonnage + fix NOT IN NULL ---
   console.log('\n--- suivi par pseudo (ami sans compte) ---');
-  const cF = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt) VALUES ('SuiveurP', 'sp@x.fr', 'h', 's')").run();
+  const cF = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES ((SELECT MIN(id) FROM club), 'SuiveurP', 'sp@x.fr', 'h', 's')").run();
   db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epF', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(cF.lastInsertRowid);
   db.prepare("INSERT INTO ami_pseudo (compte_id, pseudo) VALUES (?, 'GhostAnon')").run(cF.lastInsertRowid);
   const jG = db.prepare("INSERT INTO joueur (tournoi_id, pseudo) VALUES (?, 'GhostAnon')").run(tr.lastInsertRowid); // joueur anonyme: aucun compte
@@ -167,7 +167,7 @@ const push = require('../src/push');
 
   // --- i18n par destinataire: chaque push part dans la langue du compte (compte.lang, defaut fr) ---
   console.log('\n--- i18n par destinataire (compte.lang) ---');
-  const cAnglo = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt, lang) VALUES ('Anglo', 'en@x.fr', 'h', 's', 'en')").run();
+  const cAnglo = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt, lang) VALUES ((SELECT MIN(id) FROM club), 'Anglo', 'en@x.fr', 'h', 's', 'en')").run();
   db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epEN', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(cAnglo.lastInsertRowid);
   envois.length = 0;
   const nTous = await push.envoyerTous({ title: 'FR', body: 'fr', url: '/', tag: 't' }, null, { title: 'EN', body: 'en', url: '/', tag: 't' });
@@ -191,7 +191,7 @@ const push = require('../src/push');
 
   // --- i18n étendu: espagnol / allemand (payloads par langue du compte) ---
   console.log('\n--- i18n étendu (es/de) ---');
-  const cEs = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt, lang) VALUES ('Hispano', 'es@x.fr', 'h', 's', 'es')").run();
+  const cEs = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt, lang) VALUES ((SELECT MIN(id) FROM club), 'Hispano', 'es@x.fr', 'h', 's', 'es')").run();
   db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epES', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(cEs.lastInsertRowid);
   envois.length = 0;
   const nTous5 = await push.envoyerTous({ title: 'FR', body: 'fr', url: '/', tag: 't5' }, null, { en: { title: 'EN', body: 'en', url: '/', tag: 't5' }, es: { title: 'ES', body: 'es', url: '/', tag: 't5' }, it: { title: 'IT', body: 'it', url: '/', tag: 't5' }, de: { title: 'DE', body: 'de', url: '/', tag: 't5' } });
@@ -201,7 +201,7 @@ const push = require('../src/push');
   const rTestES = await push.envoyerTest(cEs.lastInsertRowid, 'fr');
   const envoiTestES = envois.find(e => e.endpoint === 'https://push.example/epES' && e.payload.tag.startsWith('test-'));
   check('envoyerTest: compte "es" -> payload espagnol + /parametres.html', rTestES.envoyes === 1 && envoiTestES && envoiTestES.payload.title.includes('Notificación de prueba') && envoiTestES.payload.url === '/parametres.html', JSON.stringify(envoiTestES && envoiTestES.payload));
-  const cDe = db.prepare("INSERT INTO compte (pseudo, email, pass_hash, salt, lang) VALUES ('Deutsche', 'de@x.fr', 'h', 's', 'de')").run();
+  const cDe = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt, lang) VALUES ((SELECT MIN(id) FROM club), 'Deutsche', 'de@x.fr', 'h', 's', 'de')").run();
   db.prepare("INSERT INTO push_subscription (compte_id, endpoint, keys_json) VALUES (?, 'https://push.example/epDE', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(cDe.lastInsertRowid);
   db.prepare('INSERT INTO ami (compte_id, ami_compte_id) VALUES (?, ?)').run(cDe.lastInsertRowid, cA.lastInsertRowid);
   envois.length = 0;
