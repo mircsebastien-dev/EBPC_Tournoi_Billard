@@ -91,6 +91,14 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 - **Un compte d un autre club ne peut pas s inscrire à vos tournois** (409) ; son pseudo reste utilisable en joueur anonyme chez vous.
 - Les comptes rattachés via `compte_club` (staff multi-club) restent visibles dans les clubs concernés.
 
+### 9.2 👑 Rôle club depuis la table de marque (multi-club)
+
+- **Sélecteur « Club : aucun / 🛠 opérateur / 👑 admin »** en face de chaque compte de votre club dans `/admin-comptes.html`, visible dès que vous pouvez gérer les rôles : **le code PIN de votre club suffit**, ou une session admin du club (ou le code global).
+- **Le code de votre club suffit pour nommer un admin** : choix assumé, c est votre club, votre code ; toute personne qui a le code peut promouvoir (y compris son propre compte une fois connecté). Le nouveau code PIN d un club ne peut rien sur les autres clubs.
+- Un **admin du club** se connecte (pseudo + mdp) et administre le club **sans jamais taper le PIN**, confirmations destructives levées ; un **opérateur** garde les routes admin du club mais ne gère ni les rôles ni les actions destructives (code exigé).
+- Le sélecteur n apparaît que pour les comptes DE votre club (isolation stricte) ; le super-admin de la plateforme conserve l attachement cross-club (staff multi-club) depuis la page Clubs.
+- **Retirer un rôle** : sélecteur sur « Club : aucun », confirmation par le code (ou mot de confirmation pour une session admin). Les sessions du compte perdent immédiatement l accès admin du club.
+
 ## 10. Journal d'audit + rollback point-in-time (`/admin-journal.html`)
 
 Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11 vs P07 (table 3) » —, changements joueurs/table, rouvrir, forfaits, suppressions, swaps anti-rematch…) — **500 dernières entrées du club courant** (multi-club : le journal est scopé `club_id`, comme les snapshots).

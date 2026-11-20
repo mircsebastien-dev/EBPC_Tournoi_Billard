@@ -111,9 +111,10 @@ function verifierPinAdmin(req, pin) {
   const hash = crypto.createHash('sha256').update(String(pin || '')).digest('hex');
   // PIN global (super-admin) OU pin_hash du club courant (multi-club)
   const clubHash = req.club && req.club.pin_hash;
-  if (hash !== getSetting('admin_pin_hash') && !(clubHash && hash === clubHash)) { pinEchec(ip); return { ok: false }; }
-  pinAttempts.delete(ip); // succès -> compteur remis à zéro
-  return { ok: true };
+  if (hash === getSetting('admin_pin_hash')) { pinAttempts.delete(ip); return { ok: true, via: 'global' }; }
+  if (clubHash && hash === clubHash) { pinAttempts.delete(ip); return { ok: true, via: 'club' }; } // PIN du CLUB courant (17g: suffit pour gérer les rôles de SON club)
+  pinEchec(ip);
+  return { ok: false };
 }
 
 // Auth admin à deux niveaux: session d'un compte role=admin (méthode produit),
@@ -137,6 +138,7 @@ function requireAdmin(req, res, next) {
   if (r.bloque) return res.status(429).json({ error: r.message });
   if (!r.ok) return res.status(401).json({ error: 'PIN administrateur invalide (ou connectez-vous avec un compte admin)' });
   req.adminVia = 'pin';
+  req.adminViaPin = r.via || null; // 17g: 'club' = code du club courant, 'global' = code plateforme
   next();
 }
 
@@ -1130,12 +1132,19 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
            (SELECT COUNT(*) FROM joueur j WHERE j.compte_id = c.id) joueurs,
            (SELECT COUNT(*) FROM match m WHERE m.joueur1_id IN (SELECT id FROM joueur WHERE compte_id = c.id) OR m.joueur2_id IN (SELECT id FROM joueur WHERE compte_id = c.id)) matchs,
            (SELECT COUNT(*) FROM push_subscription ps WHERE ps.compte_id = c.id AND ps.club_id = ?) push_abonnements,
+           c.club_id,
+           (SELECT cc.role FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?) role_club,
            (SELECT group_concat(c2.pseudo, ', ') FROM ami a JOIN compte c2 ON c2.id = a.ami_compte_id WHERE a.compte_id = c.id) amis_comptes,
            (SELECT group_concat(p.pseudo, ', ') FROM ami_pseudo p WHERE p.compte_id = c.id) amis_pseudos
     FROM compte c${where}
     ORDER BY c.id DESC
-  `).all(cid, ...(scopeClub ? [cid, cid] : []));
-  res.json({ comptes: rows });
+  `).all(cid, cid, ...(scopeClub ? [cid, cid] : []));
+  // 17g: rôle club du contexte + autorisation de gérer les rôles (table de marque: sélecteur par compte)
+  res.json({
+    comptes: rows,
+    club: req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom } : null,
+    peut_gerer_roles: superAdminSoumis(req) || roleClubSession(req) === 'admin' || req.adminViaPin === 'club',
+  });
 });
 
 app.post('/api/admin/compte/:id/pseudo', requireAdmin, requireGestionCompte, (req, res) => {
@@ -1323,11 +1332,14 @@ app.delete('/api/admin/club', requireAdmin, requireSuperAdmin, requireConfirmPin
 });
 
 // ---------- Multi-club: rôles des comptes sur un club (table compte_club) ----------
-// gestion des rôles réservée: code global (super-admin), session admin du club, ou session admin globale.
-// le simple code PIN du club (ou un compte operateur) ne peut pas s attribuer de rôle persistant.
+// gestion des rôles: code global (super-admin), session admin du club, session admin globale,
+// OU le code PIN du club courant (17g: autonomie du club, choix explicite.
+// toute personne ayant le code du club peut nommer un admin du club, y compris son propre compte une fois connecté).
+// un operateur (session) ne peut toujours pas gérer les rôles.
 function requireRoleClub(req, res, next) {
   if (superAdminSoumis(req) || roleClubSession(req) === 'admin') return next();
-  return res.status(403).json({ error: 'Gérer les rôles du club nécessite le code global, une session admin du club ou une session admin globale' });
+  if (req.adminViaPin === 'club') return next(); // 17g: le code du club suffit pour gérer les rôles de SON club
+  return res.status(403).json({ error: 'Gérer les rôles du club nécessite le code du club, une session admin du club ou le code global' });
 }
 // rôles du club courant (jamais de hash ni d email en réponse)
 app.get('/api/admin/club/comptes', requireAdmin, requireRoleClub, (req, res) => {
@@ -1344,8 +1356,13 @@ app.put('/api/admin/club/compte', requireAdmin, requireRoleClub, (req, res) => {
   const role = req.body.role === 'operateur' ? 'operateur' : (req.body.role === 'admin' ? 'admin' : null);
   if (!pseudo) return res.status(400).json({ error: 'pseudo requis' });
   if (!role) return res.status(400).json({ error: 'Rôle invalide (admin ou operateur)' });
-  const cible = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
-  if (!cible) return res.status(404).json({ error: `Compte « ${pseudo} » introuvable` });
+  // 17g: un acteur du club (code du club ou session admin du club) ne promeut QUE des comptes DU club;
+  // le super-admin garde l attachement cross-club (staff multi-club, page clubs.html)
+  const superSoumis = superAdminSoumis(req);
+  const cible = superSoumis
+    ? db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo)
+    : db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ?').get(pseudo, req.club.id);
+  if (!cible) return res.status(404).json({ error: superSoumis ? `Compte « ${pseudo} » introuvable` : `Compte « ${pseudo} » introuvable dans ce club` });
   const deja = db.prepare('SELECT id FROM compte_club WHERE compte_id = ? AND club_id = ?').get(cible.id, req.club.id);
   if (deja) db.prepare('UPDATE compte_club SET role = ? WHERE id = ?').run(role, deja.id);
   else db.prepare('INSERT INTO compte_club (compte_id, club_id, role) VALUES (?, ?, ?)').run(cible.id, req.club.id, role);

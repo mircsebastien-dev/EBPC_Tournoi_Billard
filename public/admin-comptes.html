@@ -20,11 +20,14 @@
 document.getElementById('nav').append(nav('admin'));
 const main = document.getElementById('main');
 let superAdminComptes = true; // rôle global (user/admin) = super-admin seulement: bouton 👑 masqué sinon
+let peutRolesClub = false, clubCtx = null; // 17g: sélecteur de rôle club (admin/opérateur) si le contexte du club le permet
 let filtre = '';
 
 async function charger() {
-  const { comptes } = await adminApi('/api/admin/comptes');
-  render(comptes);
+  const rep = await adminApi('/api/admin/comptes');
+  peutRolesClub = !!(rep && rep.peut_gerer_roles && rep.club);
+  clubCtx = rep ? rep.club : null;
+  render(rep.comptes);
 }
 
 function render(comptes) {
@@ -49,7 +52,10 @@ function render(comptes) {
     el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' },
       el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Sessions', 'Push', 'Amis', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
       el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
-        el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo, (c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑 admin') : null)),
+        el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo,
+          (c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑 admin') : null),
+          (c.role_club === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑 admin club') : null),
+          (c.role_club === 'operateur' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '🛠 opérateur club') : null)),
         el('td', { style: 'padding:6px 8px', title: c.email }, maskEmail(c.email)),
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, (c.created_at || '').slice(0, 16).replace('T', ' ')),
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.last_login_at ? fmtDateHeureSql(c.last_login_at) : 'jamais'),
@@ -65,6 +71,26 @@ function render(comptes) {
           return t.length ? t.join(' · ') : '—';
         })()),
         el('td', { style: 'padding:6px 8px;text-align:right' },
+          ...(peutRolesClub && clubCtx && c.club_id === clubCtx.id ? [el('select', { title: `Rôle de « ${c.pseudo} » sur le club ${clubCtx.slug} : admin (session admin du club, sans PIN), opérateur (routes ouvertes, confirmations et rôles refusés) ou aucun`, style: 'padding:4px 6px;font-size:13px;margin-right:6px', onchange: async (ev) => {
+            const v = ev.target.value;
+            if (v === (c.role_club || '')) return;
+            const remettre = () => { ev.target.value = c.role_club || ''; };
+            try {
+              if (v === '') {
+                if (!confirm(`Retirer le rôle de « ${c.pseudo} » sur le club ${clubCtx.slug} ?\nSes sessions perdront l'accès admin de ce club.`)) return remettre();
+                await adminApiDestructif('/api/admin/club/compte', { method: 'DELETE', body: JSON.stringify({ compte_id: c.id }) }, `retirer le rôle club de ${c.pseudo}`);
+              } else {
+                if (!confirm(v === 'admin'
+                  ? `Promouvoir « ${c.pseudo} » en ADMIN du club ${clubCtx.slug} ?\nSa connexion suffira pour l'admin complet de ce club, sans PIN.`
+                  : `Attribuer à « ${c.pseudo} » le rôle OPÉRATEUR du club ${clubCtx.slug} ?\nRoutes admin ouvertes, confirmations destructives et gestion des rôles refusées.`)) return remettre();
+                await adminApi('/api/admin/club/compte', { method: 'PUT', body: JSON.stringify({ pseudo: c.pseudo, role: v }) });
+              }
+              charger();
+            } catch (e) { alert(e.message); remettre(); }
+          } },
+            el('option', { value: '', selected: c.role_club ? null : true }, 'Club : aucun'),
+            el('option', { value: 'operateur', selected: c.role_club === 'operateur' ? true : null }, '🛠 Club : opérateur'),
+            el('option', { value: 'admin', selected: c.role_club === 'admin' ? true : null }, '👑 Club : admin'))] : []),
           ...(superAdminComptes ? [el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: c.role === 'admin' ? 'Rétrograder en simple utilisateur (le PIN restera nécessaire pour l\\u2019admin)' : 'Promouvoir administrateur (sa session suffira pour l\\u2019admin, sans PIN)', onclick: async () => {
             const cible = c.role === 'admin' ? 'user' : 'admin';
             if (!confirm(`${cible === 'admin' ? 'Promouvoir' : 'Rétrograder'} « ${c.pseudo} » en ${cible === 'admin' ? 'admin' : 'user'} ?`)) return;
