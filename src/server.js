@@ -50,8 +50,10 @@ function cleanPseudo(v, max = 40) {
 }
 
 // pseudo d'un compte = réservé: aucune inscription anonyme ne peut le prendre (anti-usurpation d'identité)
-function compteAvecPseudo(pseudo) {
-  return db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(String(pseudo || '')) || null;
+function compteAvecPseudo(pseudo, clubId) { // 17f: réservation de pseudo cloisonnée au club courant (les comptes des autres clubs ne bloquent plus)
+  return (clubId
+    ? db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ?').get(String(pseudo || ''), clubId)
+    : db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(String(pseudo || ''))) || null;
 }
 
 const PORT = process.env.PORT || 3000;
@@ -786,7 +788,7 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
     tds = Number(req.body.tete_de_serie);
   }
   // pseudo d'un compte = réservé: confirmation explicite requise (l'UI admin demande, puis renvoie confirme=true)
-  const cReserve = compteAvecPseudo(pseudo);
+  const cReserve = compteAvecPseudo(pseudo, req.club && req.club.id);
   if (cReserve && !req.body.confirme) {
     return res.status(409).json({ error: `Un compte existe déjà avec le pseudo « ${pseudo} » — inscrire quand même ce joueur à la place du titulaire ?`, compte_pseudo: true });
   }
@@ -846,7 +848,7 @@ app.post('/api/joueur', (req, res) => {
     return res.status(409).json({ error: 'Compte connecté : inscris-toi avec le bouton « M\'inscrire » de ton compte', compte_connecte: true });
   }
   // pseudo d'un compte = réservé (anti-usurpation): l'inscription anonyme est refusée, le titulaire doit se connecter
-  if (compteAvecPseudo(pseudo)) {
+  if (compteAvecPseudo(pseudo, req.club && req.club.id)) {
     return res.status(409).json({ error: 'Ce pseudo appartient à un compte : connecte-toi pour t\'inscrire, ou choisis un autre pseudo', compte_pseudo: true });
   }
   const count = db.prepare('SELECT COUNT(*) c FROM joueur WHERE tournoi_id = ?').get(t.id).c;
@@ -885,7 +887,7 @@ app.put('/api/admin/joueur/:id', requireAdmin, (req, res) => {
     const pris = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND id != ?').get(j.tournoi_id, pseudo, id);
     if (pris) return res.status(409).json({ error: 'Pseudo déjà pris dans ce tournoi' });
     // pseudo d'un compte = réservé (sauf si le joueur est déjà rattaché à CE compte: alignement de pseudo autorisé)
-    const cReserve = compteAvecPseudo(pseudo);
+    const cReserve = compteAvecPseudo(pseudo, req.club && req.club.id);
     if (cReserve && cReserve.id !== j.compte_id) {
       return res.status(409).json({ error: `Le pseudo « ${pseudo} » appartient à un compte (pseudo réservé)`, compte_pseudo: true });
     }
@@ -1105,8 +1107,9 @@ app.post('/api/admin/simuler', requireAdmin, (req, res) => {
 // ---- Gestion des comptes joueurs (admin) ----
 // un compte compte comme « du club courant » s il a un rôle sur le club ou un joueur
 // inscrit dans un tournoi du club (les comptes restent globaux à la plateforme)
-function comptePresentClub(clubId, compteId) {
-  return !!(db.prepare('SELECT 1 FROM compte_club WHERE compte_id = ? AND club_id = ?').get(compteId, clubId)
+function comptePresentClub(clubId, compteId) { // 17f: un compte appartient désormais à UN club (compte.club_id)
+  return !!(db.prepare('SELECT 1 FROM compte WHERE id = ? AND club_id = ?').get(compteId, clubId)
+    || db.prepare('SELECT 1 FROM compte_club WHERE compte_id = ? AND club_id = ?').get(compteId, clubId)
     || db.prepare('SELECT 1 FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id WHERE j.compte_id = ? AND t.club_id = ?').get(compteId, clubId));
 }
 // super-admin: tous les comptes. Session de club: uniquement les comptes de son club (404 sinon)
@@ -1119,8 +1122,7 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
   const cid = req.club ? req.club.id : clubParDefaut().id;
   const scopeClub = !superAdminSoumis(req); // session de club: seulement les comptes liés au club courant
   const where = scopeClub ? `
-      WHERE EXISTS (SELECT 1 FROM joueur jj JOIN tournoi tt ON tt.id = jj.tournoi_id WHERE jj.compte_id = c.id AND tt.club_id = ?)
-         OR EXISTS (SELECT 1 FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?)` : '';
+      WHERE c.club_id = ? OR EXISTS (SELECT 1 FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?)` : ''; // 17f: comptes DU club + roles staff
   const rows = db.prepare(`
     SELECT c.id, c.pseudo, c.email, c.role, c.created_at,
            (SELECT COUNT(*) FROM session s WHERE s.compte_id = c.id) sessions,

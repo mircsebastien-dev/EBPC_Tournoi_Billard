@@ -1,6 +1,6 @@
 // Comptes joueurs : pseudo + email + mot de passe (scrypt), sessions cookie, réinit par mail (Resend)
 const crypto = require('crypto');
-const { db, logAudit } = require('./db');
+const { db, logAudit, clubParDefaut } = require('./db');
 const logAuditC = (req, ...a) => logAudit(...a, req && req.club ? req.club.id : undefined);
 
 const SESSION_COOKIE = 'ebpc_session';
@@ -86,7 +86,7 @@ function compteDepuisReq(req) {
   const token = cookies[SESSION_COOKIE];
   if (!token) return null;
   const row = db.prepare(`
-    SELECT c.id, c.pseudo, c.email, c.role, s.expires FROM session s JOIN compte c ON c.id = s.compte_id
+    SELECT c.id, c.pseudo, c.email, c.role, c.club_id, s.expires FROM session s JOIN compte c ON c.id = s.compte_id
     WHERE s.token_hash = ? AND s.expires > datetime('now')
   `).get(hashToken(token));
   return row || null;
@@ -110,12 +110,11 @@ function validerPassword(p) {
 // ---------- routes ----------
 
 // Rattache les joueurs anonymes du tournoi actif au même pseudo -> compte (création de compte ou connexion)
-function rattacherJoueursAnonymes(compteId, pseudo) {
-  // rattache TOUS les joueurs anonymes de ce pseudo (tournois passés et autres clubs inclus),
-  // pas seulement celui du tournoi actif: une fois le compte posé, idsMemeJoueur agrège par
-  // compte (plus par pseudo), donc sans ce rattachement la fiche joueur et les stats du
-  // compte perdraient tout l historique des tournois joués en anonyme
-  db.prepare('UPDATE joueur SET compte_id = ? WHERE pseudo = ? COLLATE NOCASE AND compte_id IS NULL').run(compteId, pseudo);
+function rattacherJoueursAnonymes(compteId, pseudo, clubId) {
+  // rattache les joueurs anonymes de ce pseudo SUR LES TOURNOIS DU CLUB du compte (17f: isolation stricte,
+  // un pseudo peut exister comme joueur ou compte dans un autre club sans jamais être touché ici)
+  db.prepare(`UPDATE joueur SET compte_id = ? WHERE pseudo = ? COLLATE NOCASE AND compte_id IS NULL
+              AND tournoi_id IN (SELECT id FROM tournoi WHERE club_id = ?)`).run(compteId, pseudo, clubId);
 }
 
 function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueMatch }) {
@@ -129,12 +128,13 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!validerPseudo(pseudo)) return res.status(400).json({ error: 'Pseudo invalide (2-24 caractères : lettres, chiffres, _ -)' });
     if (!validerEmail(email)) return res.status(400).json({ error: 'Email invalide' });
     if (!validerPassword(password)) return res.status(400).json({ error: 'Mot de passe trop court (min 4 caractères)' });
-    const existe = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE OR email = ? COLLATE NOCASE').get(pseudo, email);
-    if (existe) return res.status(409).json({ error: 'Pseudo ou email déjà utilisé' });
+    const clubId = (req.club && req.club.id) || clubParDefaut().id; // 17f: le compte est créé DANS le club courant (lien figé à la création)
+    const existe = db.prepare('SELECT id FROM compte WHERE club_id = ? AND (pseudo = ? COLLATE NOCASE OR email = ? COLLATE NOCASE)').get(clubId, pseudo, email);
+    if (existe) return res.status(409).json({ error: 'Pseudo ou email déjà utilisé dans ce club' });
     const salt = nouveauSalt();
-    const info = db.prepare(`INSERT INTO compte (pseudo, email, pass_hash, salt, last_login_at) VALUES (?, ?, ?, ?, datetime('now'))`)
-      .run(pseudo, email, hashPassword(password, salt), salt);
-    rattacherJoueursAnonymes(info.lastInsertRowid, pseudo);
+    const info = db.prepare(`INSERT INTO compte (club_id, pseudo, email, pass_hash, salt, last_login_at) VALUES (?, ?, ?, ?, ?, datetime('now'))`)
+      .run(clubId, pseudo, email, hashPassword(password, salt), salt);
+    rattacherJoueursAnonymes(info.lastInsertRowid, pseudo, clubId);
     const compte = db.prepare('SELECT id, pseudo, email FROM compte WHERE id = ?').get(info.lastInsertRowid);
     const token = creerSession(compte.id);
     setSessionCookie(res, token, SESSION_JOURS);
@@ -148,11 +148,12 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!rateLimit('conn:' + ip, 10, 10 * 60 * 1000)) return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 10 min' });
     const pseudo = String(req.body.pseudo || '').trim();
     const password = req.body.password;
-    const c = db.prepare('SELECT * FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
+    const clubId = (req.club && req.club.id) || clubParDefaut().id; // 17f: connexion depuis les pages d un club -> compte de CE club
+    const c = db.prepare('SELECT * FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ?').get(pseudo, clubId);
     if (!c || !verifierPassword(password, c.salt, c.pass_hash)) {
-      return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect' });
+      return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect (compte introuvable dans ce club)' });
     }
-    rattacherJoueursAnonymes(c.id, c.pseudo);
+    rattacherJoueursAnonymes(c.id, c.pseudo, c.club_id);
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     const token = creerSession(c.id);
     setSessionCookie(res, token, SESSION_JOURS);
@@ -222,8 +223,8 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   app.post('/api/compte/amis', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
     const pseudo = String(req.body.pseudo || '').trim();
-    const c = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
-    if (!c) return res.status(404).json({ error: 'Aucun compte avec ce pseudo' });
+    const c = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ?').get(pseudo, (req.compte && req.compte.club_id) || (req.club && req.club.id)); // 17f: amis uniquement parmi les comptes de mon club
+    if (!c) return res.status(404).json({ error: 'Aucun compte avec ce pseudo dans ce club' });
     if (c.id === req.compte.id) return res.status(400).json({ error: 'Tu ne peux pas t\'ajouter toi-même' });
     const existe = db.prepare('SELECT id FROM ami WHERE compte_id = ? AND ami_compte_id = ?').get(req.compte.id, c.id);
     if (existe) return res.status(409).json({ error: 'Déjà dans tes amis' });
@@ -243,7 +244,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     const pseudo = String(req.body.pseudo || '').trim().slice(0, 40);
     if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
     if (pseudo.toLowerCase() === req.compte.pseudo.toLowerCase()) return res.status(400).json({ error: 'Tu ne peux pas te suivre toi-même' });
-    const c = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
+    const c = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ?').get(pseudo, (req.compte && req.compte.club_id) || (req.club && req.club.id)); // 17f: réservé par un compte de CE club uniquement
     if (c) return res.status(409).json({ error: 'Ce pseudo appartient à un compte : ajoute-le comme ami normal', compte: true });
     try {
       const info = db.prepare('INSERT INTO ami_pseudo (compte_id, pseudo) VALUES (?, ?)').run(req.compte.id, pseudo);
@@ -264,8 +265,9 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   app.get('/api/comptes/recherche', (req, res) => {
     const q = String(req.query.q || '').trim().toLowerCase();
     if (q.length < 2) return res.json({ comptes: [] });
-    const rows = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo LIKE ? COLLATE NOCASE ORDER BY pseudo LIMIT 20')
-      .all(q + '%');
+    const clubRech = ((req.compte && req.compte.club_id) || (req.club && req.club.id) || clubParDefaut().id); // 17f: recherche cloisonnée au club
+    const rows = db.prepare('SELECT id, pseudo FROM compte WHERE club_id = ? AND pseudo LIKE ? COLLATE NOCASE ORDER BY pseudo LIMIT 20')
+      .all(clubRech, q + '%');
     res.json({ comptes: rows.map(r => ({ id: r.id, pseudo: r.pseudo, moi: req.compte && r.id === req.compte.id })) });
   });
 
@@ -362,7 +364,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!rateLimit('oubli:' + ip, 3, 60 * 60 * 1000)) return res.status(429).json({ error: 'Trop de demandes, réessaie plus tard' });
     const email = String(req.body.email || '').trim().toLowerCase();
     if (!validerEmail(email)) return res.status(400).json({ error: 'Email invalide' });
-    const c = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE').get(email);
+    const c = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE AND club_id = ?').get(email, (req.club && req.club.id) || clubParDefaut().id); // 17f: le mail ne concerne que les comptes du club courant
     // réponse identique même si le compte n'existe pas (pas d'énumération)
     let devLink = null;
     if (c) {
@@ -407,6 +409,9 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   // self-enrollment au tournoi actif avec le pseudo du compte
   app.post('/api/tournoi/inscrire', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Crée un compte ou connecte-toi d\'abord (pseudo + email + mot de passe)' });
+    // 17f: isolation stricte des comptes -> impossible de s inscrire au tournoi d un autre club avec sa session
+    if (req.compte.club_id && req.club && req.compte.club_id !== req.club.id)
+      return res.status(409).json({ error: 'Ton compte appartient à un autre club : crée un compte depuis les pages de ce club pour t y inscrire' });
     const t = tournoiActif(req.club ? req.club.id : undefined);
     if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
     if (t.statut !== 'inscription') return res.status(409).json({ error: 'Les inscriptions sont fermées (tournoi lancé)' });
@@ -497,8 +502,9 @@ function setPasswordAdmin(compteId, password) {
 function setPseudoAdmin(compteId, pseudo) {
   const p = String(pseudo || '').trim();
   if (p.length < 2) throw new Error('Pseudo trop court (min 2)');
-  const pris = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE AND id != ?').get(p, compteId);
-  if (pris) throw new Error('Ce pseudo est déjà pris');
+  const clubIdP = (db.prepare('SELECT club_id FROM compte WHERE id = ?').get(compteId) || {}).club_id;
+  const pris = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ? AND id != ?').get(p, clubIdP, compteId);
+  if (pris) throw new Error('Ce pseudo est déjà pris dans ce club');
   db.prepare('UPDATE compte SET pseudo = ? WHERE id = ?').run(p, compteId);
   return p;
 }
@@ -509,15 +515,15 @@ function ensureAdminCompte(email, password) {
   if (!email || !password) return null;
   if (!validerEmail(email) || !validerPassword(password)) { console.error('[ADMIN] ADMIN_EMAIL/ADMIN_PASSWORD invalides, ignorés'); return null; }
   const mail = String(email).trim().toLowerCase();
-  const existe = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE').get(mail);
+  const existe = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE AND club_id = ?').get(mail, clubParDefaut().id); // 17f: compte admin plateforme, club par défaut
   if (existe) {
     if (existe.role !== 'admin') db.prepare("UPDATE compte SET role = 'admin' WHERE id = ?").run(existe.id);
     return existe.id;
   }
   const pseudo = String(mail.split('@')[0]).replace(/[^\p{L}\p{N}_\-]/gu, '').slice(0, 24) || 'admin';
   const salt = nouveauSalt();
-  const info = db.prepare(`INSERT INTO compte (pseudo, email, pass_hash, salt, role, last_login_at) VALUES (?, ?, ?, ?, 'admin', datetime('now'))`)
-    .run(pseudo, mail, hashPassword(String(password), salt), salt);
+  const info = db.prepare(`INSERT INTO compte (club_id, pseudo, email, pass_hash, salt, role, last_login_at) VALUES (?, ?, ?, ?, ?, 'admin', datetime('now'))`)
+    .run(clubParDefaut().id, pseudo, mail, hashPassword(String(password), salt), salt);
   console.log(`[ADMIN] compte admin bootstrappé: ${pseudo} <${mail}> (role=admin)`);
   return Number(info.lastInsertRowid);
 }

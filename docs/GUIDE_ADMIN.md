@@ -81,6 +81,16 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 - Recherche pseudo/email (Entrée), actions : ✏️ pseudo, 🔑 mdp, 🗑 supprimer (détache les joueurs — l'historique des matchs est conservé — supprime sessions/push, logué audit)
 - **Purge auto** : comptes sans connexion depuis **18 mois** supprimés au boot + toutes les heures
 
+### 9.1 🔒 Comptes cloisonnés par club (multi-club)
+
+- **Chaque club a son propre espace de comptes** : une isolation stricte : des comptes cloisonnés par club. Un compte créé depuis le contexte d un club appartient à ce club, définitivement.
+- **Le club est figé à la création** : créer un compte depuis les pages d un club (ou son URL `?club=`) le lie à CE club ; se connecter depuis un autre club ne crée jamais de lien (401 : le compte n existe pas dans ce club là).
+- **Pseudo et email uniques PAR club** : deux clubs peuvent chacun avoir leur « Seb » ou le même email ; dans le même club, doublon refusé (409).
+- **La liste des comptes (`/admin-comptes.html`) ne montre que VOTRE club** avec votre code PIN : un compte créé dans un autre club n apparaît pas chez vous ; le super-admin (code global) voit tous les clubs.
+- **Amis, recherche et « mot de passe oublié » sont scopés** : tout se passe dans le club du compte ; l oubli ne révèle jamais si un email existe dans un autre club (réponse générique).
+- **Un compte d un autre club ne peut pas s inscrire à vos tournois** (409) ; son pseudo reste utilisable en joueur anonyme chez vous.
+- Les comptes rattachés via `compte_club` (staff multi-club) restent visibles dans les clubs concernés.
+
 ## 10. Journal d'audit + rollback point-in-time (`/admin-journal.html`)
 
 Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11 vs P07 (table 3) » —, changements joueurs/table, rouvrir, forfaits, suppressions, swaps anti-rematch…) — **500 dernières entrées du club courant** (multi-club : le journal est scopé `club_id`, comme les snapshots).

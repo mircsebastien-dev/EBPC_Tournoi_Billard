@@ -75,10 +75,13 @@ CREATE TABLE IF NOT EXISTS joueur (
   UNIQUE (tournoi_id, pseudo)
 );
 
+-- multi-club (17f): les comptes sont cloisonnés PAR CLUB (isolation stricte) :
+-- pseudo et email uniques à l intérieur d un club, réutilisables librement entre clubs.
 CREATE TABLE IF NOT EXISTS compte (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  pseudo TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  club_id INTEGER NOT NULL REFERENCES club(id),
+  pseudo TEXT NOT NULL COLLATE NOCASE,
+  email TEXT NOT NULL COLLATE NOCASE,
   pass_hash TEXT NOT NULL,
   salt TEXT NOT NULL,
   reset_token_hash TEXT,
@@ -86,7 +89,9 @@ CREATE TABLE IF NOT EXISTS compte (
   last_login_at TEXT,
   notif_amis_inscription INTEGER NOT NULL DEFAULT 1, -- pref "notification inscription amis" (désactivable depuis la page Compte)
   notif_amis_match INTEGER NOT NULL DEFAULT 1, -- pref "notification match d'un ami" (désactivable depuis la page Compte)
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (club_id, pseudo),
+  UNIQUE (club_id, email)
 );
 
 CREATE TABLE IF NOT EXISTS ami (
@@ -293,6 +298,40 @@ if (matchCols.length > 0) {
     db.exec('ALTER TABLE compte ADD COLUMN notif_amis_match INTEGER NOT NULL DEFAULT 1'); // pref "notification match d'un ami"
   if (!db.prepare("PRAGMA table_info(compte)").all().some(c => c.name === 'lang'))
     db.exec('ALTER TABLE compte ADD COLUMN lang TEXT'); // langue des notifications push (null = fr), persistée par le sélecteur du bandeau
+// migration 17f: comptes cloisonnés par club. Les comptes existants sont rattachés au club par défaut.
+// Reconstruction de la table (l unicité pseudo/email globale laisse place à l unicité PAR club), FK coupées le temps de l'opération.
+try {
+  const compteCols17f = db.prepare('PRAGMA table_info(compte)').all().map(c => c.name);
+  if (compteCols17f.length > 0 && !compteCols17f.includes('club_id')) {
+    const hasLang17f = compteCols17f.includes('lang');
+    db.pragma('foreign_keys = OFF');
+    db.exec('DROP TABLE IF EXISTS compte_17f');
+    db.exec(`
+      CREATE TABLE compte_17f (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        club_id INTEGER NOT NULL REFERENCES club(id),
+        pseudo TEXT NOT NULL COLLATE NOCASE,
+        email TEXT NOT NULL COLLATE NOCASE,
+        pass_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        reset_token_hash TEXT,
+        reset_expires TEXT,
+        last_login_at TEXT,
+        notif_amis_inscription INTEGER NOT NULL DEFAULT 1,
+        notif_amis_match INTEGER NOT NULL DEFAULT 1,
+        ${hasLang17f ? 'lang TEXT,' : ''}
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (club_id, pseudo),
+        UNIQUE (club_id, email)
+      )`);
+    db.prepare(`INSERT INTO compte_17f (id, club_id, pseudo, email, pass_hash, salt, reset_token_hash, reset_expires, last_login_at, notif_amis_inscription, notif_amis_match${hasLang17f ? ', lang' : ''}, created_at)
+                SELECT id, (SELECT MIN(id) FROM club), pseudo, email, pass_hash, salt, reset_token_hash, reset_expires, last_login_at, notif_amis_inscription, notif_amis_match${hasLang17f ? ', lang' : ''}, created_at FROM compte`).run();
+    db.exec('DROP TABLE compte');
+    db.exec('ALTER TABLE compte_17f RENAME TO compte');
+    db.pragma('foreign_keys = ON');
+    console.log('[MIGRATION] comptes cloisonnés par club (club_id sur chaque compte, unicité pseudo/email PAR club)');
+  }
+} catch (e) { console.error('migration compte.club_id:', e.message); }
   if (!db.prepare("PRAGMA table_info(match)").all().some(c => c.name === 'casseur_id'))
     db.exec('ALTER TABLE match ADD COLUMN casseur_id INTEGER REFERENCES joueur(id)');
 }
