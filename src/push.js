@@ -160,6 +160,61 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
   } catch (e) { console.error('[PUSH] notifierMatchLance:', e.message); }
 }
 
+// 17p: notifie les 2 joueurs d un match aval qui vient de devenir pret (appariement complet)
+// quand le match précédent de l un des deux se termine (gagnant, perdant loser bracket, forfait ou correction).
+// « ton prochain match arrive » : adversaire connu + code du match, table si déjà attribuée.
+async function notifierProchainMatch17p(matchId) {
+  try {
+    const m = db.prepare('SELECT * FROM match WHERE id = ?').get(matchId);
+    if (!m || m.etat !== 'pret' || m.joueur1_id == null || m.joueur2_id == null) return 0;
+    const j1 = db.prepare('SELECT pseudo FROM joueur WHERE id = ?').get(m.joueur1_id);
+    const j2 = db.prepare('SELECT pseudo FROM joueur WHERE id = ?').get(m.joueur2_id);
+    if (!j1 || !j2) return 0;
+    getVapid();
+    const codeMatch = `${m.bracket ? m.bracket.toLowerCase() : ''}${m.tour}-${String(m.position).padStart(3, '0')}`;
+    const tb = m.table_id != null ? db.prepare('SELECT numero FROM table_billard WHERE id = ?').get(m.table_id) : null;
+    const tableNum = tb ? tb.numero : null;
+    const subs = db.prepare(`
+      SELECT s.endpoint, s.keys_json, COALESCE(c.lang, 'fr') AS lang, j.id AS joueur_id
+      FROM push_subscription s
+      JOIN joueur j ON j.compte_id = s.compte_id
+      JOIN compte c ON c.id = s.compte_id
+      WHERE j.id IN (?, ?) AND s.compte_id IS NOT NULL
+    `).all(m.joueur1_id, m.joueur2_id);
+    const adversaireDe17p = {};
+    adversaireDe17p[m.joueur1_id] = j2.pseudo;
+    adversaireDe17p[m.joueur2_id] = j1.pseudo;
+    // payloads par langue du destinataire (compte.lang, defaut fr), adversaire propre à chaque joueur
+    const titres17p = {
+      fr: '🕐 Ton prochain match arrive',
+      en: "🕐 Your next match is coming up",
+      es: '🕐 Tu próximo partido se acerca',
+      it: '🕐 La tua prossima partita si avvicina',
+      de: '🕐 Dein nächstes Match steht bevor',
+    };
+    const corps17p = {
+      fr: (a, t) => `Tu joueras contre ${a}${t != null ? ' — Table ' + t : ''} · ${codeMatch}`,
+      en: (a, t) => `You'll face ${a}${t != null ? ' — Table ' + t : ''} · ${codeMatch}`,
+      es: (a, t) => `Jugarás contra ${a}${t != null ? ' — Mesa ' + t : ''} · ${codeMatch}`,
+      it: (a, t) => `Giocherai contro ${a}${t != null ? ' — Tavolo ' + t : ''} · ${codeMatch}`,
+      de: (a, t) => `Du spielst gegen ${a}${t != null ? ' — Tisch ' + t : ''} · ${codeMatch}`,
+    };
+    let n = 0;
+    for (const s of subs) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: JSON.parse(s.keys_json) },
+          JSON.stringify({ title: titres17p[s.lang] || titres17p.fr, body: (corps17p[s.lang] || corps17p.fr)(adversaireDe17p[s.joueur_id], tableNum), url: '/match.html?id=' + m.id, tag: 'prochain-' + m.id })
+        );
+        n++;
+      } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); // abonnement mort
+      }
+    }
+    return n;
+  } catch (e) { console.error('[PUSH] notifierProchainMatch17p:', e.message); return 0; }
+}
+
 // Notifie l'inscription d'un compte à un tournoi aux comptes qui l'ont en ami (par compte)
 // OU qui suivent son pseudo (ami_pseudo, sans compte) — compteId null = inscription anonyme par pseudo.
 // et qui ont activé la préférence "notification inscription amis" (désactivable depuis /compte.html).
@@ -334,4 +389,4 @@ async function envoyerTestAmi(joueurId) {
   return { envoyes: n, ami_de: j.pseudo };
 }
 
-module.exports = { registerPushRoutes, notifierMatchLance, notifierInscriptionAmi, publicKey, envoyerTest, envoyerTestAmi, envoyerTous };
+module.exports = { registerPushRoutes, notifierMatchLance, notifierProchainMatch17p, notifierInscriptionAmi, publicKey, envoyerTest, envoyerTestAmi, envoyerTous };

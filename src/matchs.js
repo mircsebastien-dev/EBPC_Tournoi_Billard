@@ -1,4 +1,5 @@
 const { db, logAudit } = require('./db');
+const push = require('./push'); // 17p: notif « ton prochain match arrive » quand l appariement d un match aval se complète
 // audit scopé au club du tournoi concerné (multi-club) ; auteur = pseudo du compte admin si session admin
 function logAuditTournoi(action, cible, avant, apres, tournoiId, auteur) {
   const t = tournoiId != null ? db.prepare('SELECT club_id FROM tournoi WHERE id = ?').get(tournoiId) : null;
@@ -40,6 +41,7 @@ function setJoueurDansSuivant(m, champ, toId, slot, joueurId) {
   const col = slot === 1 ? 'joueur1_id' : 'joueur2_id';
   const autre = slot === 1 ? 'joueur2_id' : 'joueur1_id';
   if (s[autre] === joueurId) return; // ne jamais créer un match avec le même joueur des 2 côtés
+  const autreConnu17p = s[autre] != null && s[col] == null; // 17p: ce remplissage complète l appariement du match aval (prevu -> pret)
   db.prepare(`UPDATE match SET ${col} = ?, etat = CASE WHEN ${autre} IS NOT NULL AND etat = 'prevu' THEN 'pret' ELSE etat END, updated_at = datetime('now') WHERE id = ?`)
     .run(joueurId, s.id);
   if (s.bracket) {
@@ -53,6 +55,8 @@ function setJoueurDansSuivant(m, champ, toId, slot, joueurId) {
     }
   }
   appliquerBye(s.id);
+  // 17p: le match aval vient de devenir pret (appariement complet) -> notifie ses joueurs SANS jamais bloquer la propagation
+  if (autreConnu17p) { try { push.notifierProchainMatch17p(s.id).catch(() => {}); } catch (e) {} }
 }
 
 function feederTermine(m, slot) {
