@@ -79,6 +79,17 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 <script src="/common.js"></script>
 <script>
 document.getElementById('nav').append(nav('tv'));
+// 17n: photo de fond de la TV importée par le club (aucune -> fond noir d origine conservé), assombrie pour garder les scores lisibles
+try {
+  const fond17n = new Image();
+  fond17n.onload = function () {
+    document.body.style.backgroundImage = 'linear-gradient(rgba(5,5,8,.80), rgba(5,5,8,.90)), url("' + fond17n.src + '")';
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
+    document.body.style.backgroundAttachment = 'fixed';
+  };
+  fond17n.src = '/api/club-tv-fond' + qsClub17n();
+} catch (e) {}
 const slidesEl = document.getElementById('slides');
 const dotsEl = document.getElementById('dots');
 let state = null;

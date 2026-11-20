@@ -24,6 +24,8 @@ const LOGOS_PRESETS = ['bille-noire', 'bille-8', 'queue', 'triangle', 'table', '
 let logoChoisi17k = ''; // '' = aucun logo; soit /logos/<prédéfini>.svg soit une data:image importée
 let logoImporte17k = ''; // 17k v8: data URL du dernier logo importé (vignette sélectionnable dans la galerie, enregistrée seulement au clic sur Enregistrer)
 let logoMode17k = 'les-deux'; // entete / filigrane / les-deux (switch d affichage)
+let banniere17n = ''; // 17n: bannière de l accueil ('' = aucune)
+let fondTv17n = ''; // 17n: photo de fond de la TV ('' = décor noir d origine)
 
 // 17j. Personnalisation du club : couleur d accent + défauts de tournoi (nom, jour récurrent, heure)
 // geste NON sensible: PIN du club déjà requis pour l espace admin, aucun confirm_pin supplémentaire
@@ -40,6 +42,11 @@ async function chargerPrefsApparence() {
     logoImporte17k = logoChoisi17k.startsWith('data:image/') ? logoChoisi17k : ''; // 17k v8: un logo sauvegardé en data URL redevient la vignette importée
     logoMode17k = (p && (p.logo_mode === 'entete' || p.logo_mode === 'filigrane' || p.logo_mode === 'les-deux')) ? p.logo_mode : 'les-deux';
     rafraichirLogoPrefs(); // sélection + aperçu immédiat (filigrane et logo d en-tête sur CETTE page)
+    banniere17n = typeof p.banniere === 'string' ? p.banniere : ''; // 17n: bannière de l accueil
+    fondTv17n = typeof p.tv_fond === 'string' ? p.tv_fond : ''; // 17n: photo de fond de la TV
+    document.getElementById('pref-desc-club').value = typeof p.description === 'string' ? p.description : ''; // 17n: présentation (page Le club)
+    document.getElementById('pref-contact-club').value = typeof p.contact === 'string' ? p.contact : ''; // 17n: contact (page Le club)
+    rafraichirVisuels17n(); // 17n: aperçus bannière + fond TV synchronisés
   } catch (e) {}
 }
 // 17k: marque le prédéfini sélectionné (ou aucun) et applique l aperçu immédiat
@@ -98,6 +105,50 @@ function importerLogo17k(input) {
   imgL.onerror = () => refusLogo(t('Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).'));
   imgL.src = URL.createObjectURL(f);
 }
+// 17n: aperçus des images retenues (bannière + fond TV) avant Enregistrer, même mécanique que l aperçu logo 17k v7
+function rafraichirVisuels17n() {
+  const apB = document.getElementById('pref-banniere-img');
+  if (apB) { if (banniere17n) { apB.src = banniere17n; apB.style.display = ''; } else apB.style.display = 'none'; }
+  const apF = document.getElementById('pref-fond-tv-img');
+  if (apF) { if (fondTv17n) { apF.src = fondTv17n; apF.style.display = ''; } else apF.style.display = 'none'; }
+}
+// 17n: import d une bannière (réduite à 1600 px) ou d un fond de TV (1280 px), mêmes règles tolérantes que le logo
+// (17k v4 : décodage navigateur, HEIC/MIME absent acceptés, 8 Mo ; 17k v5 : refus explicite fichier reçu vs attendu + cause)
+function importerPhoto17n(input, cible) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  const largeurMax = cible === 'fond-tv' ? 1280 : 1600; // 17n: le fond TV reste plus léger que la bannière d accueil
+  const refusPhoto = (cause) => {
+    alert(t('Image refusée') + '\n\nReçu : « ' + f.name + ' », ' + (f.size / 1024).toFixed(1) + ' Ko, type MIME « ' + (f.type || '(aucun)') + ' ».\n' + t('Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.') + '\n\n' + cause);
+    input.value = '';
+  };
+  if (f.size > 8 * 1024 * 1024) return refusPhoto(t('Cause : fichier plus lourd que la limite de 8 Mo.'));
+  const poser = (uri) => { if (cible === 'fond-tv') fondTv17n = uri; else banniere17n = uri; rafraichirVisuels17n(); };
+  if (f.type === 'image/svg+xml' || /\.svg$/i.test(f.name)) {
+    f.text().then((txt) => {
+      if (!txt || !txt.includes('<svg')) return refusPhoto(t('Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.'));
+      poser('data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(txt))));
+    }).catch(() => refusPhoto(t('Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.')));
+    return;
+  }
+  const imgL = new Image();
+  imgL.onload = () => {
+    try {
+      const c = document.createElement('canvas');
+      const ech = Math.min(1, largeurMax / Math.max(imgL.naturalWidth || largeurMax, 1));
+      c.width = Math.max(1, Math.round((imgL.naturalWidth || largeurMax) * ech));
+      c.height = Math.max(1, Math.round((imgL.naturalHeight || largeurMax) * ech));
+      const ctx = c.getContext('2d');
+      ctx.drawImage(imgL, 0, 0, c.width, c.height);
+      let uri = c.toDataURL('image/jpeg', 0.85); // 17n: photo pleine largeur -> JPEG d office (le PNG d une photo dépasserait le plafond)
+      if (uri.length > 390000) uri = c.toDataURL('image/jpeg', 0.7); // marge sous le plafond serveur (400 000 caractères)
+      if (uri.length > 390000) return refusPhoto(t('Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.'));
+      poser(uri);
+    } catch (e) { refusPhoto(t('Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).')); }
+  };
+  imgL.onerror = () => refusPhoto(t('Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).'));
+  imgL.src = URL.createObjectURL(f);
+}
 async function enregPrefsApparence() {
   try {
     const rep = await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({
@@ -108,6 +159,10 @@ async function enregPrefsApparence() {
       adresse: document.getElementById('pref-adresse').value.trim(), // 17j v2: adresse par défaut du club (prérenseigne le lieu de création de tournoi)
       logo: logoChoisi17k, // 17k: '' = aucun logo, prédéfini ou image importée
       logo_mode: logoMode17k, // 17k: entete / filigrane / les-deux
+      banniere: banniere17n, // 17n: '' = aucune bannière (photo réduite à 1600 px)
+      tv_fond: fondTv17n, // 17n: '' = décor noir d origine (photo réduite à 1280 px)
+      description: document.getElementById('pref-desc-club').value.trim().slice(0, 500), // 17n: présentation de la page Le club
+      contact: document.getElementById('pref-contact-club').value.trim().slice(0, 200), // 17n: contact de la page Le club
     })});
     if (rep && rep.prefs && typeof appliquerAccentClub === 'function') appliquerAccentClub(rep.prefs.accent); // aperçu immédiat
     if (rep && rep.prefs && typeof appliquerLogoClub === 'function') { logoChoisi17k = rep.prefs.logo || ''; logoMode17k = rep.prefs.logo_mode || 'les-deux'; appliquerLogoClub(logoChoisi17k, logoMode17k); }
@@ -150,8 +205,37 @@ function render() {
         el('div', { id: 'pref-logo-mode', class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px' },
           ...[['entete', 'Logo d en-tête'], ['filigrane', 'Filigrane'], ['les-deux', 'Logo + filigrane']].map(([mv, ml]) =>
             el('button', { class: 'secondary', 'data-mode': mv, style: 'outline:3px solid transparent', onclick: () => { logoMode17k = mv; rafraichirLogoPrefs(); } }, t(ml)))))),
+    el('div', { style: 'margin-top:14px' }, // 17n: bannière de l accueil (import photo, pas de prédéfini)
+      el('label', {}, t('Bannière de l accueil')),
+      el('p', { class: 'muted small', style: 'margin:4px 0' }, t('Photo affichée en tête de l accueil et de la page Le club pour tous les visiteurs.')),
+      el('div', { class: 'row', style: 'align-items:center;gap:8px;margin-top:6px' },
+        el('img', { id: 'pref-banniere-img', alt: t('Bannière du club'), style: 'width:120px;height:44px;object-fit:cover;border-radius:8px;background:var(--bg2);display:none' }),
+        el('button', { class: 'secondary', onclick: () => { banniere17n = ''; rafraichirVisuels17n(); } }, t('Retirer la bannière'))),
+      el('div', { style: 'margin-top:6px' },
+        el('label', {}, t('Importer une bannière (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1600 px)')),
+        el('input', { id: 'pref-banniere-import', type: 'file', accept: 'image/*' }))),
+    el('div', { style: 'margin-top:14px' }, // 17n: photo de fond de l écran TV
+      el('label', {}, t('Photo de fond de la TV')),
+      el('p', { class: 'muted small', style: 'margin:4px 0' }, t('Photo de fond affichée derrière les scores de l écran TV (assombrie automatiquement).')),
+      el('div', { class: 'row', style: 'align-items:center;gap:8px;margin-top:6px' },
+        el('img', { id: 'pref-fond-tv-img', alt: t('Photo de fond de la TV'), style: 'width:120px;height:44px;object-fit:cover;border-radius:8px;background:var(--bg2);display:none' }),
+        el('button', { class: 'secondary', onclick: () => { fondTv17n = ''; rafraichirVisuels17n(); } }, t('Retirer le fond de TV'))),
+      el('div', { style: 'margin-top:6px' },
+        el('label', {}, t('Importer un fond de TV (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1280 px)')),
+        el('input', { id: 'pref-fond-tv-import', type: 'file', accept: 'image/*' }))),
+    el('div', { style: 'margin-top:14px' }, // 17n: textes de la page publique « Le club »
+      el('label', {}, t('Page Le club')),
+      el('p', { class: 'muted small', style: 'margin:4px 0' }, t('Logo, bannière et textes de la page publique « Le club » (lien du menu).')),
+      el('div', { style: 'margin-top:6px' },
+        el('label', {}, t('Présentation du club (500 caractères max)')),
+        el('textarea', { id: 'pref-desc-club', maxlength: 500, rows: 4, placeholder: 'ex : Notre club au bord du Canal du Midi, tournois le mardi soir', style: 'width:100%' })),
+      el('div', { style: 'margin-top:6px' },
+        el('label', {}, t('Contact (page Le club, 200 caractères max)')),
+        el('input', { id: 'pref-contact-club', maxlength: 200, placeholder: 'ex : ebpc.toulouse@gmail.com · 06 12 34 56 78', style: 'width:100%' }))),
     el('div', { class: 'row', style: 'margin-top:12px' }, el('button', { onclick: enregPrefsApparence }, t('Enregistrer')))));
   document.getElementById('pref-logo-import').addEventListener('change', () => importerLogo17k(document.getElementById('pref-logo-import')));
+  document.getElementById('pref-banniere-import').addEventListener('change', () => importerPhoto17n(document.getElementById('pref-banniere-import'), 'banniere')); // 17n
+  document.getElementById('pref-fond-tv-import').addEventListener('change', () => importerPhoto17n(document.getElementById('pref-fond-tv-import'), 'fond-tv')); // 17n
   chargerPrefsApparence();
 }
 

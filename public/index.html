@@ -21,6 +21,19 @@ document.getElementById('nav').append(nav('home'));
 const main = document.getElementById('main');
 let state = null;
 
+// 17n: bannière du club en tête de l accueil (aucune bannière configurée -> rien ne s affiche)
+(function () {
+  const boite17n = document.createElement('div');
+  boite17n.style.cssText = 'max-width:1100px;margin:14px auto -4px;padding:0 18px';
+  const img17n = document.createElement('img');
+  img17n.alt = 'Bannière du club';
+  img17n.style.cssText = 'width:100%;height:auto;max-height:230px;object-fit:cover;border-radius:8px;display:none';
+  img17n.onload = function () { img17n.style.display = 'block'; };
+  img17n.src = '/api/club-banniere' + qsClub17n();
+  boite17n.appendChild(img17n);
+  if (main) document.body.insertBefore(boite17n, main);
+})();
+
 function render() {
   main.innerHTML = '';
   const t = state && state.actif;

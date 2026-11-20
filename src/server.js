@@ -466,6 +466,14 @@ const LOGO_DATA_RE = /^data:image\/(?:png|jpeg|svg\+xml);base64,[A-Za-z0-9+/]+={
 const LOGO_TAILLE_MAX = 200000; // caractères (~150 Ko) : un petit logo réduit à 256 px passe très largement
 const LOGO_MODES = ['entete', 'filigrane', 'les-deux']; // 17k: où afficher le logo (switch du panneau Apparence)
 function logoModeValide(m) { return LOGO_MODES.includes(m); }
+// 17n. Identité visuelle du club : bannière de l accueil (réduite à 1600 px) et photo de fond de la page TV (1280 px),
+// importées depuis le panneau Apparence, stockées en data:image dans club.theme_json (jamais de secret, aucun prédéfini)
+const PHOTO_TAILLE_MAX = 400000; // caractères (~300 Ko) : largement au-dessus d une photo JPEG réduite à 1600/1280 px
+const PHOTO_DATA_RE = LOGO_DATA_RE; // mêmes types que le logo (png/jpeg/svg+xml), jamais text/html ni les autres
+function photoClubValide(v) { // '' = aucune photo
+  if (typeof v !== 'string') return false;
+  return v === '' || (v.length <= PHOTO_TAILLE_MAX && PHOTO_DATA_RE.test(v));
+}
 
 function logoClubValide(logo) {
   if (typeof logo !== 'string') return false;
@@ -487,6 +495,10 @@ function themeDuClub(cible) {
     adresse: (typeof p.adresse === 'string') ? p.adresse.trim().slice(0, 200) : '', // 17j v2: adresse par défaut du club (prérenseigne le lieu de création de tournoi)
     logo: (typeof p.logo === 'string' && logoClubValide(p.logo)) ? p.logo : '', // 17k: '' = aucun logo
     logo_mode: logoModeValide(p.logo_mode) ? p.logo_mode : 'les-deux', // 17k: entete / filigrane / les-deux
+    banniere: (typeof p.banniere === 'string' && photoClubValide(p.banniere)) ? p.banniere : '', // 17n: bannière de l accueil ('' = aucune)
+    tv_fond: (typeof p.tv_fond === 'string' && photoClubValide(p.tv_fond)) ? p.tv_fond : '', // 17n: photo de fond de la TV ('' = décor noir d origine)
+    description: (typeof p.description === 'string') ? p.description.trim().slice(0, 500) : '', // 17n: présentation de la page Le club
+    contact: (typeof p.contact === 'string') ? p.contact.trim().slice(0, 200) : '', // 17n: contact affiché sur la page Le club
   };
 }
 
@@ -525,8 +537,23 @@ app.get('/api/clubs', (req, res) => {
 // 17j. personnalisation publique : l accent de l interface du club résolu (léger, sans authentification, pour TOUS les visiteurs)
 app.get('/api/club-theme', (req, res) => {
   const th17k = themeDuClub(req.club);
-  res.json({ slug: req.club.slug, nom: req.club.nom, accent: th17k.accent, logo: th17k.logo, logo_mode: th17k.logo_mode }); // 17k: logo public comme l accent, avec son mode d affichage
+  // 17n: textes courts de la page Le club servis ici (adresse/description/contact) ; les images lourdes (bannière, fond TV)
+  // ne passent JAMAIS dans ce payload appelé à chaque page : routes dédiées ci-dessous avec cache navigateur
+  res.json({ slug: req.club.slug, nom: req.club.nom, accent: th17k.accent, logo: th17k.logo, logo_mode: th17k.logo_mode, adresse: th17k.adresse, description: th17k.description, contact: th17k.contact }); // 17k: logo public comme l accent, avec son mode d affichage
 });
+
+// 17n. Images du club décodées du theme_json et servies en image avec cache navigateur :
+// /api/club-banniere (tête de l accueil + page Le club) et /api/club-tv-fond (écran TV), ?club= pris en charge (les <img> ne portent pas X-Club),
+// aucune image configurée -> 204 (le front reste sur son décor d origine, pas d erreur visible côté visiteur)
+function servirImageClub17n(req, res, champ) {
+  const m17n = /^data:image\/(png|jpeg|svg\+xml);base64,([A-Za-z0-9+/]+={0,2})$/.exec(themeDuClub(req.club)[champ] || '');
+  if (!m17n) return res.status(204).end();
+  res.setHeader('Content-Type', 'image/' + m17n[1]);
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(Buffer.from(m17n[2], 'base64'));
+}
+app.get('/api/club-banniere', (req, res) => servirImageClub17n(req, res, 'banniere')); // 17n: bannière du club
+app.get('/api/club-tv-fond', (req, res) => servirImageClub17n(req, res, 'tv_fond')); // 17n: photo de fond de l écran TV
 
 app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe(req.club.id) }));
 
@@ -1419,6 +1446,24 @@ app.put('/api/admin/club/prefs', requireAdmin, (req, res) => {
     if (!logoModeValide(String(req.body.logo_mode))) return res.status(400).json({ error: 'Mode d affichage du logo invalide (entete, filigrane ou les-deux)' });
     prefs.logo_mode = String(req.body.logo_mode);
   }
+  if ('banniere' in req.body) { // 17n: '' = aucune, sinon data:image (png/jpeg/svg+xml) base64 plafonnée
+    const bn = String(req.body.banniere || '').trim();
+    if (!photoClubValide(bn)) { // même cause réelle que le logo (17k v5)
+      if (bn.length > PHOTO_TAILLE_MAX) return res.status(400).json({ error: 'Banniere refusée : ' + bn.length + ' caractères reçus, ' + PHOTO_TAILLE_MAX + ' maximum attendu.' });
+      return res.status(400).json({ error: 'Banniere refusée : format non supporté, attendu data:image/png|jpeg|svg+xml en base64 (ou vide pour retirer).' });
+    }
+    prefs.banniere = bn;
+  }
+  if ('tv_fond' in req.body) { // 17n: photo de fond de la TV, mêmes règles que la bannière
+    const tf = String(req.body.tv_fond || '').trim();
+    if (!photoClubValide(tf)) {
+      if (tf.length > PHOTO_TAILLE_MAX) return res.status(400).json({ error: 'Photo de fond TV refusée : ' + tf.length + ' caractères reçus, ' + PHOTO_TAILLE_MAX + ' maximum attendu.' });
+      return res.status(400).json({ error: 'Photo de fond TV refusée : format non supporté, attendu data:image/png|jpeg|svg+xml en base64 (ou vide pour retirer).' });
+    }
+    prefs.tv_fond = tf;
+  }
+  if ('description' in req.body) prefs.description = String(req.body.description || '').trim().slice(0, 500); // 17n: présentation de la page Le club (0-500, '' l efface)
+  if ('contact' in req.body) prefs.contact = String(req.body.contact || '').trim().slice(0, 200); // 17n: contact de la page Le club
   db.prepare('UPDATE club SET theme_json = ? WHERE id = ?').run(JSON.stringify(prefs), cible.id);
   logAuditReq(req, 'club_prefs', `club ${cible.slug}`, null, { changements: Object.keys(req.body).filter(k => k !== 'slug') }); // couleurs et défauts, jamais de secret
   res.json({ ok: true, slug: cible.slug, prefs });

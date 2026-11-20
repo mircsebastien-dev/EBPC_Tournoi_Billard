@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le club — Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Le club</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+document.getElementById('nav').append(nav('club'));
+const main17n = document.getElementById('main');
+
+// 17n. Page « Le club » : identité visible par TOUS (bannière, nom, adresse, présentation, contact).
+// FR brut comme joueur.html (page publique du club) ; accent + logo + favicon déjà appliqués par common.js.
+api('/api/club-theme').then((th) => {
+  if (!th) { main17n.append(el('div', { class: 'panel' }, 'Club introuvable')); return; }
+  document.title = th.nom + ' — Le club';
+  const h1c = document.querySelector('header.top h1');
+  if (h1c) h1c.textContent = th.nom; // le nom du club remplace le titre générique une fois la réponse reçue
+  const panneau17n = el('div', { class: 'panel', id: 'club-panneau-17n', style: 'padding:0;overflow:hidden' },
+    el('img', { id: 'club-banniere-17n', alt: 'Bannière du club', style: 'width:100%;height:auto;max-height:260px;object-fit:cover;display:none' }),
+    el('div', { style: 'padding:18px' },
+      el('div', { class: 'hero-title' }, th.nom),
+      th.adresse ? el('p', { style: 'color:var(--gold);font-weight:700;margin:6px 0 0' }, '📍 ' + th.adresse) : null,
+      th.description ? el('p', { id: 'club-desc-17n', style: 'white-space:pre-wrap;margin:10px 0 0' }, th.description) : null,
+      th.contact ? el('p', { id: 'club-contact-17n', style: 'margin:10px 0 0;color:var(--muted)' }, '✉️ ' + th.contact) : null,
+      (!th.adresse && !th.description && !th.contact) ? el('p', { class: 'muted', style: 'margin:10px 0 0' }, 'Le club n a pas encore rédigé sa présentation (table de marque : Apparence du club).') : null,
+      el('p', { style: 'margin:16px 0 0' }, el('a', { href: '/' }, '← Accueil'))));
+  const img17n = document.getElementById('club-banniere-17n');
+  img17n.onload = () => { img17n.style.display = 'block'; };
+  img17n.src = '/api/club-banniere' + qsClub17n(); // 17n: aucune bannière configurée -> rien ne s affiche
+  main17n.append(panneau17n);
+}).catch(() => {});
+</script>
+</body>
+</html>

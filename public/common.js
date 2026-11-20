@@ -9,6 +9,10 @@ try {
 function clubHeaders() {
   try { const c = localStorage.getItem(CLUB_KEY); return c ? { 'X-Club': c } : {}; } catch { return {}; }
 }
+// 17n. suffixe ?club= pour les <img>/<fetch> qui ne portent pas l en-tête X-Club (bannière de l accueil, photo de fond TV)
+function qsClub17n() {
+  try { const c = localStorage.getItem(CLUB_KEY); return c ? '?club=' + encodeURIComponent(c) : ''; } catch { return ''; }
+}
 
 // 17j. Personnalisation du club : l admin du club choisit une couleur d accent (remplace le rose partout),
 // visible par TOUS les visiteurs des pages du club. Anti-flash : cache localStorage par slug (ebpc_accent_club)
@@ -129,6 +133,17 @@ function appliquerLogoClub(logo, mode) {
         }
         chip.src = chemin;
       } else if (chip) chip.remove();
+    }
+    // 17n. Favicon du club : le logo devient la favicon de l onglet sur toutes les pages où le logo s affiche
+    // (prédéfinis /logos ou data:), repli sur /favicon.svg quand il n y a aucun logo (jamais d URL externe)
+    let fav17n = document.querySelector('link[rel="icon"]');
+    if (chemin) {
+      if (!fav17n) { fav17n = document.createElement('link'); fav17n.rel = 'icon'; document.head.append(fav17n); }
+      fav17n.type = chemin.startsWith('data:image/svg+xml') || chemin.startsWith('/logos/') ? 'image/svg+xml' : (chemin.startsWith('data:image/jpeg') ? 'image/jpeg' : 'image/png');
+      fav17n.href = chemin;
+    } else if (fav17n && fav17n.getAttribute('href') !== '/favicon.svg') {
+      fav17n.type = 'image/svg+xml';
+      fav17n.href = '/favicon.svg';
     }
   } catch {}
 }
@@ -733,6 +748,23 @@ const I18N = {
   "· après la belle": "· after the decider",
   "· revanche prise !": "· revenge taken!",
   "· revanche manquée": "· revenge missed",
+  "Le club": "The club",
+  "Club introuvable": "Club not found",
+  "Bannière du club": "Club banner",
+  "Bannière de l accueil": "Home banner",
+  "Retirer la bannière": "Remove the banner",
+  "Importer une bannière (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1600 px)": "Import a banner (PNG/JPG/SVG, photo up to 8 MB, reduced to 1600 px)",
+  "Photo affichée en tête de l accueil et de la page Le club pour tous les visiteurs.": "Photo shown at the top of the home page and the Club page for every visitor.",
+  "Photo de fond de la TV": "TV background photo",
+  "Retirer le fond de TV": "Remove the TV background",
+  "Importer un fond de TV (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1280 px)": "Import a TV background (PNG/JPG/SVG, photo up to 8 MB, reduced to 1280 px)",
+  "Photo de fond affichée derrière les scores de l écran TV (assombrie automatiquement).": "Background photo behind the scores of the club TV screen (automatically darkened).",
+  "Page Le club": "Club page",
+  "Logo, bannière et textes de la page publique « Le club » (lien du menu).": "Logo, banner and texts of the public « Club » page (menu link).",
+  "Présentation du club (500 caractères max)": "Club presentation (500 characters max)",
+  "Contact (page Le club, 200 caractères max)": "Contact (Club page, 200 characters max)",
+  "Image refusée": "Image rejected",
+  "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Cause: the reduced image still exceeds the maximum size, pick a simpler image.",
 };
 const I18N_DYN = [
   [/^Erreur (\d+)$/, "Error $1"],
@@ -1450,6 +1482,23 @@ const I18N_ES = {
   "· après la belle": "· tras la bella",
   "· revanche prise !": "· ¡revancha conseguida!",
   "· revanche manquée": "· revancha fallida",
+  "Le club": "El club",
+  "Club introuvable": "Club no encontrado",
+  "Bannière du club": "Banner del club",
+  "Bannière de l accueil": "Banner de inicio",
+  "Retirer la bannière": "Quitar el banner",
+  "Importer une bannière (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1600 px)": "Importar un banner (PNG/JPG/SVG, foto de hasta 8 MB, reducida a 1600 px)",
+  "Photo affichée en tête de l accueil et de la page Le club pour tous les visiteurs.": "Foto mostrada en la cabecera de la portada y de la página El club para todos los visitantes.",
+  "Photo de fond de la TV": "Foto de fondo de la TV",
+  "Retirer le fond de TV": "Quitar el fondo de la TV",
+  "Importer un fond de TV (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1280 px)": "Importar un fondo de TV (PNG/JPG/SVG, foto de hasta 8 MB, reducida a 1280 px)",
+  "Photo de fond affichée derrière les scores de l écran TV (assombrie automatiquement).": "Foto de fondo detrás de los resultados de la pantalla TV del club (oscurecida automáticamente).",
+  "Page Le club": "Página El club",
+  "Logo, bannière et textes de la page publique « Le club » (lien du menu).": "Logo, banner y textos de la página pública « El club » (enlace del menú).",
+  "Présentation du club (500 caractères max)": "Presentación del club (500 caracteres máximo)",
+  "Contact (page Le club, 200 caractères max)": "Contacto (página El club, 200 caracteres máximo)",
+  "Image refusée": "Imagen rechazada",
+  "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Causa: la imagen reducida todavía supera el tamaño máximo, elige una imagen más simple.",
 };
 // remplacements dynamiques ES : meme ordre que les regex de I18N_DYN
 const REPS_DYN_ES = [
@@ -2168,6 +2217,23 @@ const I18N_IT = {
   "· après la belle": "· dopo la bella",
   "· revanche prise !": "· rivincita riuscita!",
   "· revanche manquée": "· rivincita sfumata",
+  "Le club": "Il club",
+  "Club introuvable": "Club non trovato",
+  "Bannière du club": "Banner del club",
+  "Bannière de l accueil": "Banner della home",
+  "Retirer la bannière": "Rimuovi il banner",
+  "Importer une bannière (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1600 px)": "Importa un banner (PNG/JPG/SVG, foto fino a 8 MB, ridotta a 1600 px)",
+  "Photo affichée en tête de l accueil et de la page Le club pour tous les visiteurs.": "Foto mostrata in cima alla home e alla pagina Il club per tutti i visitatori.",
+  "Photo de fond de la TV": "Foto di sfondo della TV",
+  "Retirer le fond de TV": "Rimuovi lo sfondo TV",
+  "Importer un fond de TV (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1280 px)": "Importa uno sfondo TV (PNG/JPG/SVG, foto fino a 8 MB, ridotta a 1280 px)",
+  "Photo de fond affichée derrière les scores de l écran TV (assombrie automatiquement).": "Foto di sfondo dietro i punteggi dello schermo TV del club (scurita automaticamente).",
+  "Page Le club": "Pagina Il club",
+  "Logo, bannière et textes de la page publique « Le club » (lien du menu).": "Logo, banner e testi della pagina pubblica « Il club » (voce del menu).",
+  "Présentation du club (500 caractères max)": "Presentazione del club (500 caratteri al massimo)",
+  "Contact (page Le club, 200 caractères max)": "Contatto (pagina Il club, 200 caratteri al massimo)",
+  "Image refusée": "Immagine rifiutata",
+  "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Causa: l immagine ridotta supera ancora le dimensioni massime, scegli un immagine più semplice.",
 };
 // remplacements dynamiques IT : meme ordre que les regex de I18N_DYN
 const REPS_DYN_IT = [
@@ -2886,6 +2952,23 @@ const I18N_DE = {
   "· après la belle": "· nach der Belle",
   "· revanche prise !": "· Revanche geglückt!",
   "· revanche manquée": "· Revanche verpasst",
+  "Le club": "Der Club",
+  "Club introuvable": "Club nicht gefunden",
+  "Bannière du club": "Club-Banner",
+  "Bannière de l accueil": "Startseiten-Banner",
+  "Retirer la bannière": "Banner entfernen",
+  "Importer une bannière (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1600 px)": "Banner importieren (PNG/JPG/SVG, Foto bis 8 MB, auf 1600 px verkleinert)",
+  "Photo affichée en tête de l accueil et de la page Le club pour tous les visiteurs.": "Foto oben auf der Startseite und der Club-Seite für alle Besucher sichtbar.",
+  "Photo de fond de la TV": "TV-Hintergrundbild",
+  "Retirer le fond de TV": "TV-Hintergrund entfernen",
+  "Importer un fond de TV (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 1280 px)": "TV-Hintergrund importieren (PNG/JPG/SVG, Foto bis 8 MB, auf 1280 px verkleinert)",
+  "Photo de fond affichée derrière les scores de l écran TV (assombrie automatiquement).": "Hintergrundfoto hinter den Ergebnissen des TV-Bildschirms des Clubs (automatisch abgedunkelt).",
+  "Page Le club": "Club-Seite",
+  "Logo, bannière et textes de la page publique « Le club » (lien du menu).": "Logo, Banner und Texte der öffentlichen Seite « Der Club » (Menülink).",
+  "Présentation du club (500 caractères max)": "Club-Vorstellung (max. 500 Zeichen)",
+  "Contact (page Le club, 200 caractères max)": "Kontakt (Club-Seite, max. 200 Zeichen)",
+  "Image refusée": "Bild abgelehnt",
+  "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Ursache: das verkleinerte Bild überschreitet immer noch die Maximalgröße, wähle ein einfacheres Bild.",
 };
 // remplacements dynamiques DE : meme ordre que les regex de I18N_DYN
 const REPS_DYN_DE = [
@@ -3191,6 +3274,7 @@ function nav(active) {
     ['/suivi.html', 'joueur', 'Mon tournoi', true],
     ['/stats.html', 'stats', 'Stats'],
     ['/historique.html', 'hist', 'Historique'],
+    ['/leclub.html', 'club', 'Le club'], // 17n: page publique du club (bannière, présentation, contact)
     ['/admin.html', 'admin', 'Table de marque'],
     ['/aide.html', 'aide', 'Aide'],
     ['/confidentialite.html', '', 'Confidentialité'],

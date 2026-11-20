@@ -19,6 +19,7 @@
 - **🎱 Joueur** : tes matchs en cours / à venir (si connecté)
 - **📊 Stats** : classement,点击 sur un joueur pour sa fiche (historique complet)
 - **🗂 Historique** : les tournois passés, avec recherche/surbrillance par joueur
+- **🏷️ Le club** : la page publique de ton club (bannière, adresse, présentation, contact), réglée par la table de marque
 
 ## Jouer un match (saisie du score)
 1. Ouvre ta **card de match** (depuis « Joueur », le tableau, ou la notification)
