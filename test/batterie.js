@@ -897,9 +897,9 @@ async function nouveauTournoi(body) {
   check('export base avec un code de club -> 403 (réservé au code global)', r.status === 403, r.status + ' ' + (r.data.error || ''));
   r = await post('/api/admin/base/import', { payload: E, confirm_pin: '4321' }, { club: 'clubsb', pin: '4321' });
   check('import base avec un code de club -> 403 (aucune écriture)', r.status === 403, r.status + ' ' + (r.data.error || ''));
-  r = await post('/api/admin/base/import', { payload: { format: 'poubelle' } });
+  r = await post('/api/admin/base/import', { payload: { format: 'poubelle' }, confirm_pin: PIN });
   check('import base: payload sans marqueur de sauvegarde -> 400 (aucune écriture)', r.status === 400, r.status + ' ' + (r.data.error || ''));
-  r = await post('/api/admin/base/import', { payload: { sauvegarde: 'ebpc-tournoi-billard', tables: { poubelle: [{ id: 1 }] } } });
+  r = await post('/api/admin/base/import', { payload: { sauvegarde: 'ebpc-tournoi-billard', tables: { poubelle: [{ id: 1 }] } }, confirm_pin: PIN });
   check('import base: table inconnue -> 400 (aucune écriture)', r.status === 400, r.status + ' ' + (r.data.error || ''));
   const adH17b = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-data.html'), 'utf8');
   check('front: panneau 💾 sauvegarde base dans admin-data.html (export téléchargeant, import fichier avec confirmation destructible)', adH17b.includes('/api/admin/base/export') && adH17b.includes('/api/admin/base/import') && adH17b.includes('Télécharger la sauvegarde (JSON)') && adH17b.includes('Restaurer depuis un fichier') && adH17b.includes('adminApiDestructif'), '');
