@@ -1120,11 +1120,19 @@ function requireGestionCompte(req, res, next) {
   if (comptePresentClub(req.club.id, Number(req.params.id))) return next();
   return res.status(404).json({ error: 'Compte introuvable' });
 }
+// 17h: la table de marque est TOUJOURS scopée au club du contexte, MÊME pour le super-admin
+// (le tenant principal ne voit plus les comptes des autres clubs). La vue « tous les clubs »
+// est explicite: GET ?tous=1, réservée au super-admin (page Clubs, interface plateforme).
 app.get('/api/admin/comptes', requireAdmin, (req, res) => {
   const cid = req.club ? req.club.id : clubParDefaut().id;
-  const scopeClub = !superAdminSoumis(req); // session de club: seulement les comptes liés au club courant
-  const where = scopeClub ? `
-      WHERE c.club_id = ? OR EXISTS (SELECT 1 FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?)` : ''; // 17f: comptes DU club + roles staff
+  const tous = superAdminSoumis(req) && String(req.query.tous || '') === '1'; // 17h: vue plateforme explicite
+  const where = tous ? '' : `
+      WHERE c.club_id = ? OR EXISTS (SELECT 1 FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?)`; // 17f: comptes DU club + roles staff
+  const colTous = tous
+    ? `,
+           (SELECT cl.slug FROM club cl WHERE cl.id = c.club_id) club_slug,
+           (SELECT group_concat(cl.slug || ':' || cc.role, ', ') FROM compte_club cc JOIN club cl ON cl.id = cc.club_id WHERE cc.compte_id = c.id) roles_clubs`
+    : ''; // 17h: club d'origine + rôles club agrégés (« slug:role ») en vue tous-clubs
   const rows = db.prepare(`
     SELECT c.id, c.pseudo, c.email, c.role, c.created_at,
            (SELECT COUNT(*) FROM session s WHERE s.compte_id = c.id) sessions,
@@ -1133,17 +1141,18 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
            (SELECT COUNT(*) FROM match m WHERE m.joueur1_id IN (SELECT id FROM joueur WHERE compte_id = c.id) OR m.joueur2_id IN (SELECT id FROM joueur WHERE compte_id = c.id)) matchs,
            (SELECT COUNT(*) FROM push_subscription ps WHERE ps.compte_id = c.id AND ps.club_id = ?) push_abonnements,
            c.club_id,
-           (SELECT cc.role FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?) role_club,
+           (SELECT cc.role FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?) role_club${colTous},
            (SELECT group_concat(c2.pseudo, ', ') FROM ami a JOIN compte c2 ON c2.id = a.ami_compte_id WHERE a.compte_id = c.id) amis_comptes,
            (SELECT group_concat(p.pseudo, ', ') FROM ami_pseudo p WHERE p.compte_id = c.id) amis_pseudos
     FROM compte c${where}
     ORDER BY c.id DESC
-  `).all(cid, cid, ...(scopeClub ? [cid, cid] : []));
+  `).all(cid, cid, ...(tous ? [] : [cid, cid]));
   // 17g: rôle club du contexte + autorisation de gérer les rôles (table de marque: sélecteur par compte)
   res.json({
     comptes: rows,
     club: req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom } : null,
     peut_gerer_roles: superAdminSoumis(req) || roleClubSession(req) === 'admin' || req.adminViaPin === 'club',
+    tous, // 17h: la vue « tous les clubs » est-elle active (super-admin explicite uniquement)
   });
 });
 

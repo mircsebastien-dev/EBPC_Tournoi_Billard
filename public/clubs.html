@@ -71,6 +71,34 @@ async function sectionRoles(slug) {
   } catch (e) { p.append(el('p', { class: 'muted' }, e.message)); }
 }
 
+// 17h: vue « tous les comptes de la plateforme » (super-admin uniquement cette page y entre).
+// La table de marque de chaque club ne montre, elle, que SES comptes (même pour le super-admin).
+async function chargerComptesTous() {
+  const p = document.getElementById('comptes-tous');
+  if (!p) return;
+  try {
+    const rep = await adminApi('/api/admin/comptes?tous=1');
+    const rows = (rep && rep.comptes) || [];
+    p.innerHTML = '';
+    p.append(el('h2', {}, '👥 Comptes de la plateforme'),
+      el('p', { class: 'muted small' }, 'Vue super-admin, tous clubs confondus. La page Comptes normal reste, elle, cloisonnée au club sélectionné.'));
+    if (rows.length === 0) { p.append(el('p', { class: 'muted' }, 'Aucun compte.')); }
+    else {
+      const entetes = ['Pseudo', 'Club', 'Rôle global', 'Rôles club', 'Dernière connexion'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h));
+      const corps = rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
+        el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo),
+        el('td', { style: 'padding:6px 8px' }, c.club_slug || '—'),
+        el('td', { style: 'padding:6px 8px' }, c.role === 'admin' ? '👑 admin' : 'user'),
+        el('td', { style: 'padding:6px 8px' }, c.roles_clubs || '—'),
+        el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.last_login_at ? String(c.last_login_at).slice(0, 16).replace('T', ' ') : 'jamais')));
+      p.append(el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' },
+        el('thead', {}, el('tr', {}, entetes)),
+        el('tbody', {}, corps))));
+    }
+    if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(p);
+  } catch (e) { p.append(el('p', { class: 'muted' }, e.message)); }
+}
+
 function rowClub(c, estDefaut) {
   return el('tr', { style: 'border-top:1px solid var(--line)' },
     el('td', { style: 'padding:6px 8px' }, el('strong', {}, c.nom), el('div', { class: 'muted', style: 'font-size:12px' }, c.slug)),
@@ -128,6 +156,9 @@ function render(clubs) {
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, `${clubs.length} club(s)`),
     clubs.length === 0 ? el('p', { class: 'muted' }, 'Aucun club.') : table));
+  // 17h: tous les comptes de la plateforme (vue explicite super-admin)
+  main.append(el('div', { id: 'comptes-tous', class: 'panel', style: 'margin-top:12px' }, el('p', { class: 'muted' }, 'Chargement…')));
+  chargerComptesTous();
 }
 
 async function init() {

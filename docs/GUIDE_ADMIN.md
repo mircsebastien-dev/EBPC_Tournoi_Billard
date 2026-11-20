@@ -99,6 +99,12 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 - Le sélecteur n apparaît que pour les comptes DE votre club (isolation stricte) ; le super-admin de la plateforme conserve l attachement cross-club (staff multi-club) depuis la page Clubs.
 - **Retirer un rôle** : sélecteur sur « Club : aucun », confirmation par le code (ou mot de confirmation pour une session admin). Les sessions du compte perdent immédiatement l accès admin du club.
 
+### 9.3 🔎 Vue « tous les clubs » (super-admin, page Clubs)
+
+- **La page Comptes est TOUJOURS cloisonnée au club sélectionné** : même avec le code global (super-admin), la liste ne montre que les comptes du club du contexte. Le tenant principal ne voit plus les comptes créés dans les autres clubs.
+- Pour voir **tous les comptes de la plateforme** : page **Clubs** (réservée au super-admin), panneau « 👥 Comptes de la plateforme » : pseudo, club d origine, rôle global, rôles club, dernière connexion.
+- Un code de club (ou une session de club) ne peut jamais forcer cette vue globale : le paramètre est ignoré côté serveur.
+
 ## 10. Journal d'audit + rollback point-in-time (`/admin-journal.html`)
 
 Toutes les actions admin (créations, lancements — lisibles « wb1-001 — P11 vs P07 (table 3) » —, changements joueurs/table, rouvrir, forfaits, suppressions, swaps anti-rematch…) — **500 dernières entrées du club courant** (multi-club : le journal est scopé `club_id`, comme les snapshots).
