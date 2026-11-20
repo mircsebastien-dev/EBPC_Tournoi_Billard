@@ -1398,8 +1398,10 @@ app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuper
   }
   const annoncees = new Set((Array.isArray(p.fk_violations) ? p.fk_violations : []).map(String)); // orphelins hérités acceptés à l'identique
   const avant = {}; for (const t of connues) avant[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
-  const tx = db.transaction(() => {
-    db.pragma('defer_foreign_keys = ON');
+  db.pragma('foreign_keys = OFF'); // orphelins hérités (clubs supprimés): le COMMIT ne les refuse pas, ils sont validés par foreign_key_check ci-dessous
+  let txImport;
+  try {
+  txImport = db.transaction(() => {
     for (const t of connues) db.prepare(`DELETE FROM ${t}`).run();
     for (const [nom, row] of lignes) {
       const cles = Object.keys(row);
@@ -1410,7 +1412,10 @@ app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuper
     const nouvelles = vios.filter(v => !annoncees.has(`${v.table}#${v.rowid}->${v.parent}`)); // hors orphelins déjà déclarés par l'export
     if (nouvelles.length) { const e = new Error('Sauvegarde invalide: références cassées: ' + nouvelles.slice(0, 5).map(v => `${v.table}#${v.rowid} -> ${v.parent}`).join(', ')); e.status = 400; throw e; }
   });
-  tx(); // n'importe quelle erreur -> rollback intégral, la base actuelle reste intacte
+  txImport(); // n'importe quelle erreur -> rollback intégral, la base actuelle reste intacte
+  } finally {
+    db.pragma('foreign_keys = ON'); // contraintes réactivées même en cas d'erreur
+  }
   const apres = {}; for (const t of connues) apres[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
   logAuditReq(req, 'import_base', `${lignes.length} lignes restaurées sur ${connues.length} tables`, { tables: avant }, { tables: apres });
   majEtBroadcast();
