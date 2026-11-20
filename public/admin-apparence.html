@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎨 Apparence du club — Table de marque</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top"><h1>🎨 Apparence du club</h1><div id="nav"></div></header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+
+// 17l. Page dédiée « Apparence du club » : le panneau a quitté l accueil admin (trop de panneaux sur la table de marque).
+// Contenu déplacé tel quel depuis admin.html (17j accent + défauts de tournoi, 17j v2 adresse, 17k logo + galerie + import).
+const JOURS_PREFS = [[0, 'Dimanche'], [1, 'Lundi'], [2, 'Mardi'], [3, 'Mercredi'], [4, 'Jeudi'], [5, 'Vendredi'], [6, 'Samedi']]; // convention JS: 0 = dimanche
+const LOGOS_PRESETS = ['bille-noire', 'bille-8', 'queue', 'triangle', 'table', 'etoile', 'bouclier', 'couronne', 'flamme', 'cercle']; // 17k: bibliothèque mixte billard + écussons
+let logoChoisi17k = ''; // '' = aucun logo; soit /logos/<prédéfini>.svg soit une data:image importée
+let logoImporte17k = ''; // 17k v8: data URL du dernier logo importé (vignette sélectionnable dans la galerie, enregistrée seulement au clic sur Enregistrer)
+let logoMode17k = 'les-deux'; // entete / filigrane / les-deux (switch d affichage)
+
+// 17j. Personnalisation du club : couleur d accent + défauts de tournoi (nom, jour récurrent, heure)
+// geste NON sensible: PIN du club déjà requis pour l espace admin, aucun confirm_pin supplémentaire
+async function chargerPrefsApparence() {
+  try {
+    const rep = await adminApi('/api/admin/club/prefs');
+    const p = rep && rep.prefs ? rep.prefs : {};
+    document.getElementById('pref-accent').value = p.accent || '#d6336c';
+    document.getElementById('pref-nom').value = p.defaut_nom || '';
+    document.getElementById('pref-jour').value = p.defaut_jour == null ? '' : String(p.defaut_jour);
+    document.getElementById('pref-heure').value = p.defaut_heure || '20:00';
+    document.getElementById('pref-adresse').value = p.adresse || ''; // 17j v2: adresse par défaut du club
+    logoChoisi17k = (p && typeof p.logo === 'string') ? p.logo : '';
+    logoImporte17k = logoChoisi17k.startsWith('data:image/') ? logoChoisi17k : ''; // 17k v8: un logo sauvegardé en data URL redevient la vignette importée
+    logoMode17k = (p && (p.logo_mode === 'entete' || p.logo_mode === 'filigrane' || p.logo_mode === 'les-deux')) ? p.logo_mode : 'les-deux';
+    rafraichirLogoPrefs(); // sélection + aperçu immédiat (filigrane et logo d en-tête sur CETTE page)
+  } catch (e) {}
+}
+// 17k: marque le prédéfini sélectionné (ou aucun) et applique l aperçu immédiat
+function rafraichirLogoPrefs() {
+  const ti17k = document.getElementById('pref-logo-importe'); // 17k v8: vignette importée synchronisée avant le tour de sélection
+  if (ti17k) { ti17k.dataset.logo = logoImporte17k || ''; ti17k.src = logoImporte17k || ''; ti17k.style.display = logoImporte17k ? '' : 'none'; }
+  const galerie = document.getElementById('pref-logo-galerie');
+  if (galerie) for (const b of galerie.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logoChoisi17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
+  const modes = document.getElementById('pref-logo-mode');
+  if (modes) for (const b of modes.children) b.style.outline = (b.dataset.mode === logoMode17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
+  const imp = document.getElementById('pref-logo-import');
+  if (imp) imp.value = '';
+  const ap17k = document.getElementById('pref-logo-img'); // 17k v7: aperçu du logo retenu (prédéfini ou importé), Enregistrer l applique
+  if (ap17k) { if (logoChoisi17k) { ap17k.src = logoChoisi17k; ap17k.style.display = ''; } else ap17k.style.display = 'none'; }
+  if (typeof appliquerLogoClub === 'function') appliquerLogoClub(logoChoisi17k, logoMode17k); // filigrane + petit logo d en-tête
+}
+// 17k: import d un logo perso: PNG/JPG/HEIC décodable (canvas, réduit à 256 px), SVG conservé, 8 Mo max côté fichier
+function importerLogo17k(input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  // 17k v5: refus explicite, le message dit ce qui a été reçu vs ce qui est attendu + la cause probable
+  const refusLogo = (cause) => {
+    alert(t('Logo refusé') + '\n\nReçu : « ' + f.name + ' », ' + (f.size / 1024).toFixed(1) + ' Ko, type MIME « ' + (f.type || '(aucun)') + ' ».\n' + t('Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.') + '\n\n' + cause);
+    input.value = '';
+  };
+  if (f.size > 8 * 1024 * 1024) return refusLogo(t('Cause : fichier plus lourd que la limite de 8 Mo.')); // 17k v5 cause explicite ; photo jusqu à 8 Mo puis réduction: photo acceptée jusqu à 8 Mo, réduite ensuite à 256 px
+  const poser = (uri) => { logoImporte17k = uri; logoChoisi17k = uri; rafraichirLogoPrefs(); }; // 17k v8: l import sélectionne ET expose la vignette importée
+  if (f.type === 'image/svg+xml' || /\.svg$/i.test(f.name)) {
+    f.text().then((txt) => {
+      if (!txt || !txt.includes('<svg')) return refusLogo(t('Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.'));
+      poser('data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(txt))));
+    }).catch(() => refusLogo(t('Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.')));
+    return;
+  }
+  // 17k v4: plus de refus abusif sur le type MIME (photo iPhone HEIC, image/jpg, type absent)
+  // on tente le décodage navigateur, seul un échec de chargement refuse
+  const imgL = new Image();
+  imgL.onload = () => {
+    try {
+      const c = document.createElement('canvas');
+      const ech = Math.min(1, 256 / Math.max(imgL.naturalWidth || 256, imgL.naturalHeight || 256));
+      c.width = Math.max(1, Math.round((imgL.naturalWidth || 256) * ech));
+      c.height = Math.max(1, Math.round((imgL.naturalHeight || 256) * ech));
+      const ctx = c.getContext('2d');
+      ctx.drawImage(imgL, 0, 0, c.width, c.height);
+      let uri = c.toDataURL('image/png');
+      if (uri.length > 190000) { // 17k v4: photo bruitée dont le PNG dépasserait le plafond serveur
+        ctx.globalCompositeOperation = 'destination-over';
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        uri = c.toDataURL('image/jpeg', 0.85);
+      }
+      poser(uri);
+    } catch (e) { refusLogo(t('Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).')); }
+  };
+  imgL.onerror = () => refusLogo(t('Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).'));
+  imgL.src = URL.createObjectURL(f);
+}
+async function enregPrefsApparence() {
+  try {
+    const rep = await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({
+      accent: document.getElementById('pref-accent').value,
+      defaut_nom: document.getElementById('pref-nom').value.trim(),
+      defaut_jour: document.getElementById('pref-jour').value === '' ? null : Number(document.getElementById('pref-jour').value),
+      defaut_heure: document.getElementById('pref-heure').value || '20:00',
+      adresse: document.getElementById('pref-adresse').value.trim(), // 17j v2: adresse par défaut du club (prérenseigne le lieu de création de tournoi)
+      logo: logoChoisi17k, // 17k: '' = aucun logo, prédéfini ou image importée
+      logo_mode: logoMode17k, // 17k: entete / filigrane / les-deux
+    })});
+    if (rep && rep.prefs && typeof appliquerAccentClub === 'function') appliquerAccentClub(rep.prefs.accent); // aperçu immédiat
+    if (rep && rep.prefs && typeof appliquerLogoClub === 'function') { logoChoisi17k = rep.prefs.logo || ''; logoMode17k = rep.prefs.logo_mode || 'les-deux'; appliquerLogoClub(logoChoisi17k, logoMode17k); }
+    alert(t('Personnalisation enregistrée'));
+  } catch (e) { alert(e.message); }
+}
+
+// 17l: rendu de la page : bandeau de retour vers la table de marque + panneau Apparence (identique à l ancien, mêmes ids)
+function render() {
+  main.innerHTML = '';
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
+  main.append(el('div', { class: 'panel', style: 'padding:10px 14px' },
+    el('div', { class: 'row' },
+      el('a', { href: '/admin.html' }, el('button', { class: 'secondary' }, t('← Table de marque'))))));
+    main.append(el('div', { class: 'panel', id: 'panel-apparence' },
+    el('h2', {}, t('🎨 Apparence du club')),
+    el('p', { class: 'muted' }, t('Visible par tous les visiteurs du club.')),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' },
+      el('div', {}, el('label', {}, t('Couleur d accent')), el('input', { id: 'pref-accent', type: 'color', value: '#d6336c', style: 'width:74px;height:38px;padding:2px' })),
+      el('div', {}, el('label', {}, t('Nom par défaut des tournois')), el('input', { id: 'pref-nom', maxlength: 80, placeholder: 'ex : Open du Mercredi', style: 'width:220px' })),
+      el('div', {}, el('label', {}, t('Jour récurrent')), el('select', { id: 'pref-jour' },
+        el('option', { value: '' }, t('Aucun')),
+        ...JOURS_PREFS.map(([v, l]) => el('option', { value: v }, t(l))))),
+      el('div', {}, el('label', {}, t('Heure habituelle')), el('input', { id: 'pref-heure', type: 'time', value: '20:00' })),
+      el('div', { style: 'flex:1 1 280px' }, el('label', {}, t('Adresse par défaut du club')), el('input', { id: 'pref-adresse', maxlength: 200, placeholder: 'ex : Le 147, 12 Rue des Amidonniers 31000 Toulouse', style: 'width:100%' }))),
+    el('div', { style: 'margin-top:12px' },
+      el('label', {}, t('Logo du club')),
+      el('p', { class: 'muted small', style: 'margin:4px 0' }, t('Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.')),
+      el('div', { id: 'pref-logo-galerie', class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center' },
+        ...LOGOS_PRESETS.map((cle) => el('img', { src: '/logos/' + cle + '.svg', alt: cle, title: cle, 'data-logo': '/logos/' + cle + '.svg', style: 'width:44px;height:44px;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent', onclick: () => { logoChoisi17k = '/logos/' + cle + '.svg'; rafraichirLogoPrefs(); } })),
+        el('img', { id: 'pref-logo-importe', alt: t('Logo importé'), title: t('Logo importé'), style: 'width:44px;height:44px;object-fit:contain;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent;display:none', onclick: () => { if (logoImporte17k) { logoChoisi17k = logoImporte17k; rafraichirLogoPrefs(); } } }), // 17k v8: le logo importé devient une vignette sélectionnable au même titre que les prédéfinis
+        el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logoChoisi17k = ''; rafraichirLogoPrefs(); } }, t('Aucun logo'))),
+      el('div', { style: 'margin-top:8px' }, el('label', {}, t('Importer une image (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 256 px)')),
+        el('input', { id: 'pref-logo-import', type: 'file', accept: 'image/*' })),
+      el('div', { class: 'row', style: 'margin-top:8px;align-items:center;gap:8px' }, // 17k v7: aperçu immédiat du logo retenu avant enregistrement
+        el('img', { id: 'pref-logo-img', style: 'width:48px;height:48px;object-fit:contain;background:var(--bg2);border-radius:8px;padding:4px;display:none' }),
+        el('span', { class: 'muted small' }, t('Aperçu du logo retenu : « Enregistrer » l applique aux pages du club pour tous les visiteurs.'))),
+      el('div', { style: 'margin-top:8px' },
+        el('label', {}, t('Affichage du logo')),
+        el('div', { id: 'pref-logo-mode', class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px' },
+          ...[['entete', 'Logo d en-tête'], ['filigrane', 'Filigrane'], ['les-deux', 'Logo + filigrane']].map(([mv, ml]) =>
+            el('button', { class: 'secondary', 'data-mode': mv, style: 'outline:3px solid transparent', onclick: () => { logoMode17k = mv; rafraichirLogoPrefs(); } }, t(ml)))))),
+    el('div', { class: 'row', style: 'margin-top:12px' }, el('button', { onclick: enregPrefsApparence }, t('Enregistrer')))));
+  document.getElementById('pref-logo-import').addEventListener('change', () => importerLogo17k(document.getElementById('pref-logo-import')));
+  chargerPrefsApparence();
+}
+
+adminInit(() => {}).then((ok) => { if (ok) render(); else renderAdminLogin(main); });
+</script>
+</body>
+</html>

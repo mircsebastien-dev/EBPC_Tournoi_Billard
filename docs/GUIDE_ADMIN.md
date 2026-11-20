@@ -18,7 +18,7 @@ Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly) **ou** co
 - Une fois créé (statut `inscription`) : la **TV affiche un grand QR code centré** pour que les joueurs s'inscrivent depuis leur téléphone
 
 
-**Astuce :** si tu personnalises ton club (panneau « 🎨 Apparence du club », section « Outils divers »), le nom du tournoi, la date et l heure sont **pré-remplis** à partir de tes réglages (nom habituel, jour récurrent, heure habituelle). Le **lieu** est lui aussi pré-rempli si tu as renseigné l **adresse par défaut du club** dans ce même panneau (sinon la valeur d origine « Le 147, 12 Rue des Amidonniers 31000 Toulouse »).
+**Astuce :** si tu personnalises ton club (page dédiée « 🎨 Apparence du club » `/admin-apparence.html`, bouton « 🎨 Apparence du club » de l Accès rapide de la table de marque), le nom du tournoi, la date et l heure sont **pré-remplis** à partir de tes réglages (nom habituel, jour récurrent, heure habituelle). Le **lieu** est lui aussi pré-rempli si tu as renseigné l **adresse par défaut du club** dans ce même panneau (sinon la valeur d origine « Le 147, 12 Rue des Amidonniers 31000 Toulouse »).
 
 ## 2. Inscriptions
 
@@ -148,7 +148,7 @@ Toute action admin qui **supprime des données** exige le **code PIN re-saisi** 
 
 ### 🎨 Apparence du club : couleur d accent, logo + réglage des défauts de tournoi
 
-**Où :** panneau « 🎨 Apparence du club » de `/admin.html` (l accueil de la table de marque), visible de tout admin du club (code ou session), confirmation supplémentaire inutile (réglage non sensible : jamais de PIN, jamais de suppression).
+**Où :** page dédiée `/admin-apparence.html` (17l : le panneau a quitté l accueil `/admin.html` pour ne pas surcharger la table de marque ; elle s ouvre par le bouton « 🎨 Apparence du club » de l Accès rapide), visible de tout admin du club (code ou session, même écran de code que toutes les pages « table de marque »), confirmation supplémentaire inutile (réglage non sensible : jamais de PIN, jamais de suppression). Le lien « ← Table de marque » ramène à l accueil admin.
 
 - **Couleur d accent** (sélecteur de couleur) : remplace le rose de l interface sur **toutes les pages du club, pour tous les visiteurs** (boutons, liens, tableau, fil du tournoi). Elle est appliquée par le navigateur via les variables CSS, avec un cache local pour éviter un flash de couleur au chargement. Quelle que soit la teinte choisie (même sombre), les textes qui en dérivent (grands scores de la page match, scores des cards, liens) restent lisibles dans les deux thèmes : la teinte claire est recalculée automatiquement selon le thème, et le gros score de la page match est peint depuis la couleur de texte du thème (jamais de zone colorée à la place des chiffres). Les boutons (texte blanc) sont protégés de la même façon : un accent très clair (blanc, pastel) est automatiquement assombri pour leur fond, afin que les libellés restent lisibles. La page TV reste sur le thème sombre d origine. Laisser le rose d origine est parfaitement valable.
 - **Nom par défaut des tournois** (ex : « Open du Mercredi »), **jour récurrent** et **heure habituelle** : pré-renseignent le formulaire de création de tournoi (`Date et heure` calculée sur le prochain jour récurrent à l heure habituelle). Aucun tournoi n est jamais créé automatiquement : ce ne sont que des valeurs proposées.
