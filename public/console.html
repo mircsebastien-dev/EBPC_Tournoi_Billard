@@ -194,6 +194,7 @@ function panelPersonnalisation(clubs) {
     ...[[0, 'Dimanche'], [1, 'Lundi'], [2, 'Mardi'], [3, 'Mercredi'], [4, 'Jeudi'], [5, 'Vendredi'], [6, 'Samedi']]
       .map(([v, l]) => el('option', { value: v }, l)));
   const heureI = el('input', { type: 'time', value: '20:00' });
+  const adresseI = el('input', { maxlength: 200, placeholder: 'Adresse par défaut du club (lieu prérenseigné à la création)', style: 'width:340px' }); // 17j v2
   // 17k: logo du club (prédéfini ou importé), même logique que la table de marque
   let logo17k = '';
   let logoImporte17kC = ''; // 17k v8: data URL du dernier logo importé du club affiché (vignette sélectionnable, non persistée tant qu non enregistrée)
@@ -265,6 +266,7 @@ function panelPersonnalisation(clubs) {
       nomI.value = p.defaut_nom || '';
       jourS.value = p.defaut_jour == null ? '' : String(p.defaut_jour);
       heureI.value = p.defaut_heure || '20:00';
+      adresseI.value = p.adresse || ''; // 17j v2
       logo17k = (p && typeof p.logo === 'string') ? p.logo : '';
       logoImporte17kC = logo17k.startsWith('data:image/') ? logo17k : ''; // 17k v8: logo sauvegardé en data URL -> vignette importée
       mode17k = (p && (p.logo_mode === 'entete' || p.logo_mode === 'filigrane' || p.logo_mode === 'les-deux')) ? p.logo_mode : 'les-deux';
@@ -275,14 +277,14 @@ function panelPersonnalisation(clubs) {
   chargerPrefs();
   return el('div', { class: 'panel', style: 'margin-top:12px' },
     el('h2', {}, '🎨 Personnalisation du club (couleur d interface, logo + défauts de tournoi)'),
-    el('p', { class: 'muted small' }, 'Sélectionne un club puis ajuste sa couleur d accent, son logo (prédéfini ou importé, affiché en filigrane discret et à côté du nom du club) et ses défauts de tournoi : nom, jour récurrent (0 = dimanche) et heure habituelle, prérenseignés à la création.'),
-    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, sel, accentI, nomI, jourS, heureI,
+    el('p', { class: 'muted small' }, 'Sélectionne un club puis ajuste sa couleur d accent, son logo (prédéfini ou importé, affiché en filigrane discret et à côté du nom du club) et ses défauts de tournoi : nom, jour récurrent (0 = dimanche), heure habituelle et adresse par défaut du club (17j v2 : prérenseigne le champ Lieu de la création de tournoi), prérenseignés à la création.'),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, sel, accentI, nomI, jourS, heureI, adresseI,
     el('div', { style: 'width:100%;margin-top:6px' }, el('label', {}, 'Logo du club :'), galerie17k,
       el('div', { style: 'margin-top:6px' }, el('label', {}, 'Importer une image pour ce club (PNG/JPG/SVG, réduite à 256 px) :'), importI),
       el('div', { style: 'margin-top:6px' }, el('label', {}, 'Affichage du logo :'), modes17k)),
       el('button', { onclick: async () => {
         try {
-          await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({ slug: sel.value, accent: accentI.value, defaut_nom: nomI.value.trim(), defaut_jour: jourS.value === '' ? null : Number(jourS.value), defaut_heure: heureI.value || '20:00', logo: logo17k, logo_mode: mode17k }) });
+          await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({ slug: sel.value, accent: accentI.value, defaut_nom: nomI.value.trim(), defaut_jour: jourS.value === '' ? null : Number(jourS.value), defaut_heure: heureI.value || '20:00', adresse: adresseI.value.trim(), logo: logo17k, logo_mode: mode17k }) });
           alert('✅ Personnalisation du club « ' + sel.value + ' » enregistrée.');
         } catch (e) { alert(e.message); }
       } }, 'Enregistrer pour ce club')));

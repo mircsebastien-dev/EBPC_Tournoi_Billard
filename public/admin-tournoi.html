@@ -101,6 +101,7 @@ function renderCreer() {
     const prefs = rep && rep.prefs ? rep.prefs : null;
     if (!prefs) return;
     if (prefs.defaut_nom) document.getElementById('nom').value = prefs.defaut_nom; // sinon repli « Pink City Open »
+    if (prefs.adresse) document.getElementById('lieu').value = prefs.adresse; // 17j v2: adresse par défaut du club, sinon repli « Le 147... »
     const jour = prefs.defaut_jour != null ? prefs.defaut_jour : 2; // repli mardi (comportement d origine)
     const [h, m] = (prefs.defaut_heure || '20:00').split(':');
     const d = new Date(); d.setHours(Number(h) || 0, Number(m) || 0, 0, 0);

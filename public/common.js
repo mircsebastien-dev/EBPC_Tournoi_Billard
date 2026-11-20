@@ -94,7 +94,7 @@ const LOGO_KEY = 'ebpc_logo_club';
 function logoValide17k(l) {
   if (typeof l !== 'string') return false;
   if (l === '' || /^\/logos\/[a-z0-9-]+\.svg$/.test(l)) return true; // prédéfini de la bibliothèque
-  return /^data:image\/(?:png|jpeg|svg\+xml);base64,[A-Za-z0-9\/]+={0,2}$/.test(l) && l.length <= 200000; // import plafonné
+  return /^data:image\/(?:png|jpeg|svg\+xml);base64,[A-Za-z0-9+\/]+={0,2}$/.test(l) && l.length <= 200000; // import plafonné (17k v9: le + du base64 manquait ici alors que le serveur l accepte -> un logo importé contenant un + était refusé par le front: ni filigrane ni en-tête jamais affichés, même après enregistrement)
 }
 const LOGO_MODES = ['entete', 'filigrane', 'les-deux']; // 17k switch: où afficher le logo
 function logoModeValide(m) { return LOGO_MODES.includes(m); }
@@ -164,6 +164,7 @@ const I18N = {
   "Logo refusé": "Logo rejected",
   "Aperçu du logo retenu : « Enregistrer » l applique aux pages du club pour tous les visiteurs.": "Preview of the selected logo: \"Save\" applies it to the club pages for all visitors.",
   "Logo importé": "Imported logo",
+  "Adresse par défaut du club": "Default club address",
   "Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.": "Expected: a decodable PNG, JPG or SVG image (iPhone photo accepted), 8 MB maximum.",
   "Cause : fichier plus lourd que la limite de 8 Mo.": "Cause: file heavier than the 8 MB limit.",
   "Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).": "Likely cause: the browser could not decode this file (damaged file or exotic image format).",
@@ -880,6 +881,7 @@ const I18N_ES = {
   "Logo refusé": "Logotipo rechazado",
   "Aperçu du logo retenu : « Enregistrer » l applique aux pages du club pour tous les visiteurs.": "Vista previa del logotipo seleccionado: « Guardar » lo aplica a las páginas del club para todos los visitantes.",
   "Logo importé": "Logotipo importado",
+  "Adresse par défaut du club": "Dirección predeterminada del club",
   "Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.": "Se espera: imagen PNG, JPG o SVG decodificable (se aceptan fotos de iPhone), 8 MB máximo.",
   "Cause : fichier plus lourd que la limite de 8 Mo.": "Causa: archivo más pesado que el límite de 8 MB.",
   "Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).": "Causa probable: el navegador no pudo decodificar este archivo (archivo dañado o formato de imagen exótico).",
@@ -1596,6 +1598,7 @@ const I18N_IT = {
   "Logo refusé": "Logo rifiutato",
   "Aperçu du logo retenu : « Enregistrer » l applique aux pages du club pour tous les visiteurs.": "Anteprima del logo selezionato: « Salva » lo applica alle pagine del club per tutti i visitatori.",
   "Logo importé": "Logo importato",
+  "Adresse par défaut du club": "Indirizzo predefinito del club",
   "Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.": "Atteso: immagine PNG, JPG o SVG decodificabile (foto iPhone accettata), 8 MB massimo.",
   "Cause : fichier plus lourd que la limite de 8 Mo.": "Causa: file più pesante del limite di 8 MB.",
   "Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).": "Causa probabile: il browser non è riuscito a decodificare questo file (file danneggiato o formato immagine esotico).",
@@ -2312,6 +2315,7 @@ const I18N_DE = {
   "Logo refusé": "Logo abgelehnt",
   "Aperçu du logo retenu : « Enregistrer » l applique aux pages du club pour tous les visiteurs.": "Vorschau des ausgewählten Logos: « Speichern » wendet es auf die Clubseiten für alle Besucher an.",
   "Logo importé": "Importiertes Logo",
+  "Adresse par défaut du club": "Standardadresse des Clubs",
   "Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.": "Erwartet: dekodierbares PNG-, JPG- oder SVG-Bild (iPhone-Foto akzeptiert), maximal 8 MB.",
   "Cause : fichier plus lourd que la limite de 8 Mo.": "Ursache: Datei schwerer als das 8-MB-Limit.",
   "Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).": "Wahrscheinliche Ursache: Der Browser konnte diese Datei nicht dekodieren (beschädigte Datei oder exotisches Bildformat).",

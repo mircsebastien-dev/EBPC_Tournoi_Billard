@@ -484,6 +484,7 @@ function themeDuClub(cible) {
     defaut_nom: typeof p.defaut_nom === 'string' ? p.defaut_nom : '',
     defaut_jour: (jour !== null && jour >= 0 && jour <= 6) ? jour : null, // 0 = dimanche (convention JS getDay)
     defaut_heure: (typeof p.defaut_heure === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(p.defaut_heure)) ? p.defaut_heure : '20:00',
+    adresse: (typeof p.adresse === 'string') ? p.adresse.trim().slice(0, 200) : '', // 17j v2: adresse par défaut du club (prérenseigne le lieu de création de tournoi)
     logo: (typeof p.logo === 'string' && logoClubValide(p.logo)) ? p.logo : '', // 17k: '' = aucun logo
     logo_mode: logoModeValide(p.logo_mode) ? p.logo_mode : 'les-deux', // 17k: entete / filigrane / les-deux
   };
@@ -661,7 +662,8 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const seuil = ['jamais', 'quarts', 'demis', 'finale'].includes(seuil_distance) ? seuil_distance : 'jamais';
   const distSpe = [3, 5, 7].includes(Number(distance_speciale)) ? Number(distance_speciale) : 3;
   const dateH = (typeof date_heure === 'string' && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(date_heure)) ? date_heure.replace('T', ' ').slice(0, 16) : bracket.prochainMardi20h();
-  const lieuT = (typeof lieu === 'string' && lieu.trim()) ? lieu.trim().slice(0, 200) : 'Le 147, 12 Rue des Amidonniers 31000 Toulouse';
+  const th17j = themeDuClub(req.club); // 17j v2: repli sur l adresse par défaut du club si définie, sinon Le 147 (comportement d origine)
+  const lieuT = (typeof lieu === 'string' && lieu.trim()) ? lieu.trim().slice(0, 200) : (th17j.adresse || 'Le 147, 12 Rue des Amidonniers 31000 Toulouse');
   const info = db.prepare(`
     INSERT INTO tournoi (club_id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, statut)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
@@ -1403,6 +1405,7 @@ app.put('/api/admin/club/prefs', requireAdmin, (req, res) => {
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(h)) return res.status(400).json({ error: 'Heure invalide (format HH:MM)' });
     prefs.defaut_heure = h;
   }
+  if ('adresse' in req.body) prefs.adresse = String(req.body.adresse || '').trim().slice(0, 200); // 17j v2: adresse par défaut du club (0-200 caractères, '' l efface)
   if ('logo' in req.body) { // 17k: '' = aucun, /logos/<prédéfini>.svg ou data:image (png/jpeg/svg+xml) plafonnée
     const lg = String(req.body.logo || '').trim();
     if (!logoClubValide(lg)) { // 17k v5: la réponse 400 dit la cause réelle (envoyé vs attendu)
