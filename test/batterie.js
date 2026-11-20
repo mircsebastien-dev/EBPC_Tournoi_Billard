@@ -1053,8 +1053,17 @@ async function nouveauTournoi(body) {
   r = await api('/api/admin/audit');
   check('journal vidé: il ne reste que le log du vidage (audit_purge)', r.status === 200 && r.data.audit.length === 1 && r.data.audit[0].action === 'audit_purge', 'nb=' + r.data.audit.length);
   r = await post('/api/admin/base/import', { payload: E, confirm_pin: PIN });
-  check('import base: 200 + ok (base restaurée)', r.status === 200 && r.data.ok === true, r.status + ' ' + (r.data.error || ''));
-  const apres17d = (r.data && r.data.tables) || {};
+  const importE17d = { status: r.status, data: r.data }; // résultat du premier import: chaque table retrouve exactement ses lignes
+  // 17d v2: régression sauvegarde ANCIENNE (générée avant 17f) = lignes de compte SANS club_id -> l import les
+  // rattache au club par défaut de la sauvegarde (MIN des ids, règle de la migration 17f), comme une prod ancienne
+  const Eanc17d = { sauvegarde: E.sauvegarde, tables: { club: E.tables.club, compte: E.tables.compte.map((c) => { const s = JSON.parse(JSON.stringify(c)); delete s.club_id; return s; }) } };
+  const vusAnc17d = new Set();
+  Eanc17d.tables.compte = Eanc17d.tables.compte.filter((c) => { const k = String(c.pseudo || '').toLowerCase() + '|' + String(c.email || '').toLowerCase(); if (vusAnc17d.has(k)) return false; vusAnc17d.add(k); return true; }); // UNIQUE (club_id, pseudo/email) du club par défaut
+  r = await post('/api/admin/base/import', { payload: Eanc17d, confirm_pin: PIN });
+  const ancienne17d = { status: r.status, err: (r.data && r.data.error) || '', nb: r.data && r.data.tables && r.data.tables.compte };
+  r = await post('/api/admin/base/import', { payload: E, confirm_pin: PIN }); // retour exact à l instantané: la suite continue à l identique
+  check('import base: 200 + ok (base restaurée) + sauvegarde ANCIENNE (avant 17f, comptes sans club_id) acceptée pareil', importE17d.status === 200 && importE17d.data && importE17d.data.ok === true && r.status === 200 && r.data.ok === true && ancienne17d.status === 200 && ancienne17d.nb === Eanc17d.tables.compte.length && Eanc17d.tables.compte.length > 0, r.status + ' ' + (r.data.error || '') + ' ancienne:' + ancienne17d.status + ' ' + ancienne17d.err);
+  const apres17d = (importE17d.data && importE17d.data.tables) || {};
   check('import base: chaque table retrouve exactement ses lignes (identique à l export)', Object.keys(E.tables).every(t => apres17d[t] === E.tables[t].length), JSON.stringify(Object.keys(E.tables).map(t => t + ':' + E.tables[t].length + '->' + (apres17d[t] !== undefined ? apres17d[t] : '?'))).slice(0, 240));
   r = await api('/api/clubs');
   const ebpc17d = r.data.clubs.find(c => c.slug === 'ebpc');
@@ -1081,7 +1090,7 @@ async function nouveauTournoi(body) {
   const spec17d = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
   const ga17d = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
   const srv17d = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
-  check("doc: SPEC 17d + GUIDE_ADMIN dédié + serveur (requireSuperAdmin sur export/import, limite 25mb sur l'import UNIQUEMENT)", spec17d.includes('17d. Sauvegarde complète de la base') && spec17d.includes('524 checks') && ga17d.includes('Sauvegarde / restauration de la base') && srv17d.includes("app.use('/api/admin/base/import', express.json({ limit: '25mb' }))") && srv17d.includes("app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin") && srv17d.includes("app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuperAdmin"), '');
+  check("doc: SPEC 17d + GUIDE_ADMIN dédié + serveur (requireSuperAdmin sur export/import, limite 25mb sur l import UNIQUEMENT) + compat sauvegardes anciennes pre-17f", spec17d.includes('17d. Sauvegarde complète de la base') && spec17d.includes('524 checks') && spec17d.includes('rattachées au club par défaut de la sauvegarde') && srv17d.includes('même règle que la migration 17f au boot') && ga17d.includes('Sauvegarde / restauration de la base') && srv17d.includes("app.use('/api/admin/base/import', express.json({ limit: '25mb' }))") && srv17d.includes("app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin") && srv17d.includes("app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuperAdmin"), '');
 
   // ---------- 17e. Sauvegarde des données du club (export/import ciblés: un code de club administre SON club) ----------
   sec('17e. Sauvegarde des données du club (export/import ciblés, code de club)');

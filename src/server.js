@@ -1627,6 +1627,15 @@ function handlerImportBase(req, res) {
       lignes.push([nom, row]);
     }
   }
+  // 17d v2: sauvegarde générée AVANT le cloisonnement des comptes par club (17f): les lignes de compte
+  // n ont pas club_id (devenu NOT NULL à la reconstruction 17f, ex: prod ancienne restaurée sur l app de test)
+  // -> même règle que la migration 17f au boot: rattachées au club par défaut de la sauvegarde (MIN des ids du club exporté)
+  let rattaches17f = 0;
+  if (Array.isArray(p.tables.compte) && p.tables.compte.some((c) => c && !('club_id' in c))) {
+    const idsClubs17d = (Array.isArray(p.tables.club) ? p.tables.club : []).map((c) => c && Number(c.id)).filter((n) => Number.isInteger(n) && n > 0);
+    const clubDefaut17d = idsClubs17d.length ? Math.min(...idsClubs17d) : clubParDefaut().id;
+    for (const c of p.tables.compte) if (c && !('club_id' in c)) { c.club_id = clubDefaut17d; rattaches17f++; }
+  }
   const annoncees = new Set((Array.isArray(p.fk_violations) ? p.fk_violations : []).map(String)); // orphelins hérités acceptés à l'identique
   const avant = {}; for (const t of connues) avant[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
   db.pragma('foreign_keys = OFF'); // orphelins hérités (clubs supprimés): le COMMIT ne les refuse pas, ils sont validés par foreign_key_check ci-dessous
@@ -1648,7 +1657,7 @@ function handlerImportBase(req, res) {
     db.pragma('foreign_keys = ON'); // contraintes réactivées même en cas d'erreur
   }
   const apres = {}; for (const t of connues) apres[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
-  logAuditReq(req, 'import_base', `${lignes.length} lignes restaurées sur ${connues.length} tables`, { tables: avant }, { tables: apres });
+  logAuditReq(req, 'import_base', `${lignes.length} lignes restaurées sur ${connues.length} tables`, { tables: avant }, { tables: apres, ...(rattaches17f ? { comptes_rattaches_pre17f: rattaches17f } : {}) });
   majEtBroadcast();
   res.json({ ok: true, tables: apres, ...etatGlobal(req) });
 }
