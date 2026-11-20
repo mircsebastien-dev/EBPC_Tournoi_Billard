@@ -1010,7 +1010,7 @@ async function nouveauTournoi(body) {
   const admHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
   const admCpt17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
   check('front: console super-admin (création, réglages club par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien Console depuis l accueil admin (17i)', consHtml17c.includes("clubApi('/api/admin/club/comptes', slug") && consHtml17c.includes("'/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug") && consHtml17c.includes('table-wrap') && admHtml17c.includes("href: '/console.html'"), '');
-  check('front: menu Clubs réservé au super-admin (/api/admin/super conditionne le bouton, page Clubs affiche un message si 403)', admHtml17c.includes("/api/admin/super") && admHtml17c.includes("superAdminMenu ? [") && clubsHtml17c.includes('Gestion des clubs réservée au super-admin'), '');
+  check('front: menu Console réservé au super-admin (/api/admin/super conditionne le bouton, console affiche un message si 403)', admHtml17c.includes("/api/admin/super") && admHtml17c.includes("superAdminMenu ? [") && consHtml17c.includes('Console réservée au super-admin de la plateforme'), '');
   check('front: bouton 👑 (rôle global) masqué aux sessions de club sur la page Comptes joueurs', admCpt17c.includes("/api/admin/super") && admCpt17c.includes("superAdminComptes ? ["), '');
   // suppression d un club: super-admin uniquement, défaut protégé, refus si des tournois sont rattachés
   r = await api('/api/admin/club', { method: 'DELETE', pin: PIN, club: 'clubc', body: { slug: 'clubc', confirm_pin: PIN } });
@@ -1034,7 +1034,7 @@ async function nouveauTournoi(body) {
   check('clubb absent de la liste des clubs après suppression', r.status === 200 && !r.data.clubs.some(c => c.slug === 'clubb'), JSON.stringify(r.data.clubs.map(c => c.slug)));
   r = await api('/api/admin/audit', { pin: PIN });
   check('audit: club_supprime journalisé (clubc et clubb)', r.data.audit.filter(a => a.action === 'club_supprime').length >= 2, 'nb=' + r.data.audit.length);
-  check('front: bouton Supprimer sur chaque ligne sauf le club par défaut (confirmation destructive)', clubsHtml17c.includes("adminApiDestructif('/api/admin/club', { method: 'DELETE'") && clubsHtml17c.includes('rowClub(c, i === 0)'), '');
+  check('front: bouton Supprimer sur chaque ligne sauf le club par défaut (confirmation destructive, routes super 17i)', consHtml17c.includes("adminApiDestructif('/api/super/club', { method: 'DELETE'") && consHtml17c.includes('rowClub(c, i === 0)'), '');
   cookie = cookieAvant17c; // restaurer la session du fil principal
 
   // ---------- 17d. Sauvegarde complète de la base (export/import JSON, réservé au code global) ----------
