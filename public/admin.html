@@ -50,31 +50,25 @@ async function enregPrefsApparence() {
 function render() {
   main.innerHTML = '';
   if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
-  const t = adminTournoiActif();
+  const tn = adminTournoiActif(); // tn (pas t !): une variable locale t masquerait la fonction de traduction t()
+      // et ferait planter render() sur le premier appel t('...') -> panneaux suivants jamais affichés
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, 'Espace table de marque'),
-    el('p', { class: 'muted' }, t
-      ? `Tournoi en cours : « ${t.tournoi.nom} » (${t.tournoi.statut === 'inscription' ? 'inscriptions ouvertes' : 'en cours'}, ${t.joueurs.length} inscrits, ${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués)`
+    el('p', { class: 'muted' }, tn
+      ? `Tournoi en cours : « ${tn.tournoi.nom} » (${tn.tournoi.statut === 'inscription' ? 'inscriptions ouvertes' : 'en cours'}, ${tn.joueurs.length} inscrits, ${tn.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${tn.matchs.length} matchs joués)`
       : 'Aucun tournoi actif pour le moment.')));
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '📌 Accès rapide'),
     el('div', { class: 'row' },
-      el('a', { href: '/admin-tournoi.html' }, el('button', {}, t ? `Gérer le tournoi « ${t.tournoi.nom} »` : 'Configurer / gérer le tournoi')),
+      el('a', { href: '/admin-tournoi.html' }, el('button', {}, tn ? `Gérer le tournoi « ${tn.tournoi.nom} »` : 'Configurer / gérer le tournoi')),
       el('a', { href: '/admin-historique.html' }, el('button', { class: 'secondary' }, ['Historique', ` (${adminState.historique.length})`])),
       el('a', { href: '/admin-journal.html' }, el('button', { class: 'secondary' }, 'Journal d\'audit')),
       el('a', { href: '/admin-comptes.html' }, el('button', { class: 'secondary' }, 'Comptes joueurs')),
       ...(superAdminMenu ? [el('a', { href: '/console.html' }, el('button', { class: 'secondary' }, '🛡️ Console'))] : []),
       el('a', { href: '/admin-aide.html' }, el('button', { class: 'secondary' }, 'Guide admin')),
-      el('a', { href: '/admin-data.html' }, el('button', { class: 'secondary' }, 'Données')))));
-  main.append(el('div', { class: 'panel' },
-    el('h2', {}, '🔗 Liens publics'),
-    el('div', { class: 'row' },
-      el('a', { href: '/' }, el('button', { class: 'secondary' }, 'Accueil')),
-      el('a', { href: '/tableau.html' }, el('button', { class: 'secondary' }, 'Tableau')),
-      el('a', { href: '/tv.html' }, el('button', { class: 'secondary' }, 'TV')),
-      el('a', { href: '/stats.html' }, el('button', { class: 'secondary' }, 'Stats')),
-      el('a', { href: '/historique.html' }, el('button', { class: 'secondary' }, 'Historique public')))));
-  main.append(el('div', { class: 'panel' },
+      el('a', { href: '/admin-data.html' }, el('button', { class: 'secondary' }, 'Données')),
+      el('a', { href: '#panel-apparence' }, el('button', { class: 'secondary' }, t('🎨 Apparence du club'))))));
+  main.append(el('div', { class: 'panel', id: 'panel-apparence' },
     el('h2', {}, t('🎨 Apparence du club')),
     el('p', { class: 'muted' }, t('Visible par tous les visiteurs du club.')),
     el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' },
@@ -86,6 +80,15 @@ function render() {
       el('div', {}, el('label', {}, t('Heure habituelle')), el('input', { id: 'pref-heure', type: 'time', value: '20:00' }))),
     el('div', { class: 'row', style: 'margin-top:12px' }, el('button', { onclick: enregPrefsApparence }, t('Enregistrer')))));
   chargerPrefsApparence();
+
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, '🔗 Liens publics'),
+    el('div', { class: 'row' },
+      el('a', { href: '/' }, el('button', { class: 'secondary' }, 'Accueil')),
+      el('a', { href: '/tableau.html' }, el('button', { class: 'secondary' }, 'Tableau')),
+      el('a', { href: '/tv.html' }, el('button', { class: 'secondary' }, 'TV')),
+      el('a', { href: '/stats.html' }, el('button', { class: 'secondary' }, 'Stats')),
+      el('a', { href: '/historique.html' }, el('button', { class: 'secondary' }, 'Historique public')))));
   main.append(el('div', { class: 'panel' },
     el('button', { class: 'danger', onclick: () => { localStorage.removeItem('ebpc_admin_pin'); location.reload(); } }, 'Se déconnecter')));
 }

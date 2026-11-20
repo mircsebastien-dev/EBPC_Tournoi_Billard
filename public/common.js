@@ -25,14 +25,23 @@ function appliquerAccentClub(hex) {
     document.documentElement.style.setProperty('--pink-glow', `rgba(${r}, ${g}, ${b}, 0.22)`);
   } catch {}
 }
-function initThemeClub() {
+function accentDepuisCache() {
   try {
     if (location.pathname.startsWith('/tv.html')) return; // page TV : thème sombre d origine, jamais d accent de club
     const stocke = JSON.parse(localStorage.getItem(ACCENT_KEY) || '{}');
     const k = localStorage.getItem(CLUB_KEY) || '_defaut';
     if (typeof stocke[k] === 'string' && stocke[k] !== '#d6336c') appliquerAccentClub(stocke[k]);
+  } catch {}
+}
+// ATTENTION: rafraichirThemeClub() appelle api(), qui référence LANG (const déclaré plus bas dans ce fichier).
+// TDZ: l appeler avant la déclaration lèverait « Cannot access 'LANG' before initialization » (avalée par le
+// catch -> /api/club-theme jamais appelé -> accent jamais appliqué). L APPEL se fait en FIN de fichier.
+function rafraichirThemeClub() {
+  try {
+    if (location.pathname.startsWith('/tv.html')) return; // page TV : jamais d accent de club
     api('/api/club-theme').then((th) => {
       if (!th || !th.accent) return;
+      const stocke = JSON.parse(localStorage.getItem(ACCENT_KEY) || '{}');
       stocke[th.slug] = th.accent;
       if (!localStorage.getItem(CLUB_KEY)) stocke._defaut = th.accent;
       localStorage.setItem(ACCENT_KEY, JSON.stringify(stocke));
@@ -40,7 +49,7 @@ function initThemeClub() {
     }).catch(() => {});
   } catch {}
 }
-initThemeClub();
+accentDepuisCache(); // anti-flash: cache local uniquement, AVANT le premier rendu, sans aucun appel réseau
 
 // i18n front : langue choisie dans le compte (ebpc_lang), defaut fr. t() traduit via le dictionnaire,
 // avec repli sur le francais si la chaine est absente (aucun changement en mode fr).
@@ -3447,3 +3456,6 @@ function closeMatchEditor() {
   const e = document.getElementById('match-editor');
   if (e) e.remove();
 }
+
+// 17j: appelé ici, en fin de fichier: LANG et les autres const sont initialisés (voir TDZ ci-dessus)
+rafraichirThemeClub();
