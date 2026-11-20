@@ -1219,7 +1219,7 @@ async function nouveauTournoi(body) {
   r17g = await xhr17f('/api/compte/connexion', '203.0.113.119', { club: 'clubvm', body: { pseudo: 'DeuxVm', password: '1234' } });
   const cookieDeux17g = (r17g.cookie || '').split(';')[0];
   check('connexion de DeuxVm (operateur) -> 200 + session', r17g.status === 200 && !!cookieDeux17g, r17g.status + ' ' + (r17g.data.error || ''));
-  r17g = await xhr17f('/api/admin/club/comptes', '203.0.113.120', { club: 'clubvm', cookie: cookieDeux17g });
+  r17g = await xhr17f('/api/admin/club/comptes', '203.0.113.120', { method: 'GET', club: 'clubvm', cookie: cookieDeux17g });
   check('session OPERATEUR: gestion des rôles toujours interdite -> 403', r17g.status === 403, r17g.status + ' ' + (r17g.data.error || ''));
   r17g = await xhr17f('/api/admin/club/compte', '203.0.113.121', { method: 'DELETE', club: 'clubvm', cookie: cookieChef17g, body: { compte_id: deuxId17g } });
   check('retrait du rôle par une session ADMIN du club, sans confirm_pin (exemption confirm) -> 200', r17g.status === 200, r17g.status + ' ' + (r17g.data.error || ''));
