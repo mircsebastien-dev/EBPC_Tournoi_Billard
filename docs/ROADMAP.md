@@ -36,7 +36,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | 13 | **Affiche de tournoi générée** (SVG/PNG : nom, date, bracket, QR) partageable réseaux sociaux | M | ⬜ |
 | 14 | **Chat léger par match** (SSE) ou bandeau admin visible sur la TV (« demi-finale dans 10 min ») | M | ⬜ |
 | 15 | Stats TV avancées : temps moyen par manche, match le plus serré, run-outs en cours | S | ⬜ |
-| 16 | Thème clair / personnalisation club (couleurs, logo uploadé, affiché accueil + TV) | M | ⬜ |
+| 16 | Thème clair / personnalisation club : thème clair/sombre (interrupteur `/parametres.html`, cache anti-flash) + accent et logo du club réglés par l admin (17j/17k, page dédiée 17l), appliqués sur l accueil et toutes les pages pour tous les visiteurs ; page TV volontairement exclue (toujours sombre, pensée grands écrans) | M | ✅ fait |
 
 ## 🏆 Compétition (structurant)
 
@@ -62,7 +62,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 |---|---|---|---|
 | 25 | Notifications email (Resend) en complément du push : récap, invitation tournoi | M | ⬜ |
 | 26 | Webhook / API publique en lecture seule (clé API) pour un site club externe | M | ⬜ |
-| 27 | i18n (EN au moins) | M | ⬜ |
+| 27 | i18n : **5 langues livrées** (FR + EN/ES/IT/DE), déjà au-delà du « EN au moins » initial : burger 🌐 langue, dictionnaires des 4 langues + règles dynamiques du fil, pages table de marque / compte / apparence, payloads push par destinataire (`compte.lang`) | M | ✅ fait |
 | 28 | Accessibilité : contraste, taille de police réglable, navigation clavier | S-M | ⬜ |
 | 29 | PWA offline : la card match consultable sans réseau (vérifier ce que cache `sw.js`) | S-M | ⬜ |
 | 30 | **Rôles compte (`user`/`admin`)** : session admin = accès `/api/admin/*` sans PIN + exempte de `confirm_pin` sur les destructifs (mais modale front demandant de saisir `SUPPRIMER`) ; PIN conservé en fallback ; bootstrap 1er admin via `ADMIN_EMAIL`/`ADMIN_PASSWORD`, promotion via `POST /api/admin/compte/:id/role` ; pages admin sans PIN si session admin | M | ✅ fait |
@@ -95,7 +95,7 @@ Ce que le produit devient : tout centralisé, séparation logique. Chaque club v
 | 34 | **Vidéo live du tournoi** : stream intégré sur la page tournoi + écran TV (phase 1 : embed d'un flux externe configuré par l'admin du tournoi, YouTube/Twitch, un lien par tournoi ; phase 2 : diffusion maison WebRTC/HLS si l'usage le justifie) | S / L (phase 2) | ⬜ |
 | 35 | **Chat live modéré** : fil de messages du tournoi visible par tous (SSE, même mécanique que le fil), modération par les comptes admin (suppression, bannissement temporaire, anti-flood / rate-limit) — distinct du chat par match #14 (cercle restreint) | M | ⬜ |
 | 36 | **Disciplines paramétrables par club** : profils par discipline à la place du billard hard-codé (blackball / ultimate / snooker / 8-ball, puis au-delà du billard si un club le demande) : vocabulaire paramétrable (table/terrain, set/leg, « belle »/« manche décisive »), format de score configurable (première à X manches vs premier à X points), règles activables (belles/revanches, forfaits) ; à construire APRÈS le multi-club stabilisé | L | ⬜ |
-| 37 | **Super admin plateforme** : rôle au-dessus des admins de club : création/gestion des clubs (quotas, isolation), KPI globaux (31), modération des abus, journal des opérations plateforme ; s'appuie sur le multi-club #20 (compte_club / role_club) | M-L | ⬜ |
+| 37 | **Super admin plateforme** : rôle au-dessus des admins de club : création/gestion des clubs (quotas, isolation), KPI globaux (31), modération des abus, journal des opérations plateforme ; s'appuie sur le multi-club #20 (compte_club / role_club) — **entamé (17i)** : console super-admin déjà en place (rôle `super_admin`, gestion des clubs, vue tous comptes, sauvegarde base) ; restent quotas, KPI globaux (31), modération, journal des opérations plateforme | M-L | 🟡 entamé (17i) |
 
 ---
 
