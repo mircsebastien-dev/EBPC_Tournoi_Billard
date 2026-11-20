@@ -456,6 +456,21 @@ function h2hPourMatchs(clubId, matchs) {
   return out;
 }
 
+// 17j. Personnalisation du club : couleur d accent de l interface + défauts de tournoi (nom, jour récurrent, heure)
+// stockés dans club.theme_json (jamais de secret) ; relus et validés à chaque accès (repli sur les valeurs d origine)
+function themeDuClub(cible) {
+  let p = {};
+  try { p = cible && cible.theme_json ? (JSON.parse(cible.theme_json) || {}) : {}; } catch (e) { p = {}; }
+  if (typeof p !== 'object' || !p) p = {};
+  const jour = Number.isInteger(p.defaut_jour) ? p.defaut_jour : null;
+  return {
+    accent: (typeof p.accent === 'string' && /^#[0-9a-fA-F]{6}$/.test(p.accent)) ? p.accent : '#d6336c',
+    defaut_nom: typeof p.defaut_nom === 'string' ? p.defaut_nom : '',
+    defaut_jour: (jour !== null && jour >= 0 && jour <= 6) ? jour : null, // 0 = dimanche (convention JS getDay)
+    defaut_heure: (typeof p.defaut_heure === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(p.defaut_heure)) ? p.defaut_heure : '20:00',
+  };
+}
+
 function etatGlobal(req) {
   const clubId = req && req.club ? req.club.id : undefined;
   const actif = vueTournoiComplet(tournoiActif(clubId));
@@ -464,7 +479,7 @@ function etatGlobal(req) {
   return {
     actif,
     historique: vueTournoiListe(clubId).filter(t => t.statut === 'termine'),
-    club: req && req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom } : null,
+    club: req && req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom, accent: themeDuClub(req.club).accent } : null,
     auto: getSetting('auto_on') === '1',
     table_pref: getSetting('table_pref') || '',
     tables_reservees: getSetting('tables_reservees') || '',
@@ -486,6 +501,11 @@ app.get('/api/etat', (req, res) => {
 // liste publique des clubs actifs (slug pour ?club= / X-Club)
 app.get('/api/clubs', (req, res) => {
   res.json({ clubs: db.prepare('SELECT id, slug, nom FROM club WHERE actif = 1 ORDER BY id').all() });
+});
+
+// 17j. personnalisation publique : l accent de l interface du club résolu (léger, sans authentification, pour TOUS les visiteurs)
+app.get('/api/club-theme', (req, res) => {
+  res.json({ slug: req.club.slug, nom: req.club.nom, accent: themeDuClub(req.club).accent });
 });
 
 app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe(req.club.id) }));
@@ -1320,6 +1340,53 @@ app.put('/api/admin/club', requireAdmin, (req, res) => {
   db.prepare(`UPDATE club SET ${sets} WHERE id = ?`).run(...Object.values(maj), cible.id);
   logAuditReq(req, 'club_modifie', `club ${cible.slug}`, null, { changements: Object.keys(maj) }); // jamais le PIN lui-même
   res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: maj.nom != null ? maj.nom : cible.nom, actif: maj.actif != null ? !!maj.actif : !!cible.actif, pin_propre: maj.pin_hash ? true : !!cible.pin_hash } });
+});
+
+// 17j. Personnalisation du club : accent de l interface + défauts de tournoi (nom, jour récurrent, heure)
+// GET/PUT de SON club : PIN du club ou session admin (geste NON sensible, aucun confirm_pin)
+// ?slug (GET) / body.slug (PUT) = un autre club : super-admin uniquement (code global ou compte admin), comme PUT club
+app.get('/api/admin/club/prefs', requireAdmin, (req, res) => {
+  const slugCible = req.query.slug ? String(req.query.slug).trim().toLowerCase() : null;
+  let cible = req.club;
+  if (slugCible) {
+    cible = db.prepare('SELECT * FROM club WHERE slug = ? COLLATE NOCASE').get(slugCible);
+    if (!cible) return res.status(404).json({ error: `Club inconnu « ${slugCible} »` });
+    if (cible.id !== req.club.id && !superAdminSoumis(req)) return res.status(403).json({ error: 'Voir la personnalisation d un autre club nécessite le code global ou un compte admin' });
+  }
+  res.json({ ok: true, slug: cible.slug, prefs: themeDuClub(cible) });
+});
+
+app.put('/api/admin/club/prefs', requireAdmin, (req, res) => {
+  const slugCible = req.body.slug != null ? String(req.body.slug).trim().toLowerCase() : null;
+  let cible = req.club;
+  if (slugCible) {
+    cible = db.prepare('SELECT * FROM club WHERE slug = ? COLLATE NOCASE').get(slugCible);
+    if (!cible) return res.status(404).json({ error: `Club inconnu « ${slugCible} »` });
+    if (cible.id !== req.club.id && !superAdminSoumis(req)) return res.status(403).json({ error: 'Modifier la personnalisation d un autre club nécessite le code global ou un compte admin' });
+  }
+  const prefs = themeDuClub(cible);
+  if ('accent' in req.body) {
+    const accent = String(req.body.accent || '').trim();
+    if (!/^#[0-9a-fA-F]{6}$/.test(accent)) return res.status(400).json({ error: 'Couleur invalide (format #rrggbb)' });
+    prefs.accent = accent;
+  }
+  if ('defaut_nom' in req.body) prefs.defaut_nom = String(req.body.defaut_nom || '').trim().slice(0, 80);
+  if ('defaut_jour' in req.body) {
+    if (req.body.defaut_jour === null || req.body.defaut_jour === '') prefs.defaut_jour = null;
+    else {
+      const j = Number(req.body.defaut_jour);
+      if (!Number.isInteger(j) || j < 0 || j > 6) return res.status(400).json({ error: 'Jour invalide (0 = dimanche à 6 = samedi)' });
+      prefs.defaut_jour = j;
+    }
+  }
+  if ('defaut_heure' in req.body) {
+    const h = String(req.body.defaut_heure || '').trim();
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(h)) return res.status(400).json({ error: 'Heure invalide (format HH:MM)' });
+    prefs.defaut_heure = h;
+  }
+  db.prepare('UPDATE club SET theme_json = ? WHERE id = ?').run(JSON.stringify(prefs), cible.id);
+  logAuditReq(req, 'club_prefs', `club ${cible.slug}`, null, { changements: Object.keys(req.body).filter(k => k !== 'slug') }); // couleurs et défauts, jamais de secret
+  res.json({ ok: true, slug: cible.slug, prefs });
 });
 
 // DELETE /api/admin/club (super-admin uniquement): supprime un club créé par erreur.

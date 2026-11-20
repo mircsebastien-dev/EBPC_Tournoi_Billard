@@ -10,10 +10,56 @@ function clubHeaders() {
   try { const c = localStorage.getItem(CLUB_KEY); return c ? { 'X-Club': c } : {}; } catch { return {}; }
 }
 
+// 17j. Personnalisation du club : l admin du club choisit une couleur d accent (remplace le rose partout),
+// visible par TOUS les visiteurs des pages du club. Anti-flash : cache localStorage par slug (ebpc_accent_club)
+// appliqué avant le premier rendu, puis rafraîchi par GET /api/club-theme (léger, public).
+// La page TV garde volontairement le thème sombre d origine.
+const ACCENT_KEY = 'ebpc_accent_club';
+function appliquerAccentClub(hex) {
+  if (!/^[#][0-9a-fA-F]{6}$/.test(hex)) return;
+  try {
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    const eclair = (v) => Math.round(v + (255 - v) * 0.28);
+    document.documentElement.style.setProperty('--pink', hex);
+    document.documentElement.style.setProperty('--pink-soft', `rgb(${eclair(r)}, ${eclair(g)}, ${eclair(b)})`);
+    document.documentElement.style.setProperty('--pink-glow', `rgba(${r}, ${g}, ${b}, 0.22)`);
+  } catch {}
+}
+function initThemeClub() {
+  try {
+    if (location.pathname.startsWith('/tv.html')) return; // page TV : thème sombre d origine, jamais d accent de club
+    const stocke = JSON.parse(localStorage.getItem(ACCENT_KEY) || '{}');
+    const k = localStorage.getItem(CLUB_KEY) || '_defaut';
+    if (typeof stocke[k] === 'string' && stocke[k] !== '#d6336c') appliquerAccentClub(stocke[k]);
+    api('/api/club-theme').then((th) => {
+      if (!th || !th.accent) return;
+      stocke[th.slug] = th.accent;
+      if (!localStorage.getItem(CLUB_KEY)) stocke._defaut = th.accent;
+      localStorage.setItem(ACCENT_KEY, JSON.stringify(stocke));
+      appliquerAccentClub(th.accent);
+    }).catch(() => {});
+  } catch {}
+}
+initThemeClub();
+
 // i18n front : langue choisie dans le compte (ebpc_lang), defaut fr. t() traduit via le dictionnaire,
 // avec repli sur le francais si la chaine est absente (aucun changement en mode fr).
 const LANG = (() => { try { const v = localStorage.getItem('ebpc_lang'); return ['en','es','it','de'].includes(v) ? v : 'fr'; } catch { return 'fr'; } })();
 const I18N = {
+  "🎨 Apparence du club": "🎨 Club appearance",
+  "Couleur d accent": "Accent colour",
+  "Nom par défaut des tournois": "Default tournament name",
+  "Jour récurrent": "Recurring day",
+  "Heure habituelle": "Usual time",
+  "Personnalisation enregistrée": "Personalization saved",
+  "Visible par tous les visiteurs du club.": "Visible to every visitor of the club.",
+  "Dimanche": "Sunday",
+  "Lundi": "Monday",
+  "Mardi": "Tuesday",
+  "Mercredi": "Wednesday",
+  "Jeudi": "Thursday",
+  "Vendredi": "Friday",
+  "Samedi": "Saturday",
   "Clubs": "Clubs",
   "Créer un club": "Create a club",
   "Nom du club": "Club name",
@@ -699,6 +745,20 @@ const I18N_DYN = [
 ];
 // --- i18n ES : dictionnaire espagnol (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
 const I18N_ES = {
+  "🎨 Apparence du club": "🎨 Apariencia del club",
+  "Couleur d accent": "Color de acento",
+  "Nom par défaut des tournois": "Nombre de torneo predeterminado",
+  "Jour récurrent": "Día recurrente",
+  "Heure habituelle": "Hora habitual",
+  "Personnalisation enregistrée": "Personalización guardada",
+  "Visible par tous les visiteurs du club.": "Visible para todos los visitantes del club.",
+  "Dimanche": "Domingo",
+  "Lundi": "Lunes",
+  "Mardi": "Martes",
+  "Mercredi": "Miércoles",
+  "Jeudi": "Jueves",
+  "Vendredi": "Viernes",
+  "Samedi": "Sábado",
   "Clubs": "Clubes",
   "Créer un club": "Crear un club",
   "Nom du club": "Nombre del club",
@@ -1384,6 +1444,20 @@ const REPS_DYN_ES = [
 
 // --- i18n IT : dictionnaire italien (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
 const I18N_IT = {
+  "🎨 Apparence du club": "🎨 Aspetto del club",
+  "Couleur d accent": "Colore d'accento",
+  "Nom par défaut des tournois": "Nome del torneo predefinito",
+  "Jour récurrent": "Giorno ricorrente",
+  "Heure habituelle": "Ora abituale",
+  "Personnalisation enregistrée": "Personalizzazione salvata",
+  "Visible par tous les visiteurs du club.": "Visibile a tutti i visitatori del club.",
+  "Dimanche": "Domenica",
+  "Lundi": "Lunedì",
+  "Mardi": "Martedì",
+  "Mercredi": "Mercoledì",
+  "Jeudi": "Giovedì",
+  "Vendredi": "Venerdì",
+  "Samedi": "Sabato",
   "Clubs": "Club",
   "Créer un club": "Crea un club",
   "Nom du club": "Nome del club",
@@ -2069,6 +2143,20 @@ const REPS_DYN_IT = [
 
 // --- i18n DE : dictionnaire allemand (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
 const I18N_DE = {
+  "🎨 Apparence du club": "🎨 Darstellung des Clubs",
+  "Couleur d accent": "Akzentfarbe",
+  "Nom par défaut des tournois": "Standardname für Turniere",
+  "Jour récurrent": "Wiederkehrender Tag",
+  "Heure habituelle": "Übliche Zeit",
+  "Personnalisation enregistrée": "Personalisierung gespeichert",
+  "Visible par tous les visiteurs du club.": "Für alle Besucher des Clubs sichtbar.",
+  "Dimanche": "Sonntag",
+  "Lundi": "Montag",
+  "Mardi": "Dienstag",
+  "Mercredi": "Mittwoch",
+  "Jeudi": "Donnerstag",
+  "Vendredi": "Freitag",
+  "Samedi": "Samstag",
   "Clubs": "Clubs",
   "Créer un club": "Club erstellen",
   "Nom du club": "Clubname",

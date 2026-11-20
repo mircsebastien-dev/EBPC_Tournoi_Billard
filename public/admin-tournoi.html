@@ -96,6 +96,19 @@ function renderCreer() {
     const p = n => String(n).padStart(2, '0');
     document.getElementById('dateheure').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   })();
+  // 17j. Personnalisation du club : nom, jour récurrent et heure habituelle prérenseignés depuis les réglages du club
+  adminApi('/api/admin/club/prefs').then((rep) => {
+    const prefs = rep && rep.prefs ? rep.prefs : null;
+    if (!prefs) return;
+    if (prefs.defaut_nom) document.getElementById('nom').value = prefs.defaut_nom; // sinon repli « Pink City Open »
+    const jour = prefs.defaut_jour != null ? prefs.defaut_jour : 2; // repli mardi (comportement d origine)
+    const [h, m] = (prefs.defaut_heure || '20:00').split(':');
+    const d = new Date(); d.setHours(Number(h) || 0, Number(m) || 0, 0, 0);
+    let add = (jour - d.getDay() + 7) % 7; if (add === 0 && d <= new Date()) add = 7;
+    d.setDate(d.getDate() + add);
+    const p = n => String(n).padStart(2, '0');
+    document.getElementById('dateheure').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }).catch(() => {});
   async function creer() {
     try {
       await adminApi('/api/admin/tournoi', { method: 'POST', body: JSON.stringify({

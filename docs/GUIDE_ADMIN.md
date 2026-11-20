@@ -17,6 +17,9 @@ Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly) **ou** co
 - ⚠️ **Tables réservées** : vide par défaut (aucune réservation). Remplir ex. `1,2` pour réserver des tables à partir des quarts
 - Une fois créé (statut `inscription`) : la **TV affiche un grand QR code centré** pour que les joueurs s'inscrivent depuis leur téléphone
 
+
+**Astuce :** si tu personnalises ton club (panneau « 🎨 Apparence du club », section « Outils divers »), le nom du tournoi, la date et l heure sont **pré-remplis** à partir de tes réglages (nom habituel, jour récurrent, heure habituelle). Le lieu reste à saisir.
+
 ## 2. Inscriptions
 
 - Ajouter un joueur (pseudo), **simuler** N joueurs, marquer **payé**, supprimer
@@ -102,6 +105,7 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 ### 9.3 🛡️ Console super-admin (`/console.html`) et vue « tous les clubs »
 
 - **La page Comptes est TOUJOURS cloisonnée au club sélectionné** : même avec le code global (super-admin), la liste ne montre que les comptes du club du contexte. Le tenant principal ne voit plus les comptes créés dans les autres clubs.
+- **Personnaliser un club à distance** (couleur d accent + défauts de tournoi, section « Outils divers ») : panneau « 🎨 Personnalisation du club ».
 - Pour voir **tous les comptes de la plateforme** : 🛡️ **Console super-admin** (`/console.html`, entrée « 🛡️ Console » de l accueil admin ; `clubs.html` redirige vers elle), panneau « 👥 Comptes de la plateforme » : pseudo, club d origine, rôle plateforme, rôles club, dernière connexion — et réglage du rôle plateforme par compte (`user` / `👑 admin` legacy / `🛡️ super_admin`).
 - **La console n appartient à AUCUN club** : routes `/api/super/*` sans contexte de club ; accès par le code global ou un compte `super_admin` (`👑 admin` legacy accepté) ; un code de club ou une session de club y reçoit toujours 401/403, les gestes sensibles demandent le code global en confirmation. Elle regroupe la gestion des clubs (création, PIN, actif, rôles, suppression) et la sauvegarde complète de la base (voir §13).
 - **Accès support** : sélecteur « 🚪 Accès aux pages d un club » pour ouvrir l admin d un club précis dans son contexte explicite (X-Club) ; le club par défaut (ebpc) reste protégé (non supprimable, non désactivable).
@@ -141,6 +145,16 @@ Toute action admin qui **supprime des données** exige le **code PIN re-saisi** 
 - Une **session de compte `admin`** est dispensée de `confirm_pin` (le PIN n'est pas redemandé), mais une **modale de confirmation par saisie du mot `SUPPRIMER`** reste obligatoire ; sinon le code re-saisi est obligatoire
 
 ## 11. Outils divers
+
+### 🎨 Apparence du club : couleur d accent + réglage des défauts de tournoi
+
+**Où :** panneau « 🎨 Apparence du club » de `/admin.html` (l accueil de la table de marque), visible de tout admin du club (code ou session), confirmation supplémentaire inutile (réglage non sensible : jamais de PIN, jamais de suppression).
+
+- **Couleur d accent** (sélecteur de couleur) : remplace le rose de l interface sur **toutes les pages du club, pour tous les visiteurs** (boutons, liens, tableau, fil du tournoi). Elle est appliquée par le navigateur via les variables CSS, avec un cache local pour éviter un flash de couleur au chargement. La page TV reste sur le thème sombre d origine. Laisser le rose d origine est parfaitement valable.
+- **Nom par défaut des tournois** (ex : « Open du Mercredi »), **jour récurrent** et **heure habituelle** : pré-renseignent le formulaire de création de tournoi (`Date et heure` calculée sur le prochain jour récurrent à l heure habituelle). Aucun tournoi n est jamais créé automatiquement : ce ne sont que des valeurs proposées.
+- Enregistrer : message de confirmation + application immédiate de la couleur (aperçu).
+- Le super-admin peut régler la personnalisation de **n importe quel club** à distance depuis la 🛡️ Console (panneau « 🎨 Personnalisation du club », section 9.3), utile pour ré-harmoniser un club en support.
+
 
 - **Simuler tout le tournoi** (scores aléatoires jusqu'au bout) — test/démo
 - **TV** (`/tv.html`) : matchs en cours uniquement (8/page), QR en coin ; en phase inscription : grand QR centré

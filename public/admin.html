@@ -20,6 +20,32 @@
 document.getElementById('nav').append(nav('admin'));
 const main = document.getElementById('main');
 let superAdminMenu = false; // menu Console réservé au super-admin (code global ou compte super-admin/admin global)
+const JOURS_PREFS = [[0, 'Dimanche'], [1, 'Lundi'], [2, 'Mardi'], [3, 'Mercredi'], [4, 'Jeudi'], [5, 'Vendredi'], [6, 'Samedi']]; // convention JS: 0 = dimanche
+
+// 17j. Personnalisation du club : couleur d accent + défauts de tournoi (nom, jour récurrent, heure)
+// geste NON sensible: PIN du club déjà requis pour l espace admin, aucun confirm_pin supplémentaire
+async function chargerPrefsApparence() {
+  try {
+    const rep = await adminApi('/api/admin/club/prefs');
+    const p = rep && rep.prefs ? rep.prefs : {};
+    document.getElementById('pref-accent').value = p.accent || '#d6336c';
+    document.getElementById('pref-nom').value = p.defaut_nom || '';
+    document.getElementById('pref-jour').value = p.defaut_jour == null ? '' : String(p.defaut_jour);
+    document.getElementById('pref-heure').value = p.defaut_heure || '20:00';
+  } catch (e) {}
+}
+async function enregPrefsApparence() {
+  try {
+    const rep = await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({
+      accent: document.getElementById('pref-accent').value,
+      defaut_nom: document.getElementById('pref-nom').value.trim(),
+      defaut_jour: document.getElementById('pref-jour').value === '' ? null : Number(document.getElementById('pref-jour').value),
+      defaut_heure: document.getElementById('pref-heure').value || '20:00',
+    })});
+    if (rep && rep.prefs && typeof appliquerAccentClub === 'function') appliquerAccentClub(rep.prefs.accent); // aperçu immédiat
+    alert(t('Personnalisation enregistrée'));
+  } catch (e) { alert(e.message); }
+}
 
 function render() {
   main.innerHTML = '';
@@ -48,6 +74,18 @@ function render() {
       el('a', { href: '/tv.html' }, el('button', { class: 'secondary' }, 'TV')),
       el('a', { href: '/stats.html' }, el('button', { class: 'secondary' }, 'Stats')),
       el('a', { href: '/historique.html' }, el('button', { class: 'secondary' }, 'Historique public')))));
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, t('🎨 Apparence du club')),
+    el('p', { class: 'muted' }, t('Visible par tous les visiteurs du club.')),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' },
+      el('div', {}, el('label', {}, t('Couleur d accent')), el('input', { id: 'pref-accent', type: 'color', value: '#d6336c', style: 'width:74px;height:38px;padding:2px' })),
+      el('div', {}, el('label', {}, t('Nom par défaut des tournois')), el('input', { id: 'pref-nom', maxlength: 80, placeholder: 'ex : Open du Mercredi', style: 'width:220px' })),
+      el('div', {}, el('label', {}, t('Jour récurrent')), el('select', { id: 'pref-jour' },
+        el('option', { value: '' }, t('Aucun')),
+        ...JOURS_PREFS.map(([v, l]) => el('option', { value: v }, t(l))))),
+      el('div', {}, el('label', {}, t('Heure habituelle')), el('input', { id: 'pref-heure', type: 'time', value: '20:00' }))),
+    el('div', { class: 'row', style: 'margin-top:12px' }, el('button', { onclick: enregPrefsApparence }, t('Enregistrer')))));
+  chargerPrefsApparence();
   main.append(el('div', { class: 'panel' },
     el('button', { class: 'danger', onclick: () => { localStorage.removeItem('ebpc_admin_pin'); location.reload(); } }, 'Se déconnecter')));
 }

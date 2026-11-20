@@ -183,6 +183,39 @@ function panelBase() {
       inp));
 }
 
+// 17j. Personnalisation des clubs : accent de l interface + défauts de tournoi, réglables à distance (body.slug = club cible)
+function panelPersonnalisation(clubs) {
+  const sel = el('select', { style: 'max-width:280px' }, ...clubs.map(c => el('option', { value: c.slug }, `${c.nom} (${c.slug})`)));
+  const accentI = el('input', { type: 'color', value: '#d6336c', style: 'width:64px;height:34px;padding:2px' });
+  const nomI = el('input', { maxlength: 80, placeholder: 'Nom par défaut des tournois (ex : Open du Mercredi)', style: 'width:270px' });
+  const jourS = el('select', {}, el('option', { value: '' }, 'Aucun'),
+    ...[[0, 'Dimanche'], [1, 'Lundi'], [2, 'Mardi'], [3, 'Mercredi'], [4, 'Jeudi'], [5, 'Vendredi'], [6, 'Samedi']]
+      .map(([v, l]) => el('option', { value: v }, l)));
+  const heureI = el('input', { type: 'time', value: '20:00' });
+  const chargerPrefs = async () => {
+    try {
+      const rep = await adminApi('/api/admin/club/prefs?slug=' + encodeURIComponent(sel.value));
+      const p = rep && rep.prefs ? rep.prefs : {};
+      accentI.value = p.accent || '#d6336c';
+      nomI.value = p.defaut_nom || '';
+      jourS.value = p.defaut_jour == null ? '' : String(p.defaut_jour);
+      heureI.value = p.defaut_heure || '20:00';
+    } catch (e) {}
+  };
+  sel.addEventListener('change', chargerPrefs);
+  chargerPrefs();
+  return el('div', { class: 'panel', style: 'margin-top:12px' },
+    el('h2', {}, '🎨 Personnalisation du club (couleur d interface + défauts de tournoi)'),
+    el('p', { class: 'muted small' }, 'Sélectionne un club puis ajuste sa couleur d accent (visible par tous ses visiteurs) et ses défauts de tournoi : nom, jour récurrent (0 = dimanche) et heure habituelle, prérenseignés à la création.'),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, sel, accentI, nomI, jourS, heureI,
+      el('button', { onclick: async () => {
+        try {
+          await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({ slug: sel.value, accent: accentI.value, defaut_nom: nomI.value.trim(), defaut_jour: jourS.value === '' ? null : Number(jourS.value), defaut_heure: heureI.value || '20:00' }) });
+          alert('✅ Personnalisation du club « ' + sel.value + ' » enregistrée.');
+        } catch (e) { alert(e.message); }
+      } }, 'Enregistrer pour ce club')));
+}
+
 async function exporterBase() {
   try {
     const res = await fetch('/api/super/base/export', { headers: adminHeaders() });
@@ -229,6 +262,7 @@ function render(clubs) {
     el('div', { class: 'hero-title' }, `${clubs.length} club(s)`),
     clubs.length === 0 ? el('p', { class: 'muted' }, 'Aucun club.') : table));
   main.append(panelBase());
+  main.append(panelPersonnalisation(clubs));
   main.append(el('div', { id: 'comptes-tous', class: 'panel', style: 'margin-top:12px' }, el('p', { class: 'muted' }, 'Chargement…')));
   main.append(panelContexteClub(clubs));
 }
