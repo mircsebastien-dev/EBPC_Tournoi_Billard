@@ -27,6 +27,7 @@ app.use((req, res, next) => {
 app.use('/api/admin/base/import', express.json({ limit: '25mb' }));
 app.use('/api/admin/base/import-club', express.json({ limit: '25mb' })); // périmètre club: même limite (journal + snapshots volumineux)
 app.use('/api/super/base/import', express.json({ limit: '25mb' })); // 17i: import de base depuis la zone super (même limite, monté AVANT le parseur global 256kb)
+app.use('/api/admin/club/prefs', express.json({ limit: '2mb' })); // 17n: bannière + photo de fond TV importées ensemble dépassent 256ko (même mécanique que les import de base, route PIN/session admin)
 app.use(express.json({ limit: '256kb' })); // body > 256ko -> 413 (géré par le middleware d'erreur)
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
