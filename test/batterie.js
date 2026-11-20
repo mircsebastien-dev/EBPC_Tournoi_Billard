@@ -1056,7 +1056,8 @@ async function nouveauTournoi(body) {
   const importE17d = { status: r.status, data: r.data }; // résultat du premier import: chaque table retrouve exactement ses lignes
   // 17d v2: régression sauvegarde ANCIENNE (générée avant 17f) = lignes de compte SANS club_id -> l import les
   // rattache au club par défaut de la sauvegarde (MIN des ids, règle de la migration 17f), comme une prod ancienne
-  const Eanc17d = { sauvegarde: E.sauvegarde, tables: { club: E.tables.club, compte: E.tables.compte.map((c) => { const s = JSON.parse(JSON.stringify(c)); delete s.club_id; return s; }) } };
+  // (une vraie sauvegarde ancienne contient TOUTES les tables, réglages inclus: on garde settings sinon le hash du code est éphémèrement absent)
+  const Eanc17d = { sauvegarde: E.sauvegarde, tables: { club: E.tables.club, settings: E.tables.settings, compte: E.tables.compte.map((c) => { const s = JSON.parse(JSON.stringify(c)); delete s.club_id; return s; }) } };
   const vusAnc17d = new Set();
   Eanc17d.tables.compte = Eanc17d.tables.compte.filter((c) => { const k = String(c.pseudo || '').toLowerCase() + '|' + String(c.email || '').toLowerCase(); if (vusAnc17d.has(k)) return false; vusAnc17d.add(k); return true; }); // UNIQUE (club_id, pseudo/email) du club par défaut
   r = await post('/api/admin/base/import', { payload: Eanc17d, confirm_pin: PIN });
