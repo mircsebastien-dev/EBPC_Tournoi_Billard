@@ -161,6 +161,32 @@ app.use((req, res, next) => {
   next();
 });
 
+// 17o. Manifeste PWA dynamique : « Ajouter à l écran d accueil » installe l app avec le nom, la couleur et l icône
+// du club courant (?club= posé par le front : le navigateur n envoie ni X-Club ni session à la requête du manifeste).
+// Monté AVANT express.static (sinon public/manifest.webmanifest masquerait la route) ; club résolu à la main car le
+// middleware multi-club vient après. Slug inconnu -> club par défaut (jamais 404 : l installabilité est préservée).
+app.get('/manifest.webmanifest', (req, res) => {
+  const slug17o = String(req.query.club || '').trim();
+  const club17o = slug17o ? (clubParSlug(slug17o) || clubParDefaut()) : clubParDefaut();
+  const th17o = themeDuClub(club17o);
+  const ic17o = iconeClub17o(club17o); // 17o: icône PNG du club, sinon icône générique de l app
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.setHeader('Cache-Control', 'no-store'); // fraîche au moment de l installation (changement de logo vite répercuté)
+  res.send(JSON.stringify({
+    name: club17o.nom + ' — Tournois',
+    short_name: club17o.nom.slice(0, 12),
+    description: th17o.description ? th17o.description.slice(0, 200) : 'Tournois de billard — tableaux, scores en direct, notifications',
+    start_url: club17o.id === clubParDefaut().id ? '/' : '/?club=' + encodeURIComponent(club17o.slug),
+    scope: '/',
+    display: 'standalone',
+    background_color: '#0b0b10',
+    theme_color: th17o.accent, // 17o: barre d état du téléphone aux couleurs du club
+    icons: [
+      { src: ic17o ? '/api/club-icone?club=' + encodeURIComponent(club17o.slug) + '&taille=192' : '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ],
+  }));
+});
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   setHeaders: (res, filePath) => {
     // HTML/JS/CSS toujours revalidés (évite le vieux common.js en cache sur mobile)
@@ -476,6 +502,14 @@ function photoClubValide(v) { // '' = aucune photo
   return v === '' || (v.length <= PHOTO_TAILLE_MAX && PHOTO_DATA_RE.test(v));
 }
 
+// 17o. Icône du club sur l écran d accueil du téléphone : PNG (ou JPEG) 192 px généré par le front depuis le logo
+// (le SVG y est refusé : Android n affiche pas les icônes vectorielles d un manifeste), stocké dans club.theme_json
+const ICONE_TAILLE_MAX = 200000; // caractères : largement au-dessus d un PNG 192 px sur fond uni
+const ICONE_DATA_RE = /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/; // jamais SVG ni aucun autre type
+function iconeClubValide17o(v) { // '' = aucune icône (repli logo raster puis icône générique de l app)
+  if (typeof v !== 'string') return false;
+  return v === '' || (v.length <= ICONE_TAILLE_MAX && ICONE_DATA_RE.test(v));
+}
 function logoClubValide(logo) {
   if (typeof logo !== 'string') return false;
   if (logo === '') return true; // aucun logo
@@ -498,6 +532,7 @@ function themeDuClub(cible) {
     logo_mode: logoModeValide(p.logo_mode) ? p.logo_mode : 'les-deux', // 17k: entete / filigrane / les-deux
     banniere: (typeof p.banniere === 'string' && photoClubValide(p.banniere)) ? p.banniere : '', // 17n: bannière de l accueil ('' = aucune)
     tv_fond: (typeof p.tv_fond === 'string' && photoClubValide(p.tv_fond)) ? p.tv_fond : '', // 17n: photo de fond de la TV ('' = décor noir d origine)
+    icone: (typeof p.icone === 'string' && iconeClubValide17o(p.icone)) ? p.icone : '', // 17o: PNG 192 px de l app installée sur l écran du téléphone ('' = repli)
     description: (typeof p.description === 'string') ? p.description.trim().slice(0, 500) : '', // 17n: présentation de la page Le club
     contact: (typeof p.contact === 'string') ? p.contact.trim().slice(0, 200) : '', // 17n: contact affiché sur la page Le club
   };
@@ -555,6 +590,24 @@ function servirImageClub17n(req, res, champ) {
 }
 app.get('/api/club-banniere', (req, res) => servirImageClub17n(req, res, 'banniere')); // 17n: bannière du club
 app.get('/api/club-tv-fond', (req, res) => servirImageClub17n(req, res, 'tv_fond')); // 17n: photo de fond de l écran TV
+
+// 17o. Icône PNG du club pour l écran du téléphone (manifeste dynamique + apple-touch-icon pointent ici) :
+// préférence au champ icone (généré par le front à l Enregistrement), repli sur le logo s il est raster
+// (data:image png/jpeg : un SVG ne peut pas servir d icône de manifeste), sinon redirection 302 vers l icône générique.
+function iconeClub17o(cible) {
+  const th17o = themeDuClub(cible);
+  const logo17o = typeof th17o.logo === 'string' ? th17o.logo : '';
+  const brut17o = (th17o.icone && ICONE_DATA_RE.test(th17o.icone)) ? th17o.icone : ((logo17o.startsWith('data:image/png') || logo17o.startsWith('data:image/jpeg')) ? logo17o : '');
+  const m17o = brut17o ? /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/.exec(brut17o) : null;
+  return m17o ? { type: 'image/' + m17o[1], donnees: Buffer.from(m17o[2], 'base64') } : null;
+}
+app.get('/api/club-icone', (req, res) => { // 17o: ?club= pris en charge (la requête d un manifeste n envoie pas X-Club)
+  const ic17o = iconeClub17o(req.club);
+  if (!ic17o) return res.redirect(302, '/icon-192.png'); // pas d icône -> générique de l app (jamais 204 : iOS et Android n aiment pas)
+  res.setHeader('Content-Type', ic17o.type);
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(ic17o.donnees);
+});
 
 app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe(req.club.id) }));
 
@@ -1462,6 +1515,14 @@ app.put('/api/admin/club/prefs', requireAdmin, (req, res) => {
       return res.status(400).json({ error: 'Photo de fond TV refusée : format non supporté, attendu data:image/png|jpeg|svg+xml en base64 (ou vide pour retirer).' });
     }
     prefs.tv_fond = tf;
+  }
+  if ('icone' in req.body) { // 17o: icône 192 px de l écran d accueil du téléphone ('' = repli logo raster puis icône générique)
+    const ic = String(req.body.icone || '').trim();
+    if (!iconeClubValide17o(ic)) { // 17k v5: la réponse 400 dit la cause réelle (envoyé vs attendu)
+      if (ic.length > ICONE_TAILLE_MAX) return res.status(400).json({ error: 'Icône refusée : ' + ic.length + ' caractères reçus, ' + ICONE_TAILLE_MAX + ' maximum attendu.' });
+      return res.status(400).json({ error: 'Icône refusée : format non supporté, attendu data:image/png ou data:image/jpeg en base64 (ou vide pour retirer).' });
+    }
+    prefs.icone = ic;
   }
   if ('description' in req.body) prefs.description = String(req.body.description || '').trim().slice(0, 500); // 17n: présentation de la page Le club (0-500, '' l efface)
   if ('contact' in req.body) prefs.contact = String(req.body.contact || '').trim().slice(0, 200); // 17n: contact de la page Le club
