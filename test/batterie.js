@@ -1291,8 +1291,9 @@ async function nouveauTournoi(body) {
   r = await api('/api/super/clubs', {});
   check('17i: GET /api/super/clubs (code global) -> 200, tous les clubs (ebpc, clubvm, clubsb) sans contexte de club', r.status === 200 && r.data.clubs.some(c => c.slug === 'ebpc') && r.data.clubs.some(c => c.slug === 'clubvm') && r.data.clubs.some(c => c.slug === 'clubsb'), r.status + ' ' + JSON.stringify((r.data.clubs || []).map(c => c.slug)));
   r = await api('/api/super/comptes', {});
-  const mb17i = r.data.comptes ? r.data.comptes.find(c => c.pseudo === 'MembreSb') : null;
-  check('17i: GET /api/super/comptes -> 200, vue plateforme: MembreSb (club_slug clubsb) et Seb visibles, tous=true', r.status === 200 && r.data.tous === true && !!mb17i && mb17i.club_slug === 'clubsb' && r.data.comptes.some(c => c.pseudo === 'Seb'), 'n=' + (r.data.comptes || []).length);
+  const mb17i = r.data.comptes ? r.data.comptes.find(c => c.pseudo === 'MembreSb' && c.club_slug === 'clubsb') : null; // 17f: le pseudo MembreSb existe dans 2 clubs, qualifier par club_slug
+  const chef17i = r.data.comptes ? r.data.comptes.find(c => c.pseudo === 'ChefVm' && c.club_slug === 'clubvm') : null;
+  check('17i: GET /api/super/comptes -> 200, vue plateforme: MembreSb (clubsb) ET ChefVm (clubvm) d origines distinctes + Seb, tous=true', r.status === 200 && r.data.tous === true && !!mb17i && !!chef17i && r.data.comptes.some(c => c.pseudo === 'Seb'), 'n=' + (r.data.comptes || []).length);
   r = await api('/api/super/base/export', {});
   check('17i: GET /api/super/base/export (code global) -> 200, payload complet (table club + comptes multi-clubs)', r.status === 200 && r.data.sauvegarde === 'ebpc-tournoi-billard' && !!(r.data.tables && r.data.tables.club) && r.data.tables.compte.some(c => c.pseudo === 'MembreSb'), r.status + ' ' + Object.keys(r.data.tables || {}).length + ' tables');
   r = await post('/api/super/club', { slug: 'clubsi', nom: 'Console 17i', pin: '2468' });
