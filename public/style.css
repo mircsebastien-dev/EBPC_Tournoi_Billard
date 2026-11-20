@@ -35,7 +35,6 @@ html[data-theme="light"] header.top { background: rgba(255, 255, 255, 0.92); }
 html[data-theme="light"] .nav-dropdown { box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18); }
 html[data-theme="light"] #bracket-svg path.to-wb { stroke: rgba(34, 36, 44, 0.5); }
 html[data-theme="light"] #bracket-svg path.to-wb.halo { stroke: rgba(34, 36, 44, 0.08); }
-html[data-theme="light"] .scoreboard .s { background: linear-gradient(180deg, var(--text), var(--pink)); }
 /* Interrupteur 0-1 (mini-toggle, panneau Paramètres de /compte.html) */
 button.toggle-mini { position: relative; width: 46px; height: 25px; min-height: 0; padding: 0; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); box-shadow: none; display: inline-block; }
 button.toggle-mini::after { content: ''; position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: var(--muted); transition: left 0.15s ease, background 0.15s ease; }
@@ -191,7 +190,12 @@ label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 5px
 .scoreboard .p { font-size: clamp(17px, 4.5vw, 24px); font-weight: 800; word-break: break-word; }
 .scoreboard .s {
   font-size: clamp(64px, 18vw, 110px); font-weight: 800; line-height: 1;
-  background: linear-gradient(180deg, #fff, var(--pink-soft));
+  /* 17j v4: degradé ancré sur var(--text) (lisible clair ET sombre, quelle que soit la teinte derivée).
+     NE PAS reintroduire un override `background:` seul (raccourci) pour ce selecteur: shorthand = reset
+     de background-clip (retour a border-box) -> degradé peint en ZONE pleine + chiffres transparents
+     invisibles (bug "zone bleue sans score" en theme clair). Redéclarer -webkit-background-clip: text
+     + background-clip: text si un override du background devient necessaire. */
+  background: linear-gradient(180deg, var(--text), var(--pink-soft));
   -webkit-background-clip: text; background-clip: text; color: transparent;
   font-variant-numeric: tabular-nums;
 }

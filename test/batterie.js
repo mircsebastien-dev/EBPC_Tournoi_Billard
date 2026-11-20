@@ -1462,7 +1462,7 @@ async function nouveauTournoi(body) {
   check('common.js: matchUrl propage ?retour= depuis les cards', cjs18.includes('function matchUrl') && cjs18.includes('&retour=') && cjs18.includes('location.href = matchUrl(m)'), '');
   check('common.js: garde-fou onglet dans drawBracketLinks (fix lignes parasites du bracket complet apres resize)', cjs18.includes('bracketLinksOnlyTab') && cjs18.includes('opts.linksOnlyTab') && cjs18.includes('bracketTab !== bracketLinksOnlyTab'), '');
   const css19 = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
-  check('style.css: theme clair (variables + header + liens bracket + score adaptes)', css19.includes('html[data-theme="light"]') && css19.includes('path.to-wb') && css19.includes('.scoreboard .s') && css19.includes('header.top'), '');
+  check('style.css: theme clair (variables + header + liens bracket) + gros score lisible des 2 themes (17j v4: degrade ancre sur var(--text), JAMAIS d override shorthand background: seul sur .scoreboard .s: il reset background-clip -> zone bleue sans chiffres en theme clair)', css19.includes('html[data-theme="light"]') && css19.includes('path.to-wb') && css19.includes('.scoreboard .s') && css19.includes('header.top') && css19.includes('linear-gradient(180deg, var(--text), var(--pink-soft))') && !css19.includes('data-theme="light"] .scoreboard .s { background:'), '');
   const cpte19 = fs.readFileSync(path.join(__dirname, '..', 'public', 'compte.html'), 'utf8');
   const cv19 = fs.readFileSync(path.join(__dirname, '..', 'public', 'compte-vues.js'), 'utf8');
   const p19 = fs.readFileSync(path.join(__dirname, '..', 'public', 'parametres.html'), 'utf8');
