@@ -36,7 +36,17 @@ function adminHeaders(extra = {}) {
 }
 
 async function adminApi(path, opts = {}) {
-  const res = await fetch(path, { headers: adminHeaders(), ...opts });
+  const appel17h = () => fetch(path, { headers: adminHeaders(), ...opts });
+  let res = await appel17h();
+  if (res.status === 404) {
+    const data404 = await res.json().catch(() => ({}));
+    // 17h v2: club mémorisé disparu (restauration d une base, club supprimé/désactivé) -> effacé et rejoué
+    // sur le club par défaut, même repli que api() de common.js
+    if (data404 && typeof data404.error === 'string' && data404.error.startsWith('Club inconnu') && typeof clubHeaders === 'function' && clubHeaders()['X-Club']) {
+      try { localStorage.removeItem(typeof CLUB_KEY !== 'undefined' ? CLUB_KEY : 'ebpc_club'); } catch {}
+      res = await appel17h();
+    } else res = { ok: false, status: 404, json: async () => data404 };
+  }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) { adminPin = ''; localStorage.removeItem('ebpc_admin_pin'); localStorage.removeItem('ebpc_admin_pin_since'); throw new Error('PIN invalide'); }
   if (!res.ok) throw Object.assign(new Error(data.error || `Erreur ${res.status}`), { status: res.status, data });

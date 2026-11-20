@@ -3074,10 +3074,23 @@ function basculerTheme() { const t = themeActuel() === 'light' ? 'dark' : 'light
 
 let compteCourant = null; // mémo du compte connecté (le broadcast SSE ne le renvoie pas)
 async function api(path, opts = {}) {
-  const res = await fetch(API + path, {
+  const appel17h = () => fetch(API + path, {
     headers: { 'Content-Type': 'application/json', 'X-Lang': LANG, ...clubHeaders(), ...(opts.headers || {}) },
     ...opts,
   });
+  let res = await appel17h();
+  if (res.status === 404) {
+    const data404 = await res.json().catch(() => ({}));
+    // club mémorisé disparu (club supprimé/désactivé, restauration d une base d origine différente, ex: prod importée
+    // sur l app de test alors que le navigateur retenait un club de test) -> page blanche silencieuse
+    // -> on efface le slug mémorisé et on rejoue l appel sur le club par défaut (17h v2: repli club par défaut)
+    if (data404 && typeof data404.error === 'string' && data404.error.startsWith('Club inconnu') && clubHeaders()['X-Club']) {
+      try { localStorage.removeItem(CLUB_KEY); } catch {}
+      res = await appel17h();
+    } else {
+      res = { ok: false, status: 404, json: async () => data404 };
+    }
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
   if (data && typeof data.compte !== 'undefined') compteCourant = data.compte;
