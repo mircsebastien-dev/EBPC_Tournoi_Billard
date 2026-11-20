@@ -204,9 +204,11 @@ function panelPersonnalisation(clubs) {
     ...LOGOS_PRESETS_CONSOLE.map((cle) => el('img', { src: '/logos/' + cle + '.svg', alt: cle, title: cle, 'data-logo': '/logos/' + cle + '.svg', style: 'width:44px;height:44px;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent', onclick: () => { logo17k = '/logos/' + cle + '.svg'; marquerLogo17k(); } })),
     el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logo17k = ''; marquerLogo17k(); } }, 'Aucun logo'));
   const importI = el('input', { id: 'pref-logo-import-console', type: 'file', accept: 'image/*' });
+  const apercuI17k = el('img', { id: 'pref-logo-img-console', style: 'width:48px;height:48px;object-fit:contain;background:var(--bg2);border-radius:8px;padding:4px;display:none' }); // 17k v7: aperçu
   const marquerLogo17k = () => {
     for (const b of galerie17k.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logo17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
     for (const b of modes17k.children) b.style.outline = (b.dataset.mode === mode17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
+    if (logo17k) { apercuI17k.src = logo17k; apercuI17k.style.display = ''; } else apercuI17k.style.display = 'none'; // 17k v7: aperçu du logo retenu
     importI.value = '';
   };
   // 17k v5: refus explicite, le message dit ce qui a été reçu vs ce qui est attendu + la cause probable
@@ -271,7 +273,7 @@ function panelPersonnalisation(clubs) {
     el('p', { class: 'muted small' }, 'Sélectionne un club puis ajuste sa couleur d accent, son logo (prédéfini ou importé, affiché en filigrane discret et à côté du nom du club) et ses défauts de tournoi : nom, jour récurrent (0 = dimanche) et heure habituelle, prérenseignés à la création.'),
     el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, sel, accentI, nomI, jourS, heureI,
     el('div', { style: 'width:100%;margin-top:6px' }, el('label', {}, 'Logo du club :'), galerie17k,
-      el('div', { style: 'margin-top:6px' }, el('label', {}, 'Importer une image pour ce club (PNG/JPG/SVG, réduite à 256 px) :'), importI),
+      el('div', { style: 'margin-top:6px' }, el('label', {}, 'Importer une image pour ce club (PNG/JPG/SVG, réduite à 256 px) :'), importI, el('span', { class: 'muted small' }, ' aperçu : '), apercuI17k),
       el('div', { style: 'margin-top:6px' }, el('label', {}, 'Affichage du logo :'), modes17k)),
       el('button', { onclick: async () => {
         try {

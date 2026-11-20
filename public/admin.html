@@ -48,9 +48,11 @@ function rafraichirLogoPrefs() {
   if (modes) for (const b of modes.children) b.style.outline = (b.dataset.mode === logoMode17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
   const imp = document.getElementById('pref-logo-import');
   if (imp) imp.value = '';
+  const ap17k = document.getElementById('pref-logo-img'); // 17k v7: aperçu du logo retenu (prédéfini ou importé), Enregistrer l applique
+  if (ap17k) { if (logoChoisi17k) { ap17k.src = logoChoisi17k; ap17k.style.display = ''; } else ap17k.style.display = 'none'; }
   if (typeof appliquerLogoClub === 'function') appliquerLogoClub(logoChoisi17k, logoMode17k); // filigrane + petit logo d en-tête
 }
-// 17k: import d un logo perso: PNG/JPG réduit à 256 px (canvas), SVG conservé, 300 Ko max côté fichier
+// 17k: import d un logo perso: PNG/JPG/HEIC décodable (canvas, réduit à 256 px), SVG conservé, 8 Mo max côté fichier
 function importerLogo17k(input) {
   const f = input.files && input.files[0];
   if (!f) return;
@@ -145,8 +147,11 @@ function render() {
       el('div', { id: 'pref-logo-galerie', class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center' },
         ...LOGOS_PRESETS.map((cle) => el('img', { src: '/logos/' + cle + '.svg', alt: cle, title: cle, 'data-logo': '/logos/' + cle + '.svg', style: 'width:44px;height:44px;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent', onclick: () => { logoChoisi17k = '/logos/' + cle + '.svg'; rafraichirLogoPrefs(); } })),
         el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logoChoisi17k = ''; rafraichirLogoPrefs(); } }, t('Aucun logo'))),
-      el('div', { style: 'margin-top:8px' }, el('label', {}, t('Importer une image (PNG/JPG/SVG, réduite à 256 px, 300 Ko max)')),
+      el('div', { style: 'margin-top:8px' }, el('label', {}, t('Importer une image (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 256 px)')),
         el('input', { id: 'pref-logo-import', type: 'file', accept: 'image/*' })),
+      el('div', { class: 'row', style: 'margin-top:8px;align-items:center;gap:8px' }, // 17k v7: aperçu immédiat du logo retenu avant enregistrement
+        el('img', { id: 'pref-logo-img', style: 'width:48px;height:48px;object-fit:contain;background:var(--bg2);border-radius:8px;padding:4px;display:none' }),
+        el('span', { class: 'muted small' }, t('Aperçu du logo retenu : « Enregistrer » l applique aux pages du club pour tous les visiteurs.'))),
       el('div', { style: 'margin-top:8px' },
         el('label', {}, t('Affichage du logo')),
         el('div', { id: 'pref-logo-mode', class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px' },
