@@ -19,7 +19,7 @@
 <script>
 document.getElementById('nav').append(nav('admin'));
 const main = document.getElementById('main');
-let superAdminMenu = false; // menu Clubs réservé au super-admin (code global ou compte admin global)
+let superAdminMenu = false; // menu Console réservé au super-admin (code global ou compte super-admin/admin global)
 
 function render() {
   main.innerHTML = '';
@@ -37,7 +37,7 @@ function render() {
       el('a', { href: '/admin-historique.html' }, el('button', { class: 'secondary' }, ['Historique', ` (${adminState.historique.length})`])),
       el('a', { href: '/admin-journal.html' }, el('button', { class: 'secondary' }, 'Journal d\'audit')),
       el('a', { href: '/admin-comptes.html' }, el('button', { class: 'secondary' }, 'Comptes joueurs')),
-      ...(superAdminMenu ? [el('a', { href: '/clubs.html' }, el('button', { class: 'secondary' }, '🏛️ Clubs'))] : []),
+      ...(superAdminMenu ? [el('a', { href: '/console.html' }, el('button', { class: 'secondary' }, '🛡️ Console'))] : []),
       el('a', { href: '/admin-aide.html' }, el('button', { class: 'secondary' }, 'Guide admin')),
       el('a', { href: '/admin-data.html' }, el('button', { class: 'secondary' }, 'Données')))));
   main.append(el('div', { class: 'panel' },

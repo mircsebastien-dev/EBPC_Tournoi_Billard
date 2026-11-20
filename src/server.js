@@ -25,6 +25,7 @@ app.use((req, res, next) => {
 // limite élargie UNIQUEMENT pour la restauration de TOUTE la base (une sauvegarde complète peut dépasser 256ko)
 app.use('/api/admin/base/import', express.json({ limit: '25mb' }));
 app.use('/api/admin/base/import-club', express.json({ limit: '25mb' })); // périmètre club: même limite (journal + snapshots volumineux)
+app.use('/api/super/base/import', express.json({ limit: '25mb' })); // 17i: import de base depuis la zone super (même limite, monté AVANT le parseur global 256kb)
 app.use(express.json({ limit: '256kb' })); // body > 256ko -> 413 (géré par le middleware d'erreur)
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
@@ -119,7 +120,7 @@ function verifierPinAdmin(req, pin) {
 
 // Auth admin à deux niveaux: session d'un compte role=admin (méthode produit),
 // sinon fallback par code PIN (anti brute-force). Le PIN n'est exigé QUE si pas de session admin.
-function estAdminSession(req) { return !!(req.compte && req.compte.role === 'admin'); }
+function estAdminSession(req) { return !!(req.compte && (req.compte.role === 'admin' || req.compte.role === 'super_admin')); } // 17i: comptes plateforme (super_admin dedie ou admin legacy), DISTINCTS des admins de club (compte_club)
 
 // multi-club: rôle du compte (via sa session) sur le club courant, null sinon.
 // 'admin' = gestion complète du club par session ; 'operateur' = routes admin du club ouvertes, confirmations et rôles refusés.
@@ -194,7 +195,7 @@ function joueurDuClub(req, id) { return db.prepare('SELECT j.* FROM joueur j JOI
 // audit toujours rattaché au club de la requête
 // pseudo du compte admin à l'origine d'une action (session admin), null si auth par code PIN ou action auto
 function auteurAdmin(req) { return (req && req.compte && (estAdminSession(req) || roleClubSession(req))) ? req.compte.pseudo : null; }
-function logAuditReq(req, action, cible, avant, apres) { logAudit(action, cible, avant, apres, req && req.club ? req.club.id : undefined, auteurAdmin(req)); }
+function logAuditReq(req, action, cible, avant, apres) { logAudit(action, cible, avant, apres, req && req.superZone ? null : (req && req.club ? req.club.id : undefined), auteurAdmin(req)); } // 17i: en zone super (/api/super/*), l audit n est rattache a aucun club
 
 function distancesMap(tournoiId) {
   const rows = db.prepare('SELECT round, manches FROM distance_round WHERE tournoi_id = ?').all(tournoiId);
@@ -1169,9 +1170,9 @@ app.post('/api/admin/compte/:id/pseudo', requireAdmin, requireGestionCompte, (re
 
 // rôle GLOBAL d'un compte (user/admin): réglage plateforme, super-admin uniquement.
 // Les rôles de club (admin/operateur d un club) se gèrent via /api/admin/club/compte.
-app.post('/api/admin/compte/:id/role', requireAdmin, requireSuperAdmin, (req, res) => {
+function handlerRoleGlobal(req, res) {
   const role = req.body && req.body.role;
-  if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: "role invalide ('admin' ou 'user')" });
+  if (!['admin', 'user', 'super_admin'].includes(role)) return res.status(400).json({ error: "role invalide ('admin', 'user' ou 'super_admin')" });
   const id = Number(req.params.id);
   const c = db.prepare('SELECT id, pseudo, role FROM compte WHERE id = ?').get(id);
   if (!c) return res.status(404).json({ error: 'Compte introuvable' });
@@ -1179,7 +1180,8 @@ app.post('/api/admin/compte/:id/role', requireAdmin, requireSuperAdmin, (req, re
   logAuditReq(req, 'compte_role_change', `compte #${id} (${c.pseudo}) -> ${role}`, { role: c.role }, { role });
   majEtBroadcast();
   res.json({ ok: true, id, role });
-});
+}
+app.post('/api/admin/compte/:id/role', requireAdmin, requireSuperAdmin, handlerRoleGlobal);
 
 app.post('/api/admin/compte/:id/password', requireAdmin, requireGestionCompte, (req, res) => {
   try {
@@ -1242,7 +1244,7 @@ app.get('/api/admin/super', requireAdmin, (req, res) => {
   res.json({ super_admin: superAdminSoumis(req), via: req.adminVia });
 });
 
-app.post('/api/admin/club', requireAdmin, requireSuperAdmin, (req, res) => {
+function handlerCreateClub(req, res) {
   const slug = String(req.body.slug || '').trim().toLowerCase();
   const nom = String(req.body.nom || '').trim().slice(0, 80);
   if (!/^[a-z0-9][a-z0-9-]{1,29}$/.test(slug)) return res.status(400).json({ error: 'slug invalide (2-30 car. a-z 0-9 -)' });
@@ -1252,11 +1254,12 @@ app.post('/api/admin/club', requireAdmin, requireSuperAdmin, (req, res) => {
   const info = db.prepare('INSERT INTO club (slug, nom, pin_hash) VALUES (?, ?, ?)').run(slug, nom, pinHash);
   logAuditReq(req, 'club_cree', `club ${slug}`, null, { nom });
   res.json({ ok: true, club: db.prepare('SELECT id, slug, nom, actif FROM club WHERE id = ?').get(Number(info.lastInsertRowid)) });
-});
+}
+app.post('/api/admin/club', requireAdmin, requireSuperAdmin, handlerCreateClub);
 
 // ---------- Multi-club: réglages d'un club (nom, PIN propre, actif) ----------
 // GET /api/admin/clubs : liste complète (super-admin), pin_propre = a son propre PIN, jamais de hash ni PIN en réponse
-app.get('/api/admin/clubs', requireAdmin, requireSuperAdmin, (req, res) => {
+function handlerListeClubs(req, res) {
   const clubs = db.prepare(`
     SELECT c.id, c.slug, c.nom, c.actif, c.pin_hash, c.created_at,
       (SELECT COUNT(*) FROM compte_club cc WHERE cc.club_id = c.id) nb_comptes
@@ -1264,7 +1267,8 @@ app.get('/api/admin/clubs', requireAdmin, requireSuperAdmin, (req, res) => {
   `).all()
     .map(c => ({ id: c.id, slug: c.slug, nom: c.nom, actif: !!c.actif, pin_propre: !!c.pin_hash, nb_comptes: c.nb_comptes || 0, created_at: c.created_at }));
   res.json({ clubs });
-});
+}
+app.get('/api/admin/clubs', requireAdmin, requireSuperAdmin, handlerListeClubs);
 function hashPin(p) { return crypto.createHash('sha256').update(String(p)).digest('hex'); }
 // le PIN global (settings) ou une session admin = niveau super-admin ; le seul PIN d'un club ne l'est pas
 function superAdminSoumis(req) {
@@ -1321,7 +1325,7 @@ app.put('/api/admin/club', requireAdmin, (req, res) => {
 // DELETE /api/admin/club (super-admin uniquement): supprime un club créé par erreur.
 // - club par défaut protégé (400) - un club avec des tournois (même terminés) est refusé (409): pas d effacement d historique par accident
 // - rôles compte_club et abonnements push du club purgés ; le journal d audit du club est conservé (FK coupé le temps de la suppression)
-app.delete('/api/admin/club', requireAdmin, requireSuperAdmin, requireConfirmPin, (req, res) => {
+function handlerSuppressionClub(req, res) {
   const slug = String(req.body.slug || '').trim().toLowerCase();
   const club = slug ? db.prepare('SELECT * FROM club WHERE slug = ? COLLATE NOCASE').get(slug) : null;
   if (!club) return res.status(404).json({ error: `Club inconnu « ${slug} »` });
@@ -1338,7 +1342,102 @@ app.delete('/api/admin/club', requireAdmin, requireSuperAdmin, requireConfirmPin
   // et une insertion visant le club effacé violerait la clé étrangère. Jamais de hash ni de PIN.
   logAudit('club_supprime', `club ${club.slug}`, { nom: club.nom, nb_tournois: nbT, comptes_rattaches: nbComptes }, null, clubParDefaut().id, auteurAdmin(req));
   res.json({ ok: true });
-});
+}
+app.delete('/api/admin/club', requireAdmin, requireSuperAdmin, requireConfirmPin, handlerSuppressionClub);
+
+
+// ---------- 17i. Zone super-admin décorrelée des clubs (/api/super/*, page console.html) ----------
+// La console plateforme n appartient à AUCUN club: le PIN d un club, une session de club
+// (admin comme operateur) ou un compte de club n y ont AUCUN accès. Accès: code global OU
+// session d un compte plateforme (super_admin dédié, ou admin legacy). Les routes /api/admin/*
+// restent le terrain des clubs (avec surpouvoirs super-admin quand superAdminSoumis),
+// les routes /api/super/* sont le terrain réservé de la plateforme (clubs, tous les comptes,
+// base complète, rôles plateforme). Le club par défaut reste protégé (non supprimable,
+// non désactivable, rattrapage des données héritées à club_id nul).
+function requireSuperZone(req, res, next) {
+  if (estAdminSession(req)) { req.superVia = 'session'; req.superZone = true; return next(); }
+  const ip = ipClient(req);
+  const bloque = pinBloque(ip);
+  if (bloque) return res.status(429).json({ error: bloque });
+  const pin = req.headers['x-admin-pin'] || (req.body && req.body.pin);
+  if (pin != null && String(pin) !== '' && hashPin(pin) === getSetting('admin_pin_hash')) { pinAttempts.delete(ip); req.superVia = 'global'; req.superZone = true; return next(); }
+  if (pin != null && String(pin) !== '') pinEchec(ip); // un PIN de club ne compte ici que comme un échec
+  return res.status(pin != null && String(pin) !== '' ? 401 : 403).json({ error: 'Zone super-admin : code global ou compte super-admin requis (un code de club n y a jamais accès)' });
+}
+// geste sensible en zone super (PIN de club, club supprimé, base restaurée, rôle plateforme):
+// confirmation par le code GLOBAL uniquement (jamais un PIN de club, jamais une session de club)
+function requireConfirmGlobal(req, res, next) {
+  if (estAdminSession(req)) return next();
+  const ip = ipClient(req);
+  const bloque = pinBloque(ip);
+  if (bloque) return res.status(429).json({ error: bloque });
+  const pin = req.body && req.body.confirm_pin;
+  if (pin != null && String(pin) !== '' && hashPin(pin) === getSetting('admin_pin_hash')) { pinAttempts.delete(ip); return next(); }
+  if (pin != null && String(pin) !== '') pinEchec(ip);
+  return res.status(401).json({ error: 'Code global requis pour confirmer ce geste' });
+}
+// vue « tous les comptes de la plateforme » (17h via ?tous=1, 17i depuis la console dédiée)
+function vueComptesTous() {
+  return db.prepare(`
+    SELECT c.id, c.pseudo, c.email, c.role, c.created_at,
+           (SELECT COUNT(*) FROM session s WHERE s.compte_id = c.id) sessions,
+           c.last_login_at,
+           (SELECT COUNT(*) FROM joueur j WHERE j.compte_id = c.id) joueurs,
+           (SELECT COUNT(*) FROM match m WHERE m.joueur1_id IN (SELECT id FROM joueur WHERE compte_id = c.id) OR m.joueur2_id IN (SELECT id FROM joueur WHERE compte_id = c.id)) matchs,
+           (SELECT COUNT(*) FROM push_subscription ps WHERE ps.compte_id = c.id) push_abonnements,
+           c.club_id,
+           (SELECT cl.slug FROM club cl WHERE cl.id = c.club_id) club_slug,
+           (SELECT group_concat(cl.slug || ':' || cc.role, ', ') FROM compte_club cc JOIN club cl ON cl.id = cc.club_id WHERE cc.compte_id = c.id) roles_clubs,
+           (SELECT group_concat(c2.pseudo, ', ') FROM ami a JOIN compte c2 ON c2.id = a.ami_compte_id WHERE a.compte_id = c.id) amis_comptes,
+           (SELECT group_concat(p.pseudo, ', ') FROM ami_pseudo p WHERE p.compte_id = c.id) amis_pseudos
+    FROM compte c
+    ORDER BY c.id DESC
+  `).all();
+}
+// modification d un club DEPUIS la console plateforme (slug explicite requis, jamais le club du contexte)
+function handlerSuperModifClub(req, res) {
+  const slugCible = String(req.body.slug || '').trim().toLowerCase();
+  if (!slugCible) return res.status(400).json({ error: 'slug requis en zone super-admin' });
+  const cible = db.prepare('SELECT * FROM club WHERE slug = ? COLLATE NOCASE').get(slugCible);
+  if (!cible) return res.status(404).json({ error: `Club inconnu « ${slugCible} »` });
+  const maj = {};
+  if ('nom' in req.body) {
+    const nom = String(req.body.nom || '').trim().slice(0, 80);
+    if (!nom) return res.status(400).json({ error: 'nom requis' });
+    if (nom !== cible.nom) maj.nom = nom;
+  }
+  let pinChange = false;
+  if ('pin' in req.body) {
+    if (!/^\d{4,8}$/.test(String(req.body.pin))) return res.status(400).json({ error: 'PIN invalide (4 à 8 chiffres)' });
+    const h = hashPin(req.body.pin);
+    if (h !== cible.pin_hash) { maj.pin_hash = h; pinChange = true; }
+  }
+  if ('actif' in req.body) {
+    const actif = !!req.body.actif;
+    if (actif !== !!cible.actif) {
+      if (!actif && cible.id === clubParDefaut().id) return res.status(400).json({ error: 'Le club par défaut ne peut pas être désactivé' });
+      maj.actif = actif ? 1 : 0;
+    }
+  }
+  if (!Object.keys(maj).length) {
+    return res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: cible.nom, actif: !!cible.actif, pin_propre: !!cible.pin_hash } });
+  }
+  const sets = Object.keys(maj).map(k => `${k} = ?`).join(', ');
+  db.prepare(`UPDATE club SET ${sets} WHERE id = ?`).run(...Object.values(maj), cible.id);
+  logAuditReq(req, 'club_modifie', `club ${cible.slug}`, null, { changements: Object.keys(maj) }); // jamais le PIN lui-même
+  res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: maj.nom != null ? maj.nom : cible.nom, actif: maj.actif != null ? !!maj.actif : !!cible.actif, pin_propre: maj.pin_hash ? true : !!cible.pin_hash } });
+}
+
+// montée des routes super: aucune ne lit req.club, l audit y est rattaché à aucun club (superZone)
+app.get('/api/super/scan', requireSuperZone, (req, res) => res.json({ super_admin: true, via: req.superVia }));
+app.get('/api/super/clubs', requireSuperZone, handlerListeClubs);
+app.post('/api/super/club', requireSuperZone, handlerCreateClub);
+app.put('/api/super/club', requireSuperZone, requireConfirmGlobal, handlerSuperModifClub);
+app.delete('/api/super/club', requireSuperZone, requireConfirmGlobal, handlerSuppressionClub);
+app.get('/api/super/comptes', requireSuperZone, (req, res) => res.json({ comptes: vueComptesTous(), tous: true }));
+app.post('/api/super/compte/:id/role', requireSuperZone, handlerRoleGlobal);
+app.get('/api/super/base/export', requireSuperZone, handlerExportBase);
+app.post('/api/super/base/import', requireSuperZone, requireConfirmGlobal, handlerImportBase);
 
 // ---------- Multi-club: rôles des comptes sur un club (table compte_club) ----------
 // gestion des rôles: code global (super-admin), session admin du club, session admin globale,
@@ -1395,7 +1494,7 @@ function tablesBase() { // toutes les tables du schéma (hors tables internes sq
 }
 
 // Sauvegarde complète: TOUTES les tables, TOUTES les lignes, ids exacts -> fichier JSON téléchargeable
-app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin, (req, res) => {
+function handlerExportBase(req, res) {
   const tables = {};
   for (const t of tablesBase()) tables[t] = db.prepare(`SELECT * FROM ${t}`).all();
   const lignes = Object.values(tables).reduce((n, rows) => n + rows.length, 0);
@@ -1405,10 +1504,11 @@ app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin, (req, res) =>
   logAuditReq(req, 'export_base', `${Object.keys(tables).length} tables / ${lignes} lignes`, null, { format: 1 });
   res.setHeader('Content-Disposition', `attachment; filename="base-${payload.genere_le.slice(0, 19).replace(/[:T]/g, '-')}.json"`);
   res.json(payload);
-});
+}
+app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin, handlerExportBase);
 
 // Restauration complète: REMPLACE tout le contenu actuel par la sauvegarde, dans UNE transaction (tout ou rien, FK différées, ids préservés)
-app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuperAdmin, (req, res) => {
+function handlerImportBase(req, res) {
   const p = req.body && req.body.payload && typeof req.body.payload === 'object' ? req.body.payload : req.body;
   const err400 = (m) => res.status(400).json({ error: m });
   if (!p || typeof p !== 'object' || Array.isArray(p) || p.sauvegarde !== 'ebpc-tournoi-billard' ||
@@ -1449,7 +1549,8 @@ app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuper
   logAuditReq(req, 'import_base', `${lignes.length} lignes restaurées sur ${connues.length} tables`, { tables: avant }, { tables: apres });
   majEtBroadcast();
   res.json({ ok: true, tables: apres, ...etatGlobal(req) });
-});
+}
+app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuperAdmin, handlerImportBase);
 
 // ---------- 17e. Sauvegarde / restauration des DONNÉES du club (un code de club administre SON club) ----------
 // Périmètre club uniquement: jamais les comptes, sessions, emails ou préférences des utilisateurs (données plateforme).

@@ -19,7 +19,7 @@
 <script>
 document.getElementById('nav').append(nav('admin'));
 const main = document.getElementById('main');
-let superAdminComptes = true; // rôle global (user/admin) = super-admin seulement: bouton 👑 masqué sinon
+let superAdminComptes = true; // rôle plateforme (user/admin/super_admin) = super-admin seulement: bouton 👑 masqué sinon (17i: console pour super_admin)
 let peutRolesClub = false, clubCtx = null; // 17g: sélecteur de rôle club (admin/opérateur) si le contexte du club le permet
 let filtre = '';
 
@@ -53,6 +53,7 @@ function render(comptes) {
       el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Sessions', 'Push', 'Amis', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
       el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
         el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo,
+          (c.role === 'super_admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '🛡️ super-admin') : null),
           (c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑 admin') : null),
           (c.role_club === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑 admin club') : null),
           (c.role_club === 'operateur' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '🛠 opérateur club') : null)),
@@ -92,11 +93,11 @@ function render(comptes) {
             el('option', { value: 'operateur', selected: c.role_club === 'operateur' ? true : null }, '🛠 Club : opérateur'),
             el('option', { value: 'admin', selected: c.role_club === 'admin' ? true : null }, '👑 Club : admin'))] : []),
           ...(superAdminComptes ? [el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: c.role === 'admin' ? 'Rétrograder en simple utilisateur (le PIN restera nécessaire pour l\\u2019admin)' : 'Promouvoir administrateur (sa session suffira pour l\\u2019admin, sans PIN)', onclick: async () => {
-            const cible = c.role === 'admin' ? 'user' : 'admin';
+            const cible = (c.role === 'admin' || c.role === 'super_admin') ? 'user' : 'admin'; // 17i: retrait super_admin -> user
             if (!confirm(`${cible === 'admin' ? 'Promouvoir' : 'Rétrograder'} « ${c.pseudo} » en ${cible === 'admin' ? 'admin' : 'user'} ?`)) return;
             try { await adminApi(`/api/admin/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: cible }) }); charger(); }
             catch (e) { alert(e.message); }
-          } }, c.role === 'admin' ? '👑\u2193 user' : '👑 admin')] : []),
+          } }, (c.role === 'admin' || c.role === 'super_admin') ? '👑\u2193 user' : '👑 admin')] : []),
           el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: 'Renommer le pseudo du compte', onclick: async () => {
             const p = prompt(`Nouveau pseudo pour « ${c.pseudo} » (min 2 caractères) :`, c.pseudo);
             if (!p || p === c.pseudo) return;

@@ -33,9 +33,8 @@ async function charger() {
   }
   main.innerHTML = "";
   main.append(panelSauvegardeClub()); // données du club: ouvert à tous les admins du club (code de club accepté)
-  let supBase = false;
-  try { const s = await adminApi("/api/admin/super"); supBase = !!(s && s.super_admin); } catch (e) {}
-  if (supBase) main.append(panelSauvegardeBase()); // base complète: réservé au super-admin (code global)
+  // 17i: la sauvegarde complète de la base a déménagé dans la 🛡️ Console super-admin (/console.html)
+  main.append(el("div", { class: "panel", style: "padding:10px 14px" }, el("p", { class: "muted small" }, "💾 Sauvegarde complète de la base (tous les clubs) : 🛡️ Console super-admin (/console.html).")));
   const tabs = el("div", { class: "row" }, ["matchs", "joueurs", "events"].map(o =>
     el("button", { class: onglet === o ? "" : "secondary", style: "margin-right:6px", onclick: () => { onglet = o; charger(); } },
       { matchs: "🎱 Matchs", joueurs: "👥 Joueurs", events: "📜 Events" }[o])));
@@ -138,44 +137,6 @@ async function renderEvents(t) {
   sel.addEventListener("change", loadEv);
   main.append(el("div", { class: "panel" }, el("h2", {}, "📜 Events d'un match"), sel, list));
   if (sel.value) loadEv();
-}
-
-// ---------- 💾 Sauvegarde complète de la base (export / import, réservé au code global) ----------
-function panelSauvegardeBase() {
-  const inp = el("input", { type: "file", accept: ".json,application/json", style: "display:none" });
-  inp.addEventListener("change", () => restaurerBase(inp.files && inp.files[0]));
-  return el("div", { class: "panel", style: "padding:10px 14px;margin-bottom:12px" },
-    el("h2", {}, "💾 Base complète : sauvegarde / restauration"),
-    el("p", { class: "muted small" }, "Exporte TOUTE la base (tous les clubs, tournois, comptes, matchs, journal) en un fichier JSON, ou restaure la base depuis un fichier. Réservé au code administrateur global (super-admin). La restauration REMPLACE tout le contenu actuel."),
-    el("div", { class: "row", style: "flex-wrap:wrap" },
-      el("button", { onclick: exporterBase }, "⬇️ Télécharger la sauvegarde (JSON)"),
-      el("button", { class: "secondary", style: "margin-left:8px", onclick: () => inp.click() }, "⬆️ Restaurer depuis un fichier…"),
-      inp));
-}
-
-async function exporterBase() {
-  try {
-    const res = await fetch("/api/admin/base/export", { headers: adminHeaders() });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(data.error || ("Erreur " + res.status)), { status: res.status });
-    const cd = res.headers.get("content-disposition") || "";
-    const nomFichier = (cd.match(/filename="?([^";]+)"?/) || [])[1] || "base-ebpc.json";
-    const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
-    const a = el("a", { href: URL.createObjectURL(blob), download: nomFichier });
-    a.click(); URL.revokeObjectURL(a.href);
-    alert("✅ Sauvegarde téléchargée (" + nomFichier + "). Conserve ce fichier en lieu sûr.");
-  } catch (e) { alert("Export impossible : " + e.message); }
-}
-
-async function restaurerBase(fichier) {
-  if (!fichier) return;
-  try {
-    const payload = JSON.parse(await fichier.text());
-    if (!confirm("Restaurer \"" + fichier.name + "\" ? TOUT le contenu actuel de la base sera REMPLACÉ (tous les clubs, tournois, comptes, matchs).")) return;
-    await adminApiDestructif("/api/admin/base/import", { method: "POST", body: JSON.stringify({ payload }) }, "restaurer toute la base depuis " + fichier.name);
-    alert("✅ Base restaurée.");
-    location.reload();
-  } catch (e) { alert("Restauration impossible : " + e.message); }
 }
 
 // ---------- 💾 Données du club : sauvegarde / restauration (périmètre club uniquement) ----------

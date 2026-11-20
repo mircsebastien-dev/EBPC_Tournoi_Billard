@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🛡️ Console super-admin — Plateforme</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>🛡️ Console super-admin</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+
+// 17i: la console plateforme n appartient à AUCUN club (même ebpc). Tout passe par /api/super/*
+// (clubs, tous les comptes, base complète, rôles plateforme), qui ignore le contexte club stocké.
+// Pour agir DANS un club (support/debug): le sélecteur du bas ouvre son admin avec X-Club explicite.
+const clubApi = (path, slug, opts = {}) => adminApi(path, { ...opts, headers: adminHeaders({ 'X-Club': slug }) });
+
+async function charger() {
+  main.innerHTML = '';
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
+  try {
+    const scan = await adminApi('/api/super/scan');
+    if (!scan || scan.super_admin !== true) throw Object.assign(new Error('zone refusée'), { status: 403 });
+  } catch (e) {
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + (e.status === 403
+      ? 'Console réservée au super-admin de la plateforme : code global ou compte super-admin. Un code de club ou une session de club n y a jamais accès.'
+      : e.message))));
+    return;
+  }
+  try {
+    const { clubs } = await adminApi('/api/super/clubs');
+    render(clubs);
+    chargerComptes();
+    if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(main);
+  } catch (e) {
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + e.message)));
+  }
+}
+
+async function sectionRoles(slug) {
+  const zone = document.getElementById('roles-' + slug);
+  if (zone) { zone.remove(); return; }
+  const p = el('div', { id: 'roles-' + slug, class: 'panel', style: 'margin-top:8px' });
+  main.append(p);
+  try {
+    const { comptes } = await clubApi('/api/admin/club/comptes', slug);
+    p.append(el('h2', {}, `Rôles du club « ${slug} »`));
+    if (!comptes.length) p.append(el('p', { class: 'muted' }, 'Aucun compte rattaché.'));
+    for (const x of comptes) {
+      p.append(el('div', { class: 'row', style: 'align-items:center;gap:8px;margin:4px 0;flex-wrap:wrap' },
+        el('strong', {}, x.pseudo),
+        el('span', { class: 'muted' }, ' · ' + (x.role === 'operateur' ? 'Opérateur' : 'Administrateur')),
+        el('button', { class: 'secondary', style: 'padding:4px 10px;font-size:13px', onclick: async () => {
+          try {
+            await adminApiDestructif('/api/admin/club/compte', { method: 'DELETE', headers: adminHeaders({ 'X-Club': slug }), body: JSON.stringify({ compte_id: x.compte_id }) }, `retirer le rôle de ${x.pseudo}`);
+            charger().then(() => sectionRoles(slug));
+          } catch (e) { alert(e.message); }
+        } }, 'Retirer')));
+    }
+    const addPseudo = el('input', { placeholder: 'Pseudo du compte', maxlength: 24, style: 'width:180px' });
+    const addRole = el('select', {}, el('option', { value: 'admin' }, 'Administrateur'), el('option', { value: 'operateur' }, 'Opérateur'));
+    p.append(el('div', { class: 'row', style: 'flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px' },
+      el('span', {}, 'Attribuer :'), addPseudo, addRole,
+      el('button', { onclick: async () => {
+        if (!addPseudo.value.trim()) { alert('Pseudo requis.'); return; }
+        try {
+          await clubApi('/api/admin/club/compte', slug, { method: 'PUT', body: JSON.stringify({ pseudo: addPseudo.value.trim(), role: addRole.value }) });
+          charger().then(() => sectionRoles(slug));
+        } catch (e) { alert(e.message); }
+      } }, '➕ Ajouter')));
+    if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(p);
+  } catch (e) { p.append(el('p', { class: 'muted' }, e.message)); }
+}
+
+// 17h/17i: vue « tous les comptes de la plateforme » + rôles plateforme (user / admin / super_admin)
+async function chargerComptes() {
+  const p = document.getElementById('comptes-tous');
+  if (!p) return;
+  try {
+    const rep = await adminApi('/api/super/comptes');
+    const rows = (rep && rep.comptes) || [];
+    p.innerHTML = '';
+    p.append(el('h2', {}, '👥 Comptes de la plateforme'),
+      el('p', { class: 'muted small' }, 'Tous clubs confondus. Le rôle plateforme (🛡️ super_admin = accès console, 👑 admin = ancien rôle plateforme) se règle ici ; la page Comptes d un club reste cloisonnée à son club.'));
+    if (rows.length === 0) { p.append(el('p', { class: 'muted' }, 'Aucun compte.')); return; }
+    const entetes = ['Pseudo', 'Club', 'Rôle plateforme', 'Rôles club', 'Dernière connexion', 'Action'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h));
+    const corps = rows.map(c => {
+      const sel = el('select', { style: 'padding:3px 6px' },
+        el('option', { value: 'user', selected: (c.role || 'user') === 'user' ? true : null }, 'user'),
+        el('option', { value: 'admin', selected: c.role === 'admin' ? true : null }, '👑 admin (legacy)'),
+        el('option', { value: 'super_admin', selected: c.role === 'super_admin' ? true : null }, '🛡️ super_admin'));
+      return el('tr', { style: 'border-top:1px solid var(--line)' },
+        el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo,
+          el('span', { class: 'muted small', style: 'margin-left:5px' }, '#' + c.id)),
+        el('td', { style: 'padding:6px 8px' }, c.club_slug || '—'),
+        el('td', { style: 'padding:6px 8px' }, c.role === 'super_admin' ? '🛡️ super-admin' : (c.role === 'admin' ? '👑 admin' : 'user'), sel),
+        el('td', { style: 'padding:6px 8px' }, c.roles_clubs || '—'),
+        el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.last_login_at ? String(c.last_login_at).slice(0, 16).replace('T', ' ') : 'jamais'),
+        el('td', { style: 'padding:6px 8px' },
+          el('button', { class: 'secondary', style: 'padding:4px 10px;font-size:13px', onclick: async () => {
+            try { await adminApi(`/api/super/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: sel.value }) }); chargerComptes(); }
+            catch (e) { alert(e.message); }
+          } }, '⚙️ Appliquer')));
+    });
+    p.append(el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' },
+      el('thead', {}, el('tr', {}, entetes)), el('tbody', {}, corps))));
+    if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(p);
+  } catch (e) { p.append(el('p', { class: 'muted' }, e.message)); }
+}
+
+// 17i: gestion des clubs DEPUIS la console (routes /api/super/*: aucun club du contexte)
+function rowClub(c, estDefaut) {
+  return el('tr', { style: 'border-top:1px solid var(--line)' },
+    el('td', { style: 'padding:6px 8px' }, el('strong', {}, c.nom), el('div', { class: 'muted', style: 'font-size:12px' }, c.slug)),
+    el('td', { style: 'padding:6px 8px' }, c.actif ? '✅ Actif' : '⛔ Inactif'),
+    el('td', { style: 'padding:6px 8px' }, c.pin_propre ? '🔒 oui' : 'non (code global)'),
+    el('td', { style: 'padding:6px 8px' }, String(c.nb_comptes || 0)),
+    el('td', { style: 'padding:6px 8px;white-space:nowrap' }, String(c.created_at || '').slice(0, 10)),
+    el('td', { style: 'padding:6px 8px;white-space:nowrap' },
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', onclick: async () => {
+        const nom = prompt(`Nouveau nom du club « ${c.nom} » :`);
+        if (!nom || !nom.trim()) return;
+        try { await adminApi('/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug, nom: nom.trim(), confirm_pin: adminPin }) }); charger(); }
+        catch (e) { alert(e.message); }
+      } }, '✏️ Renommer'),
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', onclick: async () => {
+        const pin = prompt(`Nouveau code PIN du club « ${c.nom} » (4 à 8 chiffres) :`);
+        if (!pin || !pin.trim()) return;
+        try { await adminApi('/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug, pin: pin.trim(), confirm_pin: adminPin }) }); charger(); }
+        catch (e) { alert(e.message); }
+      } }, '🔒 Code PIN'),
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', onclick: async () => {
+        try { await adminApi('/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug, actif: !c.actif, confirm_pin: adminPin }) }); charger(); }
+        catch (e) { alert(e.message); }
+      } }, c.actif ? '⛔ Désactiver' : '✅ Activer'),
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px', onclick: () => sectionRoles(c.slug) }, '👥 Rôles'),
+      ...(estDefaut ? [el('span', { class: 'muted small', style: 'margin-left:6px' }, '⏳ club par défaut protégé')] : [el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px;margin-left:6px', onclick: async () => {
+        try {
+          await adminApiDestructif('/api/super/club', { method: 'DELETE', body: JSON.stringify({ slug: c.slug }) }, `supprimer définitivement le club « ${c.nom} » (rôles purgés)`);
+          charger();
+        } catch (e) { alert(e.message); }
+      } }, 'Supprimer')])));
+}
+
+function panelContexteClub(clubs) {
+  // 17i: accès support/debug à l admin d un club précis (contexte explicite, X-Club)
+  const sel = el('select', { style: 'max-width:280px' }, ...clubs.map(c => el('option', { value: c.slug }, `${c.nom} (${c.slug})`)));
+  return el('div', { class: 'panel', style: 'margin-top:12px' },
+    el('h2', {}, '🚪 Accès aux pages d un club (support)'),
+    el('p', { class: 'muted small' }, 'La console est hors des clubs ; pour intervenir dans un club précis, ouvre son admin dans le contexte explicite de ce club.'),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, sel,
+      el('button', { onclick: () => {
+        if (!sel.value) return;
+        try { localStorage.setItem(CLUB_KEY, sel.value); } catch (e) {}
+        location.href = '/admin.html';
+      } }, '🚪 Ouvrir l admin de ce club'),
+      el('button', { class: 'secondary', onclick: () => {
+        try { localStorage.removeItem(CLUB_KEY); } catch (e) {}
+        location.href = '/admin.html';
+      } }, '↩️ Admin du club par défaut')));
+}
+
+// 17d/17i: sauvegarde complète de la base, DEPUIS la console uniquement (routes /api/super/base/*)
+function panelBase() {
+  const inp = el('input', { type: 'file', accept: '.json,application/json', style: 'display:none' });
+  inp.addEventListener('change', () => restaurerBase(inp.files && inp.files[0]));
+  return el('div', { class: 'panel', style: 'margin-top:12px' },
+    el('h2', {}, '💾 Base complète de la plateforme : sauvegarde / restauration'),
+    el('p', { class: 'muted small' }, 'Exporte TOUTE la base (tous les clubs, tournois, comptes, matchs, journal) en un fichier JSON, ou restaure la base depuis un fichier. Réservé à la console super-admin. La restauration REMPLACE tout le contenu actuel. Les sauvegardes de club restent dans la page Données de chaque club.'),
+    el('div', { class: 'row', style: 'flex-wrap:wrap' },
+      el('button', { onclick: exporterBase }, '⬇️ Télécharger la sauvegarde (JSON)'),
+      el('button', { class: 'secondary', style: 'margin-left:8px', onclick: () => inp.click() }, '⬆️ Restaurer depuis un fichier…'),
+      inp));
+}
+
+async function exporterBase() {
+  try {
+    const res = await fetch('/api/super/base/export', { headers: adminHeaders() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || ('Erreur ' + res.status)), { status: res.status });
+    const cd = res.headers.get('content-disposition') || '';
+    const nomFichier = (cd.match(/filename="?([^";]+)"?/) || [])[1] || 'base-ebpc.json';
+    const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+    const a = el('a', { href: URL.createObjectURL(blob), download: nomFichier });
+    a.click(); URL.revokeObjectURL(a.href);
+    alert('✅ Sauvegarde téléchargée (' + nomFichier + '). Conserve ce fichier en lieu sûr.');
+  } catch (e) { alert('Export impossible : ' + e.message); }
+}
+
+async function restaurerBase(fichier) {
+  if (!fichier) return;
+  try {
+    const payload = JSON.parse(await fichier.text());
+    if (!confirm('Restaurer "' + fichier.name + '" ? TOUT le contenu actuel de la base sera REMPLACÉ (tous les clubs, tournois, comptes, matchs).')) return;
+    await adminApiDestructif('/api/super/base/import', { method: 'POST', body: JSON.stringify({ payload }) }, 'restaurer toute la base depuis ' + fichier.name);
+    alert('✅ Base restaurée.');
+    location.reload();
+  } catch (e) { alert('Restauration impossible : ' + e.message); }
+}
+
+function render(clubs) {
+  const slugI = el('input', { placeholder: 'slug (2-30 : lettres minuscules, chiffres, tirets)', maxlength: 30, style: 'width:250px' });
+  const nomI = el('input', { placeholder: 'Nom du club', maxlength: 80, style: 'width:220px' });
+  const pinI = el('input', { placeholder: 'Code PIN du club (4 à 8 chiffres, optionnel)', inputmode: 'numeric', maxlength: 8, style: 'width:270px' });
+  const creer = el('button', { onclick: async () => {
+    const slg = slugI.value.trim().toLowerCase();
+    const nom = nomI.value.trim();
+    if (!slg || !nom) { alert('Slug et nom du club requis.'); return; }
+    try {
+      await adminApi('/api/super/club', { method: 'POST', body: JSON.stringify({ slug: slg, nom, pin: pinI.value.trim() || undefined }) });
+      charger();
+    } catch (e) { alert(e.message); }
+  } }, '➕ Créer un club');
+  main.append(el('div', { class: 'panel' }, el('h2', {}, '🏛️ Clubs de la plateforme'), el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' }, slugI, nomI, pinI, creer)));
+  const thead = el('thead', {}, el('tr', {}, ['Club', 'Actif', 'Code PIN propre', 'Comptes rattachés', 'Créé le', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h))));
+  const tbody = el('tbody', {}, ...clubs.map((c, i) => rowClub(c, i === 0)));
+  const table = el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' }, thead, tbody));
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, `${clubs.length} club(s)`),
+    clubs.length === 0 ? el('p', { class: 'muted' }, 'Aucun club.') : table));
+  main.append(panelBase());
+  main.append(el('div', { id: 'comptes-tous', class: 'panel', style: 'margin-top:12px' }, el('p', { class: 'muted' }, 'Chargement…')));
+  main.append(panelContexteClub(clubs));
+}
+
+async function init() {
+  const ok = await adminInit(() => {});
+  if (!ok) { renderAdminLogin(main); return; }
+  await charger();
+}
+init();
+</script>
+</body>
+</html>

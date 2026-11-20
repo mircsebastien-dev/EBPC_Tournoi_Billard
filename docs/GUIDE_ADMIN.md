@@ -96,13 +96,15 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 - **Sélecteur « Club : aucun / 🛠 opérateur / 👑 admin »** en face de chaque compte de votre club dans `/admin-comptes.html`, visible dès que vous pouvez gérer les rôles : **le code PIN de votre club suffit**, ou une session admin du club (ou le code global).
 - **Le code de votre club suffit pour nommer un admin** : choix assumé, c est votre club, votre code ; toute personne qui a le code peut promouvoir (y compris son propre compte une fois connecté). Le nouveau code PIN d un club ne peut rien sur les autres clubs.
 - Un **admin du club** se connecte (pseudo + mdp) et administre le club **sans jamais taper le PIN**, confirmations destructives levées ; un **opérateur** garde les routes admin du club mais ne gère ni les rôles ni les actions destructives (code exigé).
-- Le sélecteur n apparaît que pour les comptes DE votre club (isolation stricte) ; le super-admin de la plateforme conserve l attachement cross-club (staff multi-club) depuis la page Clubs.
+- Le sélecteur n apparaît que pour les comptes DE votre club (isolation stricte) ; le super-admin de la plateforme conserve l attachement cross-club (staff multi-club) depuis la console super-admin.
 - **Retirer un rôle** : sélecteur sur « Club : aucun », confirmation par le code (ou mot de confirmation pour une session admin). Les sessions du compte perdent immédiatement l accès admin du club.
 
-### 9.3 🔎 Vue « tous les clubs » (super-admin, page Clubs)
+### 9.3 🛡️ Console super-admin (`/console.html`) et vue « tous les clubs »
 
 - **La page Comptes est TOUJOURS cloisonnée au club sélectionné** : même avec le code global (super-admin), la liste ne montre que les comptes du club du contexte. Le tenant principal ne voit plus les comptes créés dans les autres clubs.
-- Pour voir **tous les comptes de la plateforme** : page **Clubs** (réservée au super-admin), panneau « 👥 Comptes de la plateforme » : pseudo, club d origine, rôle global, rôles club, dernière connexion.
+- Pour voir **tous les comptes de la plateforme** : 🛡️ **Console super-admin** (`/console.html`, entrée « 🛡️ Console » de l accueil admin ; `clubs.html` redirige vers elle), panneau « 👥 Comptes de la plateforme » : pseudo, club d origine, rôle plateforme, rôles club, dernière connexion — et réglage du rôle plateforme par compte (`user` / `👑 admin` legacy / `🛡️ super_admin`).
+- **La console n appartient à AUCUN club** : routes `/api/super/*` sans contexte de club ; accès par le code global ou un compte `super_admin` (`👑 admin` legacy accepté) ; un code de club ou une session de club y reçoit toujours 401/403, les gestes sensibles demandent le code global en confirmation. Elle regroupe la gestion des clubs (création, PIN, actif, rôles, suppression) et la sauvegarde complète de la base (voir §13).
+- **Accès support** : sélecteur « 🚪 Accès aux pages d un club » pour ouvrir l admin d un club précis dans son contexte explicite (X-Club) ; le club par défaut (ebpc) reste protégé (non supprimable, non désactivable).
 - Un code de club (ou une session de club) ne peut jamais forcer cette vue globale : le paramètre est ignoré côté serveur.
 
 ## 10. Journal d'audit + rollback point-in-time (`/admin-journal.html`)
@@ -159,18 +161,18 @@ node test/purge-unit.js                             # purge auto audit_log/audit
 
 Fly.io : secrets `ADMIN_PIN`, `RESEND_API_KEY`, `MAIL_FROM`, `VAPID_*` (ne JAMAIS définir `BASE_URL`) ; volume `tournoi_data` sur `/data` ; snapshots dans Volumes → Snapshots pour restaurer.
 
-## 13. 💾 Sauvegarde / restauration de la base (`/admin-data.html`)
+## 13. 💾 Sauvegarde / restauration de la base (`/console.html`)
 
-**Où :** panneau « 💾 Base complète : sauvegarde / restauration » en haut de `/admin-data.html` (lien « 🗄 Données »).
+**Où :** panneau « 💾 Base complète de la plateforme » de la 🛡️ **Console super-admin** (`/console.html`). (Ce panneau a déménagé de `/admin-data.html` ; la page Données de chaque club garde uniquement la sauvegarde du club.)
 
 - **Sauvegarder** : bouton « ⬇️ Télécharger la sauvegarde (JSON) » → télécharge un fichier `base-AAAA-MM-JJ-HH-MM-SS.json` contenant TOUTE la base : tous les clubs, tournois (même terminés), joueurs, comptes (hashs, pas de mots de passe en clair), matchs, events, journal d'audit. À conserver en lieu sûr (cloud perso + clé USB par exemple).
 - **Restaurer** : bouton « ⬆️ Restaurer depuis un fichier… » → choisir un fichier JSON d'export → confirmation → la base actuelle est ENTIÈREMENT REMPLACÉE par le contenu du fichier (transaction : tout ou rien, aucune donnée mixée).
-- **Réservé au super-admin** (code administrateur global ou compte admin global) : un code PIN de club reçoit 403, il ne peut ni télécharger ni restaurer la base des autres clubs. La confirmation destructive reste exigée (PIN re-saisi ou mot `SUPPRIMER` en session).
+- **Réservé au super-admin** (code global ou compte super_admin / admin global) : un code PIN ou une session de club reçoit 401/403, il ne peut ni télécharger ni restaurer la base des autres clubs. La confirmation destructive reste exigée (code global re-saisi ou mot `SUPPRIMER` en session).
 - Fréquence conseillée : un export après chaque tournoi terminé, et avant toute opération risquée (migration, gros correctif). C'est le complément des snapshots du volume Fly (infrastructure).
 
 ### 💾 Données du club : sauvegarde / restauration
 
-**Où :** panneau « 💾 Données du club : sauvegarde / restauration » de `/admin-data.html`, visible de tous les admins du club (le panneau « base complète » reste réservé au super-admin, il n est plus affiché aux codes de club).
+**Où :** panneau « 💾 Données du club : sauvegarde / restauration » de `/admin-data.html`, visible de tous les admins du club (la sauvegarde « base complète » vit désormais dans la 🛡️ Console super-admin).
 
 - **Sauvegarder** : bouton « 📤 Télécharger la sauvegarde du club (JSON) » → fichier `club-<slug>-AAAA-MM-JJ-HH-MM-SS.json` contenant UNIQUEMENT les données de votre club (tournois même terminés, joueurs, matchs, events, journal, snapshots). Ni les comptes, ni les emails, ni les données des autres clubs.
 - **Restaurer** : bouton « 📥 Restaurer le club depuis un fichier… » → la restauration REMPLACE les données actuelles du club par le fichier, uniquement si le fichier provient du même club (sinon refus clair, jamais de mélange). Les autres clubs et les comptes ne sont jamais touchés ; transaction intégrale (tout ou rien) + confirmation destructive exigée.

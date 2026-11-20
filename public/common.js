@@ -2944,7 +2944,7 @@ function nav(active) {
     drop.append(el('a', { href: '/amis.html', role: 'menuitem' }, 'Amis'));
     drop.append(el('a', { href: '/mes-matchs.html', role: 'menuitem' }, 'Mes matchs'));
     drop.append(el('a', { href: joueurIdNav ? '/joueur.html?id=' + joueurIdNav : '/compte.html', role: 'menuitem' }, 'Ma fiche joueur'));
-    if (compteNav.role === 'admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, 'Table de marque'));
+    if (compteNav.role === 'admin' || compteNav.role === 'super_admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, 'Table de marque')); // 17i
     drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, 'Se déconnecter'));
   });
   return el('nav', {}, wrap, btnCompte, btnLang);

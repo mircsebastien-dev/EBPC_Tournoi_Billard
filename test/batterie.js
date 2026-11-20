@@ -1006,10 +1006,10 @@ async function nouveauTournoi(body) {
   check('(admin) liste des clubs: nb_comptes retombe à 0 pour clubc après le retrait', r.status === 200 && r.data.clubs.some(c => c.slug === 'clubc' && c.nb_comptes === 0), JSON.stringify(r.data.clubs.map(c => c.slug + ':' + (c.nb_comptes || 0))));
   r = await api('/api/admin/audit', { pin: PIN, club: 'clubc' });
   check('audit de clubc: club_role et club_role_retire journalisés', r.data.audit.some(a => a.action === 'club_role') && r.data.audit.some(a => a.action === 'club_role_retire'), 'nb=' + r.data.audit.length);
-  const clubsHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'clubs.html'), 'utf8');
+  const consHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'console.html'), 'utf8');
   const admHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
   const admCpt17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
-  check('front: page Clubs (création, réglages par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien depuis l accueil admin', clubsHtml17c.includes("clubApi('/api/admin/club/comptes', slug") && clubsHtml17c.includes("'/api/admin/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug") && clubsHtml17c.includes('table-wrap') && admHtml17c.includes("href: '/clubs.html'"), '');
+  check('front: console super-admin (création, réglages club par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien Console depuis l accueil admin (17i)', consHtml17c.includes("clubApi('/api/admin/club/comptes', slug") && consHtml17c.includes("'/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug") && consHtml17c.includes('table-wrap') && admHtml17c.includes("href: '/console.html'"), '');
   check('front: menu Clubs réservé au super-admin (/api/admin/super conditionne le bouton, page Clubs affiche un message si 403)', admHtml17c.includes("/api/admin/super") && admHtml17c.includes("superAdminMenu ? [") && clubsHtml17c.includes('Gestion des clubs réservée au super-admin'), '');
   check('front: bouton 👑 (rôle global) masqué aux sessions de club sur la page Comptes joueurs', admCpt17c.includes("/api/admin/super") && admCpt17c.includes("superAdminComptes ? ["), '');
   // suppression d un club: super-admin uniquement, défaut protégé, refus si des tournois sont rattachés
@@ -1076,12 +1076,12 @@ async function nouveauTournoi(body) {
   E2.tables.joueur.push({ id: 900001, tournoi_id: 999999, pseudo: 'OrphelinFx', statut: 'en_attente', created_at: '2026-01-01 00:00:00' });
   r = await post('/api/admin/base/import', { payload: E2, confirm_pin: PIN });
   check('import base: référence cassée NON déclarée -> 400 (falsification refusée, aucun écriture)', r.status === 400, r.status + ' ' + (r.data.error || ''));
-  const adH17d = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-data.html'), 'utf8');
-  check('front: panneau 💾 sauvegarde base dans admin-data.html (export téléchargeant, import fichier avec confirmation destructible)', adH17d.includes('/api/admin/base/export') && adH17d.includes('/api/admin/base/import') && adH17d.includes('Télécharger la sauvegarde (JSON)') && adH17d.includes('Restaurer depuis un fichier') && adH17d.includes('adminApiDestructif'), '');
+  const consHtml17d = fs.readFileSync(path.join(__dirname, '..', 'public', 'console.html'), 'utf8');
+  check('front: panneau 💾 sauvegarde base dans la console super-admin (export téléchargeant, import fichier avec confirmation destructible, 17i)', consHtml17d.includes('/api/super/base/export') && consHtml17d.includes('/api/super/base/import') && consHtml17d.includes('Télécharger la sauvegarde (JSON)') && consHtml17d.includes('Restaurer depuis un fichier') && consHtml17d.includes('adminApiDestructif'), '');
   const spec17d = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
   const ga17d = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
   const srv17d = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
-  check("doc: SPEC 17d + GUIDE_ADMIN dédié + serveur (requireSuperAdmin sur export/import, limite 25mb sur l'import UNIQUEMENT)", spec17d.includes('17d. Sauvegarde complète de la base') && spec17d.includes('476 checks') && ga17d.includes('Sauvegarde / restauration de la base') && srv17d.includes("app.use('/api/admin/base/import', express.json({ limit: '25mb' }))") && srv17d.includes("app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin") && srv17d.includes("app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuperAdmin"), '');
+  check("doc: SPEC 17d + GUIDE_ADMIN dédié + serveur (requireSuperAdmin sur export/import, limite 25mb sur l'import UNIQUEMENT)", spec17d.includes('17d. Sauvegarde complète de la base') && spec17d.includes('494 checks') && ga17d.includes('Sauvegarde / restauration de la base') && srv17d.includes("app.use('/api/admin/base/import', express.json({ limit: '25mb' }))") && srv17d.includes("app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin") && srv17d.includes("app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuperAdmin"), '');
 
   // ---------- 17e. Sauvegarde des données du club (export/import ciblés: un code de club administre SON club) ----------
   sec('17e. Sauvegarde des données du club (export/import ciblés, code de club)');
@@ -1132,7 +1132,7 @@ async function nouveauTournoi(body) {
   const spec17e = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
   const ga17e = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
   const srv17e = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
-  check('doc: SPEC 17e + GUIDE_ADMIN club + serveur (export-club/import-club SANS requireSuperAdmin: un code de club sauvegarde/restaure SON club, limite 25mb)', spec17e.includes('17e. Sauvegarde des données du club') && spec17e.includes('476 checks') && ga17e.includes('Données du club : sauvegarde / restauration') && srv17e.includes("app.get('/api/admin/base/export-club', requireAdmin") && srv17e.includes("app.post('/api/admin/base/import-club', requireAdmin, requireConfirmPin") && srv17e.includes("app.use('/api/admin/base/import-club', express.json({ limit: '25mb' }))"), '');
+  check('doc: SPEC 17e + GUIDE_ADMIN club + serveur (export-club/import-club SANS requireSuperAdmin: un code de club sauvegarde/restaure SON club, limite 25mb)', spec17e.includes('17e. Sauvegarde des données du club') && spec17e.includes('494 checks') && ga17e.includes('Données du club : sauvegarde / restauration') && srv17e.includes("app.get('/api/admin/base/export-club', requireAdmin") && srv17e.includes("app.post('/api/admin/base/import-club', requireAdmin, requireConfirmPin") && srv17e.includes("app.use('/api/admin/base/import-club', express.json({ limit: '25mb' }))"), '');
 
   // ---------- 17f. Comptes cloisonnés par club (isolation stricte: pseudo et email PAR club) ----------
   sec('17f. Comptes cloisonnés par club (pseudo et email par club, creation seule lie le club)');
@@ -1188,7 +1188,7 @@ async function nouveauTournoi(body) {
   const db17f = fs.readFileSync(path.join(__dirname, '..', 'src', 'db.js'), 'utf8');
   const srv17f = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
   const cpt17f = fs.readFileSync(path.join(__dirname, '..', 'src', 'comptes.js'), 'utf8');
-  check('doc: SPEC 17f + GUIDE_ADMIN + schema db (club_id NOT NULL + unicite PAR club) + serveur/comptes scopés PAR club', spec17f.includes('17f. Comptes cloisonnés par club') && spec17f.includes('476 checks') && ga17f.includes('comptes cloisonnés par club') && db17f.includes('UNIQUE (club_id, pseudo)') && db17f.includes('UNIQUE (club_id, email)') && srv17f.includes('compteAvecPseudo(pseudo, clubId)') && cpt17f.includes('AND club_id = ?'), '');
+  check('doc: SPEC 17f + GUIDE_ADMIN + schema db (club_id NOT NULL + unicite PAR club) + serveur/comptes scopés PAR club', spec17f.includes('17f. Comptes cloisonnés par club') && spec17f.includes('494 checks') && ga17f.includes('comptes cloisonnés par club') && db17f.includes('UNIQUE (club_id, pseudo)') && db17f.includes('UNIQUE (club_id, email)') && srv17f.includes('compteAvecPseudo(pseudo, clubId)') && cpt17f.includes('AND club_id = ?'), '');
 
   // ---------- 17g. Promotion admin du club depuis la table de marque (le PIN du club suffit) ----------
   sec('17g. Promotion admin du club depuis la table de marque (le PIN du club suffit)');
@@ -1242,7 +1242,7 @@ async function nouveauTournoi(body) {
   const ga17g = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
   const srv17g = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
   const adm17g = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
-  check('doc: SPEC 17g + GUIDE_ADMIN + serveur (PIN du club suffit: adminViaPin club, cible DU club, peut_gerer_roles) + front (chips + sélecteur rôle club)', spec17g.includes('17g. Promotion admin du club') && spec17g.includes('476 checks') && ga17g.includes('👑 Rôle club') && srv17g.includes("req.adminViaPin === 'club'") && srv17g.includes('introuvable dans ce club') && srv17g.includes('peut_gerer_roles') && adm17g.includes('👑 Club : admin') && adm17g.includes('role_club'), '');
+  check('doc: SPEC 17g + GUIDE_ADMIN + serveur (PIN du club suffit: adminViaPin club, cible DU club, peut_gerer_roles) + front (chips + sélecteur rôle club)', spec17g.includes('17g. Promotion admin du club') && spec17g.includes('494 checks') && ga17g.includes('👑 Rôle club') && srv17g.includes("req.adminViaPin === 'club'") && srv17g.includes('introuvable dans ce club') && srv17g.includes('peut_gerer_roles') && adm17g.includes('👑 Club : admin') && adm17g.includes('role_club'), '');
 
   // ---------- 17h. Tenant principal: liste des comptes TOUJOURS scopée au club du contexte ----------
   sec('17h. Tenant principal cloisonné: la table de marque ne montre jamais les comptes des autres clubs, même au super-admin');
@@ -1267,8 +1267,68 @@ async function nouveauTournoi(body) {
   check('un code de club NE PEUT PAS forcer la vue tous-clubs (?tous=1 ignoré): liste = clubvm uniquement (DeuxVm présent, AliceBT (club par défaut) absente)', r.status === 200 && r.data.tous === false && r.data.comptes.some(c => c.pseudo === 'DeuxVm') && !r.data.comptes.some(c => c.pseudo === 'AliceBT'), JSON.stringify(r.data.comptes.map(c => c.pseudo)));
   const spec17h = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
   const srv17h = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
-  const clubs17h = fs.readFileSync(path.join(__dirname, '..', 'public', 'clubs.html'), 'utf8');
-  check('doc: SPEC 17h + serveur (scoping inconditionnel + ?tous=1 super-admin dans la page Clubs) + front (panneau tous comptes de la plateforme)', spec17h.includes('17h. Tenant principal cloisonné') && spec17h.includes('476 checks') && srv17h.includes('tous = superAdminSoumis(req) && String(req.query.tous') && clubs17h.includes('/api/admin/comptes?tous=1') && clubs17h.includes('Comptes de la plateforme'), '');
+  const cons17h = fs.readFileSync(path.join(__dirname, '..', 'public', 'console.html'), 'utf8');
+  check('doc: SPEC 17h + serveur (scoping inconditionnel + ?tous=1 super-admin) + front (panneau tous comptes de la plateforme dans la console, 17i)', spec17h.includes('17h. Tenant principal cloisonné') && spec17h.includes('494 checks') && srv17h.includes('tous = superAdminSoumis(req) && String(req.query.tous') && cons17h.includes('/api/super/comptes') && cons17h.includes('Comptes de la plateforme'), '');
+
+  // ---------- 17i. Console super-admin décorrelée des clubs (zone /api/super/*) ----------
+  sec('17i. Console super-admin décorrelée: zone /api/super/* + rôle super_admin dédié (aucun club)');
+  const xhrSuper = (p17i, xff17i, opts = {}) => fetch(BASE + p17i, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': xff17i, ...(opts.club ? { 'X-Club': opts.club } : {}), ...(opts.cookie ? { Cookie: opts.cookie } : {}), ...(opts.pin ? { 'X-Admin-Pin': opts.pin } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  }).then(async r17i2 => ({ status: r17i2.status, data: await r17i2.json().catch(() => ({})) }));
+  r = await api('/api/super/scan', {});
+  check('17i: GET /api/super/scan avec le code global -> 200, super_admin via global', r.status === 200 && r.data.super_admin === true && r.data.via === 'global', r.status + ' ' + JSON.stringify(r.data));
+  let r17i = await xhrSuper('/api/super/scan', '203.0.113.122', { club: 'clubvm', pin: '5678' });
+  check('17i: le PIN de clubvm sur /api/super/scan -> 401 (un code de club n ouvre JAMAIS la zone super)', r17i.status === 401, r17i.status + ' ' + JSON.stringify(r17i.data));
+  // setup: ChefVm re-promu admin de clubvm pour tester qu une SESSION de club n accède pas non plus à la zone super
+  await put('/api/admin/club/compte', { pseudo: 'ChefVm', role: 'admin' }, { pin: '5678', club: 'clubvm' });
+  r17i = await xhr17f('/api/compte/connexion', '203.0.113.124', { club: 'clubvm', body: { pseudo: 'ChefVm', password: '1234' } });
+  const cookieChef17i = (r17i.cookie || '').split(';')[0];
+  r17i = await xhr17f('/api/super/scan', '203.0.113.125', { method: 'GET', club: 'clubvm', cookie: cookieChef17i });
+  check('17i: la SESSION admin du club (ChefVm, sans PIN) sur /api/super/scan -> 403', r17i.status === 403, r17i.status + ' ' + JSON.stringify(r17i.data));
+  r = await api('/api/admin/club/compte', { method: 'DELETE', pin: '5678', club: 'clubvm', body: { compte_id: (await api('/api/admin/club/comptes', { pin: '5678', club: 'clubvm' })).data.comptes.find(c => c.pseudo === 'ChefVm').compte_id, confirm_pin: '5678' } });
+  r = await api('/api/super/clubs', {});
+  check('17i: GET /api/super/clubs (code global) -> 200, tous les clubs (ebpc, clubvm, clubsb) sans contexte de club', r.status === 200 && r.data.clubs.some(c => c.slug === 'ebpc') && r.data.clubs.some(c => c.slug === 'clubvm') && r.data.clubs.some(c => c.slug === 'clubsb'), r.status + ' ' + JSON.stringify((r.data.clubs || []).map(c => c.slug)));
+  r = await api('/api/super/comptes', {});
+  const mb17i = r.data.comptes ? r.data.comptes.find(c => c.pseudo === 'MembreSb') : null;
+  check('17i: GET /api/super/comptes -> 200, vue plateforme: MembreSb (club_slug clubsb) et Seb visibles, tous=true', r.status === 200 && r.data.tous === true && !!mb17i && mb17i.club_slug === 'clubsb' && r.data.comptes.some(c => c.pseudo === 'Seb'), 'n=' + (r.data.comptes || []).length);
+  r = await api('/api/super/base/export', {});
+  check('17i: GET /api/super/base/export (code global) -> 200, payload complet (table club + comptes multi-clubs)', r.status === 200 && r.data.sauvegarde === 'ebpc-tournoi-billard' && !!(r.data.tables && r.data.tables.club) && r.data.tables.compte.some(c => c.pseudo === 'MembreSb'), r.status + ' ' + Object.keys(r.data.tables || {}).length + ' tables');
+  r = await post('/api/super/club', { slug: 'clubsi', nom: 'Console 17i', pin: '2468' });
+  check('17i: POST /api/super/club crée clubsi depuis la zone super -> 200', r.status === 200 && r.data.club && r.data.club.slug === 'clubsi', r.status + ' ' + (r.data.error || ''));
+  r = await put('/api/super/club', { slug: 'clubsi', actif: false, confirm_pin: PIN });
+  check('17i: PUT /api/super/club désactive clubsi avec confirm_pin (code global) -> 200 actif=false', r.status === 200 && r.data.club && r.data.club.actif === false, r.status + ' ' + JSON.stringify(r.data.club || r.data.error || {}));
+  r = await put('/api/super/club', { slug: 'clubsi', actif: true });
+  check('17i: PUT /api/super/club SANS confirm_pin -> 401 (geste sensible: code global exigé)', r.status === 401, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/super/club', { method: 'DELETE', body: { slug: 'clubsi', confirm_pin: PIN } });
+  check('17i: DELETE /api/super/club supprime clubsi (confirm_pin global) -> 200', r.status === 200 && r.data.ok === true, r.status + ' ' + (r.data.error || ''));
+  r = await api('/api/super/clubs', {});
+  check('17i: clubsi bien absent de la liste après suppression (état propre)', r.status === 200 && !r.data.clubs.some(c => c.slug === 'clubsi'), JSON.stringify((r.data.clubs || []).map(c => c.slug)));
+  r = await api('/api/super/comptes', {});
+  const alice17i = r.data.comptes ? r.data.comptes.find(c => c.pseudo === 'AliceBT') : null;
+  check('17i: setup AliceBT retrouvée dans la vue plateforme (rôle admin hérité)', !!alice17i, JSON.stringify(alice17i && alice17i.role));
+  r = await post(`/api/super/compte/${alice17i.id}/role`, { role: 'super_admin' });
+  check('17i: promotion du rôle plateforme super_admin via /api/super (code global) -> 200', r.status === 200 && r.data.role === 'super_admin', r.status + ' ' + JSON.stringify(r.data));
+  const lAlice17i = await login('AliceBT', '1234');
+  r = await apiC('/api/super/scan', lAlice17i.cookie);
+  check('17i: la SESSION du compte super_admin ouvre la zone super (via session) -> 200', r.status === 200 && r.data.super_admin === true && r.data.via === 'session', r.status + ' ' + JSON.stringify(r.data));
+  r = await xhr17f('/api/admin/comptes', '203.0.113.126', { method: 'GET', club: 'clubvm', cookie: lAlice17i.cookie });
+  check('17i: accès support conservé: la session super_admin ouvre l admin D un autre club (X-Club clubvm -> comptes de clubvm, DeuxVm visible, tous=false)', r.status === 200 && r.data.tous === false && r.data.comptes.some(c => c.pseudo === 'DeuxVm'), r.status + ' n=' + (r.data.comptes || []).length);
+  r = await post(`/api/super/compte/${alice17i.id}/role`, { role: 'user' });
+  const rDemote17i = await apiC('/api/super/scan', lAlice17i.cookie);
+  check('17i: démotion en user -> 200 puis la même session est immédiatement refusée (scan 403)', r.status === 200 && rDemote17i.status === 403, JSON.stringify({ demote: r.status, scan: rDemote17i.status }));
+  await post(`/api/super/compte/${alice17i.id}/role`, { role: 'admin' }); // nettoyage: AliceBT retrouve son rôle admin d avant 17i
+  r17i = await xhrSuper(`/api/super/compte/${alice17i.id}/role`, '203.0.113.127', { method: 'POST', club: 'clubvm', pin: '5678', body: { role: 'user' } });
+  check('17i: le PIN de club ne promeut ni ne rétrograde en zone super -> 401', r17i.status === 401, r17i.status + ' ' + JSON.stringify(r17i.data));
+  const spec17i = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
+  const srv17i = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
+  const cons17i = fs.readFileSync(path.join(__dirname, '..', 'public', 'console.html'), 'utf8');
+  const clubsHtml17i = fs.readFileSync(path.join(__dirname, '..', 'public', 'clubs.html'), 'utf8');
+  const adm17i = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
+  const adH17i = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-data.html'), 'utf8');
+  const ga17i = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
+  check('doc: SPEC 17i + serveur (zone /api/super/* sans club, rôle super_admin) + console.html (panneaux clubs/comptes/base) + clubs.html redirigé + menus (Console) + admin-data épuré (base partie dans la console) + GUIDE', spec17i.includes('17i. Console super-admin') && spec17i.includes('494 checks') && srv17i.includes('requireSuperZone') && srv17i.includes("'super_admin'") && cons17i.includes('/api/super/comptes') && cons17i.includes('Comptes de la plateforme') && clubsHtml17i.includes('/console.html') && adm17i.includes("href: '/console.html'") && !adH17i.includes('panelSauvegardeBase') && adH17i.includes('panelSauvegardeClub') && adH17i.includes('Console super-admin') && ga17i.includes('Console super-admin'), '');
 
   // ---------- 18. Rattachement des anciens joueurs anonymes à leur compte ----------
   sec('18. Rattachement compte <-> anciens joueurs anonymes (même pseudo, tournois passés)');
@@ -1601,12 +1661,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('476 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('494 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('476 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('494 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;
@@ -1634,7 +1694,7 @@ async function nouveauTournoi(body) {
   md += `- Rôles (section 16): compte role=admin -> session suffit pour requireAdmin ET confirm_pin (destructif); sinon PIN requis (401 sans), confirm_pin requis sur destructifs; POST /api/admin/compte/:id/role (admin/user, 400 invalide)\n`;
   md += `- Multi-club (section 17): table club + backfill club_id au boot, req.club via X-Club/?club= (404 si slug inconnu, défaut sinon), GET /api/clubs, POST /api/admin/club (200/409/400), tournoi créé dans le club courant, etat/historique/audit/match/joueur scopés par club, isolation cross-club (404: lecture, suppression, saisie) — mono-club = comportement inchangé\n`;
   md += `- Multi-club PIN et réglages (section 17b): PUT /api/admin/club (nom sans confirm / pin 4-8 chiffres avec confirm_pin / actif), club inactif exclu de /api/clubs et 404 à la résolution, réactivation à distance (super-admin: PIN global ou session admin, 403 pour un simple admin de club), GET /api/admin/clubs (pin_propre/actif, jamais de hash), audit club_modifié\n`;
-  md += `- Multi-club comptes et rôles (section 17c): table compte_club, rôles admin (gestion complète du club par session, confirmations levées) et operateur (routes admin ouvertes, confirmations et rôles refusés), attribution/changement/retrait par le super-admin (PUT/DELETE /api/admin/club/compte), GET /api/admin/club/comptes, /api/compte/moi expose role_club, nb_comptes dans GET /api/admin/clubs, page admin /clubs.html (création, réglages, rôles)\n`;
+  md += `- Multi-club comptes et rôles (section 17c): table compte_club, rôles admin (gestion complète du club par session, confirmations levées) et operateur (routes admin ouvertes, confirmations et rôles refusés), attribution/changement/retrait par le super-admin (PUT/DELETE /api/admin/club/compte), GET /api/admin/club/comptes, /api/compte/moi expose role_club, nb_comptes dans GET /api/admin/clubs, console super-admin /console.html (création, réglages, rôles, 17i)\n`;
   md += `- Rattachement compte/joueurs anonymes (section 18): compte créé après un tournoi archivé (sans tournoi actif) rattache quand même les lignes anonymes du même pseudo (tournois passés inclus), fiche joueur + classement conservent les stats\n`;
   md += `- Fil du tournoi (section 20): chronique du tournoi dérivée de l'état (aucun stockage -> cohérente avec les tableaux, rollback et corrections inclus), lignes victoire/forfait/champion/belle, élimination définitive mentionnée uniquement en double KO (LB/F) et fusionnée dans la ligne, 3 dernières lignes + « Voir tout » sur l'accueil, horodatage relatif, dernier tournoi terminé consultable sans tournoi actif (/api/tournois/:id public), phrases i18n dans les 5 langues (clés statiques + règles dynamiques alignées I18N_DYN/REPS_DYN_*)\n`;
   md += `- Variantes, durées et revanche (section 21): phrases variées par hachage déterministe (7 variantes victoires/forfaits/champion/belles, 4 belles sans table, 6 égalités, 7 revanches underdog), durée des matchs finis dans les lignes (· durée 42 min), lignes « revanche » en direct pour les paires déjà croisées (actif.h2h, historique du club complet, underdog « une revanche à prendre », « mène X-Y », égalité), pas de double ligne si à la belle ; traces après fin (suffixes « · après la belle » et « · revanche prise ! / manquée » via h2h antérieur sur les résultats, servies aussi sur /api/tournois/:id sans tournoi actif) ; 43 règles i18n du fil alignées dans les 5 langues (cDyn = 120)\n`;

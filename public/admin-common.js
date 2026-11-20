@@ -17,7 +17,7 @@ const adminCompteP = api('/api/compte/moi').then(() => {
 
 // admin global (role=admin) OU compte rattaché au club courant avec un rôle (multi-club: moi renvoie role_club)
 function estCompteAdmin(c) {
-  return !!(c && (c.role === 'admin' || c.role_club));
+  return !!(c && (c.role === 'admin' || c.role === 'super_admin' || c.role_club)); // 17i: super_admin = compte plateforme
 }
 
 function estSessionAdmin() {
