@@ -36,7 +36,7 @@ Compte → section **Amis** : recherche un pseudo (Entrée) → ➕ Ajouter. Tu 
 Compte → « Mot de passe oublié » → entre ton email → un lien de réinitialisation arrive par mail (valable 1 h) → choisis un nouveau mot de passe.
 
 ## Ton historique
-Compte → « 📊 Ma fiche joueur » : matchs joués/gagnés, %, manches gagnées, run-outs, et l'historique de tous tes matchs (tous tournois). **Un match contre blanc (bye) ne compte ni gagné ni perdu.**
+Compte → « 📊 Ma fiche joueur » : matchs joués/gagnés, %, manches gagnées, run-outs, et l'historique de tous tes matchs (tous tournois — replié aux 5 derniers sur la fiche, dépliable puis paginé par pages de 20). **Un match contre blanc (bye) ne compte ni gagné ni perdu.**
 
 ## Ton compte
 Compte → ton **email est masqué** (affiché partiellement) ; tu peux changer de mot de passe, activer/désactiver les notifications, gérer tes amis, et exporter tes données (RGPD) depuis la page confidentialité.

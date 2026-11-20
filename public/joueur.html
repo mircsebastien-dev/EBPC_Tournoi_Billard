@@ -69,20 +69,48 @@ async function init() {
         btnH2H,
         el('div', { style: 'color:var(--muted);font-size:.85em;margin-top:8px' }, 'Bilan tous tournois confondus.')));
     }
+    // 17m. Historique replié : 5 derniers matchs visibles, le reste plié derrière « Tout voir (N) »
+    // (même mécanique que le face-à-face), puis pagination par pages de 20 matchs (Précédent / Suivant)
     if (h.historique && h.historique.length) {
+      const HIST_MAX = 5; // replié : les 5 derniers matchs seulement
+      const HIST_PAGE = 20; // 17m: pages de 20 matchs en mode déplié
+      const enteteHist = () => el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Tournoi'), el('th', {}, 'Match'), el('th', {}, 'Adversaire'), el('th', {}, 'Score'), el('th', {}, 'Résultat'));
+      const ligneHist = x => el('tr', {},
+        el('td', {}, fmtDateHeureSql(x.date || '')),
+        el('td', {}, x.tournoi + (x.tournoi_statut === 'en_cours' ? ' 🔴' : '')),
+        el('td', { class: 'code-match' }, x.code),
+        el('td', {}, x.adversaire_id ? el('a', { href: `/joueur.html?id=${x.adversaire_id}`, style: 'color:var(--pink-soft)' }, x.adversaire || '—') : '—'),
+        el('td', { style: 'font-weight:800' }, `${x.moi} – ${x.lui}`),
+        el('td', {}, x.victoire
+          ? el('span', { style: 'color:var(--green);font-weight:800' }, `✅ V (${x.gagnant})`)
+          : el('span', { style: 'color:var(--muted)' }, `❌ D${x.forfait ? ' (forfait)' : ''}`)));
+      const nbPagesHist = Math.max(1, Math.ceil(h.historique.length / HIST_PAGE));
+      let toutHist = false;
+      let pageHist = 1;
+      const tblHist = el('table', { class: 'audit' }, enteteHist(), ...h.historique.slice(0, HIST_MAX).map(ligneHist));
+      const majHist = () => {
+        const lignes17m = toutHist ? h.historique.slice((pageHist - 1) * HIST_PAGE, pageHist * HIST_PAGE) : h.historique.slice(0, HIST_MAX);
+        tblHist.replaceChildren(enteteHist(), ...lignes17m.map(ligneHist));
+        btnPrevHist.disabled = pageHist <= 1;
+        btnNextHist.disabled = pageHist >= nbPagesHist;
+        etiquettePageHist.textContent = `Page ${pageHist} / ${nbPagesHist}`;
+      };
+      const btnPrevHist = el('button', { class: 'secondary', onclick: () => { if (pageHist > 1) { pageHist--; majHist(); } } }, '‹ Précédent');
+      const btnNextHist = el('button', { class: 'secondary', onclick: () => { if (pageHist < nbPagesHist) { pageHist++; majHist(); } } }, 'Suivant ›');
+      const etiquettePageHist = el('span', { style: 'color:var(--muted);font-size:.85em' }, `Page ${pageHist} / ${nbPagesHist}`);
+      const zonePagesHist = el('div', { class: 'row', style: 'align-items:center;gap:8px;margin-top:8px;display:none' }, btnPrevHist, etiquettePageHist, btnNextHist);
+      const btnToutHist = h.historique.length > HIST_MAX ? el('button', { class: 'secondary', style: 'margin-top:8px', onclick: () => {
+        toutHist = !toutHist;
+        pageHist = 1;
+        zonePagesHist.style.display = toutHist ? '' : 'none';
+        btnToutHist.textContent = toutHist ? 'Réduire' : `Tout voir (${h.historique.length})`;
+        majHist();
+      } }, `Tout voir (${h.historique.length})`) : null;
       main.append(el('div', { class: 'panel' },
         el('h2', {}, `🧾 Historique (${h.historique.length} matchs)`),
-        el('div', { class: 'table-wrap' }, el('table', { class: 'audit' },
-          el('tr', {}, el('th', {}, 'Date'), el('th', {}, 'Tournoi'), el('th', {}, 'Match'), el('th', {}, 'Adversaire'), el('th', {}, 'Score'), el('th', {}, 'Résultat')),
-          ...h.historique.map(x => el('tr', {},
-            el('td', {}, fmtDateHeureSql(x.date || '')),
-            el('td', {}, x.tournoi + (x.tournoi_statut === 'en_cours' ? ' 🔴' : '')),
-            el('td', { class: 'code-match' }, x.code),
-            el('td', {}, x.adversaire_id ? el('a', { href: `/joueur.html?id=${x.adversaire_id}`, style: 'color:var(--pink-soft)' }, x.adversaire || '—') : '—'),
-            el('td', { style: 'font-weight:800' }, `${x.moi} – ${x.lui}`),
-            el('td', {}, x.victoire
-              ? el('span', { style: 'color:var(--green);font-weight:800' }, `✅ V (${x.gagnant})`)
-              : el('span', { style: 'color:var(--muted)' }, `❌ D${x.forfait ? ' (forfait)' : ''}`))))))));
+        el('div', { class: 'table-wrap' }, tblHist),
+        btnToutHist,
+        zonePagesHist));
     }
   } catch (e) {
     main.append(el('div', { class: 'panel', style: 'text-align:center' }, e.message));
