@@ -23,6 +23,7 @@ let superAdminMenu = false; // menu Console réservé au super-admin (code globa
 const JOURS_PREFS = [[0, 'Dimanche'], [1, 'Lundi'], [2, 'Mardi'], [3, 'Mercredi'], [4, 'Jeudi'], [5, 'Vendredi'], [6, 'Samedi']]; // convention JS: 0 = dimanche
 const LOGOS_PRESETS = ['bille-noire', 'bille-8', 'queue', 'triangle', 'table', 'etoile', 'bouclier', 'couronne', 'flamme', 'cercle']; // 17k: bibliothèque mixte billard + écussons
 let logoChoisi17k = ''; // '' = aucun logo; soit /logos/<prédéfini>.svg soit une data:image importée
+let logoImporte17k = ''; // 17k v8: data URL du dernier logo importé (vignette sélectionnable dans la galerie, enregistrée seulement au clic sur Enregistrer)
 let logoMode17k = 'les-deux'; // entete / filigrane / les-deux (switch d affichage)
 
 // 17j. Personnalisation du club : couleur d accent + défauts de tournoi (nom, jour récurrent, heure)
@@ -36,12 +37,15 @@ async function chargerPrefsApparence() {
     document.getElementById('pref-jour').value = p.defaut_jour == null ? '' : String(p.defaut_jour);
     document.getElementById('pref-heure').value = p.defaut_heure || '20:00';
     logoChoisi17k = (p && typeof p.logo === 'string') ? p.logo : '';
+    logoImporte17k = logoChoisi17k.startsWith('data:image/') ? logoChoisi17k : ''; // 17k v8: un logo sauvegardé en data URL redevient la vignette importée
     logoMode17k = (p && (p.logo_mode === 'entete' || p.logo_mode === 'filigrane' || p.logo_mode === 'les-deux')) ? p.logo_mode : 'les-deux';
     rafraichirLogoPrefs(); // sélection + aperçu immédiat (filigrane et logo d en-tête sur CETTE page)
   } catch (e) {}
 }
 // 17k: marque le prédéfini sélectionné (ou aucun) et applique l aperçu immédiat
 function rafraichirLogoPrefs() {
+  const ti17k = document.getElementById('pref-logo-importe'); // 17k v8: vignette importée synchronisée avant le tour de sélection
+  if (ti17k) { ti17k.dataset.logo = logoImporte17k || ''; ti17k.src = logoImporte17k || ''; ti17k.style.display = logoImporte17k ? '' : 'none'; }
   const galerie = document.getElementById('pref-logo-galerie');
   if (galerie) for (const b of galerie.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logoChoisi17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
   const modes = document.getElementById('pref-logo-mode');
@@ -62,7 +66,7 @@ function importerLogo17k(input) {
     input.value = '';
   };
   if (f.size > 8 * 1024 * 1024) return refusLogo(t('Cause : fichier plus lourd que la limite de 8 Mo.')); // 17k v5 cause explicite ; photo jusqu à 8 Mo puis réduction: photo acceptée jusqu à 8 Mo, réduite ensuite à 256 px
-  const poser = (uri) => { logoChoisi17k = uri; rafraichirLogoPrefs(); };
+  const poser = (uri) => { logoImporte17k = uri; logoChoisi17k = uri; rafraichirLogoPrefs(); }; // 17k v8: l import sélectionne ET expose la vignette importée
   if (f.type === 'image/svg+xml' || /\.svg$/i.test(f.name)) {
     f.text().then((txt) => {
       if (!txt || !txt.includes('<svg')) return refusLogo(t('Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.'));
@@ -146,6 +150,7 @@ function render() {
       el('p', { class: 'muted small', style: 'margin:4px 0' }, t('Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.')),
       el('div', { id: 'pref-logo-galerie', class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center' },
         ...LOGOS_PRESETS.map((cle) => el('img', { src: '/logos/' + cle + '.svg', alt: cle, title: cle, 'data-logo': '/logos/' + cle + '.svg', style: 'width:44px;height:44px;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent', onclick: () => { logoChoisi17k = '/logos/' + cle + '.svg'; rafraichirLogoPrefs(); } })),
+        el('img', { id: 'pref-logo-importe', alt: t('Logo importé'), title: t('Logo importé'), style: 'width:44px;height:44px;object-fit:contain;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent;display:none', onclick: () => { if (logoImporte17k) { logoChoisi17k = logoImporte17k; rafraichirLogoPrefs(); } } }), // 17k v8: le logo importé devient une vignette sélectionnable au même titre que les prédéfinis
         el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logoChoisi17k = ''; rafraichirLogoPrefs(); } }, t('Aucun logo'))),
       el('div', { style: 'margin-top:8px' }, el('label', {}, t('Importer une image (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 256 px)')),
         el('input', { id: 'pref-logo-import', type: 'file', accept: 'image/*' })),
