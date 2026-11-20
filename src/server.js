@@ -22,6 +22,8 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'");
   next();
 });
+// limite élargie UNIQUEMENT pour la restauration de TOUTE la base (une sauvegarde complète peut dépasser 256ko)
+app.use('/api/admin/base/import', express.json({ limit: '25mb' }));
 app.use(express.json({ limit: '256kb' })); // body > 256ko -> 413 (géré par le middleware d'erreur)
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
@@ -1355,6 +1357,60 @@ app.delete('/api/admin/club/compte', requireAdmin, requireRoleClub, requireConfi
   if (!info.changes) return res.status(404).json({ error: 'Ce compte n a pas de rôle sur ce club' });
   logAuditReq(req, 'club_role_retire', `club ${req.club.slug} : compte ${compteId}`, null, null);
   res.json({ ok: true });
+});
+
+// ---------- Sauvegarde / restauration de TOUTE la base (super-admin: code global ou compte admin global) ----------
+// Un code de club administre SON club : il n'a pas à exporter/importer la base entière de la plateforme.
+function tablesBase() { // toutes les tables du schéma (hors tables internes sqlite_*), ordre stable
+  return db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r => r.name);
+}
+
+// Sauvegarde complète: TOUTES les tables, TOUTES les lignes, ids exacts -> fichier JSON téléchargeable
+app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin, (req, res) => {
+  const tables = {};
+  for (const t of tablesBase()) tables[t] = db.prepare(`SELECT * FROM ${t}`).all();
+  const lignes = Object.values(tables).reduce((n, rows) => n + rows.length, 0);
+  const payload = { sauvegarde: 'ebpc-tournoi-billard', version: 1, genere_le: new Date().toISOString(), tables };
+  logAuditReq(req, 'export_base', `${Object.keys(tables).length} tables / ${lignes} lignes`, null, { format: 1 });
+  res.setHeader('Content-Disposition', `attachment; filename="base-${payload.genere_le.slice(0, 19).replace(/[:T]/g, '-')}.json"`);
+  res.json(payload);
+});
+
+// Restauration complète: REMPLACE tout le contenu actuel par la sauvegarde, dans UNE transaction (tout ou rien, FK différées, ids préservés)
+app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuperAdmin, (req, res) => {
+  const p = req.body && req.body.payload && typeof req.body.payload === 'object' ? req.body.payload : req.body;
+  const err400 = (m) => res.status(400).json({ error: m });
+  if (!p || typeof p !== 'object' || Array.isArray(p) || p.sauvegarde !== 'ebpc-tournoi-billard' ||
+      !p.tables || typeof p.tables !== 'object' || Array.isArray(p.tables)) return err400("Sauvegarde invalide (format: attend un export de /api/admin/base/export)");
+  const connues = tablesBase();
+  const cols = {}; for (const t of connues) cols[t] = new Set(db.prepare(`PRAGMA table_info(${t})`).all().map(c => c.name));
+  const lignes = [];
+  for (const nom of Object.keys(p.tables)) {
+    if (!cols[nom]) return err400(`Sauvegarde invalide (table inconnue: ${nom})`);
+    if (!Array.isArray(p.tables[nom])) return err400(`Sauvegarde invalide (${nom} doit être un tableau)`);
+    for (const row of p.tables[nom]) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) return err400(`Sauvegarde invalide (${nom}: ligne invalide)`);
+      for (const c of Object.keys(row)) if (!cols[nom].has(c)) return err400(`Sauvegarde invalide (${nom}: colonne inconnue ${c})`);
+      lignes.push([nom, row]);
+    }
+  }
+  const avant = {}; for (const t of connues) avant[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
+  const tx = db.transaction(() => {
+    db.pragma('defer_foreign_keys = ON');
+    for (const t of connues) db.prepare(`DELETE FROM ${t}`).run();
+    for (const [nom, row] of lignes) {
+      const cles = Object.keys(row);
+      if (!cles.length) continue;
+      db.prepare(`INSERT INTO ${nom} (${cles.map(c => `"${c}"`).join(', ')}) VALUES (${cles.map(() => '?').join(', ')})`).run(...cles.map(c => row[c]));
+    }
+    const vios = db.prepare('PRAGMA foreign_key_check').all();
+    if (vios.length) { const e = new Error('Sauvegarde invalide: références cassées: ' + vios.slice(0, 5).map(v => `${v.table}#${v.rowid} -> ${v.parent}`).join(', ')); e.status = 400; throw e; }
+  });
+  tx(); // n'importe quelle erreur -> rollback intégral, la base actuelle reste intacte
+  const apres = {}; for (const t of connues) apres[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
+  logAuditReq(req, 'import_base', `${lignes.length} lignes restaurées sur ${connues.length} tables`, { tables: avant }, { tables: apres });
+  majEtBroadcast();
+  res.json({ ok: true, tables: apres, ...etatGlobal(req) });
 });
 
 // Rollback point-in-time : restaure le tournoi actif à l'état du snapshot d'un événement d'audit

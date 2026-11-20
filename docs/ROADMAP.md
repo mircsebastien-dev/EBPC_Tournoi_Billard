@@ -74,6 +74,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 |---|---|---|---|
 | 32 | **App de test `ebpc-tournoi-billard-test` déployée automatiquement à chaque push sur la branche `staging`** (après CI verte) : `fly.test.toml` + job `deploy-test`, volume `tournoi_data` séparé (restaurable depuis un snapshot prod), secrets propres, PIN différent ; notice et saut tant que `FLY_TEST_TOKEN` ou l'app manquent | S-M | ✅ fait |
 | 33 | **Flux à deux branches** : `staging` → app de test (auto via CI), `main` → prod (auto via l'intégration GitHub de Fly, conservée) ; mise en prod = fusion `staging` → `main` une fois validé sur le test ; workflow manuel « Déployer prod » conservé en plan B ; voir `docs/GUIDE_DEPLOY.md` | S | ✅ fait |
+| 38 | **Sauvegarde / restauration de TOUTE la base depuis l'admin** : `GET /api/admin/base/export` télécharge un JSON complet (toutes les tables, ids exacts), `POST /api/admin/base/import` restaure à l'identique dans une transaction intégrale (FK différées, rollback si erreur) ; réservé au super-admin (403 pour un code de club) ; panneau 💾 dans `/admin-data.html` — complément des snapshots de volume Fly, voir `docs/GUIDE_ADMIN.md` | S | ✅ fait |
 
 ## 🏛️ Plateforme / centralisation (cap confirmé)
 
