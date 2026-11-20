@@ -1526,7 +1526,10 @@ app.post('/api/admin/base/import-club', requireAdmin, requireConfirmPin, (req, r
         audit_log: 'DELETE FROM audit_log WHERE club_id = ?',
         tournoi: 'DELETE FROM tournoi WHERE club_id = ?',
       };
-      for (const nom of connues) db.prepare(SUPPR[nom]).run(req.club.id);
+      // ordre enfants d'abord, tournoi en DERNIER: les suppressions ciblent les tournois du club par sous-requête,
+      // le tournoi doit donc encore exister quand on purge ses lignes filles.
+      const ORDRE_SUPPR = ['match_event', 'match', 'table_billard', 'distance_round', 'joueur', 'audit_snapshot', 'audit_log', 'tournoi'];
+      for (const nom of ORDRE_SUPPR) db.prepare(SUPPR[nom]).run(req.club.id);
       for (const [nom, row] of lignes) {
         const cles = Object.keys(row);
         if (!cles.length) continue;
