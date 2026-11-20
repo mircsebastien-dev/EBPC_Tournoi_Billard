@@ -44,7 +44,15 @@ function appliquerAccentClub(hex) {
     const clair = document.documentElement.dataset.theme === 'light';
     const sPct = Math.round(Math.min(1, Math.max(0, s)) * 100);
     const lPct = clair ? Math.round(Math.min(l, 0.50) * 100) : Math.round(Math.max(l, 0.66) * 100);
+    // --pink-fort (17j v5, retour Sébastien « accent blanc ») : l accent comme FOND à texte blanc
+    // (boutons, interrupteurs, badges actifs, surbrillances). Un accent trop clair (blanc, pastel)
+    // rend le texte blanc invisible -> luminosité plafonnée à 45 %, teinte et saturation conservées,
+    // identique aux deux thèmes (le texte des boutons est blanc dans les deux). --pink reste la teinte
+    // brute pour les bordures et le décor, --pink-soft reste la teinte de TEXTE lisible.
+    const lFond = Math.min(l, 0.45);
+    const pinkFond = lFond === l ? hex : `hsl(${Math.round(h)}, ${sPct}%, ${Math.round(lFond * 100)}%)`;
     document.documentElement.style.setProperty('--pink', hex);
+    document.documentElement.style.setProperty('--pink-fort', pinkFond);
     document.documentElement.style.setProperty('--pink-soft', `hsl(${Math.round(h)}, ${sPct}%, ${lPct}%)`);
     document.documentElement.style.setProperty('--pink-glow', `rgba(${r}, ${g}, ${b}, 0.22)`);
   } catch {}

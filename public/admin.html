@@ -43,9 +43,9 @@ async function chargerPrefsApparence() {
 // 17k: marque le prédéfini sélectionné (ou aucun) et applique l aperçu immédiat
 function rafraichirLogoPrefs() {
   const galerie = document.getElementById('pref-logo-galerie');
-  if (galerie) for (const b of galerie.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logoChoisi17k) ? '3px solid var(--pink)' : '3px solid transparent';
+  if (galerie) for (const b of galerie.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logoChoisi17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
   const modes = document.getElementById('pref-logo-mode');
-  if (modes) for (const b of modes.children) b.style.outline = (b.dataset.mode === logoMode17k) ? '3px solid var(--pink)' : '3px solid transparent';
+  if (modes) for (const b of modes.children) b.style.outline = (b.dataset.mode === logoMode17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
   const imp = document.getElementById('pref-logo-import');
   if (imp) imp.value = '';
   if (typeof appliquerLogoClub === 'function') appliquerLogoClub(logoChoisi17k, logoMode17k); // filigrane + petit logo d en-tête

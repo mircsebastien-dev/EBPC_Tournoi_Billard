@@ -205,8 +205,8 @@ function panelPersonnalisation(clubs) {
     el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logo17k = ''; marquerLogo17k(); } }, 'Aucun logo'));
   const importI = el('input', { id: 'pref-logo-import-console', type: 'file', accept: 'image/png,image/jpeg,image/svg+xml' });
   const marquerLogo17k = () => {
-    for (const b of galerie17k.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logo17k) ? '3px solid var(--pink)' : '3px solid transparent';
-    for (const b of modes17k.children) b.style.outline = (b.dataset.mode === mode17k) ? '3px solid var(--pink)' : '3px solid transparent';
+    for (const b of galerie17k.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logo17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
+    for (const b of modes17k.children) b.style.outline = (b.dataset.mode === mode17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
     importI.value = '';
   };
   const refusLogo17k = () => { alert('Logo trop volumineux ou format non supporté (300 Ko max, PNG/JPG/SVG)'); importI.value = ''; };
