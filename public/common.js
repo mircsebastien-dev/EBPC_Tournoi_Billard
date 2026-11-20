@@ -87,6 +87,19 @@ function rafraichirThemeClub() {
       if (!localStorage.getItem(CLUB_KEY)) stockeL._defaut = stockeL[th.slug];
       localStorage.setItem(LOGO_KEY, JSON.stringify(stockeL));
       appliquerLogoClub(th.logo, th.logo_mode);
+      // 17o. Icône du club sur l écran du téléphone : manifeste et apple-touch-icon du club courant
+      // (nom, couleur et icône de l app installée ; posés ici pour toutes les pages, replis gérés par le serveur)
+      try {
+        const q17o = th.slug ? '?club=' + encodeURIComponent(th.slug) : '';
+        let mf17o = document.querySelector('link[rel="manifest"]');
+        if (!mf17o) { mf17o = document.createElement('link'); mf17o.rel = 'manifest'; document.head.append(mf17o); mf17o.href = '/manifest.webmanifest'; }
+        if (mf17o.getAttribute('href') !== '/manifest.webmanifest' + q17o) mf17o.href = '/manifest.webmanifest' + q17o; // garde le club dans start_url à l installation
+        let at17o = document.querySelector('link[rel="apple-touch-icon"]');
+        if (!at17o) { at17o = document.createElement('link'); at17o.rel = 'apple-touch-icon'; document.head.append(at17o); at17o.href = '/apple-touch-icon.png'; }
+        if (at17o.getAttribute('href') !== '/api/club-icone' + q17o) at17o.href = '/api/club-icone' + q17o; // icône du club, repli générique côté serveur
+        const mt17o = document.querySelector('meta[name="theme-color"]');
+        if (mt17o && mt17o.content !== th.accent) mt17o.content = th.accent; // 17o: barre d état du téléphone aux couleurs du club
+      } catch {}
     }).catch(() => {});
   } catch {}
 }
@@ -765,6 +778,8 @@ const I18N = {
   "Contact (page Le club, 200 caractères max)": "Contact (Club page, 200 characters max)",
   "Image refusée": "Image rejected",
   "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Cause: the reduced image still exceeds the maximum size, pick a simpler image.",
+  "Icône du téléphone": "Phone icon",
+  "Le logo devient l app des téléphones (icône 192 px, effective aux prochaines installations).": "The logo becomes the phone app (192 px icon, applied to future installs).",
 };
 const I18N_DYN = [
   [/^Erreur (\d+)$/, "Error $1"],
@@ -1499,6 +1514,8 @@ const I18N_ES = {
   "Contact (page Le club, 200 caractères max)": "Contacto (página El club, 200 caracteres máximo)",
   "Image refusée": "Imagen rechazada",
   "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Causa: la imagen reducida todavía supera el tamaño máximo, elige una imagen más simple.",
+  "Icône du téléphone": "Icono del teléfono",
+  "Le logo devient l app des téléphones (icône 192 px, effective aux prochaines installations).": "El logo se convierte en la app del teléfono (icono de 192 px, aplicada en futuras instalaciones).",
 };
 // remplacements dynamiques ES : meme ordre que les regex de I18N_DYN
 const REPS_DYN_ES = [
@@ -2234,6 +2251,8 @@ const I18N_IT = {
   "Contact (page Le club, 200 caractères max)": "Contatto (pagina Il club, 200 caratteri al massimo)",
   "Image refusée": "Immagine rifiutata",
   "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Causa: l immagine ridotta supera ancora le dimensioni massime, scegli un immagine più semplice.",
+  "Icône du téléphone": "Icona del telefono",
+  "Le logo devient l app des téléphones (icône 192 px, effective aux prochaines installations).": "Il logo diventa l app del telefono (icona 192 px, applicata alle prossime installazioni).",
 };
 // remplacements dynamiques IT : meme ordre que les regex de I18N_DYN
 const REPS_DYN_IT = [
@@ -2969,6 +2988,8 @@ const I18N_DE = {
   "Contact (page Le club, 200 caractères max)": "Kontakt (Club-Seite, max. 200 Zeichen)",
   "Image refusée": "Bild abgelehnt",
   "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Ursache: das verkleinerte Bild überschreitet immer noch die Maximalgröße, wähle ein einfacheres Bild.",
+  "Icône du téléphone": "Telefonsymbol",
+  "Le logo devient l app des téléphones (icône 192 px, effective aux prochaines installations).": "Das Logo wird zur Handy-App (192-Px-Symbol, wirksam bei künftigen Installationen).",
 };
 // remplacements dynamiques DE : meme ordre que les regex de I18N_DYN
 const REPS_DYN_DE = [

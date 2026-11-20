@@ -149,8 +149,34 @@ function importerPhoto17n(input, cible) {
   imgL.onerror = () => refusPhoto(t('Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).'));
   imgL.src = URL.createObjectURL(f);
 }
+// 17o: génère l icône PNG 192 px de « Ajouter à l écran d accueil » : le logo redessiné sur fond de la couleur d accent.
+// Conversion AUTOMATIQUE (Android n affiche pas les icônes SVG d un manifeste) ; tout échec (SVG indécodable, canvas
+// indisponible) donne '' -> le serveur replie sur le logo raster puis l icône générique de l app.
+function genererIconeClub17o(logoChemin, fond) {
+  return new Promise((resoudre) => {
+    if (!logoChemin) return resoudre('');
+    const img17o = new Image();
+    img17o.onload = () => {
+      try {
+        const c17o = document.createElement('canvas');
+        c17o.width = 192; c17o.height = 192;
+        const ctx17o = c17o.getContext('2d');
+        ctx17o.fillStyle = /^#[0-9a-fA-F]{6}$/.test(String(fond || '')) ? String(fond) : '#d6336c';
+        ctx17o.fillRect(0, 0, 192, 192);
+        const l17o = Math.max(img17o.naturalWidth || 192, 1), h17o = Math.max(img17o.naturalHeight || 192, 1);
+        const e17o = Math.min((192 * 0.8) / l17o, (192 * 0.8) / h17o);
+        ctx17o.drawImage(img17o, (192 - l17o * e17o) / 2, (192 - h17o * e17o) / 2, l17o * e17o, h17o * e17o);
+        const uri17o = c17o.toDataURL('image/png');
+        resoudre(uri17o.startsWith('data:image/png;base64,') && uri17o.length <= 200000 ? uri17o : '');
+      } catch (e17o) { resoudre(''); }
+    };
+    img17o.onerror = () => resoudre('');
+    img17o.src = logoChemin;
+  });
+}
 async function enregPrefsApparence() {
   try {
+    const icone17o = await genererIconeClub17o(logoChoisi17k || '', document.getElementById('pref-accent').value); // 17o: PNG 192 px du logo sur fond accent
     const rep = await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({
       accent: document.getElementById('pref-accent').value,
       defaut_nom: document.getElementById('pref-nom').value.trim(),
@@ -163,6 +189,7 @@ async function enregPrefsApparence() {
       tv_fond: fondTv17n, // 17n: '' = décor noir d origine (photo réduite à 1280 px)
       description: document.getElementById('pref-desc-club').value.trim().slice(0, 500), // 17n: présentation de la page Le club
       contact: document.getElementById('pref-contact-club').value.trim().slice(0, 200), // 17n: contact de la page Le club
+      icone: icone17o, // 17o: PNG 192 px pour l écran d accueil du téléphone ('' = repli logo raster puis icône générique)
     })});
     if (rep && rep.prefs && typeof appliquerAccentClub === 'function') appliquerAccentClub(rep.prefs.accent); // aperçu immédiat
     if (rep && rep.prefs && typeof appliquerLogoClub === 'function') { logoChoisi17k = rep.prefs.logo || ''; logoMode17k = rep.prefs.logo_mode || 'les-deux'; appliquerLogoClub(logoChoisi17k, logoMode17k); }
@@ -232,6 +259,9 @@ function render() {
       el('div', { style: 'margin-top:6px' },
         el('label', {}, t('Contact (page Le club, 200 caractères max)')),
         el('input', { id: 'pref-contact-club', maxlength: 200, placeholder: 'ex : ebpc.toulouse@gmail.com · 06 12 34 56 78', style: 'width:100%' }))),
+    el('div', { style: 'margin-top:14px' }, // 17o: info sur l icône de l écran d accueil des téléphones
+      el('label', {}, t('Icône du téléphone')),
+      el('p', { class: 'muted small', style: 'margin:4px 0' }, t('Le logo devient l app des téléphones (icône 192 px, effective aux prochaines installations).'))),
     el('div', { class: 'row', style: 'margin-top:12px' }, el('button', { onclick: enregPrefsApparence }, t('Enregistrer')))));
   document.getElementById('pref-logo-import').addEventListener('change', () => importerLogo17k(document.getElementById('pref-logo-import')));
   document.getElementById('pref-banniere-import').addEventListener('change', () => importerPhoto17n(document.getElementById('pref-banniere-import'), 'banniere')); // 17n
