@@ -15,13 +15,37 @@ function clubHeaders() {
 // appliqué avant le premier rendu, puis rafraîchi par GET /api/club-theme (léger, public).
 // La page TV garde volontairement le thème sombre d origine.
 const ACCENT_KEY = 'ebpc_accent_club';
+let accentClubApplique = ''; // dernier accent appliqué (re-appliqué au changement de thème: le soft dépend du thème)
+// accent -> HSL (h 0-360, s 0-1, l 0-1), pour garantir la lisibilité de la teinte dérivée
+function accentVersHsl(r, g, b) {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let h = 0;
+  if (d !== 0) {
+    if (max === rn) h = 60 * (((gn - bn) / d) % 6);
+    else if (max === gn) h = 60 * ((bn - rn) / d + 2);
+    else h = 60 * ((rn - gn) / d + 4);
+  }
+  if (h < 0) h += 360;
+  return [h, s, l];
+}
 function appliquerAccentClub(hex) {
   if (!/^[#][0-9a-fA-F]{6}$/.test(hex)) return;
   try {
     const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-    const eclair = (v) => Math.round(v + (255 - v) * 0.28);
+    accentClubApplique = hex;
+    // --pink-soft sert de TEXTE (grands scores de la page match, score des cards, liens, titres) :
+    // on garde la TEINTE du club mais on garantit la LISIBILITÉ sur le fond du thème courant,
+    // sinon un accent sombre rend le score invisible (retour Sébastien, 17j v2).
+    const [h, s, l] = accentVersHsl(r, g, b);
+    const clair = document.documentElement.dataset.theme === 'light';
+    const sPct = Math.round(Math.min(1, Math.max(0, s)) * 100);
+    const lPct = clair ? Math.round(Math.min(l, 0.50) * 100) : Math.round(Math.max(l, 0.66) * 100);
     document.documentElement.style.setProperty('--pink', hex);
-    document.documentElement.style.setProperty('--pink-soft', `rgb(${eclair(r)}, ${eclair(g)}, ${eclair(b)})`);
+    document.documentElement.style.setProperty('--pink-soft', `hsl(${Math.round(h)}, ${sPct}%, ${lPct}%)`);
     document.documentElement.style.setProperty('--pink-glow', `rgba(${r}, ${g}, ${b}, 0.22)`);
   } catch {}
 }
@@ -78,7 +102,7 @@ function appliquerLogoClub(logo, mode) {
         wm = document.createElement('img');
         wm.id = 'filigrane-logo';
         wm.alt = '';
-        wm.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-width:min(62vmin,430px);max-height:62vmin;opacity:.07;pointer-events:none;user-select:none;';
+        wm.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-width:min(62vmin,430px);max-height:62vmin;opacity:.1;pointer-events:none;user-select:none;';
         document.body.append(wm);
       }
       wm.src = chemin;
@@ -3002,7 +3026,7 @@ if (LANG !== 'fr') { const tt = t(document.title.trim()); if (tt !== document.ti
 // La page TV reste toujours sombre (pas de script anti-flash là-bas).
 function themeActuel() { try { return localStorage.getItem('ebpc_theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } }
 function appliquerTheme(t) { try { if (t === 'light') document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme; } catch {} }
-function basculerTheme() { const t = themeActuel() === 'light' ? 'dark' : 'light'; try { localStorage.setItem('ebpc_theme', t); } catch {} appliquerTheme(t); return t; }
+function basculerTheme() { const t = themeActuel() === 'light' ? 'dark' : 'light'; try { localStorage.setItem('ebpc_theme', t); } catch {} appliquerTheme(t); if (accentClubApplique) appliquerAccentClub(accentClubApplique); return t; } // 17j v2: le soft (lisibilité) dépend du thème -> on re-applique l accent du club
 
 let compteCourant = null; // mémo du compte connecté (le broadcast SSE ne le renvoie pas)
 async function api(path, opts = {}) {
