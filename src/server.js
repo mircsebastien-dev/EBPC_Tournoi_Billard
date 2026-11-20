@@ -1404,7 +1404,11 @@ app.put('/api/admin/club/prefs', requireAdmin, (req, res) => {
   }
   if ('logo' in req.body) { // 17k: '' = aucun, /logos/<prédéfini>.svg ou data:image (png/jpeg/svg+xml) plafonnée
     const lg = String(req.body.logo || '').trim();
-    if (!logoClubValide(lg)) return res.status(400).json({ error: 'Logo invalide (prédéfini ou image PNG/JPG/SVG, trop volumineux ?)' });
+    if (!logoClubValide(lg)) { // 17k v5: la réponse 400 dit la cause réelle (envoyé vs attendu)
+      if (lg.length > LOGO_TAILLE_MAX) return res.status(400).json({ error: 'Logo refusé : ' + lg.length + ' caractères reçus, ' + LOGO_TAILLE_MAX + ' maximum attendu.' });
+      if (!lg.startsWith('/logos/')) return res.status(400).json({ error: 'Logo refusé : format non supporté, attendu /logos/<prédéfini>.svg ou data:image/png|jpeg|svg+xml en base64.' });
+      return res.status(400).json({ error: 'Logo refusé : logo prédéfini inconnu (whitelist /logos/*.svg).' });
+    }
     prefs.logo = lg;
   }
   if ('logo_mode' in req.body) { // 17k: switch logo d en-tête / filigrane / les deux

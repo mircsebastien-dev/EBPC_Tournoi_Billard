@@ -209,14 +209,21 @@ function panelPersonnalisation(clubs) {
     for (const b of modes17k.children) b.style.outline = (b.dataset.mode === mode17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
     importI.value = '';
   };
-  const refusLogo17k = () => { alert('Logo trop volumineux ou format non supporté (8 Mo max, PNG/JPG/SVG)'); importI.value = ''; };
+  // 17k v5: refus explicite, le message dit ce qui a été reçu vs ce qui est attendu + la cause probable
+  const causeSvg17k = 'Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.';
+  const causeDecod17k = 'Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).';
+  const refusLogo17k = (cause, fic) => {
+    const f = fic || (importI.files && importI.files[0]);
+    alert('Logo refusé\n\nReçu : « ' + (f ? f.name : '?') + ' », ' + (f ? (f.size / 1024).toFixed(1) : '?') + ' Ko, type MIME « ' + (f && f.type ? f.type : '(aucun)') + ' ».\nAttendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.\n\n' + cause);
+    importI.value = '';
+  };
   const importerLogo17k = () => {
     const f = importI.files && importI.files[0];
     if (!f) return;
-    if (f.size > 8 * 1024 * 1024) return refusLogo17k(); // 17k v4: photo acceptée jusqu à 8 Mo, réduite ensuite à 256 px
+    if (f.size > 8 * 1024 * 1024) return refusLogo17k('Cause : fichier plus lourd que la limite de 8 Mo.', f); // 17k v5 cause explicite ; photo jusqu à 8 Mo puis réduction: photo acceptée jusqu à 8 Mo, réduite ensuite à 256 px
     const poser = (uri) => { logo17k = uri; marquerLogo17k(); };
     if (f.type === 'image/svg+xml' || /\.svg$/i.test(f.name)) {
-      f.text().then((txt) => { if (!txt || !txt.includes('<svg')) return refusLogo17k(); poser('data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(txt)))); }).catch(refusLogo17k);
+      f.text().then((txt) => { if (!txt || !txt.includes('<svg')) return refusLogo17k(causeSvg17k, f); poser('data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(txt)))); }).catch(() => refusLogo17k(causeSvg17k, f));
       return;
     }
     // 17k v4: plus de refus abusif sur le type MIME (photo iPhone HEIC, image/jpg, type absent)
@@ -238,9 +245,9 @@ function panelPersonnalisation(clubs) {
           uri = c.toDataURL('image/jpeg', 0.85);
         }
         poser(uri);
-      } catch (e) { refusLogo17k(); }
+      } catch (e) { refusLogo17k(causeDecod17k, f); }
     };
-    imgL.onerror = refusLogo17k;
+    imgL.onerror = () => refusLogo17k(causeDecod17k, f);
     imgL.src = URL.createObjectURL(f);
   };
   importI.addEventListener('change', importerLogo17k);

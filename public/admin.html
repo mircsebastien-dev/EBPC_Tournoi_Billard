@@ -54,14 +54,18 @@ function rafraichirLogoPrefs() {
 function importerLogo17k(input) {
   const f = input.files && input.files[0];
   if (!f) return;
-  const refusLogo = () => { alert(t('Logo trop volumineux ou format non supporté')); input.value = ''; };
-  if (f.size > 8 * 1024 * 1024) return refusLogo(); // 17k v4: photo acceptée jusqu à 8 Mo, réduite ensuite à 256 px
+  // 17k v5: refus explicite, le message dit ce qui a été reçu vs ce qui est attendu + la cause probable
+  const refusLogo = (cause) => {
+    alert(t('Logo refusé') + '\n\nReçu : « ' + f.name + ' », ' + (f.size / 1024).toFixed(1) + ' Ko, type MIME « ' + (f.type || '(aucun)') + ' ».\n' + t('Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.') + '\n\n' + cause);
+    input.value = '';
+  };
+  if (f.size > 8 * 1024 * 1024) return refusLogo(t('Cause : fichier plus lourd que la limite de 8 Mo.')); // 17k v5 cause explicite ; photo jusqu à 8 Mo puis réduction: photo acceptée jusqu à 8 Mo, réduite ensuite à 256 px
   const poser = (uri) => { logoChoisi17k = uri; rafraichirLogoPrefs(); };
   if (f.type === 'image/svg+xml' || /\.svg$/i.test(f.name)) {
     f.text().then((txt) => {
-      if (!txt || !txt.includes('<svg')) return refusLogo();
+      if (!txt || !txt.includes('<svg')) return refusLogo(t('Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.'));
       poser('data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(txt))));
-    }).catch(refusLogo);
+    }).catch(() => refusLogo(t('Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.')));
     return;
   }
   // 17k v4: plus de refus abusif sur le type MIME (photo iPhone HEIC, image/jpg, type absent)
@@ -83,9 +87,9 @@ function importerLogo17k(input) {
         uri = c.toDataURL('image/jpeg', 0.85);
       }
       poser(uri);
-    } catch (e) { refusLogo(); }
+    } catch (e) { refusLogo(t('Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).')); }
   };
-  imgL.onerror = refusLogo;
+  imgL.onerror = () => refusLogo(t('Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).'));
   imgL.src = URL.createObjectURL(f);
 }
 async function enregPrefsApparence() {

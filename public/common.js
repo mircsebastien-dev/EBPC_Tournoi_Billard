@@ -161,6 +161,11 @@ const I18N = {
   "Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.": "Preset or imported logo, shown as a discreet watermark and next to the club name for every visitor.",
   "Importer une image (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 256 px)": "Import an image (PNG/JPG/SVG, photo up to 8 MB, shrunk to 256 px)",
   "Logo trop volumineux ou format non supporté": "Logo too large or unsupported format",
+  "Logo refusé": "Logo rejected",
+  "Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.": "Expected: a decodable PNG, JPG or SVG image (iPhone photo accepted), 8 MB maximum.",
+  "Cause : fichier plus lourd que la limite de 8 Mo.": "Cause: file heavier than the 8 MB limit.",
+  "Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).": "Likely cause: the browser could not decode this file (damaged file or exotic image format).",
+  "Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.": "Likely cause: the SVG file is empty or contains no <svg> tag.",
   "Affichage du logo": "Logo display",
   "Logo d en-tête": "Header logo",
   "Filigrane": "Watermark",
@@ -854,6 +859,7 @@ const I18N_DYN = [
   [/^(.+) mène (\d+)-(\d+)$/, "$1 leads $2-$3"],
   [/^· durée (\d+) min$/, "· duration $1 min"],
   [/^· durée (\d+) h (\d+)$/, "· duration $1 h $2"],
+  [/^Reçu : « (.+) », ([0-9.,]+) Ko, type MIME « (.*) »\.$/, "Sent: “$1”, $2 KB, MIME type “$3”."],
 ];
 // --- i18n ES : dictionnaire espagnol (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
 const I18N_ES = {
@@ -869,6 +875,11 @@ const I18N_ES = {
   "Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.": "Logo predefinido o importado, mostrado como marca de agua discreta y junto al nombre del club para todos los visitantes.",
   "Importer une image (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 256 px)": "Importar una imagen (PNG/JPG/SVG, foto hasta 8 MB, reducida a 256 px)",
   "Logo trop volumineux ou format non supporté": "Logo demasiado grande o formato no compatible",
+  "Logo refusé": "Logotipo rechazado",
+  "Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.": "Se espera: imagen PNG, JPG o SVG decodificable (se aceptan fotos de iPhone), 8 MB máximo.",
+  "Cause : fichier plus lourd que la limite de 8 Mo.": "Causa: archivo más pesado que el límite de 8 MB.",
+  "Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).": "Causa probable: el navegador no pudo decodificar este archivo (archivo dañado o formato de imagen exótico).",
+  "Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.": "Causa probable: el archivo SVG está vacío o no contiene ninguna etiqueta <svg>.",
   "Affichage du logo": "Mostrar el logo",
   "Logo d en-tête": "Logo del encabezado",
   "Filigrane": "Marca de agua",
@@ -1561,6 +1572,7 @@ const REPS_DYN_ES = [
   "$1 lidera $2-$3",
   "· duración $1 min",
   "· duración $1 h $2",
+  "Enviado: « $1 », $2 KB, tipo MIME « $3 ».",
 ];
 
 // --- i18n IT : dictionnaire italien (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
@@ -1577,6 +1589,11 @@ const I18N_IT = {
   "Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.": "Logo predefinito o importato, mostrato come filigrana discreta e accanto al nome del club per tutti i visitatori.",
   "Importer une image (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 256 px)": "Importa un'immagine (PNG/JPG/SVG, foto fino a 8 MB, ridotta a 256 px)",
   "Logo trop volumineux ou format non supporté": "Logo troppo grande o formato non supportato",
+  "Logo refusé": "Logo rifiutato",
+  "Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.": "Atteso: immagine PNG, JPG o SVG decodificabile (foto iPhone accettata), 8 MB massimo.",
+  "Cause : fichier plus lourd que la limite de 8 Mo.": "Causa: file più pesante del limite di 8 MB.",
+  "Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).": "Causa probabile: il browser non è riuscito a decodificare questo file (file danneggiato o formato immagine esotico).",
+  "Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.": "Causa probabile: il file SVG è vuoto o non contiene alcun tag <svg>.",
   "Affichage du logo": "Visualizzazione del logo",
   "Logo d en-tête": "Logo dell'intestazione",
   "Filigrane": "Filigrana",
@@ -2269,6 +2286,7 @@ const REPS_DYN_IT = [
   "$1 conduce $2-$3",
   "· durata $1 min",
   "· durata $1 h $2",
+  "Inviato: « $1 », $2 KB, tipo MIME « $3 ».",
 ];
 
 // --- i18n DE : dictionnaire allemand (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
@@ -2285,6 +2303,11 @@ const I18N_DE = {
   "Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.": "Voreingestelltes oder importiertes Logo, dezent als Wasserzeichen und neben dem Vereinsnamen für alle Besucher.",
   "Importer une image (PNG/JPG/SVG, photo jusqu à 8 Mo, réduite à 256 px)": "Bild importieren (PNG/JPG/SVG, auf 256 px verkleinert, Foto bis 8 MB)",
   "Logo trop volumineux ou format non supporté": "Logo zu groß oder Format nicht unterstützt",
+  "Logo refusé": "Logo abgelehnt",
+  "Attendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.": "Erwartet: dekodierbares PNG-, JPG- oder SVG-Bild (iPhone-Foto akzeptiert), maximal 8 MB.",
+  "Cause : fichier plus lourd que la limite de 8 Mo.": "Ursache: Datei schwerer als das 8-MB-Limit.",
+  "Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).": "Wahrscheinliche Ursache: Der Browser konnte diese Datei nicht dekodieren (beschädigte Datei oder exotisches Bildformat).",
+  "Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.": "Wahrscheinliche Ursache: Die SVG-Datei ist leer oder enthält kein <svg>-Tag.",
   "Affichage du logo": "Logo-Anzeige",
   "Logo d en-tête": "Kopfzeilen-Logo",
   "Filigrane": "Wasserzeichen",
@@ -2977,6 +3000,7 @@ const REPS_DYN_DE = [
   "$1 führt $2-$3",
   "· Dauer $1 Min.",
   "· Dauer $1 h $2",
+  "Gesendet: « $1 », $2 KB, MIME-Typ « $3 ».",
 ];
 
 ;
