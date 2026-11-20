@@ -1370,7 +1370,9 @@ app.get('/api/admin/base/export', requireAdmin, requireSuperAdmin, (req, res) =>
   const tables = {};
   for (const t of tablesBase()) tables[t] = db.prepare(`SELECT * FROM ${t}`).all();
   const lignes = Object.values(tables).reduce((n, rows) => n + rows.length, 0);
-  const payload = { sauvegarde: 'ebpc-tournoi-billard', version: 1, genere_le: new Date().toISOString(), tables };
+  // orphelins hérités (opérations FK-OFF, ex: club supprimé): déclarés dans l'export pour une restauration à l'identique
+  const fkViol = db.prepare('PRAGMA foreign_key_check').all().map(v => `${v.table}#${v.rowid}->${v.parent}`);
+  const payload = { sauvegarde: 'ebpc-tournoi-billard', version: 1, genere_le: new Date().toISOString(), tables, fk_violations: fkViol };
   logAuditReq(req, 'export_base', `${Object.keys(tables).length} tables / ${lignes} lignes`, null, { format: 1 });
   res.setHeader('Content-Disposition', `attachment; filename="base-${payload.genere_le.slice(0, 19).replace(/[:T]/g, '-')}.json"`);
   res.json(payload);
@@ -1394,6 +1396,7 @@ app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuper
       lignes.push([nom, row]);
     }
   }
+  const annoncees = new Set((Array.isArray(p.fk_violations) ? p.fk_violations : []).map(String)); // orphelins hérités acceptés à l'identique
   const avant = {}; for (const t of connues) avant[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
   const tx = db.transaction(() => {
     db.pragma('defer_foreign_keys = ON');
@@ -1404,7 +1407,8 @@ app.post('/api/admin/base/import', requireAdmin, requireConfirmPin, requireSuper
       db.prepare(`INSERT INTO ${nom} (${cles.map(c => `"${c}"`).join(', ')}) VALUES (${cles.map(() => '?').join(', ')})`).run(...cles.map(c => row[c]));
     }
     const vios = db.prepare('PRAGMA foreign_key_check').all();
-    if (vios.length) { const e = new Error('Sauvegarde invalide: références cassées: ' + vios.slice(0, 5).map(v => `${v.table}#${v.rowid} -> ${v.parent}`).join(', ')); e.status = 400; throw e; }
+    const nouvelles = vios.filter(v => !annoncees.has(`${v.table}#${v.rowid}->${v.parent}`)); // hors orphelins déjà déclarés par l'export
+    if (nouvelles.length) { const e = new Error('Sauvegarde invalide: références cassées: ' + nouvelles.slice(0, 5).map(v => `${v.table}#${v.rowid} -> ${v.parent}`).join(', ')); e.status = 400; throw e; }
   });
   tx(); // n'importe quelle erreur -> rollback intégral, la base actuelle reste intacte
   const apres = {}; for (const t of connues) apres[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
