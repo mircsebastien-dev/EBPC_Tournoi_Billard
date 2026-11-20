@@ -463,6 +463,9 @@ function h2hPourMatchs(clubId, matchs) {
 const LOGOS_PRESETS = ['bille-noire', 'bille-8', 'queue', 'triangle', 'table', 'etoile', 'bouclier', 'couronne', 'flamme', 'cercle'];
 const LOGO_DATA_RE = /^data:image\/(?:png|jpeg|svg\+xml);base64,[A-Za-z0-9+/]+={0,2}$/; // jamais text/html ni aucun autre type
 const LOGO_TAILLE_MAX = 200000; // caractères (~150 Ko) : un petit logo réduit à 256 px passe très largement
+const LOGO_MODES = ['entete', 'filigrane', 'les-deux']; // 17k: où afficher le logo (switch du panneau Apparence)
+function logoModeValide(m) { return LOGO_MODES.includes(m); }
+
 function logoClubValide(logo) {
   if (typeof logo !== 'string') return false;
   if (logo === '') return true; // aucun logo
@@ -481,6 +484,7 @@ function themeDuClub(cible) {
     defaut_jour: (jour !== null && jour >= 0 && jour <= 6) ? jour : null, // 0 = dimanche (convention JS getDay)
     defaut_heure: (typeof p.defaut_heure === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(p.defaut_heure)) ? p.defaut_heure : '20:00',
     logo: (typeof p.logo === 'string' && logoClubValide(p.logo)) ? p.logo : '', // 17k: '' = aucun logo
+    logo_mode: logoModeValide(p.logo_mode) ? p.logo_mode : 'les-deux', // 17k: entete / filigrane / les-deux
   };
 }
 
@@ -519,7 +523,7 @@ app.get('/api/clubs', (req, res) => {
 // 17j. personnalisation publique : l accent de l interface du club résolu (léger, sans authentification, pour TOUS les visiteurs)
 app.get('/api/club-theme', (req, res) => {
   const th17k = themeDuClub(req.club);
-  res.json({ slug: req.club.slug, nom: req.club.nom, accent: th17k.accent, logo: th17k.logo }); // 17k: logo public comme l accent
+  res.json({ slug: req.club.slug, nom: req.club.nom, accent: th17k.accent, logo: th17k.logo, logo_mode: th17k.logo_mode }); // 17k: logo public comme l accent, avec son mode d affichage
 });
 
 app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe(req.club.id) }));
@@ -1402,6 +1406,10 @@ app.put('/api/admin/club/prefs', requireAdmin, (req, res) => {
     const lg = String(req.body.logo || '').trim();
     if (!logoClubValide(lg)) return res.status(400).json({ error: 'Logo invalide (prédéfini ou image PNG/JPG/SVG, trop volumineux ?)' });
     prefs.logo = lg;
+  }
+  if ('logo_mode' in req.body) { // 17k: switch logo d en-tête / filigrane / les deux
+    if (!logoModeValide(String(req.body.logo_mode))) return res.status(400).json({ error: 'Mode d affichage du logo invalide (entete, filigrane ou les-deux)' });
+    prefs.logo_mode = String(req.body.logo_mode);
   }
   db.prepare('UPDATE club SET theme_json = ? WHERE id = ?').run(JSON.stringify(prefs), cible.id);
   logAuditReq(req, 'club_prefs', `club ${cible.slug}`, null, { changements: Object.keys(req.body).filter(k => k !== 'slug') }); // couleurs et défauts, jamais de secret

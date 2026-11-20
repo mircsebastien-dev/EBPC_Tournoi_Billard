@@ -23,6 +23,7 @@ let superAdminMenu = false; // menu Console réservé au super-admin (code globa
 const JOURS_PREFS = [[0, 'Dimanche'], [1, 'Lundi'], [2, 'Mardi'], [3, 'Mercredi'], [4, 'Jeudi'], [5, 'Vendredi'], [6, 'Samedi']]; // convention JS: 0 = dimanche
 const LOGOS_PRESETS = ['bille-noire', 'bille-8', 'queue', 'triangle', 'table', 'etoile', 'bouclier', 'couronne', 'flamme', 'cercle']; // 17k: bibliothèque mixte billard + écussons
 let logoChoisi17k = ''; // '' = aucun logo; soit /logos/<prédéfini>.svg soit une data:image importée
+let logoMode17k = 'les-deux'; // entete / filigrane / les-deux (switch d affichage)
 
 // 17j. Personnalisation du club : couleur d accent + défauts de tournoi (nom, jour récurrent, heure)
 // geste NON sensible: PIN du club déjà requis pour l espace admin, aucun confirm_pin supplémentaire
@@ -35,6 +36,7 @@ async function chargerPrefsApparence() {
     document.getElementById('pref-jour').value = p.defaut_jour == null ? '' : String(p.defaut_jour);
     document.getElementById('pref-heure').value = p.defaut_heure || '20:00';
     logoChoisi17k = (p && typeof p.logo === 'string') ? p.logo : '';
+    logoMode17k = (p && (p.logo_mode === 'entete' || p.logo_mode === 'filigrane' || p.logo_mode === 'les-deux')) ? p.logo_mode : 'les-deux';
     rafraichirLogoPrefs(); // sélection + aperçu immédiat (filigrane et logo d en-tête sur CETTE page)
   } catch (e) {}
 }
@@ -42,9 +44,11 @@ async function chargerPrefsApparence() {
 function rafraichirLogoPrefs() {
   const galerie = document.getElementById('pref-logo-galerie');
   if (galerie) for (const b of galerie.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logoChoisi17k) ? '3px solid var(--pink)' : '3px solid transparent';
+  const modes = document.getElementById('pref-logo-mode');
+  if (modes) for (const b of modes.children) b.style.outline = (b.dataset.mode === logoMode17k) ? '3px solid var(--pink)' : '3px solid transparent';
   const imp = document.getElementById('pref-logo-import');
   if (imp) imp.value = '';
-  if (typeof appliquerLogoClub === 'function') appliquerLogoClub(logoChoisi17k); // filigrane + petit logo d en-tête
+  if (typeof appliquerLogoClub === 'function') appliquerLogoClub(logoChoisi17k, logoMode17k); // filigrane + petit logo d en-tête
 }
 // 17k: import d un logo perso: PNG/JPG réduit à 256 px (canvas), SVG conservé, 300 Ko max côté fichier
 function importerLogo17k(input) {
@@ -83,9 +87,10 @@ async function enregPrefsApparence() {
       defaut_jour: document.getElementById('pref-jour').value === '' ? null : Number(document.getElementById('pref-jour').value),
       defaut_heure: document.getElementById('pref-heure').value || '20:00',
       logo: logoChoisi17k, // 17k: '' = aucun logo, prédéfini ou image importée
+      logo_mode: logoMode17k, // 17k: entete / filigrane / les-deux
     })});
     if (rep && rep.prefs && typeof appliquerAccentClub === 'function') appliquerAccentClub(rep.prefs.accent); // aperçu immédiat
-    if (rep && rep.prefs && typeof appliquerLogoClub === 'function') { logoChoisi17k = rep.prefs.logo || ''; appliquerLogoClub(logoChoisi17k); }
+    if (rep && rep.prefs && typeof appliquerLogoClub === 'function') { logoChoisi17k = rep.prefs.logo || ''; logoMode17k = rep.prefs.logo_mode || 'les-deux'; appliquerLogoClub(logoChoisi17k, logoMode17k); }
     alert(t('Personnalisation enregistrée'));
   } catch (e) { alert(e.message); }
 }
@@ -128,7 +133,12 @@ function render() {
         ...LOGOS_PRESETS.map((cle) => el('img', { src: '/logos/' + cle + '.svg', alt: cle, title: cle, 'data-logo': '/logos/' + cle + '.svg', style: 'width:44px;height:44px;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent', onclick: () => { logoChoisi17k = '/logos/' + cle + '.svg'; rafraichirLogoPrefs(); } })),
         el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logoChoisi17k = ''; rafraichirLogoPrefs(); } }, t('Aucun logo'))),
       el('div', { style: 'margin-top:8px' }, el('label', {}, t('Importer une image (PNG/JPG/SVG, réduite à 256 px, 300 Ko max)')),
-        el('input', { id: 'pref-logo-import', type: 'file', accept: 'image/png,image/jpeg,image/svg+xml' }))),
+        el('input', { id: 'pref-logo-import', type: 'file', accept: 'image/png,image/jpeg,image/svg+xml' })),
+      el('div', { style: 'margin-top:8px' },
+        el('label', {}, t('Affichage du logo')),
+        el('div', { id: 'pref-logo-mode', class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px' },
+          ...[['entete', 'Logo d en-tête'], ['filigrane', 'Filigrane'], ['les-deux', 'Logo + filigrane']].map(([mv, ml]) =>
+            el('button', { class: 'secondary', 'data-mode': mv, style: 'outline:3px solid transparent', onclick: () => { logoMode17k = mv; rafraichirLogoPrefs(); } }, t(ml)))))),
     el('div', { class: 'row', style: 'margin-top:12px' }, el('button', { onclick: enregPrefsApparence }, t('Enregistrer')))));
   document.getElementById('pref-logo-import').addEventListener('change', () => importerLogo17k(document.getElementById('pref-logo-import')));
   chargerPrefsApparence();

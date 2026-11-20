@@ -196,12 +196,17 @@ function panelPersonnalisation(clubs) {
   const heureI = el('input', { type: 'time', value: '20:00' });
   // 17k: logo du club (prédéfini ou importé), même logique que la table de marque
   let logo17k = '';
+  let mode17k = 'les-deux'; // entete / filigrane / les-deux
+  const modes17k = el('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px' },
+    ...[['entete', 'Logo d en-tête'], ['filigrane', 'Filigrane (discret, centré)'], ['les-deux', 'Logo + filigrane']].map(([mv, ml]) =>
+      el('button', { class: 'secondary', 'data-mode': mv, style: 'outline:3px solid transparent', onclick: () => { mode17k = mv; marquerLogo17k(); } }, ml)));
   const galerie17k = el('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center' },
     ...LOGOS_PRESETS_CONSOLE.map((cle) => el('img', { src: '/logos/' + cle + '.svg', alt: cle, title: cle, 'data-logo': '/logos/' + cle + '.svg', style: 'width:44px;height:44px;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent', onclick: () => { logo17k = '/logos/' + cle + '.svg'; marquerLogo17k(); } })),
     el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logo17k = ''; marquerLogo17k(); } }, 'Aucun logo'));
   const importI = el('input', { id: 'pref-logo-import-console', type: 'file', accept: 'image/png,image/jpeg,image/svg+xml' });
   const marquerLogo17k = () => {
     for (const b of galerie17k.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logo17k) ? '3px solid var(--pink)' : '3px solid transparent';
+    for (const b of modes17k.children) b.style.outline = (b.dataset.mode === mode17k) ? '3px solid var(--pink)' : '3px solid transparent';
     importI.value = '';
   };
   const refusLogo17k = () => { alert('Logo trop volumineux ou format non supporté (300 Ko max, PNG/JPG/SVG)'); importI.value = ''; };
@@ -239,6 +244,7 @@ function panelPersonnalisation(clubs) {
       jourS.value = p.defaut_jour == null ? '' : String(p.defaut_jour);
       heureI.value = p.defaut_heure || '20:00';
       logo17k = (p && typeof p.logo === 'string') ? p.logo : '';
+      mode17k = (p && (p.logo_mode === 'entete' || p.logo_mode === 'filigrane' || p.logo_mode === 'les-deux')) ? p.logo_mode : 'les-deux';
       marquerLogo17k();
     } catch (e) {}
   };
@@ -249,10 +255,11 @@ function panelPersonnalisation(clubs) {
     el('p', { class: 'muted small' }, 'Sélectionne un club puis ajuste sa couleur d accent, son logo (prédéfini ou importé, affiché en filigrane discret et à côté du nom du club) et ses défauts de tournoi : nom, jour récurrent (0 = dimanche) et heure habituelle, prérenseignés à la création.'),
     el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, sel, accentI, nomI, jourS, heureI,
     el('div', { style: 'width:100%;margin-top:6px' }, el('label', {}, 'Logo du club :'), galerie17k,
-      el('div', { style: 'margin-top:6px' }, el('label', {}, 'Importer une image pour ce club (PNG/JPG/SVG, réduite à 256 px) :'), importI)),
+      el('div', { style: 'margin-top:6px' }, el('label', {}, 'Importer une image pour ce club (PNG/JPG/SVG, réduite à 256 px) :'), importI),
+      el('div', { style: 'margin-top:6px' }, el('label', {}, 'Affichage du logo :'), modes17k)),
       el('button', { onclick: async () => {
         try {
-          await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({ slug: sel.value, accent: accentI.value, defaut_nom: nomI.value.trim(), defaut_jour: jourS.value === '' ? null : Number(jourS.value), defaut_heure: heureI.value || '20:00', logo: logo17k }) });
+          await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({ slug: sel.value, accent: accentI.value, defaut_nom: nomI.value.trim(), defaut_jour: jourS.value === '' ? null : Number(jourS.value), defaut_heure: heureI.value || '20:00', logo: logo17k, logo_mode: mode17k }) });
           alert('✅ Personnalisation du club « ' + sel.value + ' » enregistrée.');
         } catch (e) { alert(e.message); }
       } }, 'Enregistrer pour ce club')));
