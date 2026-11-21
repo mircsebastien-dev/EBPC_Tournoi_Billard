@@ -653,13 +653,21 @@ function themeDuClub(cible) {
 
 function etatGlobal(req) {
   const clubId = req && req.club ? req.club.id : undefined;
-  const actif = vueTournoiComplet(tournoiActif(clubId));
+  // 19a: lecture multi-tournois : le front peut cibler un tournoi précis du club (?tournoi_id=, sélecteur du
+  // bandeau), forcément ACTIF dans le club OUVERT sinon repli silencieux sur le tournoi actif du club
+  // (comportement d origine sans le paramètre) ; actifs = tournois ouverts du club pour le sélecteur (léger)
+  let cible19a = null;
+  if (req && req.query && req.query.tournoi_id != null && clubId != null) {
+    cible19a = db.prepare("SELECT * FROM tournoi WHERE id = ? AND club_id = ? AND statut IN ('inscription', 'en_cours')").get(Number(req.query.tournoi_id), clubId);
+  }
+  const actif = vueTournoiComplet(cible19a || tournoiActif(clubId));
   // fil du tournoi (accueil) : confrontations passées des matchs pas terminés (lignes « revanche »)
   if (actif && Array.isArray(actif.matchs)) actif.h2h = h2hPourMatchs(clubId, actif.matchs);
   return {
     actif,
     historique: vueTournoiListe(clubId).filter(t => t.statut === 'termine'),
     club: req && req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom, accent: themeDuClub(req.club).accent } : null,
+    actifs: clubId == null ? [] : db.prepare("SELECT id, nom, statut FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') ORDER BY id DESC").all(clubId), // 19a: tournois ouverts du club (sélecteur du bandeau)
     auto: getSetting('auto_on') === '1',
     table_pref: getSetting('table_pref') || '',
     tables_reservees: getSetting('tables_reservees') || '',
@@ -668,15 +676,9 @@ function etatGlobal(req) {
   };
 }
 
-app.get('/api/etat', (req, res) => {
-  const tournoiId = req.query.tournoi_id ? Number(req.query.tournoi_id) : null;
-  if (tournoiId) {
-    const t = tournoiDuClub(req, tournoiId);
-    if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
-    return res.json({ tournoi: vueTournoiComplet(t), historique: vueTournoiListe(req.club.id).filter(x => x.statut === 'termine'), compte: req.compte ? { id: req.compte.id, pseudo: req.compte.pseudo, role: req.compte.role || 'user' } : null });
-  }
-  res.json(etatGlobal(req));
-});
+// 19a: ?tournoi_id= cible un tournoi ACTIF du club courant (sélecteur du bandeau) ; un tournoi d un autre club
+// ou terminé -> repli silencieux sur le tournoi actif du club dans etatGlobal (données publiques de toute façon)
+app.get('/api/etat', (req, res) => res.json(etatGlobal(req)));
 
 // liste publique des clubs actifs (slug pour ?club= / X-Club)
 app.get('/api/clubs', (req, res) => {

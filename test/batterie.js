@@ -687,10 +687,10 @@ async function nouveauTournoi(body) {
   const atHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-tournoi.html'), 'utf8');
   check('front: bouton Rappel inscriptions ouvertes (admin-tournoi, phase inscription)', atHtml.includes('rappel-inscriptions') && atHtml.includes('Rappel inscriptions ouvertes') && atHtml.includes('rappelInscriptions'), '');
   // affiche du prochain tournoi (poster auto-généré, phase inscription)
-  check('front: affiche tournoi à venir (poster) : eyebrow + jauge inscrits, sans QR ni emojis', idxHtml.includes('poster-eyebrow') && idxHtml.includes('poster-bar') && idxHtml.includes('restantes') && idxHtml.includes('Inscriptions ouvertes') && !idxHtml.includes('/api/qrcode.svg') && !idxHtml.includes('📅') && !idxHtml.includes('📍'), '');
+  check('front: affiche tournoi à venir (poster) : eyebrow + jauge inscrits, sans QR ni emojis', idxHtml.includes('poster-eyebrow') && idxHtml.includes('poster-bar') && idxHtml.includes('restantes') && idxHtml.includes('Inscriptions ouvertes') && !idxHtml.includes('/api/qrcode.svg') && !idxHtml.includes('📅') && !idxHtml.includes('📍') && idxHtml.includes('urlEtat19a()'), '');
   // re-sync SSE robuste : re-fetch à la reconnexion du flux et au retour visible sur la page
   const cjsCommon = fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8');
-  check('front: SSE re-sync au retour sur la page (visibilitychange) et à la reconnexion (open)', cjsCommon.includes('visibilitychange') && cjsCommon.includes("addEventListener('open'") && cjsCommon.includes('!document.hidden'), '');
+  check('front: SSE re-sync au retour sur la page (visibilitychange) et à la reconnexion (open) + 19a sélecteur de tournoi du bandeau (urlEtat19a, bouton si plusieurs actifs)', cjsCommon.includes('visibilitychange') && cjsCommon.includes("addEventListener('open'") && cjsCommon.includes('!document.hidden') && cjsCommon.includes('btnTournoi19a') && cjsCommon.includes('urlEtat19a') && cjsCommon.includes('tournoisNav19a'), '');
   const styCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
   check('front: styles poster accueil (or/sombre + boule 8 filigrane)', styCss.includes('.poster-eyebrow') && styCss.includes('.poster-bar') && styCss.includes('.poster-ball-num'), '');
   nf_r = await del('/api/compte/amis/' + nf_sebId, { pin: null, useCookie: true });
@@ -1190,8 +1190,12 @@ async function nouveauTournoi(body) {
   r17f = await xhr17f('/api/joueur', '203.0.113.111', { club: 'clubvm', body: { pseudo: 'MembreSb' } });
   check('pseudo MembreSb réservé en anonyme depuis clubvm -> 409 compte_pseudo (réservation GLOBALE)', r17f.status === 409 && r17f.data.compte_pseudo === true, r17f.status + ' ' + (r17f.data.error || ''));
   await post('/api/admin/tournoi', { nom: 'Sb-Open', regle: 'blackball', taille: 16, format: 'simple', notif_push: false }, { club: 'clubsb', pin: '4321' });
+  // 19a: lecture multi-tournois : ?tournoi_id= replié au club OUVERT + actifs du club seul (sélecteur du bandeau)
+  const tvm19a = (await api('/api/tournois', { club: 'clubvm', pin: null })).data.tournois.find(t => t.nom === 'ClubVM-T');
+  const tsb19a = (await api('/api/tournois', { club: 'clubsb', pin: null })).data.tournois.find(t => t.nom === 'Sb-Open');
+  const etatVm19a = await api('/api/etat?tournoi_id=' + (tsb19a && tsb19a.id), { club: 'clubvm', pin: null });
   r17f = await xhr17f('/api/joueur', '203.0.113.112', { club: 'clubsb', body: { pseudo: 'AutreSb' } });
-  check('pseudo AutreSb (compte d origine clubvm) réservé en anonyme depuis clubsb -> 409 compte_pseudo (réservation GLOBALE, plus d anonyme cross-club)', r17f.status === 409 && r17f.data.compte_pseudo === true, r17f.status + ' ' + (r17f.data.error || ''));
+  check('pseudo AutreSb (compte d origine clubvm) réservé en anonyme depuis clubsb -> 409 compte_pseudo (réservation GLOBALE, plus d anonyme cross-club) + 19a /api/etat?tournoi_id= scopé au club OUVERT (tournoi de clubsb ciblé depuis clubvm -> repli sur le tournoi actif de clubvm, actifs du club seul, aucune fuite d un autre club)', r17f.status === 409 && r17f.data.compte_pseudo === true && !!tvm19a && !!tsb19a && etatVm19a.status === 200 && !!etatVm19a.data.actif && etatVm19a.data.actif.id === tvm19a.id && Array.isArray(etatVm19a.data.actifs) && etatVm19a.data.actifs.length === 1 && etatVm19a.data.actifs[0].id === tvm19a.id, r17f.status + ' ' + (r17f.data.error || '') + ' actif=' + (etatVm19a.data.actif && etatVm19a.data.actif.id) + ' actifs=' + (etatVm19a.data.actifs || []).map(a => a.id).join(','));
   await del('/api/admin/tournoi', { club: 'clubvm' }).catch(() => {});
   await del('/api/admin/tournoi', { club: 'clubsb' }).catch(() => {});
   const spec17f = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
@@ -1203,11 +1207,15 @@ async function nouveauTournoi(body) {
   const cpt17f = fs.readFileSync(path.join(__dirname, '..', 'src', 'comptes.js'), 'utf8');
   check('doc: SPEC 17u (bullet compte plateforme + entrée tests 17f/17u) + GUIDE_ADMIN 9.1 + GUIDE UTILISATEUR + ROADMAP (un seul compte partout)', spec17f.includes('17u. Compte plateforme (un compte pour tous les clubs)') && spec17f.includes('524 checks') && spec17f.includes('comptes et compte plateforme (sections 17f/17u') && ga17f.includes('Compte plateforme (multi-club, 17u)') && ga17f.includes('Un seul compte pour toute la plateforme') && gu17u.includes('un seul compte') && rm17u.includes('Compte plateforme (17u)')
     && spec17f.includes('17x. Fiche joueur du compte scopée au club ouvert')
-    && rm17u.includes('| 58 |'), '');
+    && spec17f.includes('19a. Sélecteur de tournoi dans le bandeau')
+    && rm17u.includes('| 58 |')
+    && rm17u.includes('| 59 |'), '');
   check('doc: db compte plateforme (index uniques pseudo/email sur TOUTE la plateforme + fusion automatique des jumeaux)', db17f.includes('idx17u_pseudo') && db17f.includes('idx17u_email') && db17f.includes('reparerComptes17u') && db17f.includes('fusion des comptes jumeaux'), '');
   check('doc: serveur + comptes plateforme (compteAvecPseudo global, inscription/connexion/oubli globaux, inscription tournoi cross-club)', srv17f.includes('compteAvecPseudo(pseudo)') && srv17f.includes('reparerComptes17u') && cpt17f.includes('déjà utilisé sur la plateforme') && cpt17f.includes('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE OR email = ? COLLATE NOCASE') && cpt17f.includes('SELECT * FROM compte WHERE pseudo = ? COLLATE NOCASE') && !cpt17f.includes('compte introuvable dans ce club') && !cpt17f.includes('appartient à un autre club')
     && cpt17f.includes('17x')
-    && cpt17f.includes('SELECT j.id FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id'), '');
+    && cpt17f.includes('SELECT j.id FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id')
+    && srv17f.includes('cible19a')
+    && srv17f.includes('tournoi WHERE id = ? AND club_id = ? AND statut IN'), '');
 
   // ---------- 17g. Promotion admin du club depuis la table de marque (le PIN du club suffit) ----------
   sec('17g. Promotion admin du club depuis la table de marque (le PIN du club suffit)');
@@ -1654,7 +1662,7 @@ async function nouveauTournoi(body) {
   const cpts19 = fs.readFileSync(path.join(__dirname, '..', 'src', 'comptes.js'), 'utf8');
   const db19 = fs.readFileSync(path.join(__dirname, '..', 'src', 'db.js'), 'utf8');
   const unit19 = fs.readFileSync(path.join(__dirname, '..', 'test', 'push-unit.js'), 'utf8');
-  check('push: notifications traduites par destinataire (compte.lang persiste par le selecteur, payloads fr/en: match lance, ami, inscription, test, creation/rappel tournoi; repli hint X-Lang pour le test manuel; position du selecteur a l extremite opposee du menu principal)', db19.includes('ADD COLUMN lang') && cpts19.includes("['fr', 'en', 'es', 'it', 'de'].includes(req.body.lang)") && cjs18.includes('JSON.stringify({ lang: l })') && push19.includes("You're up!") && push19.includes("A friend's match") && push19.includes('Notification test') && srv19.includes('New tournament — registration open') && srv19.includes('Reminder — registration open') && unit19.includes('i18n par destinataire') && cjs18.includes('wrap, btnCompte, btnClub17v, btnLang'), '');
+  check('push: notifications traduites par destinataire (compte.lang persiste par le selecteur, payloads fr/en: match lance, ami, inscription, test, creation/rappel tournoi; repli hint X-Lang pour le test manuel; position du selecteur a l extremite opposee du menu principal)', db19.includes('ADD COLUMN lang') && cpts19.includes("['fr', 'en', 'es', 'it', 'de'].includes(req.body.lang)") && cjs18.includes('JSON.stringify({ lang: l })') && push19.includes("You're up!") && push19.includes("A friend's match") && push19.includes('Notification test') && srv19.includes('New tournament — registration open') && srv19.includes('Reminder — registration open') && unit19.includes('i18n par destinataire') && cjs18.includes('wrap, btnCompte, btnClub17v, btnLang, btnTournoi19a'), '');
   check('i18n: push etendus es/it/de + dictionnaires 5 langues (payloads Te toca jugar / Notifica di prova / Testbenachrichtigung / Spiel eines Freundes läuft, creation tournoi traduite, STATIQUES_ES serveur, I18N_ES front, test unitaire i18n etendu)', push19.includes('Te toca jugar') && push19.includes('Notifica di prova') && push19.includes('Testbenachrichtigung') && push19.includes('Spiel eines Freundes läuft') && srv19.includes('Nuevo torneo — inscripciones abiertas') && srv19.includes('Nuovo torneo — iscrizioni aperte') && srv19.includes('Neues Turnier — Anmeldung offen') && fs.readFileSync(path.join(__dirname, '..', 'src', 'i18n.js'), 'utf8').includes('STATIQUES_ES') && cjs18.includes('const I18N_ES') && cjs18.includes('const I18N_IT') && cjs18.includes('const I18N_DE') && cjs18.includes('const REPS_DYN_ES') && unit19.includes('i18n étendu'), '');
   check('front: selecteur de langue 5 entrees dans le bandeau (FR/EN/ES/IT/DE data-driven via LANGUES, drapeaux + libelles natifs, bouton = code langue courante)', cjs18.includes('const LANGUES') && cjs18.includes("['fr','🇫🇷','Français']") && cjs18.includes('Español') && cjs18.includes('Italiano') && cjs18.includes('Deutsch') && cjs18.includes("['en','es','it','de'].includes(v)"), '');
   check('i18n: couverture complete (~490 entrees + regles dynamiques dans common.js)', (cjs18.match(/": "/g) || []).length >= 450 && cjs18.includes('const I18N_DYN') && (cjs18.match(/\[\//g) || []).length >= 60, '');
