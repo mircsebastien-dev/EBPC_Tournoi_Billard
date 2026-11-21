@@ -84,15 +84,14 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 - Recherche pseudo/email (Entrée), actions : ✏️ pseudo, 🔑 mdp, 🗑 supprimer (détache les joueurs — l'historique des matchs est conservé — supprime sessions/push, logué audit)
 - **Purge auto** : comptes sans connexion depuis **18 mois** supprimés au boot + toutes les heures
 
-### 9.1 🔒 Comptes cloisonnés par club (multi-club)
+### 9.1 👤 Compte plateforme (multi-club, 17u)
 
-- **Chaque club a son propre espace de comptes** : une isolation stricte : des comptes cloisonnés par club. Un compte créé depuis le contexte d un club appartient à ce club, définitivement.
-- **Le club est figé à la création** : créer un compte depuis les pages d un club (ou son URL `?club=`) le lie à CE club ; se connecter depuis un autre club ne crée jamais de lien (401 : le compte n existe pas dans ce club là).
-- **Pseudo et email uniques PAR club** : deux clubs peuvent chacun avoir leur « Seb » ou le même email ; dans le même club, doublon refusé (409).
-- **La liste des comptes (`/admin-comptes.html`) ne montre que VOTRE club** avec votre code PIN : un compte créé dans un autre club n apparaît pas chez vous ; le super-admin (code global) voit tous les clubs.
-- **Amis, recherche et « mot de passe oublié » sont scopés** : tout se passe dans le club du compte ; l oubli ne révèle jamais si un email existe dans un autre club (réponse générique).
-- **Un compte d un autre club ne peut pas s inscrire à vos tournois** (409) ; son pseudo reste utilisable en joueur anonyme chez vous.
-- Les comptes rattachés via `compte_club` (staff multi-club) restent visibles dans les clubs concernés.
+- **Un seul compte pour toute la plateforme** : le pseudo et l email sont réservés sur TOUS les clubs ; deux clubs ne peuvent plus avoir chacun leur « Seb » (409 « déjà utilisé sur la plateforme », même depuis un autre club).
+- **Même login partout** : la connexion et le mot de passe oublié sont globaux ; le même compte sert dans tous les clubs et peut s inscrire aux tournois des autres clubs avec sa session.
+- **Le club d origine reste figé à la création** : la liste des comptes (code PIN de votre club) ne montre que les comptes originaires de VOTRE club ; se connecter depuis un autre club ne crée jamais de lien ; rôles club et staff multi-club inchangés.
+- **Amis et recherche scopés au club d origine** (on ne s ajoute que des comptes originaires du club ouvert) ; le mot de passe oublié retrouve le compte quel que soit le club (réponse générique sans compte : anti-énumération).
+- **Pseudos réservés partout** : aucune inscription anonyme ne peut prendre le pseudo d un compte, quel que soit le club (409 « compte_pseudo »).
+- **Fusion automatique des jumeaux** (au démarrage et après un import complet de base) : deux comptes de MÊME email n en font plus qu un (le plus ancien garde sessions, push, amis, rôles club) ; les doublons de pseudo restants sont renommés « pseudo-slug-du-club ». Les imports d une sauvegarde antérieure au compte plateforme sont adaptés automatiquement.
 
 ### 9.2 👑 Rôle club depuis la table de marque (multi-club)
 

@@ -1144,61 +1144,62 @@ async function nouveauTournoi(body) {
   const srv17e = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
   check('doc: SPEC 17e + GUIDE_ADMIN club + serveur (export-club/import-club SANS requireSuperAdmin: un code de club sauvegarde/restaure SON club, limite 25mb)', spec17e.includes('17e. Sauvegarde des données du club') && spec17e.includes('524 checks') && ga17e.includes('Données du club : sauvegarde / restauration') && srv17e.includes("app.get('/api/admin/base/export-club', requireAdmin") && srv17e.includes("app.post('/api/admin/base/import-club', requireAdmin, requireConfirmPin") && srv17e.includes("app.use('/api/admin/base/import-club', express.json({ limit: '25mb' }))"), '');
 
-  // ---------- 17f. Comptes cloisonnés par club (isolation stricte: pseudo et email PAR club) ----------
-  sec('17f. Comptes cloisonnés par club (pseudo et email par club, creation seule lie le club)');
+  // ---------- 17f/17u. Compte plateforme (pseudo et email uniques sur TOUTE la plateforme, club d origine a la creation) ----------
+  sec('17f/17u. Compte plateforme (pseudo et email uniques TOUTE la plateforme, club d origine conservé, le compte sert dans tous les clubs)');
   r = await post('/api/admin/club', { slug: 'clubvm', nom: 'Club VM', pin: '5678' });
-  check('clubvm créé avec son PIN (2e club avec PIN pour tester l isolation des comptes)', r.status === 200 && r.data.club && r.data.club.slug === 'clubvm', r.status + ' ' + (r.data.error || ''));
+  check('clubvm créé avec son PIN (2e club avec PIN pour tester le compte plateforme)', r.status === 200 && r.data.club && r.data.club.slug === 'clubvm', r.status + ' ' + (r.data.error || ''));
   const xhr17f = (p17f, xff, opts = {}) => fetch(BASE + p17f, {
     method: opts.method || 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': xff, ...(opts.club ? { 'X-Club': opts.club } : {}), ...(opts.cookie ? { Cookie: opts.cookie } : {}) },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   }).then(async r17 => ({ status: r17.status, data: await r17.json().catch(() => ({})), cookie: r17.headers.get('set-cookie') }));
   let r17f = await xhr17f('/api/compte/inscription', '203.0.113.101', { club: 'clubsb', body: { pseudo: 'MembreSb', email: 'membre.sb@clubsb.test', password: '1234' } });
-  check('compte créé DEPUIS le contexte du club clubsb -> 201 (lié au club au moment de la création)', r17f.status === 201 && r17f.data.compte && r17f.data.compte.pseudo === 'MembreSb', r17f.status + ' ' + (r17f.data.error || ''));
+  check('compte créé DEPUIS le contexte du club clubsb -> 201 (club d origine figé a la creation)', r17f.status === 201 && r17f.data.compte && r17f.data.compte.pseudo === 'MembreSb', r17f.status + ' ' + (r17f.data.error || ''));
   r = await api('/api/admin/comptes', { club: 'clubsb', pin: '4321' });
-  check('le compte est VISIBLE dans la liste des comptes de SON club (table de marque, code PIN du club)', r.status === 200 && r.data.comptes.some(c => c.pseudo === 'MembreSb'), 'n=' + r.data.comptes.length);
+  check('le compte est VISIBLE dans la liste des comptes de SON club d origine (table de marque, code PIN du club)', r.status === 200 && r.data.comptes.some(c => c.pseudo === 'MembreSb'), 'n=' + r.data.comptes.length);
   r = await api('/api/admin/comptes', { club: 'clubvm', pin: '5678' });
-  check('le compte est INVISIBLE dans la liste d un autre club (code PIN de clubvm)', r.status === 200 && !r.data.comptes.some(c => c.pseudo === 'MembreSb'), 'n=' + r.data.comptes.length);
+  check('le compte reste INVISIBLE dans la liste d un autre club (club d origine conservé, aucune liaison implicite)', r.status === 200 && !r.data.comptes.some(c => c.pseudo === 'MembreSb'), 'n=' + r.data.comptes.length);
   r = await api('/api/admin/comptes?tous=1', {});
   check('super-admin (code global): vue tous clubs EXPLICITE (?tous=1) -> MembreSb (clubsb) visible', r.status === 200 && r.data.comptes.some(c => c.pseudo === 'MembreSb'), '');
   r17f = await xhr17f('/api/compte/inscription', '203.0.113.102', { club: 'clubvm', body: { pseudo: 'MembreSb', email: 'membre.sb@clubvm.test', password: '1234' } });
-  check('même pseudo accepté dans un AUTRE club (unicité PAR club, plus globale) -> 201', r17f.status === 201, r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/compte/inscription', '203.0.113.103', { club: 'clubvm', body: { pseudo: 'MembreSb', email: 'x1@clubvm.test', password: '1234' } });
-  check('pseudo déjà pris DANS le même club -> 409', r17f.status === 409, r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/compte/inscription', '203.0.113.104', { club: 'clubvm', body: { pseudo: 'AutreVm', email: 'membre.sb@clubvm.test', password: '1234' } });
-  check('email déjà pris dans le même club -> 409', r17f.status === 409, r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/compte/inscription', '203.0.113.105', { club: 'clubsb', body: { pseudo: 'AutreSb', email: 'membre.sb@clubvm.test', password: '1234' } });
-  check('même email accepté dans un autre club (unicité email PAR club) -> 201', r17f.status === 201, r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/compte/connexion', '203.0.113.106', { club: 'clubsb', body: { pseudo: 'MembreSb', password: '1234' } });
+  check('inscription du même pseudo depuis un AUTRE club -> 409 « déjà utilisé sur la plateforme » (pseudo réservé TOUTE la plateforme)', r17f.status === 409 && String(r17f.data.error || '').includes('déjà utilisé sur la plateforme'), r17f.status + ' ' + (r17f.data.error || ''));
+  r17f = await xhr17f('/api/compte/inscription', '203.0.113.103', { club: 'clubvm', body: { pseudo: 'AutreVm', email: 'membre.sb@clubsb.test', password: '1234' } });
+  check('inscription avec l email d un compte d un autre club -> 409 (email réservé TOUTE la plateforme)', r17f.status === 409, r17f.status + ' ' + (r17f.data.error || ''));
+  r17f = await xhr17f('/api/compte/inscription', '203.0.113.104', { club: 'clubvm', body: { pseudo: 'AutreSb', email: 'autre.sb@clubvm.test', password: '1234' } });
+  check('inscription depuis clubvm avec pseudo + email inedits -> 201 (nouveau compte, club d origine = clubvm)', r17f.status === 201 && r17f.data.compte && r17f.data.compte.pseudo === 'AutreSb', r17f.status + ' ' + (r17f.data.error || ''));
+  r17f = await xhr17f('/api/compte/connexion', '203.0.113.105', { club: 'clubsb', body: { pseudo: 'MembreSb', password: '1234' } });
   const cookieMembreSb = (r17f.cookie || '').split(';')[0];
-  check('connexion depuis SON club -> 200 + session', r17f.status === 200 && !!cookieMembreSb, r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/compte/connexion', '203.0.113.107', { club: 'clubvm', body: { pseudo: 'AutreSb', password: '1234' } });
-  check('connexion depuis clubvm du compte AutreSb (existant UNIQUEMENT dans clubsb) -> 401 (le pseudo MembreSb lui répond 200 car le jumeau de clubvm est un autre compte)', r17f.status === 401, r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/compte/connexion', '203.0.113.114', { club: 'clubvm', body: { pseudo: 'MembreSb', password: '1234' } });
-  check('connexion du jumeau MembreSb depuis clubvm -> 200 + session distincte de celle de clubsb (deux comptes indépendants)', r17f.status === 200 && (r17f.cookie || '') !== cookieMembreSb, r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/compte/oubli', '203.0.113.112', { club: 'clubsb', body: { email: 'membre.sb@clubsb.test' } });
-  check('oubli depuis le bon club -> compte trouvé (dev_reset_link en dev)', r17f.status === 200 && !!r17f.data.dev_reset_link, JSON.stringify({ status: r17f.status, lien: !!r17f.data.dev_reset_link }));
-  r17f = await xhr17f('/api/compte/oubli', '203.0.113.113', { club: 'clubvm', body: { email: 'membre.sb@clubsb.test' } });
-  check('oubli depuis un autre club: ce email n a pas de compte ici -> réponse générique sans lien (anti-énumération)', r17f.status === 200 && !r17f.data.dev_reset_link, r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/compte/connexion', '203.0.113.108', { club: 'clubvm', body: { pseudo: 'Seb', password: 'nouveau1' } });
-  check('connexion d un compte du club défaut depuis clubvm -> 401 (le compte n existe pas dans CE club)', r17f.status === 401, r17f.status + ' ' + (r17f.data.error || ''));
+  check('connexion depuis SON club d origine -> 200 + session', r17f.status === 200 && !!cookieMembreSb, r17f.status + ' ' + (r17f.data.error || ''));
+  r17f = await xhr17f('/api/compte/connexion', '203.0.113.106', { club: 'clubvm', body: { pseudo: 'MembreSb', password: '1234' } });
+  const cookieMembreSbVm = (r17f.cookie || '').split(';')[0];
+  check('connexion du MÊME compte depuis un AUTRE club -> 200 + session distincte (compte plateforme, plus de jumeaux par club)', r17f.status === 200 && !!cookieMembreSbVm && cookieMembreSbVm !== cookieMembreSb, r17f.status + ' ' + (r17f.data.error || ''));
+  r17f = await xhr17f('/api/compte/oubli', '203.0.113.107', { club: 'clubvm', body: { email: 'membre.sb@clubsb.test' } });
+  check('oubli DEPUIS un autre club que le club d origine -> compte trouvé (recherche GLOBALE via email, dev_reset_link en dev)', r17f.status === 200 && !!r17f.data.dev_reset_link, JSON.stringify({ status: r17f.status, lien: !!r17f.data.dev_reset_link }));
+  r17f = await xhr17f('/api/compte/oubli', '203.0.113.108', { club: 'clubvm', body: { email: 'personne@nulle-part.test' } });
+  check('oubli pour un email SANS compte -> réponse générique sans lien (anti-énumération conservée)', r17f.status === 200 && !r17f.data.dev_reset_link, r17f.status + ' ' + (r17f.data.error || ''));
+  r17f = await xhr17f('/api/compte/connexion', '203.0.113.109', { club: 'clubvm', body: { pseudo: 'Seb', password: '1234' } });
+  check('connexion d un compte du club défaut depuis clubvm -> 200 (compte plateforme utilisable depuis tous les clubs)', r17f.status === 200 && r17f.data.compte && r17f.data.compte.pseudo === 'Seb', r17f.status + ' ' + (r17f.data.error || ''));
   r = await api('/api/admin/comptes', { club: 'clubvm', pin: '5678' });
-  check('aucune liaison implicite: Seb reste absent de clubvm (seule la création fige le club)', !r.data.comptes.some(c => c.pseudo === 'Seb'), '');
+  check('aucune liaison implicite: Seb reste absent de la marque de clubvm (club d origine inchangé)', !r.data.comptes.some(c => c.pseudo === 'Seb'), '');
   r = await post('/api/admin/tournoi', { nom: 'ClubVM-T', regle: 'blackball', taille: 16, format: 'simple', notif_push: false }, { club: 'clubvm', pin: '5678' });
-  check('tournoi ClubVM-T créé dans clubvm (pour la garde d isolation des inscriptions)', r.status === 200, r.status + ' ' + (r.data.error || ''));
-  r17f = await xhr17f('/api/tournoi/inscrire', '203.0.113.109', { club: 'clubvm', cookie: cookieMembreSb, body: {} });
-  check('inscription au tournoi d un autre club avec sa session -> 409 (compte cloisonné)', r17f.status === 409 && String(r17f.data.error || '').includes('appartient à un autre club'), r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/joueur', '203.0.113.110', { club: 'clubvm', body: { pseudo: 'AutreSb' } });
-  check('pseudo d un compte d un autre club utilisable anonymement dans ce club (réservation cloisonnée) -> 200', r17f.status === 200, r17f.status + ' ' + (r17f.data.error || ''));
+  check('tournoi ClubVM-T créé dans clubvm (pour l inscription cross-club au tournoi)', r.status === 200, r.status + ' ' + (r.data.error || ''));
+  r17f = await xhr17f('/api/tournoi/inscrire', '203.0.113.110', { club: 'clubvm', cookie: cookieMembreSb, body: {} });
+  check('inscription au tournoi d un AUTRE club avec sa session (MembreSb, origine clubsb) -> 201 (compte plateforme, plus de refus club d origine)', r17f.status === 201 && r17f.data.joueur && r17f.data.joueur.pseudo === 'MembreSb', r17f.status + ' ' + (r17f.data.error || ''));
   r17f = await xhr17f('/api/joueur', '203.0.113.111', { club: 'clubvm', body: { pseudo: 'MembreSb' } });
-  check('pseudo d un compte de CE club toujours réservé (409 compte_pseudo, inscription anonyme refusée)', r17f.status === 409 && r17f.data.compte_pseudo === true, r17f.status + ' ' + (r17f.data.error || ''));
+  check('pseudo MembreSb réservé en anonyme depuis clubvm -> 409 compte_pseudo (réservation GLOBALE)', r17f.status === 409 && r17f.data.compte_pseudo === true, r17f.status + ' ' + (r17f.data.error || ''));
+  r17f = await xhr17f('/api/joueur', '203.0.113.112', { club: 'clubsb', body: { pseudo: 'AutreSb' } });
+  check('pseudo AutreSb (compte d origine clubvm) réservé en anonyme depuis clubsb -> 409 compte_pseudo (réservation GLOBALE, plus d anonyme cross-club)', r17f.status === 409 && r17f.data.compte_pseudo === true, r17f.status + ' ' + (r17f.data.error || ''));
   await del('/api/admin/tournoi', { club: 'clubvm' }).catch(() => {});
   const spec17f = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
   const ga17f = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
+  const gu17u = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_UTILISATEUR.md'), 'utf8');
+  const rm17u = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const db17f = fs.readFileSync(path.join(__dirname, '..', 'src', 'db.js'), 'utf8');
   const srv17f = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
   const cpt17f = fs.readFileSync(path.join(__dirname, '..', 'src', 'comptes.js'), 'utf8');
-  check('doc: SPEC 17f + GUIDE_ADMIN + schema db (club_id NOT NULL + unicite PAR club) + serveur/comptes scopés PAR club', spec17f.includes('17f. Comptes cloisonnés par club') && spec17f.includes('524 checks') && ga17f.includes('comptes cloisonnés par club') && db17f.includes('UNIQUE (club_id, pseudo)') && db17f.includes('UNIQUE (club_id, email)') && srv17f.includes('compteAvecPseudo(pseudo, clubId)') && cpt17f.includes('AND club_id = ?'), '');
+  check('doc: SPEC 17u (bullet compte plateforme + entrée tests 17f/17u) + GUIDE_ADMIN 9.1 + GUIDE UTILISATEUR + ROADMAP (un seul compte partout)', spec17f.includes('17u. Compte plateforme (un compte pour tous les clubs)') && spec17f.includes('524 checks') && spec17f.includes('comptes et compte plateforme (sections 17f/17u') && ga17f.includes('Compte plateforme (multi-club, 17u)') && ga17f.includes('Un seul compte pour toute la plateforme') && gu17u.includes('un seul compte') && rm17u.includes('Compte plateforme (17u)'), '');
+  check('doc: db compte plateforme (index uniques pseudo/email sur TOUTE la plateforme + fusion automatique des jumeaux)', db17f.includes('idx17u_pseudo') && db17f.includes('idx17u_email') && db17f.includes('reparerComptes17u') && db17f.includes('fusion des comptes jumeaux'), '');
+  check('doc: serveur + comptes plateforme (compteAvecPseudo global, inscription/connexion/oubli globaux, inscription tournoi cross-club)', srv17f.includes('compteAvecPseudo(pseudo)') && srv17f.includes('reparerComptes17u') && cpt17f.includes('déjà utilisé sur la plateforme') && cpt17f.includes('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE OR email = ? COLLATE NOCASE') && cpt17f.includes('SELECT * FROM compte WHERE pseudo = ? COLLATE NOCASE') && !cpt17f.includes('compte introuvable dans ce club') && !cpt17f.includes('appartient à un autre club'), '');
 
   // ---------- 17g. Promotion admin du club depuis la table de marque (le PIN du club suffit) ----------
   sec('17g. Promotion admin du club depuis la table de marque (le PIN du club suffit)');

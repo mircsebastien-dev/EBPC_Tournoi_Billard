@@ -128,9 +128,9 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!validerPseudo(pseudo)) return res.status(400).json({ error: 'Pseudo invalide (2-24 caractères : lettres, chiffres, _ -)' });
     if (!validerEmail(email)) return res.status(400).json({ error: 'Email invalide' });
     if (!validerPassword(password)) return res.status(400).json({ error: 'Mot de passe trop court (min 4 caractères)' });
-    const clubId = (req.club && req.club.id) || clubParDefaut().id; // 17f: le compte est créé DANS le club courant (lien figé à la création)
-    const existe = db.prepare('SELECT id FROM compte WHERE club_id = ? AND (pseudo = ? COLLATE NOCASE OR email = ? COLLATE NOCASE)').get(clubId, pseudo, email);
-    if (existe) return res.status(409).json({ error: 'Pseudo ou email déjà utilisé dans ce club' });
+    const clubId = (req.club && req.club.id) || clubParDefaut().id; // 17u: club d ORIGINE du compte (figé à la création : audit, listes de marque, amis)
+    const existe = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE OR email = ? COLLATE NOCASE').get(pseudo, email); // 17u: unique sur TOUTE la plateforme
+    if (existe) return res.status(409).json({ error: 'Pseudo ou email déjà utilisé sur la plateforme' });
     const salt = nouveauSalt();
     const info = db.prepare(`INSERT INTO compte (club_id, pseudo, email, pass_hash, salt, last_login_at) VALUES (?, ?, ?, ?, ?, datetime('now'))`)
       .run(clubId, pseudo, email, hashPassword(password, salt), salt);
@@ -148,12 +148,11 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!rateLimit('conn:' + ip, 10, 10 * 60 * 1000)) return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 10 min' });
     const pseudo = String(req.body.pseudo || '').trim();
     const password = req.body.password;
-    const clubId = (req.club && req.club.id) || clubParDefaut().id; // 17f: connexion depuis les pages d un club -> compte de CE club
-    const c = db.prepare('SELECT * FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ?').get(pseudo, clubId);
+    const c = db.prepare('SELECT * FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo); // 17u: connexion GLOBALE (le compte suit l utilisateur, pas le club)
     if (!c || !verifierPassword(password, c.salt, c.pass_hash)) {
-      return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect (compte introuvable dans ce club)' });
+      return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect' });
     }
-    rattacherJoueursAnonymes(c.id, c.pseudo, c.club_id);
+    rattacherJoueursAnonymes(c.id, c.pseudo, (req.club && req.club.id) || c.club_id); // 17u: rattache les joueurs anonymes du club OUVERT à la connexion
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     const token = creerSession(c.id);
     setSessionCookie(res, token, SESSION_JOURS);
@@ -364,7 +363,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
     if (!rateLimit('oubli:' + ip, 3, 60 * 60 * 1000)) return res.status(429).json({ error: 'Trop de demandes, réessaie plus tard' });
     const email = String(req.body.email || '').trim().toLowerCase();
     if (!validerEmail(email)) return res.status(400).json({ error: 'Email invalide' });
-    const c = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE AND club_id = ?').get(email, (req.club && req.club.id) || clubParDefaut().id); // 17f: le mail ne concerne que les comptes du club courant
+    const c = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE').get(email); // 17u: recherche GLOBALE (le compte est le même dans tous les clubs)
     // réponse identique même si le compte n'existe pas (pas d'énumération)
     let devLink = null;
     if (c) {
@@ -409,9 +408,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   // self-enrollment au tournoi actif avec le pseudo du compte
   app.post('/api/tournoi/inscrire', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Crée un compte ou connecte-toi d\'abord (pseudo + email + mot de passe)' });
-    // 17f: isolation stricte des comptes -> impossible de s inscrire au tournoi d un autre club avec sa session
-    if (req.compte.club_id && req.club && req.compte.club_id !== req.club.id)
-      return res.status(409).json({ error: 'Ton compte appartient à un autre club : crée un compte depuis les pages de ce club pour t y inscrire' });
+    // 17u: compte plateforme -> la session sert dans TOUS les clubs (l inscription au tournoi n est plus refusée hors du club d origine)
     const t = tournoiActif(req.club ? req.club.id : undefined);
     if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
     if (t.statut !== 'inscription') return res.status(409).json({ error: 'Les inscriptions sont fermées (tournoi lancé)' });
@@ -502,9 +499,8 @@ function setPasswordAdmin(compteId, password) {
 function setPseudoAdmin(compteId, pseudo) {
   const p = String(pseudo || '').trim();
   if (p.length < 2) throw new Error('Pseudo trop court (min 2)');
-  const clubIdP = (db.prepare('SELECT club_id FROM compte WHERE id = ?').get(compteId) || {}).club_id;
-  const pris = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ? AND id != ?').get(p, clubIdP, compteId);
-  if (pris) throw new Error('Ce pseudo est déjà pris dans ce club');
+  const pris = db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE AND id != ?').get(p, compteId); // 17u: réservé sur TOUTE la plateforme
+  if (pris) throw new Error('Ce pseudo est déjà pris sur la plateforme');
   db.prepare('UPDATE compte SET pseudo = ? WHERE id = ?').run(p, compteId);
   return p;
 }
@@ -515,7 +511,7 @@ function ensureAdminCompte(email, password) {
   if (!email || !password) return null;
   if (!validerEmail(email) || !validerPassword(password)) { console.error('[ADMIN] ADMIN_EMAIL/ADMIN_PASSWORD invalides, ignorés'); return null; }
   const mail = String(email).trim().toLowerCase();
-  const existe = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE AND club_id = ?').get(mail, clubParDefaut().id); // 17f: compte admin plateforme, club par défaut
+  const existe = db.prepare('SELECT * FROM compte WHERE email = ? COLLATE NOCASE').get(mail); // 17u: recherche GLOBALE, le compte admin vit sur toute la plateforme
   if (existe) {
     if (existe.role !== 'admin') db.prepare("UPDATE compte SET role = 'admin' WHERE id = ?").run(existe.id);
     return existe.id;

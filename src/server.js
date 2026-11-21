@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
-const { db, setSetting, getSetting, logAudit, clubParDefaut, clubParSlug } = require('./db');
+const { db, setSetting, getSetting, logAudit, clubParDefaut, clubParSlug, reparerComptes17u } = require('./db');
 const bracket = require('./bracket');
 const M = require('./matchs');
 const comptes = require('./comptes');
@@ -53,10 +53,8 @@ function cleanPseudo(v, max = 40) {
 }
 
 // pseudo d'un compte = réservé: aucune inscription anonyme ne peut le prendre (anti-usurpation d'identité)
-function compteAvecPseudo(pseudo, clubId) { // 17f: réservation de pseudo cloisonnée au club courant (les comptes des autres clubs ne bloquent plus)
-  return (clubId
-    ? db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ?').get(String(pseudo || ''), clubId)
-    : db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(String(pseudo || ''))) || null;
+function compteAvecPseudo(pseudo) { // 17u: réservation de pseudo sur TOUTE la plateforme (les comptes ne sont plus cloisonnés par club)
+  return db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(String(pseudo || '')) || null;
 }
 
 const PORT = process.env.PORT || 3000;
@@ -1111,7 +1109,7 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
     tds = Number(req.body.tete_de_serie);
   }
   // pseudo d'un compte = réservé: confirmation explicite requise (l'UI admin demande, puis renvoie confirme=true)
-  const cReserve = compteAvecPseudo(pseudo, req.club && req.club.id);
+  const cReserve = compteAvecPseudo(pseudo); // 17u: réservé sur TOUTE la plateforme
   if (cReserve && !req.body.confirme) {
     return res.status(409).json({ error: `Un compte existe déjà avec le pseudo « ${pseudo} » — inscrire quand même ce joueur à la place du titulaire ?`, compte_pseudo: true });
   }
@@ -1171,7 +1169,7 @@ app.post('/api/joueur', (req, res) => {
     return res.status(409).json({ error: 'Compte connecté : inscris-toi avec le bouton « M\'inscrire » de ton compte', compte_connecte: true });
   }
   // pseudo d'un compte = réservé (anti-usurpation): l'inscription anonyme est refusée, le titulaire doit se connecter
-  if (compteAvecPseudo(pseudo, req.club && req.club.id)) {
+  if (compteAvecPseudo(pseudo)) { // 17u: réservé sur TOUTE la plateforme
     return res.status(409).json({ error: 'Ce pseudo appartient à un compte : connecte-toi pour t\'inscrire, ou choisis un autre pseudo', compte_pseudo: true });
   }
   const count = db.prepare('SELECT COUNT(*) c FROM joueur WHERE tournoi_id = ?').get(t.id).c;
@@ -1210,7 +1208,7 @@ app.put('/api/admin/joueur/:id', requireAdmin, (req, res) => {
     const pris = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND id != ?').get(j.tournoi_id, pseudo, id);
     if (pris) return res.status(409).json({ error: 'Pseudo déjà pris dans ce tournoi' });
     // pseudo d'un compte = réservé (sauf si le joueur est déjà rattaché à CE compte: alignement de pseudo autorisé)
-    const cReserve = compteAvecPseudo(pseudo, req.club && req.club.id);
+    const cReserve = compteAvecPseudo(pseudo); // 17u: réservé sur TOUTE la plateforme
     if (cReserve && cReserve.id !== j.compte_id) {
       return res.status(409).json({ error: `Le pseudo « ${pseudo} » appartient à un compte (pseudo réservé)`, compte_pseudo: true });
     }
@@ -1945,14 +1943,18 @@ function handlerImportBase(req, res) {
   const avant = {}; for (const t of connues) avant[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
   db.pragma('foreign_keys = OFF'); // orphelins hérités (clubs supprimés): le COMMIT ne les refuse pas, ils sont validés par foreign_key_check ci-dessous
   let txImport;
+  let fusion17u = null;
   try {
   txImport = db.transaction(() => {
     for (const t of connues) db.prepare(`DELETE FROM ${t}`).run();
+    db.exec('DROP INDEX IF EXISTS idx17u_pseudo'); // 17u: index uniques plateforme relâchés le temps de l import (jumeaux d une sauvegarde ancienne)
+    db.exec('DROP INDEX IF EXISTS idx17u_email');
     for (const [nom, row] of lignes) {
       const cles = Object.keys(row);
       if (!cles.length) continue;
       db.prepare(`INSERT INTO ${nom} (${cles.map(c => `"${c}"`).join(', ')}) VALUES (${cles.map(() => '?').join(', ')})`).run(...cles.map(c => row[c]));
     }
+    fusion17u = reparerComptes17u(); // 17u: fusion des jumeaux + unicité plateforme AVANT la validation des références
     const vios = db.prepare('PRAGMA foreign_key_check').all();
     const nouvelles = vios.filter(v => !annoncees.has(`${v.table}#${v.rowid}->${v.parent}`)); // hors orphelins déjà déclarés par l'export
     if (nouvelles.length) { const e = new Error('Sauvegarde invalide: références cassées: ' + nouvelles.slice(0, 5).map(v => `${v.table}#${v.rowid} -> ${v.parent}`).join(', ')); e.status = 400; throw e; }
@@ -1962,7 +1964,7 @@ function handlerImportBase(req, res) {
     db.pragma('foreign_keys = ON'); // contraintes réactivées même en cas d'erreur
   }
   const apres = {}; for (const t of connues) apres[t] = db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n;
-  logAuditReq(req, 'import_base', `${lignes.length} lignes restaurées sur ${connues.length} tables`, { tables: avant }, { tables: apres, ...(rattaches17f ? { comptes_rattaches_pre17f: rattaches17f } : {}) });
+  logAuditReq(req, 'import_base', `${lignes.length} lignes restaurées sur ${connues.length} tables`, { tables: avant }, { tables: apres, ...(rattaches17f ? { comptes_rattaches_pre17f: rattaches17f } : {}), ...(fusion17u && (fusion17u.fusionnes || fusion17u.renommes) ? { comptes_plateforme_17u: fusion17u } : {}) });
   majEtBroadcast();
   res.json({ ok: true, tables: apres, ...etatGlobal(req) });
 }

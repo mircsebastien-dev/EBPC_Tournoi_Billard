@@ -75,8 +75,8 @@ CREATE TABLE IF NOT EXISTS joueur (
   UNIQUE (tournoi_id, pseudo)
 );
 
--- multi-club (17f): les comptes sont cloisonnés PAR CLUB (isolation stricte) :
--- pseudo et email uniques à l intérieur d un club, réutilisables librement entre clubs.
+-- multi-club (17u): le compte est un compte PLATEFORME (un compte pour tous les clubs) :
+-- pseudo et email uniques sur TOUTE la plateforme ; club_id = club d ORIGINE (figé à la création, portée des listes de marque, de l audit et des amis).
 CREATE TABLE IF NOT EXISTS compte (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   club_id INTEGER NOT NULL REFERENCES club(id),
@@ -89,9 +89,7 @@ CREATE TABLE IF NOT EXISTS compte (
   last_login_at TEXT,
   notif_amis_inscription INTEGER NOT NULL DEFAULT 1, -- pref "notification inscription amis" (désactivable depuis la page Compte)
   notif_amis_match INTEGER NOT NULL DEFAULT 1, -- pref "notification match d'un ami" (désactivable depuis la page Compte)
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (club_id, pseudo),
-  UNIQUE (club_id, email)
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS ami (
@@ -374,6 +372,72 @@ db.exec(`
     AND EXISTS (SELECT 1 FROM compte c WHERE c.pseudo = joueur.pseudo COLLATE NOCASE)
 `);
 
+// ---------- 17u. Compte plateforme : fusion des comptes jumeaux + unicité pseudo/email sur TOUTE la plateforme ----------
+// Le cloisonnement 17f laissait le même pseudo ou le même email exister dans plusieurs clubs.
+// reparerComptes17u (idempotent, appelé au boot et après un import complet de base) :
+//   1) fusion des comptes jumeaux (MÊME email) : le plus ancien garde tout (sessions, push, amis des deux côtés, rôles club, joueurs) ;
+//   2) renommage des doublons de pseudo restants en « pseudo-slug-du-club » (admin puis connexion la plus récente gagnent le pseudo nu) ;
+//   3) deux index uniques plateforme (idx17u_pseudo, idx17u_email) verrouillent l unicité pour tous les clubs.
+function reparerComptes17u() {
+  const res17u = { fusionnes: 0, renommes: 0 };
+  try {
+    // 1) fusion des jumeaux par email : le plus petit id gagne, l autre disparaît
+    const jumeaux17u = db.prepare('SELECT c1.id garde_id, c2.id perdant_id FROM compte c1 JOIN compte c2 ON c2.email = c1.email COLLATE NOCASE AND c2.id > c1.id ORDER BY c1.id, c2.id').all();
+    for (const j of jumeaux17u) {
+      if (!db.prepare('SELECT id FROM compte WHERE id = ?').get(j.perdant_id)) continue; // déjà fusionné (jumeaux en chaîne)
+      db.prepare('UPDATE OR IGNORE session SET compte_id = ? WHERE compte_id = ?').run(j.garde_id, j.perdant_id);
+      db.prepare('UPDATE OR IGNORE push_subscription SET compte_id = ? WHERE compte_id = ?').run(j.garde_id, j.perdant_id);
+      db.prepare('INSERT OR IGNORE INTO ami (compte_id, ami_compte_id, created_at) SELECT ?, ami_compte_id, created_at FROM ami WHERE compte_id = ?').run(j.garde_id, j.perdant_id);
+      db.prepare('INSERT OR IGNORE INTO ami (compte_id, ami_compte_id, created_at) SELECT compte_id, ?, created_at FROM ami WHERE ami_compte_id = ?').run(j.garde_id, j.perdant_id);
+      db.prepare('DELETE FROM ami WHERE compte_id = ? OR ami_compte_id = ? OR compte_id = ami_compte_id').run(j.perdant_id, j.perdant_id);
+      db.prepare('UPDATE OR IGNORE ami_pseudo SET compte_id = ? WHERE compte_id = ?').run(j.garde_id, j.perdant_id);
+      db.prepare('INSERT OR IGNORE INTO compte_club (compte_id, club_id, role, created_at) SELECT ?, club_id, role, created_at FROM compte_club WHERE compte_id = ?').run(j.garde_id, j.perdant_id);
+      db.prepare('DELETE FROM compte_club WHERE compte_id = ?').run(j.perdant_id);
+      db.prepare('UPDATE OR IGNORE joueur SET compte_id = ? WHERE compte_id = ?').run(j.garde_id, j.perdant_id);
+      db.prepare('DELETE FROM session WHERE compte_id = ?').run(j.perdant_id);
+      db.prepare('DELETE FROM push_subscription WHERE compte_id = ?').run(j.perdant_id);
+      db.prepare('DELETE FROM compte WHERE id = ?').run(j.perdant_id);
+      res17u.fusionnes++;
+    }
+    // 2) doublons de pseudo restants : le gagnant garde le pseudo nu, les autres prennent pseudo-slug-du-club
+    const groupes17u = {};
+    for (const c of db.prepare('SELECT id, pseudo, club_id, role, last_login_at FROM compte').all()) {
+      const cle17u = String(c.pseudo).toLowerCase();
+      if (!groupes17u[cle17u]) groupes17u[cle17u] = [];
+      groupes17u[cle17u].push(c);
+    }
+    for (const cle17u of Object.keys(groupes17u)) {
+      if (groupes17u[cle17u].length < 2) continue;
+      groupes17u[cle17u].sort((a, b) =>
+        ((b.role === 'admin') - (a.role === 'admin')) ||
+        String(b.last_login_at || '').localeCompare(String(a.last_login_at || '')) ||
+        (a.id - b.id));
+      for (const c of groupes17u[cle17u].slice(1)) {
+        const slug17u = String((db.prepare('SELECT slug FROM club WHERE id = ?').get(c.club_id) || {}).slug || 'club').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30) || 'club';
+        let nouveau17u = String(c.pseudo).slice(0, 24) + '-' + slug17u;
+        if (db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE').get(nouveau17u)) {
+          let n17u = 2;
+          while (db.prepare('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE').get(nouveau17u + '-' + n17u)) n17u++;
+          nouveau17u = nouveau17u + '-' + n17u;
+        }
+        db.prepare('UPDATE compte SET pseudo = ? WHERE id = ?').run(nouveau17u, c.id);
+        res17u.renommes++;
+      }
+    }
+    // 3) verrou plateforme : unicité pseudo/email sur TOUTE la plateforme
+    db.exec('DROP INDEX IF EXISTS idx17u_pseudo');
+    db.exec('DROP INDEX IF EXISTS idx17u_email');
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx17u_pseudo ON compte(pseudo)');
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx17u_email ON compte(email)');
+  } catch (e) { console.error('[MIGRATION] compte plateforme (17u):', e.message); }
+  return res17u;
+}
+
+try {
+  const res17u = reparerComptes17u();
+  if (res17u.fusionnes || res17u.renommes) console.log('[MIGRATION] compte plateforme (17u): ' + res17u.fusionnes + ' fusion(s) email, ' + res17u.renommes + ' renommage(s) pseudo');
+} catch (e) { console.error('boot reparerComptes17u:', e.message); }
+
 function setSetting(key, value) {
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
     .run(key, String(value));
@@ -415,4 +479,4 @@ function logAudit(action, cible, avant, apres, clubId, auteur) {
   snapshotTournoiActif(Number(info.lastInsertRowid), clubId);
 }
 
-module.exports = { db, setSetting, getSetting, logAudit, clubParDefaut, clubParSlug };
+module.exports = { db, setSetting, getSetting, logAudit, clubParDefaut, clubParSlug, reparerComptes17u };

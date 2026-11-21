@@ -42,4 +42,4 @@ Compte → « Mot de passe oublié » → entre ton email → un lien de réinit
 Compte → « 📊 Ma fiche joueur » : matchs joués/gagnés, %, manches gagnées, run-outs, et l'historique de tous tes matchs (tous tournois — replié aux 5 derniers sur la fiche, dépliable puis paginé par pages de 20). **Un match contre blanc (bye) ne compte ni gagné ni perdu.**
 
 ## Ton compte
-Compte → ton **email est masqué** (affiché partiellement) ; tu peux changer de mot de passe, activer/désactiver les notifications, gérer tes amis, et exporter tes données (RGPD) depuis la page confidentialité.
+Compte → ton **email est masqué** (affiché partiellement) ; tu peux changer de mot de passe, activer/désactiver les notifications, gérer tes amis, et exporter tes données (RGPD) depuis la page confidentialité. Ton compte est **un seul compte pour toute la plateforme** : ton pseudo et ton email te suivent dans tous les clubs, tu peux t'inscrire à un tournoi de n'importe quel club avec la même session.
