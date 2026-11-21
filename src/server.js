@@ -161,6 +161,97 @@ app.use((req, res, next) => {
   next();
 });
 
+// ---------- 17q. Codec PNG maison (SANS dépendance) pour l écran de lancement du club ----------
+// Encodeur + décodeur PNG (types couleur 0/2/4/6, profondeur 8, filtres 0-4, non entrelacé).
+// Uniquement pour le splash : les images servies viennent du champ icone 17o (canvas -> PNG).
+const zlib17q = require('zlib');
+let CRC_TABLE_17q = null;
+function crcTable17q() {
+  if (CRC_TABLE_17q) return CRC_TABLE_17q;
+  CRC_TABLE_17q = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    CRC_TABLE_17q[n] = c;
+  }
+  return CRC_TABLE_17q;
+}
+function crc32_17q(buf) {
+  const t = crcTable17q();
+  let c = 0 ^ 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = (c >>> 8) ^ t[(c ^ buf[i]) & 0xff];
+  return (c ^ 0xffffffff) >>> 0;
+}
+function tramePng17q(type, donnees) {
+  const b = Buffer.alloc(8 + donnees.length + 4);
+  b.writeUInt32BE(donnees.length, 0);
+  b.write(type, 4, 'ascii');
+  donnees.copy(b, 8);
+  b.writeUInt32BE(crc32_17q(Buffer.concat([Buffer.from(type, 'ascii'), donnees])), 8 + donnees.length);
+  return b;
+}
+const PNG_SIG_17q = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+function encoderPng17q(w, h, rgba) { // RGBA 8 bits -> PNG (filtre None), sans savoir dessiner autre chose que du pixel brut
+  const ligne = w * 4;
+  const brut = Buffer.alloc((ligne + 1) * h);
+  for (let y = 0; y < h; y++) {
+    brut[y * (ligne + 1)] = 0;
+    rgba.copy(brut, y * (ligne + 1) + 1, y * ligne, (y + 1) * ligne);
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  return Buffer.concat([PNG_SIG_17q, tramePng17q('IHDR', ihdr), tramePng17q('IDAT', zlib17q.deflateSync(brut, { level: 6 })), tramePng17q('IEND', Buffer.alloc(0))]);
+}
+function decoderPng17q(buf) { // PNG -> { w, h, rgba }, null si non décodable (entrelacé, 16 bits, palette...)
+  try {
+    if (!buf || buf.length < 8 || !buf.subarray(0, 8).equals(PNG_SIG_17q)) return null;
+    let pos = 8, w = 0, h = 0, prof = 0, couleur = 0, entrelace = 0;
+    const trames = [];
+    while (pos + 8 <= buf.length) {
+      const lg = buf.readUInt32BE(pos);
+      const type = buf.toString('ascii', pos + 4, pos + 8);
+      if (pos + 12 + lg > buf.length) return null;
+      const donnees = buf.subarray(pos + 8, pos + 8 + lg);
+      if (type === 'IHDR') { w = donnees.readUInt32BE(0); h = donnees.readUInt32BE(4); prof = donnees[8]; couleur = donnees[9]; entrelace = donnees[12]; }
+      else if (type === 'IDAT') trames.push(donnees);
+      else if (type === 'IEND') break;
+      pos += 12 + lg;
+    }
+    if (prof !== 8 || entrelace !== 0 || ![0, 2, 4, 6].includes(couleur) || w <= 0 || h <= 0 || w > 2000 || h > 2000) return null;
+    const canaux = couleur === 6 ? 4 : couleur === 2 ? 3 : couleur === 4 ? 2 : 1;
+    const ligne = w * canaux;
+    const filtres = zlib17q.inflateSync(Buffer.concat(trames));
+    const rgba = Buffer.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const f = filtres[y * (ligne + 1)];
+      const off = y * (ligne + 1) + 1;
+      for (let x = 0; x < ligne; x++) {
+        const courant = filtres[off + x];
+        const gauche = x >= canaux ? filtres[off + x - canaux] : 0;
+        const haut = y > 0 ? filtres[off - (ligne + 1) + x] : 0;
+        const diag = y > 0 && x >= canaux ? filtres[off - (ligne + 1) + x - canaux] : 0;
+        let v;
+        if (f === 0) v = courant;
+        else if (f === 1) v = courant + gauche;
+        else if (f === 2) v = courant + haut;
+        else if (f === 3) v = courant + ((gauche + haut) >> 1);
+        else if (f === 4) { const p = gauche + haut - diag; const pa = Math.abs(p - gauche), pb = Math.abs(p - haut), pc = Math.abs(p - diag); v = courant + (pa <= pb && pa <= pc ? gauche : pb <= pc ? haut : diag); }
+        else return null;
+        filtres[off + x] = v & 0xff;
+      }
+      for (let x = 0; x < w; x++) {
+        const s = off + x * canaux, d = (y * w + x) * 4;
+        if (couleur === 6) { rgba[d] = filtres[s]; rgba[d + 1] = filtres[s + 1]; rgba[d + 2] = filtres[s + 2]; rgba[d + 3] = filtres[s + 3]; }
+        else if (couleur === 2) { rgba[d] = filtres[s]; rgba[d + 1] = filtres[s + 1]; rgba[d + 2] = filtres[s + 2]; rgba[d + 3] = 255; }
+        else if (couleur === 4) { const g = filtres[s]; rgba[d] = rgba[d + 1] = rgba[d + 2] = g; rgba[d + 3] = filtres[s + 1]; }
+        else { const g = filtres[s]; rgba[d] = rgba[d + 1] = rgba[d + 2] = g; rgba[d + 3] = 255; }
+      }
+    }
+    return { w, h, rgba };
+  } catch (e) { return null; }
+}
+
 // 17o. Manifeste PWA dynamique : « Ajouter à l écran d accueil » installe l app avec le nom, la couleur et l icône
 // du club courant (?club= posé par le front : le navigateur n envoie ni X-Club ni session à la requête du manifeste).
 // Monté AVANT express.static (sinon public/manifest.webmanifest masquerait la route) ; club résolu à la main car le
@@ -179,7 +270,7 @@ app.get('/manifest.webmanifest', (req, res) => {
     start_url: club17o.id === clubParDefaut().id ? '/' : '/?club=' + encodeURIComponent(club17o.slug),
     scope: '/',
     display: 'standalone',
-    background_color: '#0b0b10',
+    background_color: th17o.accent, // 17q: écran de lancement Android aux couleurs du club (Chrome compose le splash depuis le manifeste)
     theme_color: th17o.accent, // 17o: barre d état du téléphone aux couleurs du club
     icons: [
       { src: ic17o ? '/api/club-icone?club=' + encodeURIComponent(club17o.slug) + '&taille=192' : '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
@@ -607,6 +698,42 @@ app.get('/api/club-icone', (req, res) => { // 17o: ?club= pris en charge (la req
   res.setHeader('Content-Type', ic17o.type);
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.send(ic17o.donnees);
+});
+
+// 17q. Écran de lancement (splash) du club : PNG généré à la demande, SANS dépendance (codec maison ci-dessus).
+// Fond de la couleur d accent + icône 17o (PNG) centrée à 45 % de la largeur (fusion alpha), repli fond uni.
+// Android compose son écran depuis le manifeste (background_color accent), iOS consomme ces images via
+// <link rel=apple-touch-startup-image> posés par taille d écran (voir common.js), une seule requête par appareil.
+app.get('/api/club-splash', (req, res) => {
+  const slug17q = String(req.query.club || '').trim();
+  const club17q = slug17q ? (clubParSlug(slug17q) || clubParDefaut()) : clubParDefaut(); // slug inconnu -> club par défaut
+  const w17q = Number(req.query.w), h17q = Number(req.query.h);
+  if (!Number.isInteger(w17q) || !Number.isInteger(h17q) || w17q < 320 || w17q > 3000 || h17q < 480 || h17q > 3500)
+    return res.status(400).json({ error: 'Dimensions invalides (attendu : w entre 320 et 3000, h entre 480 et 3500)' });
+  const th17q = themeDuClub(club17q);
+  const hex17q = /^#([0-9a-fA-F]{6})$/.exec(String(th17q.accent || ''));
+  const fond17q = hex17q ? [parseInt(hex17q[1].slice(0, 2), 16), parseInt(hex17q[1].slice(2, 4), 16), parseInt(hex17q[1].slice(4, 6), 16)] : [230, 59, 122];
+  const ic17q = iconeClub17o(club17q);
+  const pngSrc17q = ic17q && ic17q.type === 'image/png' ? decoderPng17q(ic17q.donnees) : null; // JPEG : pas de décodeur -> fond seul
+  const rgba17q = Buffer.alloc(w17q * h17q * 4);
+  for (let i = 0; i < w17q * h17q; i++) { rgba17q[i * 4] = fond17q[0]; rgba17q[i * 4 + 1] = fond17q[1]; rgba17q[i * 4 + 2] = fond17q[2]; rgba17q[i * 4 + 3] = 255; }
+  if (pngSrc17q) {
+    const cible17q = Math.round(w17q * 0.45);
+    const x017q = Math.round((w17q - cible17q) / 2), y017q = Math.round((h17q - cible17q) / 2);
+    for (let dy17q = 0; dy17q < cible17q; dy17q++) for (let dx17q = 0; dx17q < cible17q; dx17q++) {
+      const sx17q = Math.min(pngSrc17q.w - 1, Math.floor(dx17q * pngSrc17q.w / cible17q));
+      const sy17q = Math.min(pngSrc17q.h - 1, Math.floor(dy17q * pngSrc17q.h / cible17q));
+      const s17q = (sy17q * pngSrc17q.w + sx17q) * 4;
+      const al17q = pngSrc17q.rgba[s17q + 3] / 255;
+      const d17q = ((y017q + dy17q) * w17q + x017q + dx17q) * 4;
+      rgba17q[d17q] = Math.round(pngSrc17q.rgba[s17q] * al17q + fond17q[0] * (1 - al17q));
+      rgba17q[d17q + 1] = Math.round(pngSrc17q.rgba[s17q + 1] * al17q + fond17q[1] * (1 - al17q));
+      rgba17q[d17q + 2] = Math.round(pngSrc17q.rgba[s17q + 2] * al17q + fond17q[2] * (1 - al17q));
+    }
+  }
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(encoderPng17q(w17q, h17q, rgba17q));
 });
 
 app.get('/api/tournois', (req, res) => res.json({ tournois: vueTournoiListe(req.club.id) }));
