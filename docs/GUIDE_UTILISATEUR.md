@@ -21,7 +21,7 @@
 - **📊 Stats** : classement,点击 sur un joueur pour sa fiche (historique complet)
 - **🗂 Historique** : les tournois passés, avec recherche/surbrillance par joueur
 - **🏷️ Le club** : la page publique de ton club (bannière, adresse, présentation, contact), réglée par la table de marque
-- **📱 Icône sur ton téléphone** : « Ajouter à l écran d accueil » installe l app de TON club, avec son nom, sa couleur et son logo comme icône (icône générique si le club n en a pas) ; au lancement, un écran d ouverture (splash) affiche les couleurs et le logo de ton club (Android : fond coloré + icône et nom ; iPhone : image de démarrage)
+- **📱 Icône sur ton téléphone** : « Ajouter à l écran d accueil » installe l app de TON club, avec son nom, sa couleur et son logo comme icône (icône générique si le club n en a pas) ; au lancement, un écran d ouverture (splash) affiche les couleurs et le logo de ton club (Android : fond coloré + icône et nom ; iPhone : image de démarrage) ; le badge du club courant dans le bandeau te montre TOUJOURS le club que tu regardes (chaque club est étanche : ses joueurs, ses stats et ses tournois) ; un club mémorisé devenu inconnu ? L'app te l'annonce explicitement, elle ne bascule jamais en silence
 
 ## Jouer un match (saisie du score)
 1. Ouvre ta **card de match** (depuis « Joueur », le tableau, ou la notification)
