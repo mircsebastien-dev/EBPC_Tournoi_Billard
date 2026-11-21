@@ -162,7 +162,7 @@ function envoyerAvecConfirm(targetId, plus, isRunout, kind, pseudo) {
 }
 
 async function init() {
-  state = await api('/api/etat');
+  state = await api(urlEtat19a()); // 19a: suit le tournoi choisi (sélecteur du bandeau)
   render();
   connecterSSE((s) => { state = s; render(); });
 }

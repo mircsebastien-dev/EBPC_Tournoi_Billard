@@ -240,7 +240,7 @@ function showCelebration(m) {
 }
 
 async function init() {
-  state = await api('/api/etat');
+  state = await api(urlEtat19a()); // 19a: suit le tournoi choisi (sélecteur du bandeau)
   if (state && state.actif) prevTermine = new Set(state.actif.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').map(m => m.id));
   render();
   connecterSSE((s) => { const old = state; state = s; render(); if (state && state.actif) celebrateIfNew(state.actif); });

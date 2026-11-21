@@ -180,7 +180,7 @@ async function inscrire() {
 async function inscrireCompte() {
   try {
     await api('/api/tournoi/inscrire', { method: 'POST' });
-    state = await api('/api/etat');
+    state = await api(urlEtat19a()); // 19a: suit le tournoi choisi (sélecteur du bandeau)
     render();
   } catch (e) { alert(e.message); }
 }
@@ -189,7 +189,7 @@ async function desinscrireCompte() {
   if (!confirm('Te désinscrire du tournoi ?')) return;
   try {
     await api('/api/tournoi/desinscrire', { method: 'DELETE' });
-    state = await api('/api/etat');
+    state = await api(urlEtat19a()); // 19a: suit le tournoi choisi (sélecteur du bandeau)
     render();
   } catch (e) { alert(e.message); }
 }
@@ -410,7 +410,7 @@ async function renderAmisPanel() {
 }
 
 async function init() {
-  state = await api('/api/etat');
+  state = await api(urlEtat19a()); // 19a: suit le tournoi choisi (sélecteur du bandeau)
   render();
   renderAmisPanel();
 connecterSSE((s) => { renderAmisPanel(); state = s; render(); });

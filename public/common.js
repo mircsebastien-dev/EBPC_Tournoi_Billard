@@ -9,6 +9,17 @@ try {
 function clubHeaders() {
   try { const c = localStorage.getItem(CLUB_KEY); return c ? { 'X-Club': c } : {}; } catch { return {}; }
 }
+// 19a. Tournoi affiché : mémorisé par club (sélecteur du bandeau) ; /api/etat?tournoi_id= cible ce tournoi,
+// sans choix -> le tournoi actif du club (comportement d origine)
+const TOURNOI_SEL_KEY_19a = () => { try { return 'ebpc_tournoi_' + (localStorage.getItem(CLUB_KEY) || ''); } catch { return 'ebpc_tournoi_'; } };
+function tournoiChoisi19a() {
+  try {
+    const v = localStorage.getItem(TOURNOI_SEL_KEY_19a());
+    const n = v == null ? NaN : Number(v);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  } catch { return null; }
+}
+function urlEtat19a() { const id = tournoiChoisi19a(); return '/api/etat' + (id != null ? '?tournoi_id=' + id : ''); }
 // 17n. suffixe ?club= pour les <img>/<fetch> qui ne portent pas l en-tête X-Club (bannière de l accueil, photo de fond TV)
 function qsClub17n() {
   try { const c = localStorage.getItem(CLUB_KEY); return c ? '?club=' + encodeURIComponent(c) : ''; } catch { return ''; }
@@ -3443,6 +3454,27 @@ function nav(active) {
     btnClub17v.textContent = ((clubsNav17v.find(c => c.slug === slug17v) || clubsNav17v[0]).nom) + ' ▾';
     btnClub17v.style.display = '';
   }).catch(() => {});
+  // 19a. Sélecteur de tournoi dans le bandeau : affiché uniquement si le club OUVERT a PLUSIEURS tournois actifs
+  // (mono-tournoi : rien ne change). Le bouton montre le tournoi affiché (le mémorisé sinon le plus récent),
+  // le menu liste les actifs du club (GET /api/tournois public) ; choisir un tournoi mémorise son id (clé par
+  // club : ebpc_tournoi_<slug>) et recharge la page, les pages état repassent alors par urlEtat19a()
+  let tournoisNav19a = [];
+  const btnTournoi19a = el('button', { class: 'nav-lang club-selecteur-17v', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Choisir le tournoi', style: 'display:none;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, 'Tournoi');
+  menuDeroulant(btnTournoi19a, (drop) => {
+    const choisi19a = tournoiChoisi19a();
+    for (const t of tournoisNav19a) {
+      drop.append(el('a', { href: '#', role: 'menuitem', class: t.id === choisi19a ? 'active' : null, onclick: (e) => { e.preventDefault(); if (t.id !== choisi19a) { try { localStorage.setItem(TOURNOI_SEL_KEY_19a(), String(t.id)); } catch {} location.reload(); } } }, `${t.nom}${t.statut === 'inscription' ? ' (inscriptions)' : ''}`));
+    }
+  });
+  api('/api/tournois').then((r19a) => {
+    tournoisNav19a = ((r19a && r19a.tournois) || []).filter((t) => t.statut === 'inscription' || t.statut === 'en_cours');
+    if (tournoisNav19a.length < 2 || location.pathname.startsWith('/console.html')) return;
+    // 19a: tournoi mémorisé terminé entre deux pages -> on l oublie (retour au plus récent, repli silencieux côté serveur)
+    if (tournoiChoisi19a() != null && !tournoisNav19a.some((t) => t.id === tournoiChoisi19a())) { try { localStorage.removeItem(TOURNOI_SEL_KEY_19a()); } catch {} }
+    const courant19a = tournoisNav19a.find((t) => t.id === tournoiChoisi19a()) || tournoisNav19a[0];
+    btnTournoi19a.textContent = (courant19a.nom || '') + ' ▾';
+    btnTournoi19a.style.display = '';
+  }).catch(() => {});
   // burger compte : entrees dynamiques selon l etat de connexion et le role (admin ou joueur),
   // vers des pages dediees (parametres / amis / mes matchs) + fiche joueur ; admin : table de marque uniquement
   let compteNav = null, joueurIdNav = null;
@@ -3462,7 +3494,7 @@ function nav(active) {
     if (compteNav.role === 'admin' || compteNav.role === 'super_admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, 'Table de marque')); // 17i
     drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, 'Se déconnecter'));
   });
-  return el('nav', {}, wrap, btnCompte, btnClub17v, btnLang);
+  return el('nav', {}, wrap, btnCompte, btnClub17v, btnLang, btnTournoi19a); // 19a: sélecteur de tournoi (affiché si plusieurs actifs)
 }
 
 function codeMatch(m) {
@@ -3537,7 +3569,7 @@ function grouperParRound(matchs, rounds) {
 function connecterSSE(onUpdate) {
   const refetch = async () => {
     try {
-      const s = await api('/api/etat', { pin: null }); // payload SSE léger -> re-fetch état complet
+      const s = await api(urlEtat19a(), { pin: null }); // payload SSE léger -> re-fetch état complet (19a: tournoi choisi)
       // le broadcast global ne contient pas le compte de la session -> on le réinjecte
       if (s && !s.compte && compteCourant) s.compte = compteCourant;
       onUpdate(s);

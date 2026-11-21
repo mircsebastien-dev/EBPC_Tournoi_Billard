@@ -45,7 +45,7 @@ function render() {
             const r = await fetch(`/api/admin/tournoi/${h.id}`, { method: 'DELETE', headers: { ...clubHeaders(), 'X-Admin-Pin': pin } });
             if (r.status === 401) { pin = ''; localStorage.removeItem('ebpc_admin_pin'); }
             if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Erreur'); }
-            state = await api('/api/etat'); render();
+            state = await api(urlEtat19a()); render(); // 19a: tournoi choisi
           } catch (e) { alert(e.message); }
         } }, ['🗑 ', 'Supprimer']) : null));
     main.append(card);
@@ -53,7 +53,7 @@ function render() {
 }
 
 async function init() {
-  state = await api('/api/etat');
+  state = await api(urlEtat19a()); // 19a: suit le tournoi choisi (sélecteur du bandeau)
   render();
   connecterSSE((s) => { state = s; render(); });
 }

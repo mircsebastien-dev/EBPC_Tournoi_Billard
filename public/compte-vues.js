@@ -117,7 +117,7 @@ async function vueMesMatchs(main) {
   if (!compte) { location.replace('/compte.html#connexion'); return; }
   // mes matchs (inscriptions en cours / matchs joues) ; init() global de la page mes-matchs.html rafraichit apres desinscription
   const mm = await api('/api/compte/moi/matchs');
-  const t = (await api('/api/etat')).actif;
+  const t = (await api(urlEtat19a())).actif; // 19a: suit le tournoi choisi (sélecteur du bandeau)
   const mesInscriptions = t ? t.joueurs.filter(j => j.compte_id === compte.id) : [];
   if (mesInscriptions.length) {
     main.append(el('div', { class: 'panel' },
