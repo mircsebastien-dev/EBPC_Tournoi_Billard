@@ -311,7 +311,15 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   // moi
   app.get('/api/compte/moi', (req, res) => {
     if (!req.compte) return res.json({ compte: null, joueur_id: null });
-    const j = db.prepare('SELECT id FROM joueur WHERE compte_id = ? ORDER BY id DESC LIMIT 1').get(req.compte.id);
+    // 17x: joueur_id scopé au club OUVERT (le compte est plateforme 17u mais la fiche vit dans son club) :
+    // avant, le plus grand id toutes plateformes confondues faisait pointer « Ma fiche joueur » sur un joueur
+    // d un autre club -> page fiche 404 « Joueur introuvable » ici ; tournoi actif du club d abord, sinon son
+    // dernier joueur du club, null si le compte n a aucun joueur dans ce club
+    const j = db.prepare(`
+      SELECT j.id FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id
+      WHERE j.compte_id = ? AND t.club_id = ?
+      ORDER BY CASE WHEN t.statut IN ('inscription', 'en_cours') THEN 0 ELSE 1 END, j.id DESC
+      LIMIT 1`).get(req.compte.id, (req.club && req.club.id) || clubParDefaut().id);
     const pref = db.prepare('SELECT notif_amis_inscription, notif_amis_match FROM compte WHERE id = ?').get(req.compte.id);
     const roleClub = req.club ? db.prepare('SELECT role FROM compte_club WHERE compte_id = ? AND club_id = ?').get(req.compte.id, req.club.id) : null;
     res.json({
@@ -349,11 +357,13 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, majEtBroadcast, vueM
   // mes matchs (via les joueurs liés à mon compte)
   app.get('/api/compte/moi/matchs', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Non connecté' });
+    // 17x: mes matchs scopés au club OUVERT : un match d un autre club ne s y ouvre pas (isolation)
     const rows = db.prepare(`
       SELECT m.* FROM match m JOIN joueur j ON (j.id = m.joueur1_id OR j.id = m.joueur2_id)
-      WHERE j.compte_id = ?
+      JOIN tournoi t ON t.id = m.tournoi_id
+      WHERE j.compte_id = ? AND t.club_id = ?
       ORDER BY m.tournoi_id DESC, m.tour, m.position
-    `).all(req.compte.id);
+    `).all(req.compte.id, (req.club && req.club.id) || clubParDefaut().id);
     res.json({ matchs: rows.map(r => vueMatch(r)) });
   });
 
