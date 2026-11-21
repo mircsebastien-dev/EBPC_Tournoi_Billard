@@ -14,6 +14,27 @@ function qsClub17n() {
   try { const c = localStorage.getItem(CLUB_KEY); return c ? '?club=' + encodeURIComponent(c) : ''; } catch { return ''; }
 }
 
+// 17s. Étanchéité multi-club : les liens internes portent le club dans l URL.
+// 2 apps installées du même site (une par club) partagent le même stockage : une URL sans ?club=
+// rouvrirait le DERNIER club utilisé. Chaque clic sur un lien interne reçoit donc le club courant,
+// le contexte ne quitte plus jamais la page (interception au clic : sans toucher aux <a> un par un).
+// 17s: paramètre club=<slug> prêt à concaténer à une URL interne ('' si aucun club mémorisé)
+function clubParam17s() {
+  try { const c = localStorage.getItem(CLUB_KEY); return c ? 'club=' + encodeURIComponent(c) : ''; } catch { return ''; }
+}
+document.addEventListener('click', (e) => {
+  try {
+    const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+    const href = a.getAttribute('href') || '';
+    if (!href.startsWith('/') || href.startsWith('//')) return;
+    if (/[?&]club=/.test(href)) return; // le club est déjà explicite dans le lien
+    const param17s = clubParam17s();
+    if (!param17s) return;
+    a.setAttribute('href', href + (href.includes('?') ? '&' : '?') + param17s);
+  } catch {}
+}, true);
+
 // 17j. Personnalisation du club : l admin du club choisit une couleur d accent (remplace le rose partout),
 // visible par TOUS les visiteurs des pages du club. Anti-flash : cache localStorage par slug (ebpc_accent_club)
 // appliqué avant le premier rendu, puis rafraîchi par GET /api/club-theme (léger, public).
@@ -3735,7 +3756,8 @@ function fmtDateHeure(dh) {
 // URL de la card match en propageant la page courante (retour contextuel depuis match.html)
 function matchUrl(m, extra = '') {
   const ret = encodeURIComponent(location.pathname + location.search);
-  return `/match.html?id=${m.id}${extra ? '&' + extra : ''}&retour=${ret}`;
+  const param17s = clubParam17s(); // 17s: le club courant dans l URL de la card
+  return `/match.html?id=${m.id}${extra ? '&' + extra : ''}${param17s ? '&' + param17s : ''}&retour=${ret}`;
 }
 
 function hasAdminPin() {

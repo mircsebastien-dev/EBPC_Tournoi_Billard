@@ -162,7 +162,7 @@ function panelContexteClub(clubs) {
       el('button', { onclick: () => {
         if (!sel.value) return;
         try { localStorage.setItem(CLUB_KEY, sel.value); } catch (e) {}
-        location.href = '/admin.html';
+        location.href = '/admin.html?club=' + encodeURIComponent(sel.value); // 17s: club explicite dans l URL
       } }, '🚪 Ouvrir l admin de ce club'),
       el('button', { class: 'secondary', onclick: () => {
         try { localStorage.removeItem(CLUB_KEY); } catch (e) {}

@@ -33,6 +33,31 @@ function getVapid() {
 
 function publicKey() { return getVapid().publicKey; }
 
+// 17s. Étanchéité multi-club PWA : les URLs des notifications portent le club (?club=<slug>).
+// 2 apps installées du même site (une par club) partagent un seul service worker : sans club dans l URL,
+// un tap sur une notification peut naviguer la fenêtre d un autre club (match introuvable, mauvais contexte).
+// Repli silencieux : club introuvable -> URL inchangée.
+function slugClub17s(clubId) {
+  if (clubId == null) return null;
+  const cl = db.prepare('SELECT slug FROM club WHERE id = ?').get(clubId);
+  return cl ? cl.slug : null;
+}
+function urlClub17s(url, clubId) {
+  const slug = slugClub17s(clubId);
+  if (!slug) return url;
+  return String(url || '/') + (String(url || '/').includes('?') ? '&' : '?') + 'club=' + encodeURIComponent(slug);
+}
+function clubIdDeJoueur17s(joueurId) {
+  if (joueurId == null) return null;
+  const r = db.prepare('SELECT t.club_id AS club_id FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id WHERE j.id = ?').get(joueurId);
+  return r && r.club_id != null ? r.club_id : null;
+}
+// 17s: payload stringifié avec l URL portant le club de clubId (inchangé si clubId null/absent)
+function payloadClub17s(p, clubId) {
+  if (!p || p.url == null || slugClub17s(clubId) == null) return JSON.stringify(p);
+  return JSON.stringify({ ...p, url: urlClub17s(p.url, clubId) });
+}
+
 function subscribe(compteId, subscription, clubId) {
   if (!subscription || !subscription.endpoint || !subscription.keys) throw new Error('Subscription invalide');
   db.prepare(`INSERT INTO push_subscription (compte_id, club_id, endpoint, keys_json) VALUES (?, ?, ?, ?)
@@ -77,35 +102,37 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
       GROUP BY s.endpoint
     `).all(m.joueur1_id, m.joueur2_id, m.joueur1_id, m.joueur2_id, m.joueur1_id, m.joueur2_id, m.joueur1_id, m.joueur2_id);
     // payloads par langue du destinataire (compte.lang, defaut fr) : "Table" est identique fr/en
+    // 17s: le club du tournoi (joueur -> tournoi -> club) dans l URL de la card
+    const urlMatch17s = urlClub17s(`/match.html?id=${m.id}`, clubIdDeJoueur17s(m.joueur1_id != null ? m.joueur1_id : m.joueur2_id));
     const payloadMatch = {
       fr: JSON.stringify({
         title: '🎱 À toi de jouer !',
         body: `${pseudo1} vs ${pseudo2} — Table ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'match-' + m.id,
       }),
       en: JSON.stringify({
         title: "🎱 You're up!",
         body: `${pseudo1} vs ${pseudo2} — Table ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'match-' + m.id,
       }),
       es: JSON.stringify({
         title: '🎱 ¡Te toca jugar!',
         body: `${pseudo1} vs ${pseudo2} — Mesa ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'match-' + m.id,
       }),
       it: JSON.stringify({
         title: '🎱 Tocca a te!',
         body: `${pseudo1} vs ${pseudo2} — Tavolo ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'match-' + m.id,
       }),
       de: JSON.stringify({
         title: '🎱 Du bist dran!',
         body: `${pseudo1} vs ${pseudo2} — Tisch ${tableNumero}${codeMatch ? ' · ' + codeMatch : ''}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'match-' + m.id,
       }),
     };
@@ -113,31 +140,31 @@ async function notifierMatchLance(m, pseudo1, pseudo2, tableNumero, codeMatch) {
       fr: JSON.stringify({
         title: '👥 Match d\'un ami en cours',
         body: `${pseudo1} vs ${pseudo2} — Table ${tableNumero}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'ami-match-' + m.id,
       }),
       en: JSON.stringify({
         title: "👥 A friend's match is live",
         body: `${pseudo1} vs ${pseudo2} — Table ${tableNumero}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'ami-match-' + m.id,
       }),
       es: JSON.stringify({
         title: '👥 Partido de un amigo en curso',
         body: `${pseudo1} vs ${pseudo2} — Mesa ${tableNumero}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'ami-match-' + m.id,
       }),
       it: JSON.stringify({
         title: '👥 Partita di un amico in corso',
         body: `${pseudo1} vs ${pseudo2} — Tavolo ${tableNumero}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'ami-match-' + m.id,
       }),
       de: JSON.stringify({
         title: '👥 Spiel eines Freundes läuft',
         body: `${pseudo1} vs ${pseudo2} — Tisch ${tableNumero}`,
-        url: `/match.html?id=${m.id}`,
+        url: urlMatch17s,
         tag: 'ami-match-' + m.id,
       }),
     };
@@ -185,6 +212,7 @@ async function notifierProchainMatch17p(matchId) {
     adversaireDe17p[m.joueur1_id] = j2.pseudo;
     adversaireDe17p[m.joueur2_id] = j1.pseudo;
     // payloads par langue du destinataire (compte.lang, defaut fr), adversaire propre à chaque joueur
+    const urlProchain17s = urlClub17s('/match.html?id=' + m.id, clubIdDeJoueur17s(m.joueur1_id != null ? m.joueur1_id : m.joueur2_id)); // 17s: le club du tournoi dans l URL
     const titres17p = {
       fr: '🕐 Ton prochain match arrive',
       en: "🕐 Your next match is coming up",
@@ -204,7 +232,7 @@ async function notifierProchainMatch17p(matchId) {
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: JSON.parse(s.keys_json) },
-          JSON.stringify({ title: titres17p[s.lang] || titres17p.fr, body: (corps17p[s.lang] || corps17p.fr)(adversaireDe17p[s.joueur_id], tableNum), url: '/match.html?id=' + m.id, tag: 'prochain-' + m.id })
+          JSON.stringify({ title: titres17p[s.lang] || titres17p.fr, body: (corps17p[s.lang] || corps17p.fr)(adversaireDe17p[s.joueur_id], tableNum), url: urlProchain17s, tag: 'prochain-' + m.id })
         );
         n++;
       } catch (e) {
@@ -247,36 +275,37 @@ async function notifierInscriptionAmi(compteId, pseudoAmi, tournoiNom, clubId) {
         AND (s.club_id IS NULL OR s.club_id = ?)
     `).all(pseudoAmi, club)) subsMap.set(s.endpoint, s);
     const subs = [...subsMap.values()];
+    const urlTournoi17s = urlClub17s('/tournoi.html', clubId != null ? clubId : null); // 17s: le club visé dans l URL
     // payloads bilingues selon la langue du compte destinataire (compte.lang, defaut fr)
     const payloads = {
       fr: JSON.stringify({
         title: '👥 Un ami s\'est inscrit',
         body: `${pseudoAmi} vient de s'inscrire au tournoi « ${tournoiNom} »`,
-        url: '/tournoi.html',
+        url: urlTournoi17s,
         tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
       }),
       en: JSON.stringify({
         title: '👥 A friend signed up',
         body: `${pseudoAmi} just signed up for the tournament "${tournoiNom}"`,
-        url: '/tournoi.html',
+        url: urlTournoi17s,
         tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
       }),
       es: JSON.stringify({
         title: '👥 Un amigo se ha inscrito',
         body: `${pseudoAmi} acaba de inscribirse en el torneo « ${tournoiNom} »`,
-        url: '/tournoi.html',
+        url: urlTournoi17s,
         tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
       }),
       it: JSON.stringify({
         title: '👥 Un amico si è iscritto',
         body: `${pseudoAmi} si è appena iscritto al torneo « ${tournoiNom} »`,
-        url: '/tournoi.html',
+        url: urlTournoi17s,
         tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
       }),
       de: JSON.stringify({
         title: '👥 Ein Freund hat sich eingeschrieben',
         body: `${pseudoAmi} hat sich gerade für das Turnier « ${tournoiNom} » eingeschrieben`,
-        url: '/tournoi.html',
+        url: urlTournoi17s,
         tag: 'ami-inscription-' + (compteId != null ? compteId : 'p-' + String(pseudoAmi).toLowerCase()),
       }),
     };
@@ -303,13 +332,13 @@ async function envoyerTous(payloadObj, clubId, autres) {
     const subs = clubId != null
       ? db.prepare('SELECT s.endpoint, s.keys_json, COALESCE(c.lang, ?) AS lang FROM push_subscription s LEFT JOIN compte c ON c.id = s.compte_id WHERE s.compte_id IS NOT NULL AND s.club_id = ?').all('fr', clubId)
       : db.prepare('SELECT s.endpoint, s.keys_json, COALESCE(c.lang, ?) AS lang FROM push_subscription s LEFT JOIN compte c ON c.id = s.compte_id WHERE s.compte_id IS NOT NULL').all('fr');
-    const payload = JSON.stringify(payloadObj);
+    const payload = payloadClub17s(payloadObj, clubId); // 17s: le club visé dans l URL du payload
     // versions traduites par langue du destinataire (compte.lang) ; autres = { en: {...}, es: {...}, ... }
     // (compat: un 3e arg payload simple avec .title = version "en" seule, comme avant)
     const traduits = {};
     if (autres) {
-      if (autres.title != null) traduits.en = JSON.stringify(autres);
-      else for (const l of ['en', 'es', 'it', 'de']) if (autres[l]) traduits[l] = JSON.stringify(autres[l]);
+      if (autres.title != null) traduits.en = payloadClub17s(autres, clubId); // 17s: versions traduites aussi
+      else for (const l of ['en', 'es', 'it', 'de']) if (autres[l]) traduits[l] = payloadClub17s(autres[l], clubId);
     }
     let n = 0;
     for (const s of subs) {
@@ -343,7 +372,7 @@ function registerPushRoutes(app, { vueMatch }) {
 // --- tests manuels de push (sans tournoi) ---
 async function envoyerTest(compteId, langHint) {
   getVapid();
-  const subs = db.prepare('SELECT endpoint, keys_json FROM push_subscription WHERE compte_id = ?').all(compteId);
+  const subs = db.prepare('SELECT endpoint, keys_json, club_id FROM push_subscription WHERE compte_id = ?').all(compteId);
   // langue stockee sur le compte prioritaire, repli sur l en-tete X-Lang de la requete
   const c = db.prepare('SELECT COALESCE(lang, ?) AS lang FROM compte WHERE id = ?').get(['en', 'es', 'it', 'de'].includes(langHint) ? langHint : 'fr', compteId);
   const payloadsTest = {
@@ -353,9 +382,10 @@ async function envoyerTest(compteId, langHint) {
     it: { title: '🔔 Notifica di prova', body: 'Se vedi questo, il push funziona!', url: '/parametres.html', tag: 'test-' + Date.now() },
     de: { title: '🔔 Testbenachrichtigung', body: 'Wenn du das siehst, funktioniert Push!', url: '/parametres.html', tag: 'test-' + Date.now() },
   };
-  const payload = JSON.stringify(payloadsTest[c.lang] || payloadsTest.fr);
   let n = 0;
-  for (const s of subs) { try { await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payload); n++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); } }
+  for (const s of subs) { // 17s: URL portant le club de CETTE souscription (inchangée si sans club)
+    const p17s = payloadsTest[c.lang] || payloadsTest.fr;
+    try { await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, JSON.stringify(s.club_id != null ? { ...p17s, url: urlClub17s(p17s.url, s.club_id) } : p17s)); n++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); } }
   return { envoyes: n, subs: subs.length };
 }
 // simule le push "match d'un ami" pour un joueur donné (envoie à tous les comptes qui l'ont en ami ou suivent son pseudo)
@@ -377,12 +407,13 @@ async function envoyerTestAmi(joueurId) {
     WHERE j.id = ? AND s.compte_id IS NOT NULL
   `).all(joueurId, joueurId);
   // payloads bilingues selon la langue du destinataire (compte.lang, defaut fr)
+  const urlAccueil17s = urlClub17s('/', clubIdDeJoueur17s(joueurId)); // 17s: le club du joueur dans l URL
   const payloadsAmiTest = {
-    fr: JSON.stringify({ title: "👥 Match d'un ami en cours (TEST)", body: `${j.pseudo} est en match — ceci est une notification de test`, url: '/', tag: 'test-ami-' + Date.now() }),
-    en: JSON.stringify({ title: "👥 A friend's match is live (TEST)", body: `${j.pseudo} is playing — this is a test notification`, url: '/', tag: 'test-ami-' + Date.now() }),
-    es: JSON.stringify({ title: "👥 Partido de un amigo en curso (TEST)", body: `${j.pseudo} está jugando — esto es una notificación de prueba`, url: '/', tag: 'test-ami-' + Date.now() }),
-    it: JSON.stringify({ title: "👥 Partita di un amico in corso (TEST)", body: `${j.pseudo} sta giocando — questa è una notifica di prova`, url: '/', tag: 'test-ami-' + Date.now() }),
-    de: JSON.stringify({ title: "👥 Spiel eines Freundes läuft (TEST)", body: `${j.pseudo} spielt gerade — dies ist eine Testbenachrichtigung`, url: '/', tag: 'test-ami-' + Date.now() }),
+    fr: JSON.stringify({ title: "👥 Match d'un ami en cours (TEST)", body: `${j.pseudo} est en match — ceci est une notification de test`, url: urlAccueil17s, tag: 'test-ami-' + Date.now() }),
+    en: JSON.stringify({ title: "👥 A friend's match is live (TEST)", body: `${j.pseudo} is playing — this is a test notification`, url: urlAccueil17s, tag: 'test-ami-' + Date.now() }),
+    es: JSON.stringify({ title: "👥 Partido de un amigo en curso (TEST)", body: `${j.pseudo} está jugando — esto es una notificación de prueba`, url: urlAccueil17s, tag: 'test-ami-' + Date.now() }),
+    it: JSON.stringify({ title: "👥 Partita di un amico in corso (TEST)", body: `${j.pseudo} sta giocando — questa è una notifica di prova`, url: urlAccueil17s, tag: 'test-ami-' + Date.now() }),
+    de: JSON.stringify({ title: "👥 Spiel eines Freundes läuft (TEST)", body: `${j.pseudo} spielt gerade — dies ist eine Testbenachrichtigung`, url: urlAccueil17s, tag: 'test-ami-' + Date.now() }),
   };
   let n = 0;
   for (const s of subs) { try { await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, payloadsAmiTest[s.lang] || payloadsAmiTest.fr); n++; } catch (e) { if (e.statusCode === 404 || e.statusCode === 410) db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint); } }
