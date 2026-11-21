@@ -26,6 +26,7 @@ function panelConnexion() {
     el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'c-pseudo', maxlength: 24, autocomplete: 'username' })),
     el('div', {}, el('label', {}, 'Mot de passe'), el('input', { id: 'c-pass', type: 'password', autocomplete: 'current-password' })),
     el('div', { style: 'margin-top:10px' }, el('button', { style: 'width:100%', onclick: connexion }, 'Se connecter')),
+    el('p', { class: 'muted small', style: 'text-align:center' }, 'Un seul compte pour toute la plateforme : le même login dans tous les clubs.'),
     el('p', { class: 'muted small', style: 'text-align:center' }, el('a', { href: '/oubli.html' }, 'Mot de passe oublié ?')),
     el('hr', {}),
     el('h2', { id: 'creer' }, '✨ Créer un compte'),

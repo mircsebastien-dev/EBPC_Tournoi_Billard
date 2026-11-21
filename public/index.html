@@ -34,6 +34,45 @@ let state = null;
   if (main) document.body.insertBefore(boite17n, main);
 })();
 
+// 17v. Suggestions de clubs au premier écran : un visiteur SANS club mémorisé découvre les clubs
+// actifs de la plateforme en cartes (icône 17t + nom) ; un clic mémorise le club (ouvrirClub17v)
+// et recharge l accueil dans son contexte. Rien en mono-club ni si un club est déjà mémorisé.
+(function () {
+  try { if (localStorage.getItem(CLUB_KEY)) return; } catch (e) {}
+  const boite17v = document.createElement('div');
+  boite17v.id = 'clubs-17v';
+  boite17v.style.cssText = 'max-width:1100px;margin:14px auto -4px;padding:0 18px';
+  (async function () {
+    let clubs17v = [];
+    try { clubs17v = (await api('/api/clubs')).clubs || []; } catch (e) { return; }
+    if (clubs17v.length < 2) return; // mono-club : rien ne change
+    const titre17v = document.createElement('h2');
+    titre17v.style.cssText = 'font-size:20px;margin:6px 0 10px';
+    titre17v.textContent = t('Choisis ton club');
+    const rangee17v = document.createElement('div');
+    rangee17v.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px';
+    boite17v.append(titre17v, rangee17v);
+    for (const c of clubs17v) {
+      const carte17v = document.createElement('a');
+      carte17v.href = '/?club=' + encodeURIComponent(c.slug);
+      carte17v.className = 'panel';
+      carte17v.style.cssText = 'flex:1 1 200px;min-width:180px;max-width:420px;display:flex;align-items:center;gap:12px;padding:12px 14px;text-decoration:none;color:inherit';
+      const icone17v = document.createElement('img');
+      icone17v.alt = 'Icône de ' + c.nom;
+      icone17v.src = '/icone-' + encodeURIComponent(c.slug) + '.png'; // 17t : chemin par club, repli générique côté serveur
+      icone17v.style.cssText = 'width:42px;height:42px;border-radius:8px;object-fit:cover;flex:0 0 auto';
+      icone17v.onerror = function () { icone17v.remove(); };
+      const nom17v = document.createElement('div');
+      nom17v.style.cssText = 'font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+      nom17v.textContent = c.nom;
+      carte17v.append(icone17v, nom17v);
+      carte17v.addEventListener('click', function (e) { e.preventDefault(); ouvrirClub17v(c.slug); });
+      rangee17v.append(carte17v);
+    }
+    if (main) document.body.insertBefore(boite17v, main);
+  })();
+})();
+
 function render() {
   main.innerHTML = '';
   const t = state && state.actif;

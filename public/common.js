@@ -815,6 +815,9 @@ const I18N = {
   "Le club": "The club",
   "Club introuvable": "Club not found",
   "Club inconnu ici, tu regardes le club par défaut": "Unknown club here, you are viewing the default club",
+  "Choisis ton club": "Pick your club",
+  "Choisir le club": "Choose the club",
+  "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "One account for the whole platform: the same login in every club.",
   "Bannière du club": "Club banner",
   "Bannière de l accueil": "Home banner",
   "Retirer la bannière": "Remove the banner",
@@ -1552,6 +1555,9 @@ const I18N_ES = {
   "Le club": "El club",
   "Club introuvable": "Club no encontrado",
   "Club inconnu ici, tu regardes le club par défaut": "Club desconocido aquí, estás viendo el club predeterminado",
+  "Choisis ton club": "Elige tu club",
+  "Choisir le club": "Elige el club",
+  "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "Una sola cuenta para toda la plataforma: el mismo inicio de sesión en todos los clubes.",
   "Bannière du club": "Banner del club",
   "Bannière de l accueil": "Banner de inicio",
   "Retirer la bannière": "Quitar el banner",
@@ -2290,6 +2296,9 @@ const I18N_IT = {
   "Le club": "Il club",
   "Club introuvable": "Club non trovato",
   "Club inconnu ici, tu regardes le club par défaut": "Club sconosciuto qui, stai vedendo il club predefinito",
+  "Choisis ton club": "Scegli il tuo club",
+  "Choisir le club": "Scegli il club",
+  "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "Un solo account per tutta la piattaforma: lo stesso login in tutti i circoli.",
   "Bannière du club": "Banner del club",
   "Bannière de l accueil": "Banner della home",
   "Retirer la bannière": "Rimuovi il banner",
@@ -3028,6 +3037,9 @@ const I18N_DE = {
   "Le club": "Der Club",
   "Club introuvable": "Club nicht gefunden",
   "Club inconnu ici, tu regardes le club par défaut": "Club hier unbekannt, du siehst den Standard-Club",
+  "Choisis ton club": "Wähle deinen Club",
+  "Choisir le club": "Club wählen",
+  "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "Ein Konto für die ganze Plattform: derselbe Login in allen Clubs.",
   "Bannière du club": "Club-Banner",
   "Bannière de l accueil": "Startseiten-Banner",
   "Retirer la bannière": "Banner entfernen",
@@ -3366,6 +3378,19 @@ function menuDeroulant(btn, remplir) {
   window.addEventListener('resize', fermer);
 }
 
+// 17v. Choisir un club de la plateforme : mémorise le slug (même mécanisme que ?club= du haut de ce
+// fichier) puis recharge la page EN COURS dans le contexte du club choisi (paramètres utiles de l URL
+// conservés, ex: ?id= d une fiche joueur, le club y est remplacé). Rechargement explicite : thème, état,
+// SSE et liens internes (17s) repartent tous dans le contexte du club, aucune bascule à l insu de
+// l utilisateur (17r), PWA par club inchangée (17t).
+function ouvrirClub17v(slug) {
+  try { localStorage.setItem(CLUB_KEY, slug); } catch {}
+  try {
+    const u17v = new URL(location.href);
+    u17v.searchParams.set('club', slug);
+    location.href = u17v.pathname + u17v.search + u17v.hash;
+  } catch { location.href = '/?club=' + encodeURIComponent(slug); }
+}
 function nav(active) {
   // liens « tournoi seul » (Tableau / TV / Mon tournoi) : masqués tant qu'aucun tournoi n'est ouvert.
   // null = réponse pas encore arrivée (on affiche par défaut), false = aucun tournoi actif.
@@ -3397,6 +3422,27 @@ function nav(active) {
       drop.append(el('a', { href: '#', role: 'menuitem', class: LANG === code ? 'active' : null, onclick: (e) => { e.preventDefault(); if (LANG !== code) choisirLangue(code); } }, `${drapeau} ${nom}`));
     }
   });
+  // 17v. Sélecteur discret du club dans le bandeau : affiché uniquement si PLUSIEURS clubs actifs
+  // (mono-club : rien ne change) et hors console super-admin (elle garde son sélecteur explicite 17s).
+  // Le bouton montre le nom du club courant, le menu liste les clubs actifs (GET /api/clubs public) ;
+  // choisir un club mémorise le slug et recharge la page dans son contexte (ouvrirClub17v).
+  let clubsNav17v = [];
+  const btnClub17v = el('button', { class: 'nav-lang club-selecteur-17v', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Choisir le club', style: 'display:none;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, 'Club');
+  menuDeroulant(btnClub17v, (drop) => {
+    let courant17v = null;
+    try { courant17v = localStorage.getItem(CLUB_KEY); } catch {}
+    for (const c of clubsNav17v) {
+      drop.append(el('a', { href: '#', role: 'menuitem', class: c.slug === courant17v ? 'active' : null, onclick: (e) => { e.preventDefault(); if (c.slug !== courant17v) ouvrirClub17v(c.slug); } }, c.nom));
+    }
+  });
+  api('/api/clubs').then((r17v) => {
+    clubsNav17v = (r17v && r17v.clubs) || [];
+    if (clubsNav17v.length < 2 || location.pathname.startsWith('/console.html')) return;
+    let slug17v = null;
+    try { slug17v = localStorage.getItem(CLUB_KEY); } catch {}
+    btnClub17v.textContent = ((clubsNav17v.find(c => c.slug === slug17v) || clubsNav17v[0]).nom) + ' ▾';
+    btnClub17v.style.display = '';
+  }).catch(() => {});
   // burger compte : entrees dynamiques selon l etat de connexion et le role (admin ou joueur),
   // vers des pages dediees (parametres / amis / mes matchs) + fiche joueur ; admin : table de marque uniquement
   let compteNav = null, joueurIdNav = null;
@@ -3416,7 +3462,7 @@ function nav(active) {
     if (compteNav.role === 'admin' || compteNav.role === 'super_admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, 'Table de marque')); // 17i
     drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, 'Se déconnecter'));
   });
-  return el('nav', {}, wrap, btnCompte, btnLang);
+  return el('nav', {}, wrap, btnCompte, btnClub17v, btnLang);
 }
 
 function codeMatch(m) {
