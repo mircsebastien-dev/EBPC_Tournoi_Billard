@@ -426,18 +426,21 @@ function autoLancer(tournoiId) {
 }
 
 function rafraichirPrets() {
-  const actif = db.prepare(`SELECT id FROM tournoi WHERE statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1`).get();
-  if (!actif) return;
-  const complets = db.prepare(`
-    SELECT id FROM match
-    WHERE tournoi_id = ? AND etat = 'prevu' AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL
-  `).all(actif.id);
-  for (const r of complets) {
-    db.prepare(`UPDATE match SET etat = 'pret', updated_at = datetime('now') WHERE id = ?`).run(r.id);
+  // 17w: plusieurs tournois actifs en parallèle (un par club) -> on rafraîchit TOUS les tournois actifs,
+  // sinon seul le tournoi au plus grand id voyait ses matchs passer prevu -> pret : l autre club restait
+  // « en attente » (mode auto ET manuel) tant que ce tournoi n etait pas terminé
+  const actifs = db.prepare(`SELECT id FROM tournoi WHERE statut IN ('inscription', 'en_cours')`).all();
+  for (const actif of actifs) {
+    const complets = db.prepare(`
+      SELECT id FROM match
+      WHERE tournoi_id = ? AND etat = 'prevu' AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL
+    `).all(actif.id);
+    for (const r of complets) {
+      db.prepare(`UPDATE match SET etat = 'pret', updated_at = datetime('now') WHERE id = ?`).run(r.id);
+    }
+    for (const r of db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'prevu'`).all(actif.id)) appliquerBye(r.id);
   }
-  for (const r of db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'prevu'`).all(actif.id)) appliquerBye(r.id);
 }
-
 
 // Admin: déplacer un match sur une autre table (vérifie que la table existe et n'est pas occupée)
 function setTableAdmin(matchId, tableId) {
