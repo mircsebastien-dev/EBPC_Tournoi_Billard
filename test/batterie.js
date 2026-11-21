@@ -1482,7 +1482,7 @@ async function nouveauTournoi(body) {
     && cjs17k.includes("e.target.closest('a[href]')")
     && swj17s.includes('searchParams.get')
     && swj17s.includes('club du payload')
-    && cons17k.includes("'admin.html?club=' + encodeURIComponent")
+    && cons17k.includes("'/admin.html?club=' + encodeURIComponent")
     && spec17k.includes('17s. URLs du club')
     && rm17k.includes('| 53 |')
     && gu17p.includes('le bon club'), JSON.stringify([r.status, rKz.status, r17k.data]));
