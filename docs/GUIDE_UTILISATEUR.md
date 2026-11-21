@@ -8,7 +8,7 @@
 > Sans compte, tu peux t'inscrire avec juste un pseudo (champ sur l'accueil), mais tu n'auras pas les notifications push ni ton historique perso.
 
 ## Notifications « à toi de joue » (push)
-1. Sur un téléphone : **ajoute d'abord le site à l'écran d'accueil** — Android : menu ⋯ → « Installer l'application » ; **iPhone : ouvrir le site dans Safari (obligatoire, Chrome iOS ne le permet pas) → Partager → « Sur l'écran d'accueil »**
+1. Sur un téléphone : **ajoute d'abord le site à l'écran d'accueil** — Android : menu ⋯ → « Installer l'application » ; **iPhone : ouvrir le site dans Safari (obligatoire, Chrome iOS ne le permet pas) → Partager → « Sur l'écran d'accueil »** (une icône par club : fais-le depuis la page du club voulu)
 2. Ouvre l'app depuis l'écran d'accueil → **Compte** → 🔔 **Activer les notifications** → autorise
 3. Quand ton match est lancé, tu reçois une notif (même écran verrouillé). **Tap dessus → la card du match s'ouvre directement.**
 4. À la **création d'un nouveau tournoi**, tous les abonnés reçoivent aussi une notif « 🎱 Nouveau tournoi — inscriptions ouvertes »
@@ -21,7 +21,7 @@
 - **📊 Stats** : classement, clic sur un joueur pour sa fiche (historique complet)
 - **🗂 Historique** : les tournois passés, avec recherche/surbrillance par joueur
 - **🏷️ Le club** : la page publique de ton club (bannière, adresse, présentation, contact), réglée par la table de marque
-- **📱 Icône sur ton téléphone** : « Ajouter à l écran d accueil » installe l app de TON club, avec son nom, sa couleur et son logo comme icône (icône générique si le club n en a pas) ; au lancement, un écran d ouverture (splash) affiche les couleurs et le logo de ton club (Android : fond coloré + icône et nom ; iPhone : image de démarrage) ; le badge du club courant dans le bandeau te montre TOUJOURS le club que tu regardes (chaque club est étanche : ses joueurs, ses stats et ses tournois) ; un club mémorisé devenu inconnu ? L'app te l'annonce explicitement, elle ne bascule jamais en silence ; les notifications et tous les liens de l'app t'amènent TOUJOURS dans le bon club (tu peux installer une icône par club : chaque icône rouvre SON club)
+- **📱 Icône sur ton téléphone** : « Ajouter à l écran d accueil » installe l app de TON club, avec son nom, sa couleur et son logo comme icône (icône générique si le club n en a pas) ; au lancement, un écran d ouverture (splash) affiche les couleurs et le logo de ton club (Android : fond coloré + icône et nom ; iPhone : image de démarrage) ; le badge du club courant dans le bandeau te montre TOUJOURS le club que tu regardes (chaque club est étanche : ses joueurs, ses stats et ses tournois) ; un club mémorisé devenu inconnu ? L'app te l'annonce explicitement, elle ne bascule jamais en silence ; les notifications et tous les liens de l'app t'amènent TOUJOURS dans le bon club (tu peux installer une icône par club : chaque icône rouvre SON club ; sur iPhone, si une icône affiche le mauvais nom ou le mauvais club : supprime-la et recrée-la depuis la page du club ouverte, Safari ne relit le nom, l'icône ni l'écran d'ouverture qu'à la création de l'icône)
 
 ## Jouer un match (saisie du score)
 1. Ouvre ta **card de match** (depuis « Joueur », le tableau, ou la notification)
