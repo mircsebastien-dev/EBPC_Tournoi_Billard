@@ -43,7 +43,9 @@ async function adminApi(path, opts = {}) {
     // 17h v2: club mémorisé disparu (restauration d une base, club supprimé/désactivé) -> effacé et rejoué
     // sur le club par défaut, même repli que api() de common.js
     if (data404 && typeof data404.error === 'string' && data404.error.startsWith('Club inconnu') && typeof clubHeaders === 'function' && clubHeaders()['X-Club']) {
+      const slugPerdu17r = clubHeaders()['X-Club']; // 17r: slug AVANT effacement (bascule jamais silencieuse)
       try { localStorage.removeItem(typeof CLUB_KEY !== 'undefined' ? CLUB_KEY : 'ebpc_club'); } catch {}
+      try { if (typeof aviserClubInconnu17r === 'function') aviserClubInconnu17r(slugPerdu17r); } catch {} // 17r: bannière explicite (fonction de common.js)
       res = await appel17h();
     } else res = { ok: false, status: 404, json: async () => data404 };
   }

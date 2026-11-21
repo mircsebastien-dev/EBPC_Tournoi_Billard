@@ -112,6 +112,20 @@ function rafraichirThemeClub() {
           if (!ls17q) { ls17q = document.createElement('link'); ls17q.rel = 'apple-touch-startup-image'; ls17q.media = media17q; document.head.append(ls17q); }
           ls17q.href = (q17o ? '/api/club-splash' + q17o + '&' : '/api/club-splash?') + 'w=' + d17q[3] + '&h=' + d17q[4];
         }
+        // 17r. Badge du club courant dans le bandeau (hors TV, jamais ici ; hors console super-admin) :
+        // on voit TOUJOURS le nom du club qu on regarde, la multi-club ne doit jamais être invisible
+        if (th.slug && th.nom && !location.pathname.startsWith('/console.html')) {
+          let bd17r = document.getElementById('club-badge-17r');
+          if (!bd17r) {
+            const h1b17r = document.querySelector('header.top h1');
+            if (!h1b17r) return; // pas de bandeau sur cette page (le badge est purement indicatif)
+            bd17r = document.createElement('span');
+            bd17r.id = 'club-badge-17r';
+            bd17r.style.cssText = 'margin-left:10px;padding:2px 10px;border-radius:99px;font-size:.72em;font-weight:700;border:1px solid var(--pink);color:var(--pink);white-space:nowrap;vertical-align:middle';
+            h1b17r.after(bd17r);
+          }
+          if (bd17r.textContent !== th.nom) bd17r.textContent = th.nom;
+        }
       } catch {}
     }).catch(() => {});
   } catch {}
@@ -776,6 +790,7 @@ const I18N = {
   "· revanche manquée": "· revenge missed",
   "Le club": "The club",
   "Club introuvable": "Club not found",
+  "Club inconnu ici, tu regardes le club par défaut": "Unknown club here, you are viewing the default club",
   "Bannière du club": "Club banner",
   "Bannière de l accueil": "Home banner",
   "Retirer la bannière": "Remove the banner",
@@ -1512,6 +1527,7 @@ const I18N_ES = {
   "· revanche manquée": "· revancha fallida",
   "Le club": "El club",
   "Club introuvable": "Club no encontrado",
+  "Club inconnu ici, tu regardes le club par défaut": "Club desconocido aquí, estás viendo el club predeterminado",
   "Bannière du club": "Banner del club",
   "Bannière de l accueil": "Banner de inicio",
   "Retirer la bannière": "Quitar el banner",
@@ -2249,6 +2265,7 @@ const I18N_IT = {
   "· revanche manquée": "· rivincita sfumata",
   "Le club": "Il club",
   "Club introuvable": "Club non trovato",
+  "Club inconnu ici, tu regardes le club par défaut": "Club sconosciuto qui, stai vedendo il club predefinito",
   "Bannière du club": "Banner del club",
   "Bannière de l accueil": "Banner della home",
   "Retirer la bannière": "Rimuovi il banner",
@@ -2986,6 +3003,7 @@ const I18N_DE = {
   "· revanche manquée": "· Revanche verpasst",
   "Le club": "Der Club",
   "Club introuvable": "Club nicht gefunden",
+  "Club inconnu ici, tu regardes le club par défaut": "Club hier unbekannt, du siehst den Standard-Club",
   "Bannière du club": "Club-Banner",
   "Bannière de l accueil": "Startseiten-Banner",
   "Retirer la bannière": "Banner entfernen",
@@ -3194,6 +3212,33 @@ function appliquerTheme(t) { try { if (t === 'light') document.documentElement.d
 function basculerTheme() { const t = themeActuel() === 'light' ? 'dark' : 'light'; try { localStorage.setItem('ebpc_theme', t); } catch {} appliquerTheme(t); if (accentClubApplique) appliquerAccentClub(accentClubApplique); return t; } // 17j v2: le soft (lisibilité) dépend du thème -> on re-applique l accent du club
 
 let compteCourant = null; // mémo du compte connecté (le broadcast SSE ne le renvoie pas)
+// 17r. Étanchéité du contexte du club : un club mémorisé inconnu (404 « Club inconnu » : club supprimé,
+// désactivé, ou inexistant sur CETTE application) déclenchait une bascule SILENCIEUSE vers le club par
+// défaut (repli 17h v2) -> l utilisateur croyait être sur son club et voyait les données d un autre club
+// (retour Sébastien 17r). Le repli reste (page jamais blanche, ex: club disparu après restauration)
+// mais une bannière explicite s affiche : le contexte ne change JAMAIS à l insu de l utilisateur.
+// Utilisée par api() ici ET par adminApi() dans admin-common.js.
+let clubInconnuAvise17r = false; // une seule bannière par page (jamais de spray si plusieurs 404)
+function aviserClubInconnu17r(slug) {
+  if (clubInconnuAvise17r) return;
+  clubInconnuAvise17r = true;
+  try {
+    if (document.getElementById('club-inconnu-17r')) return;
+    const b17r = document.createElement('div');
+    b17r.id = 'club-inconnu-17r';
+    b17r.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483000;background:#a32a37;color:#fff;padding:10px 36px 10px 14px;font-weight:600;font-size:14px;line-height:1.45;text-align:center';
+    const msg17r = (typeof t === 'function') ? t('Club inconnu ici, tu regardes le club par défaut') : 'Club inconnu ici, tu regardes le club par défaut';
+    b17r.append(document.createTextNode(msg17r + ' : « ' + slug + ' »'));
+    const f17r = document.createElement('button');
+    f17r.textContent = '✖';
+    f17r.setAttribute('aria-label', (typeof t === 'function') ? t('Fermer') : 'Fermer');
+    f17r.style.cssText = 'position:absolute;top:8px;right:10px;background:none;border:none;color:#fff;font-size:16px;cursor:pointer';
+    f17r.addEventListener('click', () => b17r.remove());
+    b17r.append(f17r);
+    (document.body || document.documentElement).append(b17r);
+  } catch {}
+}
+
 async function api(path, opts = {}) {
   const appel17h = () => fetch(API + path, {
     headers: { 'Content-Type': 'application/json', 'X-Lang': LANG, ...clubHeaders(), ...(opts.headers || {}) },
@@ -3206,7 +3251,9 @@ async function api(path, opts = {}) {
     // sur l app de test alors que le navigateur retenait un club de test) -> page blanche silencieuse
     // -> on efface le slug mémorisé et on rejoue l appel sur le club par défaut (17h v2: repli club par défaut)
     if (data404 && typeof data404.error === 'string' && data404.error.startsWith('Club inconnu') && clubHeaders()['X-Club']) {
+      const slugPerdu17r = clubHeaders()['X-Club']; // 17r: le slug AVANT effacement, pour la bannière
       try { localStorage.removeItem(CLUB_KEY); } catch {}
+      aviserClubInconnu17r(slugPerdu17r); // 17r: repli club par défaut conservé (page jamais blanche) mais PLUS JAMAIS silencieux
       res = await appel17h();
     } else {
       res = { ok: false, status: 404, json: async () => data404 };
