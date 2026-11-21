@@ -99,6 +99,19 @@ function rafraichirThemeClub() {
         if (at17o.getAttribute('href') !== '/api/club-icone' + q17o) at17o.href = '/api/club-icone' + q17o; // icône du club, repli générique côté serveur
         const mt17o = document.querySelector('meta[name="theme-color"]');
         if (mt17o && mt17o.content !== th.accent) mt17o.content = th.accent; // 17o: barre d état du téléphone aux couleurs du club
+        // 17q. Splash iPhone : images de démarrage par taille d écran, servies par club (fond accent + icône) ;
+        // Android, lui, lit background_color du manifeste (mis à l accent côté serveur)
+        const TAILLES_SPLASH_17Q = [
+          [320, 568, 2, 640, 1136], [375, 667, 2, 750, 1334], [375, 812, 3, 1125, 2436], [390, 844, 3, 1170, 2532],
+          [393, 852, 3, 1179, 2556], [414, 736, 3, 1242, 2208], [414, 896, 2, 828, 1792], [414, 896, 3, 1242, 2688],
+          [428, 926, 3, 1284, 2778], [430, 932, 3, 1290, 2796],
+        ];
+        for (const d17q of TAILLES_SPLASH_17Q) {
+          const media17q = 'screen and (device-width: ' + d17q[0] + 'px) and (device-height: ' + d17q[1] + 'px) and (-webkit-device-pixel-ratio: ' + d17q[2] + ')';
+          let ls17q = document.querySelector('link[rel="apple-touch-startup-image"][media="' + media17q + '"]');
+          if (!ls17q) { ls17q = document.createElement('link'); ls17q.rel = 'apple-touch-startup-image'; ls17q.media = media17q; document.head.append(ls17q); }
+          ls17q.href = (q17o ? '/api/club-splash' + q17o + '&' : '/api/club-splash?') + 'w=' + d17q[3] + '&h=' + d17q[4];
+        }
       } catch {}
     }).catch(() => {});
   } catch {}
