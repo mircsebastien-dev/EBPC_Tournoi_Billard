@@ -33,7 +33,11 @@ const del = (p, opts = {}) => { const o = { method: 'DELETE', ...opts }; if (p.s
 
 const etat = async (tournoiId) => {
   const r = await api('/api/etat' + (tournoiId ? `?tournoi_id=${tournoiId}` : ''));
-  return r.data.actif || r.data.tournoi || null;
+  if (r.data.actif) return r.data.actif;
+  // 19a: ?tournoi_id= ne renvoie plus un tournoi terminé (repli serveur sur l actif du club) :
+  // un tournoi terminé du club se lit par sa fiche dédiée /api/tournois/:id (même vue complète)
+  if (tournoiId) return ((await api('/api/tournois/' + tournoiId)).data.tournoi) || null;
+  return r.data.tournoi || null;
 };
 
 // Invariant anti-rematch: une paire de joueurs ne doit jamais se trouver dans 2 matchs JOUÉS
