@@ -209,6 +209,24 @@ const push = require('../src/push');
   const envoiAmiDE = envois.find(e => e.endpoint === 'https://push.example/epDE');
   check('notifierMatchLance: ami "de" reçoit « Spiel eines Freundes läuft »', envoiAmiDE && envoiAmiDE.payload.title.includes('Spiel eines Freundes läuft') && envoiAmiDE.payload.url === '/match.html?id=1003', `epDE=${envoiAmiDE && envoiAmiDE.payload.title}`);
 
+
+  // --- 17s: les URLs des notifications portent le club (étanchéité multi-club PWA) ---
+  console.log('\n--- 17s: URLs des notifications portant le club ---');
+  const cl17s = db.prepare("INSERT INTO club (slug, nom) VALUES ('test17s', 'Club 17s')").run();
+  const tr17s = db.prepare("INSERT INTO tournoi (nom, regle, taille, format, club_id) VALUES ('Tournoi 17s', 'blackball', 8, 'simple', ?)").run(cl17s.lastInsertRowid);
+  const cJ17s = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES (?, 'Joueur17s', 'j17s@x.fr', 'h', 's')").run(cl17s.lastInsertRowid);
+  const j17s = db.prepare("INSERT INTO joueur (tournoi_id, pseudo, compte_id) VALUES (?, 'Joueur17s', ?)").run(tr17s.lastInsertRowid, cJ17s.lastInsertRowid);
+  db.prepare("INSERT INTO push_subscription (compte_id, club_id, endpoint, keys_json) VALUES (?, ?, 'https://push.example/ep17s', '{\"p256dh\":\"k\",\"auth\":\"a\"}')").run(cJ17s.lastInsertRowid, cl17s.lastInsertRowid);
+  envois.length = 0;
+  await push.notifierMatchLance({ id: 2001, joueur1_id: j17s.lastInsertRowid, joueur2_id: jB.lastInsertRowid }, 'Joueur17s', 'JoueurB', 2, 'wb1-017');
+  check('17s: notifierMatchLance porte le club du tournoi dans l URL', envois.length === 2 && envois.every(e => e.payload.url === '/match.html?id=2001&club=test17s'), JSON.stringify(envois.map(e => e.payload.url)));
+  envois.length = 0;
+  const nTous17s = await push.envoyerTous({ title: 'FR17s', body: 'b17s', url: '/', tag: 't17s' }, cl17s.lastInsertRowid, { en: { title: 'EN17s', body: 'be17s', url: '/', tag: 't17s' } });
+  check('17s: envoyerTous porte le club dans l URL (fr + fr traduit)', nTous17s === 1 && envois.length === 1 && envois[0].payload.url === '/?club=test17s', JSON.stringify(envois.map(e => e.payload.url)));
+  envois.length = 0;
+  const rTest17s = await push.envoyerTest(cJ17s.lastInsertRowid, 'fr');
+  check('17s: envoyerTest porte le club de la souscription', rTest17s.envoyes === 1 && envois.length === 1 && envois[0].payload.url === '/parametres.html?club=test17s', JSON.stringify(envois.map(e => e.payload.url)));
+
   db.close();
   for (const ext of ['', '-wal', '-shm']) { try { fs.unlinkSync(DB_PATH + ext); } catch (e) {} }
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC ===`);

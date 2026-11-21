@@ -18,10 +18,10 @@
 - **🗺️ Tableau** : vue **bracket** (onglets Tout / WB / LB / Phase finale, liens entre matchs sur l'onglet final) ou **liste** (boutons en haut), liste déroulante « Aller au tour », filtre par joueur (Entrée pour valider). Dans les matchs pas encore joués, les places inconnues s'affichent « gagnant wb1-001 », « perdant lb2-003 » ou « blanc » : tu sais d'où vient le joueur que tu attends. Les matchs en cours sont entourés en rouge, les terminés en vert, les gagnants en gras vert.
 - **📺 TV** : scores en direct pour l'écran de la salle
 - **🎱 Joueur** : tes matchs en cours / à venir (si connecté)
-- **📊 Stats** : classement,点击 sur un joueur pour sa fiche (historique complet)
+- **📊 Stats** : classement, clic sur un joueur pour sa fiche (historique complet)
 - **🗂 Historique** : les tournois passés, avec recherche/surbrillance par joueur
 - **🏷️ Le club** : la page publique de ton club (bannière, adresse, présentation, contact), réglée par la table de marque
-- **📱 Icône sur ton téléphone** : « Ajouter à l écran d accueil » installe l app de TON club, avec son nom, sa couleur et son logo comme icône (icône générique si le club n en a pas) ; au lancement, un écran d ouverture (splash) affiche les couleurs et le logo de ton club (Android : fond coloré + icône et nom ; iPhone : image de démarrage) ; le badge du club courant dans le bandeau te montre TOUJOURS le club que tu regardes (chaque club est étanche : ses joueurs, ses stats et ses tournois) ; un club mémorisé devenu inconnu ? L'app te l'annonce explicitement, elle ne bascule jamais en silence
+- **📱 Icône sur ton téléphone** : « Ajouter à l écran d accueil » installe l app de TON club, avec son nom, sa couleur et son logo comme icône (icône générique si le club n en a pas) ; au lancement, un écran d ouverture (splash) affiche les couleurs et le logo de ton club (Android : fond coloré + icône et nom ; iPhone : image de démarrage) ; le badge du club courant dans le bandeau te montre TOUJOURS le club que tu regardes (chaque club est étanche : ses joueurs, ses stats et ses tournois) ; un club mémorisé devenu inconnu ? L'app te l'annonce explicitement, elle ne bascule jamais en silence ; les notifications et tous les liens de l'app t'amènent TOUJOURS dans le bon club (tu peux installer une icône par club : chaque icône rouvre SON club)
 
 ## Jouer un match (saisie du score)
 1. Ouvre ta **card de match** (depuis « Joueur », le tableau, ou la notification)
