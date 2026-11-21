@@ -1177,7 +1177,7 @@ async function nouveauTournoi(body) {
   check('oubli DEPUIS un autre club que le club d origine -> compte trouvé (recherche GLOBALE via email, dev_reset_link en dev)', r17f.status === 200 && !!r17f.data.dev_reset_link, JSON.stringify({ status: r17f.status, lien: !!r17f.data.dev_reset_link }));
   r17f = await xhr17f('/api/compte/oubli', '203.0.113.108', { club: 'clubvm', body: { email: 'personne@nulle-part.test' } });
   check('oubli pour un email SANS compte -> réponse générique sans lien (anti-énumération conservée)', r17f.status === 200 && !r17f.data.dev_reset_link, r17f.status + ' ' + (r17f.data.error || ''));
-  r17f = await xhr17f('/api/compte/connexion', '203.0.113.109', { club: 'clubvm', body: { pseudo: 'Seb', password: '1234' } });
+  r17f = await xhr17f('/api/compte/connexion', '203.0.113.109', { club: 'clubvm', body: { pseudo: 'Seb', password: 'nouveau1' } });
   check('connexion d un compte du club défaut depuis clubvm -> 200 (compte plateforme utilisable depuis tous les clubs)', r17f.status === 200 && r17f.data.compte && r17f.data.compte.pseudo === 'Seb', r17f.status + ' ' + (r17f.data.error || ''));
   r = await api('/api/admin/comptes', { club: 'clubvm', pin: '5678' });
   check('aucune liaison implicite: Seb reste absent de la marque de clubvm (club d origine inchangé)', !r.data.comptes.some(c => c.pseudo === 'Seb'), '');
@@ -1187,9 +1187,11 @@ async function nouveauTournoi(body) {
   check('inscription au tournoi d un AUTRE club avec sa session (MembreSb, origine clubsb) -> 201 (compte plateforme, plus de refus club d origine)', r17f.status === 201 && r17f.data.joueur && r17f.data.joueur.pseudo === 'MembreSb', r17f.status + ' ' + (r17f.data.error || ''));
   r17f = await xhr17f('/api/joueur', '203.0.113.111', { club: 'clubvm', body: { pseudo: 'MembreSb' } });
   check('pseudo MembreSb réservé en anonyme depuis clubvm -> 409 compte_pseudo (réservation GLOBALE)', r17f.status === 409 && r17f.data.compte_pseudo === true, r17f.status + ' ' + (r17f.data.error || ''));
+  await post('/api/admin/tournoi', { nom: 'Sb-Open', regle: 'blackball', taille: 16, format: 'simple', notif_push: false }, { club: 'clubsb', pin: '4321' });
   r17f = await xhr17f('/api/joueur', '203.0.113.112', { club: 'clubsb', body: { pseudo: 'AutreSb' } });
   check('pseudo AutreSb (compte d origine clubvm) réservé en anonyme depuis clubsb -> 409 compte_pseudo (réservation GLOBALE, plus d anonyme cross-club)', r17f.status === 409 && r17f.data.compte_pseudo === true, r17f.status + ' ' + (r17f.data.error || ''));
   await del('/api/admin/tournoi', { club: 'clubvm' }).catch(() => {});
+  await del('/api/admin/tournoi', { club: 'clubsb' }).catch(() => {});
   const spec17f = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
   const ga17f = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
   const gu17u = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_UTILISATEUR.md'), 'utf8');
@@ -1215,8 +1217,8 @@ async function nouveauTournoi(body) {
   check('rôle inconnu (chef) refusé via le PIN du club -> 400', r.status === 400, r.status + ' ' + (r.data.error || ''));
   r = await api('/api/admin/club/comptes', { pin: '5678', club: 'clubvm' });
   check('GET rôles du club ouvert au PIN du club: ChefVm listé admin', r.status === 200 && r.data.comptes.some(c => c.pseudo === 'ChefVm' && c.role === 'admin'), JSON.stringify(r.data.comptes));
-  r = await put('/api/admin/club/compte', { pseudo: 'AutreSb', role: 'admin' }, { pin: '5678', club: 'clubvm' });
-  check('isolation 17f étendue: le PIN de clubvm ne promeut qu un compte DU club (AutreSb n existe QUE dans clubsb) -> 404 introuvable dans ce club', r.status === 404 && String(r.data.error || '').includes('dans ce club'), r.status + ' ' + (r.data.error || ''));
+  r = await put('/api/admin/club/compte', { pseudo: 'MembreSb', role: 'admin' }, { pin: '5678', club: 'clubvm' });
+  check('isolation 17f étendue: le PIN de clubvm ne promeut qu un compte DU club (MembreSb est d origine clubsb, pas clubvm) -> 404 introuvable dans ce club', r.status === 404 && String(r.data.error || '').includes('dans ce club'), r.status + ' ' + (r.data.error || ''));
   r17g = await xhr17f('/api/compte/inscription', '203.0.113.116', { club: 'clubvm', body: { pseudo: 'DeuxVm', email: 'deux.vm@clubvm.test', password: '1234' } });
   check('compte DeuxVm créé dans clubvm -> 201', r17g.status === 201, r17g.status + ' ' + (r17g.data.error || ''));
   r17g = await xhr17f('/api/compte/connexion', '203.0.113.117', { club: 'clubvm', body: { pseudo: 'ChefVm', password: '1234' } });
