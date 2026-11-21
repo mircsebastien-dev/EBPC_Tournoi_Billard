@@ -111,13 +111,16 @@ function rafraichirThemeClub() {
       // 17o. Icône du club sur l écran du téléphone : manifeste et apple-touch-icon du club courant
       // (nom, couleur et icône de l app installée ; posés ici pour toutes les pages, replis gérés par le serveur)
       try {
-        const q17o = th.slug ? '?club=' + encodeURIComponent(th.slug) : '';
+        // 17t. iOS/Safari RETIRE la query des liens d installation et ne lit que le PREMIER manifeste de la page :
+        const p17t = th.slug ? encodeURIComponent(th.slug) : ''; // chemins par club pour manifeste, icône et splash
         let mf17o = document.querySelector('link[rel="manifest"]');
-        if (!mf17o) { mf17o = document.createElement('link'); mf17o.rel = 'manifest'; document.head.append(mf17o); mf17o.href = '/manifest.webmanifest'; }
-        if (mf17o.getAttribute('href') !== '/manifest.webmanifest' + q17o) mf17o.href = '/manifest.webmanifest' + q17o; // garde le club dans start_url à l installation
+        if (!mf17o) { mf17o = document.createElement('link'); mf17o.rel = 'manifest'; document.head.append(mf17o); } // 17t: jamais de base générique, directement le chemin du club ci-dessous
+        const mfHref17t = p17t ? '/manifest-' + p17t + '.webmanifest' : '/manifest.webmanifest'; // 17t: chemin par club (Safari retire la query), garde le club dans start_url à l installation
+        if (mf17o.getAttribute('href') !== mfHref17t) mf17o.href = mfHref17t;
         let at17o = document.querySelector('link[rel="apple-touch-icon"]');
-        if (!at17o) { at17o = document.createElement('link'); at17o.rel = 'apple-touch-icon'; document.head.append(at17o); at17o.href = '/apple-touch-icon.png'; }
-        if (at17o.getAttribute('href') !== '/api/club-icone' + q17o) at17o.href = '/api/club-icone' + q17o; // icône du club, repli générique côté serveur
+        if (!at17o) { at17o = document.createElement('link'); at17o.rel = 'apple-touch-icon'; document.head.append(at17o); } // 17t: jamais de base générique, directement le chemin du club ci-dessous
+        const atHref17t = p17t ? '/icone-' + p17t + '.png' : '/apple-touch-icon.png'; // 17t: chemin par club (Safari retire la query), repli générique côté serveur
+        if (at17o.getAttribute('href') !== atHref17t) at17o.href = atHref17t;
         const mt17o = document.querySelector('meta[name="theme-color"]');
         if (mt17o && mt17o.content !== th.accent) mt17o.content = th.accent; // 17o: barre d état du téléphone aux couleurs du club
         // 17q. Splash iPhone : images de démarrage par taille d écran, servies par club (fond accent + icône) ;
@@ -131,7 +134,7 @@ function rafraichirThemeClub() {
           const media17q = 'screen and (device-width: ' + d17q[0] + 'px) and (device-height: ' + d17q[1] + 'px) and (-webkit-device-pixel-ratio: ' + d17q[2] + ')';
           let ls17q = document.querySelector('link[rel="apple-touch-startup-image"][media="' + media17q + '"]');
           if (!ls17q) { ls17q = document.createElement('link'); ls17q.rel = 'apple-touch-startup-image'; ls17q.media = media17q; document.head.append(ls17q); }
-          ls17q.href = (q17o ? '/api/club-splash' + q17o + '&' : '/api/club-splash?') + 'w=' + d17q[3] + '&h=' + d17q[4];
+          ls17q.href = p17t ? '/splash/' + p17t + '/' + d17q[3] + 'x' + d17q[4] + '.png' : '/api/club-splash?w=' + d17q[3] + '&h=' + d17q[4]; // 17t: chemin par club, jamais de query (iOS la retire à l installation)
         }
         // 17r. Badge du club courant dans le bandeau (hors TV, jamais ici ; hors console super-admin) :
         // on voit TOUJOURS le nom du club qu on regarde, la multi-club ne doit jamais être invisible

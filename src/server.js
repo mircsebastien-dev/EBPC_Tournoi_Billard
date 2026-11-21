@@ -273,7 +273,31 @@ app.get('/manifest.webmanifest', (req, res) => {
     background_color: th17o.accent, // 17q: écran de lancement Android aux couleurs du club (Chrome compose le splash depuis le manifeste)
     theme_color: th17o.accent, // 17o: barre d état du téléphone aux couleurs du club
     icons: [
-      { src: ic17o ? '/api/club-icone?club=' + encodeURIComponent(club17o.slug) + '&taille=192' : '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: ic17o ? '/icone-' + encodeURIComponent(club17o.slug) + '.png' : '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' }, // 17t: chemin par club, jamais de query (iOS la retire)
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ],
+  }));
+});
+// 17t. Manifeste par CHEMIN : Safari/iOS RETIRE la query string des liens d installation (manifeste, icône, splash)
+// et ne considère que le PREMIER manifeste posé sur la page : le lien manifeste du front pointe ici, sans query.
+// Même contenu que /manifest.webmanifest?club= ; slug inconnu -> club par défaut (jamais 404, l installabilité est préservée).
+app.get('/manifest-:slug17t.webmanifest', (req, res) => {
+  const club17t = clubParSlug(String(req.params.slug17t || '').trim()) || clubParDefaut();
+  const th17t = themeDuClub(club17t);
+  const ic17t = iconeClub17o(club17t); // 17o: icône PNG du club, sinon icône générique de l app
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.setHeader('Cache-Control', 'no-store'); // fraîche au moment de l installation (changement de logo vite répercuté)
+  res.send(JSON.stringify({
+    name: club17t.nom + ' — Tournois',
+    short_name: club17t.nom.slice(0, 12),
+    description: th17t.description ? th17t.description.slice(0, 200) : 'Tournois de billard — tableaux, scores en direct, notifications',
+    start_url: club17t.id === clubParDefaut().id ? '/' : '/?club=' + encodeURIComponent(club17t.slug),
+    scope: '/',
+    display: 'standalone',
+    background_color: th17t.accent, // 17q: écran de lancement Android aux couleurs du club (Chrome compose le splash depuis le manifeste)
+    theme_color: th17t.accent, // 17o: barre d état du téléphone aux couleurs du club
+    icons: [
+      { src: ic17t ? '/icone-' + encodeURIComponent(club17t.slug) + '.png' : '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' }, // 17t: chemin par club, jamais de query (iOS la retire)
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
     ],
   }));
@@ -700,6 +724,17 @@ app.get('/api/club-icone', (req, res) => { // 17o: ?club= pris en charge (la req
   res.send(ic17o.donnees);
 });
 
+// 17t. Icône du club par CHEMIN : /icone-<slug>.png = /api/club-icone?club=<slug> (Safari/iOS retire la query
+// des liens d installation : le manifeste et apple-touch-icon pointent ici) ; slug inconnu -> club par défaut
+// -> 302 vers l icône générique (même repli que la route à query).
+app.get('/icone-:slug17t.png', (req, res) => {
+  const ic17t = iconeClub17o(clubParSlug(String(req.params.slug17t || '').trim()) || clubParDefaut());
+  if (!ic17t) return res.redirect(302, '/icon-192.png'); // pas d icône -> générique de l app (jamais 204 : iOS et Android n aiment pas)
+  res.setHeader('Content-Type', ic17t.type);
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(ic17t.donnees);
+});
+
 // 17q. Écran de lancement (splash) du club : PNG généré à la demande, SANS dépendance (codec maison ci-dessus).
 // Fond de la couleur d accent + icône 17o (PNG) centrée à 45 % de la largeur (fusion alpha), repli fond uni.
 // Android compose son écran depuis le manifeste (background_color accent), iOS consomme ces images via
@@ -714,6 +749,42 @@ app.get('/api/club-splash', (req, res) => {
   const hex17q = /^#([0-9a-fA-F]{6})$/.exec(String(th17q.accent || ''));
   const fond17q = hex17q ? [parseInt(hex17q[1].slice(0, 2), 16), parseInt(hex17q[1].slice(2, 4), 16), parseInt(hex17q[1].slice(4, 6), 16)] : [230, 59, 122];
   const ic17q = iconeClub17o(club17q);
+  const pngSrc17q = ic17q && ic17q.type === 'image/png' ? decoderPng17q(ic17q.donnees) : null; // JPEG : pas de décodeur -> fond seul
+  const rgba17q = Buffer.alloc(w17q * h17q * 4);
+  for (let i = 0; i < w17q * h17q; i++) { rgba17q[i * 4] = fond17q[0]; rgba17q[i * 4 + 1] = fond17q[1]; rgba17q[i * 4 + 2] = fond17q[2]; rgba17q[i * 4 + 3] = 255; }
+  if (pngSrc17q) {
+    const cible17q = Math.round(w17q * 0.45);
+    const x017q = Math.round((w17q - cible17q) / 2), y017q = Math.round((h17q - cible17q) / 2);
+    for (let dy17q = 0; dy17q < cible17q; dy17q++) for (let dx17q = 0; dx17q < cible17q; dx17q++) {
+      const sx17q = Math.min(pngSrc17q.w - 1, Math.floor(dx17q * pngSrc17q.w / cible17q));
+      const sy17q = Math.min(pngSrc17q.h - 1, Math.floor(dy17q * pngSrc17q.h / cible17q));
+      const s17q = (sy17q * pngSrc17q.w + sx17q) * 4;
+      const al17q = pngSrc17q.rgba[s17q + 3] / 255;
+      const d17q = ((y017q + dy17q) * w17q + x017q + dx17q) * 4;
+      rgba17q[d17q] = Math.round(pngSrc17q.rgba[s17q] * al17q + fond17q[0] * (1 - al17q));
+      rgba17q[d17q + 1] = Math.round(pngSrc17q.rgba[s17q + 1] * al17q + fond17q[1] * (1 - al17q));
+      rgba17q[d17q + 2] = Math.round(pngSrc17q.rgba[s17q + 2] * al17q + fond17q[2] * (1 - al17q));
+    }
+  }
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(encoderPng17q(w17q, h17q, rgba17q));
+});
+
+// 17t. Splash par CHEMIN : /splash/<slug>/<w>x<h>.png = /api/club-splash?club=&w=&h= (Safari/iOS retire la query
+// des liens d installation : apple-touch-startup-image du front pointe ici) ; mêmes bornes 400 hors bornes, même
+// rendu (fond accent + icône 17o centrée), slug inconnu -> club par défaut (jamais 404).
+app.get('/splash/:slug17t/:dim17t', (req, res) => {
+  const dm17t = String(req.params.dim17t || '');
+  const px17t = dm17t.endsWith('.png') ? dm17t.slice(0, -4).split('x') : [];
+  const w17q = Number(px17t[0]), h17q = Number(px17t[1]);
+  if (!Number.isInteger(w17q) || !Number.isInteger(h17q) || w17q < 320 || w17q > 3000 || h17q < 480 || h17q > 3500)
+    return res.status(400).json({ error: 'Dimensions invalides (attendu : w entre 320 et 3000, h entre 480 et 3500)' });
+  const club17t = clubParSlug(String(req.params.slug17t || '').trim()) || clubParDefaut();
+  const th17q = themeDuClub(club17t);
+  const hexS17t = String(th17q.accent || '');
+  const fond17q = (hexS17t.length === 7 && hexS17t[0] === '#') ? [parseInt(hexS17t.slice(1, 3), 16), parseInt(hexS17t.slice(3, 5), 16), parseInt(hexS17t.slice(5, 7), 16)] : [230, 59, 122];
+  const ic17q = iconeClub17o(club17t);
   const pngSrc17q = ic17q && ic17q.type === 'image/png' ? decoderPng17q(ic17q.donnees) : null; // JPEG : pas de décodeur -> fond seul
   const rgba17q = Buffer.alloc(w17q * h17q * 4);
   for (let i = 0; i < w17q * h17q; i++) { rgba17q[i * 4] = fond17q[0]; rgba17q[i * 4 + 1] = fond17q[1]; rgba17q[i * 4 + 2] = fond17q[2]; rgba17q[i * 4 + 3] = 255; }
