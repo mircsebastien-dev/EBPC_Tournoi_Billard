@@ -1,0 +1,4 @@
+EBPC Tournoi Billard démarré sur 0.0.0.0:4101
+PIN admin: défini via ADMIN_PIN (secret)
+[PUSH] VAPID générée et persistée en base: BCGhMfagYjwco4-bNIaeftlokA1wzDeJWZzWKeKIpg3WNyGiYxL4-Kxo-EQtfEOgGqJJAjUeqOSR5DVeOPTIBS4 (les abonnements existants doivent être réactivés une fois)
+[SIGTERM] arrêt propre…

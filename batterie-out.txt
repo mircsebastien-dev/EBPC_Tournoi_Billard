@@ -1,0 +1,528 @@
+=== BATTERIE DE TESTS EBPC Tournoi Billard ===
+
+  OK  sans PIN -> 401
+  OK  mauvais PIN -> 401
+  OK  bon PIN -> 200
+  OK  règle invalide -> 400
+  OK  taille 8 refusée (min 16) -> 400
+  OK  création OK
+  OK  2e tournoi actif -> 409
+  OK  rappel inscriptions sans PIN -> 401
+  OK  rappel inscriptions en phase inscription -> 200 + envoyes=0 (aucun abonné en CI)
+  OK  /api/etat OK + tables = 4
+  OK  /api/etat expose auto/table_pref/compte
+  OK  bracket virtuel avant tirage : 15 matchs (16j simple)
+  OK  virtuel : wb1-001 -> wb2-001 slot 1
+  OK  virtuel : aucun joueur, tout prevu, ids v*, pas de perdant (simple)
+  OK  ajout Alice
+  OK  doublon pseudo (casse) -> 409
+  OK  simulation 15 joueurs
+  OK  16 inscrits au total
+  OK  paiement Alice
+  OK  annulation paiement
+  OK  suppression joueur
+  OK  inscription compte 201 + cookie
+  OK  GET moi -> Seb
+  OK  doublon pseudo -> 409
+  OK  email invalide -> 400
+  OK  mdp trop court -> 400
+  OK  mauvais mdp -> 401
+  OK  connexion OK + cookie
+  OK  self-enroll tournoi -> 201 (Seb)
+  OK  double enroll -> 409
+  OK  self-désinscription sans compte -> 401
+  OK  Seb marqué payé (setup)
+  OK  self-désinscription déjà payé -> 409 (deja_paye)
+  OK  paiement Seb annulé (setup)
+  OK  self-désinscription -> 200 (Seb)
+  OK  désinscrit : Seb absent du tournoi
+  OK  double désinscription -> 404
+  OK  ré-inscription après désinscription -> 201
+  OK  inscription anonyme avec compte connecté -> 409 (compte_connecte)
+  OK  enroll sans compte -> 401
+  OK  oubli mdp -> 200 + message générique
+  OK  dev_reset_link présent (pas de RESEND_API_KEY)
+  OK  oubli email inconnu -> même réponse (anti-énumération)
+  OK  reinit avec token -> 200 + reconnecté
+  OK  token réutilisé -> 400
+  OK  connexion avec nouveau mdp -> 200
+  OK  déconnexion
+  OK  tirage OK
+  OK  8 matchs WB1
+  OK  byes/vides auto-terminés : 6 blancs répartis, byes avec gagnant, vides sans gagnant
+  OK  gagnants byes propagés au tour 2
+  OK  2 tirages -> appariements différents (crypto)
+  OK  lancer sur table 1
+  OK  manche par externe -> 403
+  OK  +1 manche J1
+  OK  −1 manche J1
+  OK  runout reprise ferme J2 (+1)
+  OK  forfait J2 -> match terminé, gagnant J1
+  OK  forfait joueur hors match -> 400 (pas de 500 FK)
+  OK  forfait sans joueur_id -> 400
+  OK  stats J2: runouts=1, reprise=1, casse=0
+  OK  historique J2: 1 ligne, défaite, score présent
+  OK  auto ON + table_pref enregistrés
+  OK  etat.auto=true persistant + table_pref
+  OK  8 matchs lancés auto sur 8 tables
+  OK  tour 2 lancé sur T3,T4,T5,T6 (ordre pref 3,4,5,6...)
+  OK  manche provoquant un auto-lancement -> 200 (régression req is not defined)
+  OK  auto_lancement bien logué (avec club_id)
+  OK  auto OFF persistant
+  OK  8 -> 10 tables en cours
+  OK  10 -> 2 avec tables occupées -> 409
+  OK  après libérations, réduction à 4 OK
+  OK  nom verrouillé en cours
+  OK  virtuel DKO32: 55 matchs, tous virtuels prevu sans joueur
+  OK  virtuel DKO32: lb2-001 -> f1-005 slot 2 (croisement demi-moitié)
+  OK  virtuel DKO32: perdant wb1-001 -> lb1-001 slot 1
+  OK  DKO32: WB1=16, WB2=8, LB1=8, LB2=8, F=15 (8+4+2+1)
+  OK  DKO32: 32 joueurs inscrits
+  OK  tournoi DKO terminé
+  OK  0 re-match hors finale (croisement LB OK)
+  OK  champion renseigné
+  OK  DKO32: max points = 6 (finale F4, k=2)
+  OK  DKO32: 2 finalistes à 6 pts (ex-aequo)
+  OK  stats-joueurs 200 + joueurs avec id/manches/runouts
+  OK  titres = 1 par tournoi gagné (pas par match)
+  OK  fiche joueur: h2h par adversaire (joues = victoires + defaites, dernier renseigné)
+  OK  fiche joueur: totaux h2h = totaux historique (matchs decides et victoires)
+  OK  QR svg 200 + svg valide
+  OK  journal audit lisible
+  OK  création tournoi RB (notif_push=false accepté)
+  OK  tirage RB
+  OK  rappel inscriptions après tirage -> 409
+  OK  slots exposés dans /api/etat (suivant_slot/perdant_slot)
+  OK  classement: byes exclus (joues=0 juste après tirage)
+  OK  match joué 3-0 avant rollback
+  OK  changer joueurs vers paire déjà jouée -> 409 rematch (hors finale)
+  OK  changer joueurs vers paire inédite -> 200
+  OK  audit: événement tirage a un snapshot (has_snapshot)
+  OK  audit: lancement lisible (code match + "vs")
+  OK  DELETE tournoi sans confirm_pin -> 401
+  OK  DELETE tournoi mauvais code -> 401
+  OK  rollback sans confirm_pin -> 401
+  OK  rollback audit_id inconnu -> 404
+  OK  rollback avec bon code -> 200
+  OK  après rollback: match revenu à pret 0-0
+  OK  rollback logué dans l'audit
+  OK  match en cours 1-0 sur table avant rollback
+  OK  rollback avec match en cours -> 200
+  OK  après rollback (match en cours): pret 0-0, table libérée
+  OK  DELETE tournoi avec bon code -> 200
+  OK  désinscription joueur SANS confirm_pin -> 200 (exempté)
+  OK  création tournoi Robust
+  OK  /api/health -> 200 ok + db ok
+  OK  route API inconnue -> 404 JSON
+  OK  JSON malformé -> 400 JSON (pas HTML)
+  OK  id non numérique -> pas de 500
+  OK  pseudo 500 chars -> tronqué à 40
+  OK  pseudo injection SQL -> 200 (paramétré), pas d'erreur
+  OK  table joueur intacte après tentative d'injection
+  OK  pseudo avec caractères de contrôle -> nettoyé
+  OK  body > 256ko -> 413 JSON
+  OK  20 manches en parallèle -> aucune 500
+  OK  concurrence: score == nb events manche (pas de double comptage)
+  OK  concurrence: match terminé proprement à la distance
+  OK  10 mauvaises connexions XFF 9.9.9.9 -> 401, la 11e -> 429
+  OK  sans XFF (IP réelle 127.0.0.1) -> pas locké par le bucket 9.9.9.9 (401)
+  OK  front: expiration session admin 8h (ADMIN_SESSION_MS + ebpc_admin_pin_since)
+  OK  front: bouton Verrouiller + effacement du PIN mémorisé
+  OK  création tournoi ExpImp
+  OK  tirage ExpImp
+  OK  export -> 200, payload complet (tournoi+16 joueurs+matchs+events)
+  OK  diff rollback -> 200 avec resume
+  OK  diff: le match joué apparaît modifié
+  OK  audit?action=tirage -> uniquement des tirages
+  OK  audit?q=ExpImp -> au moins la création, tout filtré côté serveur
+  OK  import sans confirm_pin -> 401
+  OK  import mauvais confirm_pin -> 401
+  OK  import JSON invalide -> 400
+  OK  import valide -> 200, tournoi recréé (FK remappées, validées au COMMIT)
+  OK  import: 16 joueurs et tous les matchs présents
+  OK  import: match en cours conservé (score 1-0)
+  OK  import: lien suivant_id valide
+  OK  import avec actif sans replace -> 409
+  OK  export?id= -> 200
+  OK  création Batterie2
+  OK  simulation 15 joueurs
+  OK  inscription anonyme avec pseudo libre -> 200
+  OK  suppression du joueur anonyme InviteBT
+  OK  inscription anonyme avec pseudo d'un compte -> 409 (réservé)
+  OK  ajout admin pseudo d'un compte sans confirmation -> 409
+  OK  ajout admin avec confirmation -> 200
+  OK  16 joueurs inscrits
+  OK  16 joueurs payés
+  OK  inscription AliceBT
+  OK  recherche compte par pseudo
+  OK  ajout ami
+  OK  ami doublon -> 409
+  OK  ami inconnu -> 404
+  OK  s'ajouter soi-même -> 400
+  OK  tirage OK
+  OK  self-désinscription tournoi lancé -> 409
+  OK  liste amis = 1 (Seb)
+  OK  ami a un statut de tournoi
+  OK  ami inscrit expose joueur_id (lien fiche joueur)
+  OK  front: panneau amis page tournoi -> clic nom renvoie /joueur.html?id=
+  OK  joueur Seb rattaché au compte
+  OK  retrait ami
+  OK  suivi pseudo sans compte -> 200
+  OK  suivi pseudo doublon (casse ignorée) -> 409
+  OK  suivi du pseudo d'un compte -> 409
+  OK  suivre son propre pseudo -> 400
+  OK  suivi pseudo vide -> 400
+  OK  liste amis = 1 suivi pseudo (Ghost)
+  OK  suivi pseudo jamais inscrit -> hors_tournoi + joueur_id null
+  OK  re-ajout ami Seb (pour test admin)
+  OK  push: abonnement enregistré (session compte)
+  OK  admin comptes: amis_comptes (Seb) + amis_pseudos (Ghost) exposés
+  OK  admin comptes: push_abonnements exposé (1 appareil pour le compte abonné)
+  OK  front: colonne Amis dans admin-comptes (comptes + sans compte)
+  OK  front: colonne Push (abonnements notifs) + total notifiables dans admin-comptes
+  OK  front: bouton « Me désinscrire » (accueil + page mes matchs)
+  OK  front: self-désinscription masquée si déjà payé
+  OK  front: panneau Face-à-face (h2h) sur la fiche joueur, tableau plié à 5 + bouton Tout voir, adversaire cliquable + historique des matchs REPLIÉ aux 5 derniers (17m) puis paginé par pages de 20 en mode déplié (Tout voir (N) / Réduire, Précédent / Suivant, Page X / Y, bornes boutons désactivés)
+  OK  front: bouton Rappel inscriptions ouvertes (admin-tournoi, phase inscription)
+  OK  front: affiche tournoi à venir (poster) : eyebrow + jauge inscrits, sans QR ni emojis
+  OK  front: SSE re-sync au retour sur la page (visibilitychange) et à la reconnexion (open)
+  OK  front: styles poster accueil (or/sombre + boule 8 filigrane)
+  OK  retrait suivi pseudo
+  OK  saisie bloquée sans tirage à la bande
+  OK  bande -> casseau = gagnant
+  OK  casseur fait reprise -> 403
+  OK  non-casseur fait casse -> 403
+  OK  alternance après manche (casseur a changé)
+  OK  retirer une manche -> ⚪ casseur revient à l'état précédent
+  OK  changer table -> 200
+  OK  table inconnue -> 400
+  OK  rouvrir avec aval propagé -> 409
+  OK  changer joueur1 -> 200
+  OK  même joueur x2 -> 400
+  OK  points présents dans le classement
+  OK  joueurs avec points >= 1
+  OK  stats globales ont points
+  OK  PUT joueur pseudo -> 200
+  OK  PUT joueur pseudo pris -> 409
+  OK  PUT pseudo d'un compte (sans joueur homonyme) -> 409 (réservé)
+  OK  delete event recalcule le score (diminue)
+  OK  delete event sans PIN -> 401
+  OK  clôture -> 200
+  OK  clôture coupe net -> champion null
+  OK  login Seb (user) -> 200 + cookie
+  OK  session user sans PIN -> 401 sur /api/admin/*
+  OK  compte AliceBT retrouvé (role=user)
+  OK  session AliceBT (role=user) -> 401
+  OK  POST role=admin (PIN) -> 200
+  OK  role invalide -> 400
+  OK  session AliceBT (role=admin) sans PIN -> 200
+  OK  création RoleT (PIN)
+  OK  DELETE tournoi avec session admin, SANS confirm_pin -> 200
+  OK  DELETE tournoi avec PIN seul (pas de confirm_pin, pas de session admin) -> 401
+  OK  session user + confirm_pin sans PIN -> 401 (PIN ou session admin requis)
+  OK  DELETE tournoi avec PIN + confirm_pin correct -> 200
+  OK  front: modale confirmation par mot court (SUPPRIMER) pour session admin sur actions destructives
+  OK  GET /api/clubs -> club par défaut ebpc
+  OK  etat expose le club courant
+  OK  création tournoi ClubA (club défaut)
+  OK  tournoi ClubA rattaché au club par défaut (club_id=1)
+  OK  POST /api/admin/club clubb -> 200
+  OK  club slug doublon -> 409
+  OK  club slug invalide -> 400
+  OK  club inconnu (X-Club) -> 404
+  OK  club inconnu (?club=) -> 404
+  OK  création tournoi ClubB-T dans clubb (X-Club)
+  OK  etat clubb: actif = ClubB-T, club.slug=clubb
+  OK  etat club défaut: actif reste ClubA (pas ClubB-T)
+  OK  tournoi du club A invisible depuis clubb -> 404
+  OK  suppression tournoi club A depuis clubb -> 404
+  OK  tournoi A existe toujours après la tentative cross-club
+  OK  tirage ClubA
+  OK  events match A depuis club défaut -> 200
+  OK  events match A depuis clubb -> 404 (isolation)
+  OK  saisie manche match A depuis clubb -> 404 (isolation)
+  OK  homonyme du joueur A inscrit dans clubb (ClubB-T) -> 200 (+id)
+  OK  fiche de l homonyme vue depuis clubb: 0 match joué (le club par défaut ne fuit pas)
+  OK  matchs de l homonyme depuis clubb: aucune ligne du club par défaut
+  OK  historique de l homonyme depuis clubb: vide, face-à-face vide aussi
+  OK  fiche du joueur du club par défaut: son match ClubA reste compté (1 joué / 1 gagné)
+  OK  audit clubb: toutes les entrées appartiennent à clubb
+  OK  audit club défaut: toutes les entrées club_id=1
+  OK  clubc créé avec son PIN propre -> 200
+  OK  tournoi ClubC-T créé dans clubc via son PIN seul, club bien clubc
+  OK  PIN de clubc refusé sur le club par défaut -> 401
+  OK  PIN global ouvre les routes admin de clubc (super-admin) -> 200
+  OK  PUT club: renommage par l admin du club, sans re-confirmation -> 200
+  OK  PUT club: pin trop court -> 400
+  OK  PUT club: nouveau PIN sans confirm_pin -> 401
+  OK  PUT club: nouveau PIN confirmé par le code actuel -> 200 + pin_propre
+  OK  le nouveau PIN de clubc ouvre les routes admin -> 200
+  OK  ancien PIN de clubc révoqué -> 401
+  OK  admin de clubc ne peut pas modifier le club par défaut -> 403
+  OK  super-admin (code global): change le PIN et désactive clubc à distance -> 200
+  OK  club désactivé absent de la liste publique des clubs actifs
+  OK  club désactivé -> 404 à la résolution (X-Club)
+  OK  réactivation de clubc à distance par le super-admin -> 200
+  OK  clubc de retour dans la liste publique des clubs actifs
+  OK  GET /api/admin/clubs: clubc pin_propre+actif, défaut pin_propre=false
+  OK  le club par défaut ne peut pas être désactivé -> 400
+  OK  PUT club slug inconnu -> 404
+  OK  audit (club défaut): club_cree et club_modifie journalisés
+  OK  login Seb (17c): session fraîche -> 200 + cookie
+  OK  attribution du rôle admin de clubc à Seb par le code global -> 200
+  OK  rôle inconnu (chef) -> 400
+  OK  GET rôles du club: Seb listé admin (pseudo + role, jamais de hash)
+  OK  session Seb (admin de clubc) ouvre les routes admin de clubc sans PIN -> 200
+  OK  session Seb sans rôle sur le club par défaut -> 401
+  OK  Seb crée un tournoi dans clubc par sa session (session_club) -> 200
+  OK  Seb renomme clubc par session, sans confirm_pin -> 200
+  OK  Seb (admin de club) change le PIN de clubc sans confirm_pin -> 200
+  OK  Seb ne peut pas modifier le club par défaut (garde super-admin) -> 403
+  OK  admin de club: liste des comptes limitée à son club (Seb présent, AliceBT absente)
+  OK  admin de club: promotion au rôle GLOBAL refusée (super-admin uniquement) -> 403
+  OK  admin de club: renommage d un compte hors de son club -> 404
+  OK  admin de club: reset du mot de passe d un compte hors de son club -> 404
+  OK  admin de club: suppression d un compte hors de son club -> 404
+  OK  super-admin dans le club par défaut: SES comptes visibles (AliceBT et Seb), la liste reste scopée au club du contexte (17h)
+  OK  admin de club: liste des clubs interdite (super-admin uniquement) -> 403
+  OK  admin de club: création d un club interdite -> 403
+  OK  GET /api/admin/super: session de club -> super_admin false (menu Clubs masqué)
+  OK  GET /api/admin/super: code global -> super_admin true
+  OK  GET /api/admin/super: code PIN du club -> super_admin false
+  OK  downgrade de Seb en operateur de clubc -> 200
+  OK  session operateur ouvre toujours les routes admin de clubc -> 200
+  OK  operateur: suppression du tournoi refusée sans code (confirm non levée) -> 401
+  OK  operateur: gestion des rôles du club interdite -> 403
+  OK  retrait du rôle de Seb (super-admin + confirm_pin) -> 200
+  OK  session Seb révoquée: plus aucune route admin de clubc -> 401
+  OK  (admin) liste des clubs: nb_comptes retombe à 0 pour clubc après le retrait
+  OK  audit de clubc: club_role et club_role_retire journalisés
+  OK  front: console super-admin (création, réglages club par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien Console depuis l accueil admin (17i)
+  OK  front: menu Console réservé au super-admin (/api/admin/super conditionne le bouton, console affiche un message si 403)
+  OK  front: bouton 👑 (rôle global) masqué aux sessions de club sur la page Comptes joueurs
+  OK  suppression clubc refusée: un tournoi est encore rattaché -> 409
+  OK  suppression clubc sans confirm_pin -> 401
+  OK  le club par défaut ne peut pas être supprimé -> 400
+  OK  suppression d un club inconnu -> 404
+  OK  suppression du clubc par le super-admin (confirm_pin) -> 200
+  OK  clubc absent de la liste des clubs après suppression
+  OK  rôle admin de Seb sur clubb (la suppression du club devra purger ce rattachement)
+  OK  suppression de clubb avec un compte rattaché -> 200 (rôles purgés)
+  OK  clubb absent de la liste des clubs après suppression
+  OK  audit: club_supprime journalisé (clubc et clubb)
+  OK  front: bouton Supprimer sur chaque ligne sauf le club par défaut (confirmation destructive, routes super 17i)
+  OK  export base: 200 + format complet (marqueur ebpc-tournoi-billard, genere_le, tables)
+  OK  export base: toutes les tables du schéma présentes (16, compte_club inclus)
+  OK  export base: téléchargeable (Content-Disposition attachment)
+  OK  export base: contenu non vide (clubs, tournois, joueurs, audit)
+  OK  export base: fk_violations expose les orphelins hérités (clubs supprimés en 17c -> journal orphelin déclaré, clé fk_violations)
+  OK  vidage du journal du club défaut (confirm_pin) -> 200, supprimées >= 1
+  OK  journal vidé: il ne reste que le log du vidage (audit_purge)
+  OK  import base: 200 + ok (base restaurée) + sauvegarde ANCIENNE (avant 17f, comptes sans club_id) acceptée pareil
+  OK  import base: chaque table retrouve exactement ses lignes (identique à l export)
+  OK  import base: les ids sont préservés (club ebpc garde son id)
+  OK  import base: journal du club défaut restauré (entrées de retour)
+  OK  export base avec un code de club -> 403 (réservé au super-admin)
+  OK  import base avec un code de club -> 403 (aucune écriture)
+  OK  import base: payload sans marqueur de sauvegarde -> 400 (aucune écriture)
+  OK  import base: table inconnue -> 400 (aucune écriture)
+  OK  import base: référence cassée NON déclarée -> 400 (falsification refusée, aucun écriture)
+  OK  front: panneau 💾 sauvegarde base dans la console super-admin (export téléchargeant, import fichier avec confirmation destructible, 17i)
+  OK  doc: SPEC 17d + GUIDE_ADMIN dédié + serveur (requireSuperAdmin sur export/import, limite 25mb sur l import UNIQUEMENT) + compat sauvegardes anciennes pre-17f
+  OK  export club: 200 + format club (marqueur ebpc-tournoi-billard-club, club ebpc, genere_le, tables)
+  OK  export club: périmètre club uniquement (8 tables de données, JAMAIS compte/session/email/club)
+  OK  export club: téléchargeable (Content-Disposition attachment, nom club-ebpc…)
+  OK  export club: contenu du club uniquement (tournois/joueurs/matchs du club, aucune ligne d un autre club)
+  OK  export club avec un code de club -> 200 (le club sauvegarde SES données: club clubsb vide)
+  OK  export club sans code admin -> 401
+  OK  vidage du journal du club (confirm_pin) -> 200, supprimées >= 1
+  OK  import club: 200 + ok (données du club restaurées)
+  OK  import club: chaque table du club retrouve exactement ses lignes (identique à l export)
+  OK  import club: ids préservés (le 1er tournoi du club garde son id)
+  OK  import club: journal du club restauré (entrées de retour)
+  OK  import club: état du club cohérent après restauration (actif null ou tableau de matchs)
+  OK  import club sans confirm_pin (code de club) -> 401 (confirmation destructive exigée)
+  OK  import club: sauvegarde d un AUTRE club -> 400 (clubsb ne peut pas importer le fichier d ebpc)
+  OK  import club: marqueur de sauvegarde absent -> 400 (aucune écriture)
+  OK  import club: table hors périmètre club (compte) -> 400 (emails/mots de passe jamais importables par un club)
+  OK  import club: ligne d un autre club (tournoi club_id 999) -> 400 (aucune écriture)
+  OK  import club: référence interne cassée (match_event.match_id 999999) -> 400 (falsification refusée)
+  OK  front: panneau 💾 données du club dans admin-data.html (export club téléchargeant + import fichier avec confirmation destructible)
+  OK  doc: SPEC 17e + GUIDE_ADMIN club + serveur (export-club/import-club SANS requireSuperAdmin: un code de club sauvegarde/restaure SON club, limite 25mb)
+  OK  clubvm créé avec son PIN (2e club avec PIN pour tester l isolation des comptes)
+  OK  compte créé DEPUIS le contexte du club clubsb -> 201 (lié au club au moment de la création)
+  OK  le compte est VISIBLE dans la liste des comptes de SON club (table de marque, code PIN du club)
+  OK  le compte est INVISIBLE dans la liste d un autre club (code PIN de clubvm)
+  OK  super-admin (code global): vue tous clubs EXPLICITE (?tous=1) -> MembreSb (clubsb) visible
+  OK  même pseudo accepté dans un AUTRE club (unicité PAR club, plus globale) -> 201
+  OK  pseudo déjà pris DANS le même club -> 409
+  OK  email déjà pris dans le même club -> 409
+  OK  même email accepté dans un autre club (unicité email PAR club) -> 201
+  OK  connexion depuis SON club -> 200 + session
+  OK  connexion depuis clubvm du compte AutreSb (existant UNIQUEMENT dans clubsb) -> 401 (le pseudo MembreSb lui répond 200 car le jumeau de clubvm est un autre compte)
+  OK  connexion du jumeau MembreSb depuis clubvm -> 200 + session distincte de celle de clubsb (deux comptes indépendants)
+  OK  oubli depuis le bon club -> compte trouvé (dev_reset_link en dev)
+  OK  oubli depuis un autre club: ce email n a pas de compte ici -> réponse générique sans lien (anti-énumération)
+  OK  connexion d un compte du club défaut depuis clubvm -> 401 (le compte n existe pas dans CE club)
+  OK  aucune liaison implicite: Seb reste absent de clubvm (seule la création fige le club)
+  OK  tournoi ClubVM-T créé dans clubvm (pour la garde d isolation des inscriptions)
+  OK  inscription au tournoi d un autre club avec sa session -> 409 (compte cloisonné)
+  OK  pseudo d un compte d un autre club utilisable anonymement dans ce club (réservation cloisonnée) -> 200
+  OK  pseudo d un compte de CE club toujours réservé (409 compte_pseudo, inscription anonyme refusée)
+  OK  doc: SPEC 17f + GUIDE_ADMIN + schema db (club_id NOT NULL + unicite PAR club) + serveur/comptes scopés PAR club
+  OK  compte ChefVm créé dans clubvm (future cible de la promotion) -> 201
+  OK  LE PIN DU CLUB promeut ChefVm en admin de clubvm -> 200 (autonomie du club: plus besoin du code global)
+  OK  table de marque clubvm (PIN du club): ChefVm listé avec role_club admin + peut_gerer_roles true + club.slug (sélecteur du front)
+  OK  rôle inconnu (chef) refusé via le PIN du club -> 400
+  OK  GET rôles du club ouvert au PIN du club: ChefVm listé admin
+  OK  isolation 17f étendue: le PIN de clubvm ne promeut qu un compte DU club (AutreSb n existe QUE dans clubsb) -> 404 introuvable dans ce club
+  OK  compte DeuxVm créé dans clubvm -> 201
+  OK  connexion de ChefVm depuis SON club -> 200 + session
+  OK  la SESSION de ChefVm (admin de clubvm, sans aucun PIN) promeut DeuxVm -> 200
+  OK  changement de rôle: DeuxVm passé en OPERATEUR via le PIN du club -> 200
+  OK  connexion de DeuxVm (operateur) -> 200 + session
+  OK  session OPERATEUR: gestion des rôles toujours interdite -> 403
+  OK  retrait du rôle par une session ADMIN du club, sans confirm_pin (exemption confirm) -> 200
+  OK  re-promotion de DeuxVm en admin via le PIN du club -> 200 (pour tester le retrait par code)
+  OK  retrait du rôle DEPUIS le PIN du club avec confirm_pin = le code du club -> 200
+  OK  table de marque clubvm: DeuxVm sans rôle club, ChefVm toujours admin
+  OK  super-admin: attachement cross-club conservé (Seb, compte du club par défaut, promu admin de clubvm) -> 200
+  OK  retrait du rôle cross-club par le super-admin + confirm_pin global -> 200 (nettoyage)
+  OK  nettoyage: retrait du rôle de ChefVm par le super-admin -> 200
+  OK  clubvm sans aucun rôle résiduel -> liste vide (état propre pour les sections suivantes)
+  OK  doc: SPEC 17g + GUIDE_ADMIN + serveur (PIN du club suffit: adminViaPin club, cible DU club, peut_gerer_roles) + front (chips + sélecteur rôle club)
+  OK  17h: super-admin (code global) dans le tenant principal -> MembreSb (compte de clubsb) ABSENT
+  OK  17h: ChefVm et DeuxVm (comptes de clubvm) absents du tenant principal
+  OK  17h: le tenant principal garde SES comptes (Seb, club par défaut, visible)
+  OK  17h: réponse avec tous=false (vue cloisonnée par défaut)
+  OK  ?tous=1 (super-admin): restriction levée -> MembreSb (clubsb), ChefVm (clubvm) ET Seb visibles
+  OK  ?tous=1: club_slug dévoile le club d origine de chaque compte (MembreSb -> clubsb)
+  OK  ?tous=1: compte sans aucun rôle club -> roles_clubs vide
+  OK  setup: Seb staff admin de clubvm (cross-club par le super-admin) -> 200
+  OK  ?tous=1: rôles club agrégés -> Seb porte « clubvm:admin » dans roles_clubs
+  OK  nettoyage: retrait du rôle staff de Seb sur clubvm -> 200
+  OK  un code de club NE PEUT PAS forcer la vue tous-clubs (?tous=1 ignoré): liste = clubvm uniquement (DeuxVm présent, AliceBT (club par défaut) absente)
+  OK  doc: SPEC 17h + serveur (scoping inconditionnel + ?tous=1 super-admin) + front (panneau tous comptes de la plateforme dans la console, 17i)
+  OK  17i: GET /api/super/scan avec le code global -> 200, super_admin via global
+  OK  17i: le PIN de clubvm sur /api/super/scan -> 401 (un code de club n ouvre JAMAIS la zone super)
+  OK  17i: la SESSION admin du club (ChefVm, sans PIN) sur /api/super/scan -> 403
+  OK  17i: GET /api/super/clubs (code global) -> 200, tous les clubs (ebpc, clubvm, clubsb) sans contexte de club
+  OK  17i: GET /api/super/comptes -> 200, vue plateforme: MembreSb (clubsb) ET ChefVm (clubvm) d origines distinctes + Seb, tous=true
+  OK  17i: GET /api/super/base/export (code global) -> 200, payload complet (table club + comptes multi-clubs)
+  OK  17i: POST /api/super/club crée clubsi depuis la zone super -> 200
+  OK  17i: PUT /api/super/club désactive clubsi avec confirm_pin (code global) -> 200 actif=false
+  OK  17i: PUT /api/super/club SANS confirm_pin -> 401 (geste sensible: code global exigé)
+  OK  17i: DELETE /api/super/club supprime clubsi (confirm_pin global) -> 200
+  OK  17i: clubsi bien absent de la liste après suppression (état propre)
+  OK  17i: setup AliceBT retrouvée dans la vue plateforme (rôle admin hérité)
+  OK  17i: promotion du rôle plateforme super_admin via /api/super (code global) -> 200
+  OK  17i: la SESSION du compte super_admin ouvre la zone super (via session) -> 200
+  OK  17i: accès support conservé: la session super_admin ouvre l admin D un autre club (X-Club clubvm -> comptes de clubvm, DeuxVm visible, tous=false)
+  OK  17i: démotion en user -> 200 puis la même session est immédiatement refusée (scan 403)
+  OK  17i: le PIN de club ne promeut ni ne rétrograde en zone super -> 401
+  OK  doc: SPEC 17i + serveur (zone /api/super/* sans club, rôle super_admin) + console.html (panneaux clubs/comptes/base) + clubs.html redirigé + menus (Console) + admin-data épuré (base partie dans la console) + GUIDE
+  OK  17j: GET /api/admin/club/prefs (PIN du club) -> 200, réglages par défaut jamais configurés
+  OK  17j: PUT prefs couleur non hexadécimale -> 400 (format #rrggbb exigé)
+  OK  17j: PUT prefs jour/heure hors bornes -> 400 (jour 7, heure 25:00, jamais écrits)
+  OK  17j: PUT prefs SANS confirm_pin (geste non sensible) -> 200: accent + nom + jour + heure enregistrés
+  OK  17j: GET /api/club-theme public (visiteur sans aucun code) -> 200, accent du club servi à tous
+  OK  17j: /api/etat expose club.accent (publique, contexte club résolu sans code)
+  OK  17j: isolation: le tenant principal garde l accent d origine (clubvm ne fuit pas sur ebpc)
+  OK  17j: le PIN de clubvm ne peut pas modifier la personnalisation d un AUTRE club (body.slug clubsb) -> 403
+  OK  17j: le super-admin règle la personnalisation d un autre club à distance (body.slug, code global) -> 200
+  OK  17j: GET /api/club-theme clubsb -> accent personnalisé servi publiquement (chaque club a le sien)
+  OK  17j: la SESSION admin du club (ChefVm, sans PIN) lit la personnalisation -> 200 (panneau Apparence de l accueil admin)
+  OK  17j: PUT prefs par la SESSION admin du club -> 200 (accent changé sans code, défauts conservés)
+  OK  17j: réinitialisation clubvm -> 200, /api/club-theme redescendu au rose d origine (état propre)
+  OK  17j: réinitialisation clubsb par le super-admin -> 200 + retrait du rôle de ChefVm (nettoyage)
+  OK  17j: front — common.js applique l accent du club aux variables CSS (--pink/-fort/soft/glow, --pink-soft recalculée en HSL LISIBLE quel que soit l accent et le thème, --pink-fort (fonds de boutons à texte blanc) plafonnée à 45 % de luminosité sinon un accent blanc rend les libellés invisibles: scores/liens/boutons jamais invisibles), cache anti-flash ebpc_accent_club, rafraîchi par /api/club-theme APPELÉ après const LANG (régression TDZ: LANG inaccessible sinon), page TV exclue
+  OK  17j/17l: front — 🎨 Apparence du club dans SA PAGE DÉDIÉE /admin-apparence.html (color picker + nom + jour + heure + adresse, adminApi sans confirmation, même écran de code que les pages admin), bouton d accès conservé sur l accueil admin
+  OK  17j: front — création de tournoi prérenseignée par les réglages du club (nom/jour/heure via /api/admin/club/prefs, replis d origine)
+  OK  17j: front — console: panneau 🎨 Personnalisation avec sélecteur de club (réglage à distance body.slug)
+  OK  17j: i18n — panneau Apparence et jours traduits dans les 4 langues (EN/ES/IT/DE)
+  OK  doc: SPEC 17j + GUIDE_ADMIN (Apparence du club + prérenseignement de tournoi) + ROADMAP #44
+  OK  17k: PUT prefs logo prédéfini (whitelist) -> 200 et /api/club-theme sert le logo à TOUS les visiteurs
+  OK  17k: bibliothèque statique publique /logos/bille-8.svg -> 200 image/svg+xml (prédéfinis servis à tous)
+  OK  17k: PUT prefs logo importé data:image/png;base64 -> 200 (petit logo accepté, stocké dans theme_json)
+  OK  17k: PUT prefs logo importé data:image/svg+xml;base64 -> 200 (logo vectoriel accepté)
+  OK  17k: PUT logo hors whitelist (/logos/intrus.svg), data:text/html et https:// -> 400 (seuls prédéfinis + data:image png/jpeg/svg)
+  OK  17k: PUT logo data:image trop volumineux (> 200 000 caractères) -> 400 (garde-fou stockage)
+  OK  17k: super-admin règle le logo d un autre club (body.slug) -> 200, PIN du club refusé (403), isolation par club
+  OK  17k: PUT prefs logo_mode invalide -> 400 (switch: entete / filigrane / les-deux)
+  OK  17k: PUT prefs logo_mode filigrane -> 200 (switch logo d en-tête / filigrane / les deux) et /api/club-theme sert le mode
+  OK  17k: réinitialisation (logo vide, mode les-deux -> défaut, état propre) + front (filigrane filigrane-logo AU-DESSUS du contenu + logo d en-tête + switch logo_mode entete/filigrane/les-deux + cache ebpc_logo_club + galerie page dédiée /admin-apparence.html (17l) + import tolérant 17k v4 (8 Mo, HEIC iPhone et MIME absent acceptés, repli JPEG si PNG trop lourd) + refus explicite 17k v5 (fichier reçu vs attendu + cause probable, cause réelle dans le 400 serveur) + CSP img-src blob: 17k v6 corrigeant le refus de TOUT import via URL.createObjectURL + aperçu 17k v7 du logo retenu avant Enregistrer + vignette importée sélectionnable 17k v8 dans la galerie + repli api() sur club par défaut 17h v2 si le club mémorisé a disparu (404 Club inconnu effacé et appel rejoué, ex: restauration d une base) + regex front base64 corrigée 17k v9 (le + manquait : un logo importé en contenant un n apparaissait ni en filigrane ni en en-tête) + adresse par défaut du club 17j v2 (prérenseigne le lieu de création de tournoi) + console) + docs (SPEC 17k, GUIDE, ROADMAP #45 + #46 page dédiée 17l, 524 checks) + identité visuelle 17n (favicon de l onglet = logo du club, bannière de l accueil (1600 px) + page publique « Le club » (description 500/contact 200, lien du menu), photo de fond TV (1280 px) assombrie, images décodées servies par /api/club-banniere|/api/club-tv-fond avec ?club= (jamais dans le payload club-theme), plafond photo 400 000 caractères, répondants 204 sans image, isolation PIN autre club 403) + icône du club sur l écran du téléphone 17o (manifeste dynamique GET /manifest.webmanifest?club= : nom du club, couleur d accent, start_url conservant le club, Content-Type application/manifest+json ; GET /api/club-icone?club= : préférence au champ icone, repli logo raster, sinon redirection 302 vers /icon-192.png ; champ pref icone png/jpeg base64 plafonné 200 000 caractères, SVG refusé (Android n affiche pas le vectoriel), refus 400 cause réelle, isolation 403 autre club ; conversion AUTOMATIQUE du logo en PNG 192 px côté front à l Enregistrement (canvas, fond couleur d accent, échec -> repli) ; liens manifest et apple-touch-icon + meta theme-color par club côté front) + notification du prochain match 17p (push aux 2 joueurs d un match devenu pret : adversaire + code du match + table si attribuée, 5 langues serveur, fire-and-forget jamais bloquant) + splash screen 17q (manifeste background_color accent pour Android + route /api/club-splash?club=&w=&h= : PNG maison codec serveur sans dépendance, fond accent + icône centrée, 400 dimensions hors bornes + apple-touch-startup-image par taille d écran iPhone côté front) + étanchéité 17r du contexte du club (bannière « Club inconnu ici, tu regardes le club par défaut » sur repli club par défaut : plus jamais de bascule silencieuse, front public ET pages admin, i18n 4 langues + badge du club courant dans le bandeau hors TV/console) + urls du club 17s (payloads push avec ?club=<slug> : match, prochain match, ami, tournoi, rappel, test, repli silencieux si club introuvable ; service worker ne navigue QUE la fenêtre du club du payload, jamais celle d un autre club en multi-PWA ; tous les liens internes portent le club dans l URL (interception au clic, matchUrl comprise) ; sélecteur de la console explicite /admin.html?club=) + chemins du club 17t (Safari/iOS RETIRE la query string des liens d installation et ne lit que le PREMIER manifeste posé sur la page : manifeste, icône et splash servis par CHEMIN par club, /manifest-<slug>.webmanifest, /icone-<slug>.png et /splash/<slug>/<w>x<h>.png, mêmes contenus et mêmes replis que les routes ?club= conservées, slug inconnu -> club par défaut)
+  OK  création tournoi Retro1
+  OK  tirage Retro1
+  OK  Retro1 terminé automatiquement (Legende champion), plus de tournoi actif
+  OK  compte Legende créé après le tournoi (sans tournoi actif)
+  OK  joueur anonyme du tournoi archivé rattaché au compte (joueurs=1)
+  OK  fiche joueur: stats du tournoi passé comptées via le compte (1 joué, 1 gagné)
+  OK  classement: Legende garde ses stats après rattachement (1 joué, 1 titre)
+  OK  match.html: lien retour dynamique (?retour= > referrer > /suivi.html) + menu nav()
+  OK  common.js: matchUrl propage ?retour= depuis les cards
+  OK  common.js: garde-fou onglet dans drawBracketLinks (fix lignes parasites du bracket complet apres resize)
+  OK  style.css: theme clair (variables + header + liens bracket) + gros score lisible des 2 themes (17j v4: degrade ancre sur var(--text), JAMAIS d override shorthand background: seul sur .scoreboard .s: il reset background-clip -> zone bleue sans chiffres en theme clair)
+  OK  parametres: interrupteurs 0-1 alignes dans le panneau Parametres (page dediee parametres.html + vue partagee compte-vues.js, basculerTheme + .pref-row + sous-sections, sans texte d aide)
+  OK  script anti-flash theme present sur toutes les pages sauf TV
+  OK  i18n: erreur API traduite avec X-Lang: en (Route inconnue -> Unknown route)
+  OK  i18n: sans X-Lang, erreur API en francais (defaut inchange)
+  OK  i18n: erreurs API traduites avec X-Lang es/it/de (Route inconnue -> Ruta desconocida / Percorso sconosciuto / Unbekannte Route)
+  OK  i18n: serveur traduit les erreurs (src/i18n.js + middleware X-Lang dans server.js)
+  OK  i18n: front traduit (LANG + t() + X-Lang + dictionnaire common.js, selecteur de langue FR/EN dans le bandeau)
+  OK  front: selecteur de langue dans le bandeau (liste deroulante FR/EN avec drapeaux via menuDeroulant, entree active marquee, bouton = langue courante, ancienne rangee Langue retiree du panneau Parametres)
+  OK  front: selecteur langue colle a l extremite droite du bandeau (burgers groupes a gauche: #nav flex, justify-content flex-start, margin-left auto) + entree menu principal Tournoi renommee Accueil (traduite Home en EN)
+  OK  front: selecteur langue detache au bord droit de l ecran aussi sur mobile (<=560px: #nav pleine largeur en colonne, sinon le bouton reste colle au burger Compte) + liste deroulante alignee sur le bord droit du bouton (largeur reelle mesuree via offsetWidth)
+  OK  push: notifications traduites par destinataire (compte.lang persiste par le selecteur, payloads fr/en: match lance, ami, inscription, test, creation/rappel tournoi; repli hint X-Lang pour le test manuel; position du selecteur a l extremite opposee du menu principal)
+  OK  i18n: push etendus es/it/de + dictionnaires 5 langues (payloads Te toca jugar / Notifica di prova / Testbenachrichtigung / Spiel eines Freundes läuft, creation tournoi traduite, STATIQUES_ES serveur, I18N_ES front, test unitaire i18n etendu)
+  OK  front: selecteur de langue 5 entrees dans le bandeau (FR/EN/ES/IT/DE data-driven via LANGUES, drapeaux + libelles natifs, bouton = code langue courante)
+  OK  i18n: couverture complete (~490 entrees + regles dynamiques dans common.js)
+  OK  i18n: appels admin traduits aussi (X-Lang dans adminHeaders de admin-common.js + adminCall)
+  OK  front: burger compte a entrees dynamiques vers des pages dediees (login/register/parametres hors connexion, parametres/amis/mes matchs/ma fiche/deconnexion connecte, table de marque seule si role admin) + checkboxes toggle-mini + append filtre null
+  OK  front: pages dediees parametres/amis/mes matchs (vues partagees compte-vues.js, garde connexion vers compte.html#connexion sur amis et mes matchs, push-client sur parametres, titres traduits)
+  OK  fil: création tournoi FilT
+  OK  fil: /api/tournois/:id public expose gagnant + perdant + scores + table + ended_at (contrat du fil)
+  OK  fil: forfait exposé (etat forfait + gagnant + ended_at pour la ligne dédiée)
+  OK  fil: front accueil (lignesFil + panneauFil + 3 lignes + Voir tout/Replier + chargerFilDernier)
+  OK  fil: phrases des lignes (victoire + table + forfait + champion + belle)
+  OK  fil: élimination définitive uniquement en double KO (LB/F), fusionnée dans la ligne de victoire
+  OK  fil: horodatage relatif (à l'instant / il y a N min/h/j) + tri par ended_at décroissant
+  OK  fil: sans tournoi actif, fil du dernier tournoi terminé via /api/tournois/:id (public, champion visible)
+  OK  fil: i18n EN — règles dyn du fil dans I18N_DYN (beats / table / tournament over / forfeits / wins the tournament / one frame from victory / ago)
+  OK  fil: i18n ES/IT/DE — remplacements du fil présents (vence/batte/schlägt + champion + hace/fa/vor)
+  OK  fil: i18n — 4 tableaux dynamiques alignés (I18N_DYN = REPS_DYN_ES = REPS_DYN_IT = REPS_DYN_DE)
+  OK  fil: i18n — clés statiques du fil dans les 4 dictionnaires (Fil du tournoi + Replier + en direct)
+  OK  fil: styles du panneau (.fil-ligne, live en rose, colonne sur mobile)
+  OK  revanche: création RevA (2 joueurs, duel garanti dans le tableau)
+  OK  revanche: /api/etat expose actif.h2h pour les matchs pas terminés (première rencontre: n=0, v1=v2=0, dernier null)
+  OK  revanche: duel de RevA archivé avec sa durée (gagnant + duree_s numérique dans /api/tournois/:id) + h2h du duel FINI exposé dans le payload (première rencontre du club : n=0, v1=v2=0, le match lui-même exclu)
+  OK  revanche: création RevB (mêmes pseudos, autre tournoi du même club)
+  OK  revanche: RevB retrouve la paire dans l historique du club (n=1, victoire du bon côté, dernier = gagnant + score + tournoi RevA)
+  OK  fil: variantes déterministes (filHash/filPick) - victoires, forfaits, champion, belles avec table/sans table 7/4, revanches underdog 7, égalités 6 (complément : +2 par catégorie)
+  OK  fil: durées des matchs finis composées dans les lignes (dureeFil + duree_s du payload)
+  OK  fil: lignes revanche (déjà rencontrés via actif.h2h, underdog « une revanche à prendre », égalité, mène X-Y, pas de double si à la belle)
+  OK  fil: i18n EN - les 43 règles du fil (variantes victoire/forfait/champion/belle, revanche, mène, durée)
+  OK  fil: i18n ES/IT/DE - variantes et revanche traduites (se impone/ha la meglio/setzt sich durch, domine/tira la toalla/getta la spugna/wirft das Handtuch, revanche adoucie, durées, conduce/führt)
+  OK  fil: i18n - 4 tableaux toujours alignés après les 43 règles du fil + règle Reçu du refus logo 17k v5 (cDyn = 121)
+  OK  fil: traces après fin : h2h aussi pour les matchs terminés/forfaits (rencontres STRICTEMENT antérieures, jamais le match lui-même ni un duel postérieur) + h2h servi sur le payload public /api/tournois/:id (fil du dernier tournoi terminé) + suffixes « · après la belle » (score manches-(manches-1)) et « · revanche prise ! » / « · revanche manquée » selon le vainqueur (h2h avant le match), traduits dans les 4 langues
+  OK  menu: liens Tableau/TV/Mon tournoi marqués « tournoi seul », retirés du burger tant qu aucun tournoi actif (ré-évalué à chaque ouverture, affichés par défaut avant réponse)
+  OK  menu: lien suivi.html renommé « Mon tournoi » (ex-« Joueur ») et traduit dans les 4 langues cibles (« Joueur » conservé pour l en-tête stats)
+  OK  audit: création du compte de test JRNaudit (201)
+  OK  audit: JRNaudit promu admin (PIN)
+  OK  audit: connexion JRNaudit (session admin)
+  OK  audit: création du tournoi JourA en session admin -> 200
+  OK  audit: auteur = JRNaudit dans le journal (colonne auteur sur creation_tournoi en session admin)
+  OK  audit: création du tournoi JourB via code PIN -> 200
+  OK  audit: auteur null quand l action vient du code PIN (aucun pseudo)
+  OK  audit: préférences du compte modifiables (lang + notif amis -> 200)
+  OK  audit: les modifications de préférences du compte ne sont plus loggées (0 entrée)
+  OK  audit: sources cohérentes (colonne « Par » dans admin-journal.html, auteurAdmin(req) sur les routes et corrections/forfaits, colonne auteur en base, aucune trace compte_preferences, burger Compte sans emojis traduit)
+  OK  tableaux: règle .table-wrap dans style.css (overflow-x: auto, défilement fluide mobile) + table des stats enveloppée
+  OK  tableaux: fiche joueur (face-à-face + historique), journal d'audit, classement du compte et comptes admin tous enveloppés .table-wrap
+  OK  i18n: menu principal — label « Confidentialitè » corrigé en « Confidentialité » et les nouveaux clés ☰ Menu / Menu traduites dans les 4 langues
+  OK  i18n: en-têtes des stats traduits (Perdus, % victoires, 🏆 Titres, ⭐ Pts, 💥 Run-outs ×4) + table de marque (Guide admin, Historique public, 🔗 Liens publics ×4, bouton Historique (N) segmenté)
+  OK  i18n: tournoi admin (Sauvegarde, 📍 Lieu, historique dédié, Inscrire, Corriger, Jamais (3 partout), Tableau final, Tour, Mode auto ACTIF/inactif ×4) + segmentations + window.prompt patché (Distance, Motif, correction table de marque)
+  OK  i18n: boutons « 🗑 Supprimer » segmentés (historique public, historique de la table de marque, comptes admin) pour matcher la clé « Supprimer » ×4 langues + alerte du journal « 🗑 N entrées supprimées » traduite via t()
+  OK  infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour
+  OK  roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)
+
+=== 524 OK / 0 ÉCHEC en 5.9s — rapport: /home/runner/work/EBPC_Tournoi_Billard/EBPC_Tournoi_Billard/test/rapport.md ===
