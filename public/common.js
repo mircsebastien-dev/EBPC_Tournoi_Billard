@@ -3570,7 +3570,7 @@ function nav(active) {
   if (!location.pathname.startsWith('/console.html') && !pageSansClub20a()) btnPlateforme20b.style.display = '';
   btnPlateforme20b.addEventListener('click', () => { location.href = '/?hub=1'; });
 
-  return el('nav', {}, wrap, btnCompte, btnPlateforme20b, btnClub17v, btnLang, btnTournoi19a); // 19a: sélecteur de tournoi (affiché si plusieurs actifs)
+  return el('nav', {}, wrap, btnCompte, btnClub17v, btnLang, btnTournoi19a, btnPlateforme20b); // 19a: sélecteur de tournoi + 20b: retour plateforme en extrémité
 }
 
 function codeMatch(m) {
