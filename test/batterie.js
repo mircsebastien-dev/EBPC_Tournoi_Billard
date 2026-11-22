@@ -1007,9 +1007,17 @@ async function nouveauTournoi(body) {
   r = await api('/api/admin/audit', { pin: PIN, club: 'clubc' });
   check('audit de clubc: club_role et club_role_retire journalisés', r.data.audit.some(a => a.action === 'club_role') && r.data.audit.some(a => a.action === 'club_role_retire'), 'nb=' + r.data.audit.length);
   const consHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'console.html'), 'utf8');
+  const spec17z = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8'); // 17z: modale fiche staff console
+  const ga17z = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8'); // 17z
+  const rm17z = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8'); // 17z
   const admHtml17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin.html'), 'utf8');
   const admCpt17c = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
-  check('front: console super-admin (création, réglages club par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien Console depuis l accueil admin (17i)', consHtml17c.includes("clubApi('/api/admin/club/comptes', slug") && consHtml17c.includes("'/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug") && consHtml17c.includes('table-wrap') && admHtml17c.includes("href: '/console.html'"), '');
+  check('front: console super-admin (création, réglages club par slug cible, X-Club par appel, table-wrap, rôles admin/operateur) + lien Console depuis l accueil admin (17i)', consHtml17c.includes("clubApi('/api/admin/club/comptes', slug") && consHtml17c.includes("'/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug") && consHtml17c.includes('table-wrap') && admHtml17c.includes("href: '/console.html'")
+    // 17z: modale « Fiche » du staff du panneau Rôles du club (changement de rôle en un geste, retrait, fiche plateforme)
+    && consHtml17c.includes('openFicheCompteConsole') && consHtml17c.includes('👤 Fiche')
+    && spec17z.includes('17z. Modale fiche compte dans la console super-admin')
+    && ga17z.includes('Modale « Fiche » du staff (17z)')
+    && rm17z.includes('| 63 |') && rm17z.includes('Modale fiche compte (17z)'), '');
   check('front: menu Console réservé au super-admin (/api/admin/super conditionne le bouton, console affiche un message si 403)', admHtml17c.includes("/api/admin/super") && admHtml17c.includes("superAdminMenu ? [") && consHtml17c.includes('Console réservée au super-admin de la plateforme'), '');
   check('front: bouton 👑 (rôle global) masqué aux sessions de club sur la page Comptes joueurs', admCpt17c.includes("/api/admin/super") && admCpt17c.includes("superAdminComptes ? ["), '');
   // suppression d un club: super-admin uniquement, défaut protégé, refus si des tournois sont rattachés

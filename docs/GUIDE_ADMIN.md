@@ -111,6 +111,7 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 - **La console n appartient à AUCUN club** : routes `/api/super/*` sans contexte de club ; accès par le code global ou un compte `super_admin` (`👑 admin` legacy accepté) ; un code de club ou une session de club y reçoit toujours 401/403, les gestes sensibles demandent le code global en confirmation. Elle regroupe la gestion des clubs (création, PIN, actif, rôles, suppression) et la sauvegarde complète de la base (voir §13).
 - **Accès support** : sélecteur « 🚪 Accès aux pages d un club » pour ouvrir l admin d un club précis dans son contexte explicite (X-Club) ; le club par défaut (ebpc) reste protégé (non supprimable, non désactivable).
 - Un code de club (ou une session de club) ne peut jamais forcer cette vue globale : le paramètre est ignoré côté serveur.
+- **Modale « Fiche » du staff (17z)** : dans le panneau « Rôles du club » de la console, clic sur un staff (ligne ou bouton « 👤 Fiche ») : rôle actuel (date d attribution), changement de rôle Administrateur / Opérateur en un seul geste (avant : retirer puis réattribuer), retrait, lien vers la fiche plateforme `/super-comptes.html`.
 
 ### 9.4 👤 Modales de gestion joueurs / comptes (17y)
 

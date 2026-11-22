@@ -57,15 +57,11 @@ async function sectionRoles(slug) {
     p.append(el('h2', {}, `Rôles du club « ${slug} »`));
     if (!comptes.length) p.append(el('p', { class: 'muted' }, 'Aucun compte rattaché.'));
     for (const x of comptes) {
-      p.append(el('div', { class: 'row', style: 'align-items:center;gap:8px;margin:4px 0;flex-wrap:wrap' },
+      // 17z: la ligne devient cliquable -> modale « Fiche » du staff (changement de rôle, retrait, fiche plateforme)
+      p.append(el('div', { class: 'row', style: 'align-items:center;gap:8px;margin:4px 0;flex-wrap:wrap;cursor:pointer', title: 'Fiche de ' + x.pseudo, onclick: () => openFicheCompteConsole(x, slug) },
         el('strong', {}, x.pseudo),
         el('span', { class: 'muted' }, ' · ' + (x.role === 'operateur' ? 'Opérateur' : 'Administrateur')),
-        el('button', { class: 'secondary', style: 'padding:4px 10px;font-size:13px', onclick: async () => {
-          try {
-            await adminApiDestructif('/api/admin/club/compte', { method: 'DELETE', headers: adminHeaders({ 'X-Club': slug }), body: JSON.stringify({ compte_id: x.compte_id }) }, `retirer le rôle de ${x.pseudo}`);
-            charger().then(() => sectionRoles(slug));
-          } catch (e) { alert(e.message); }
-        } }, 'Retirer')));
+        el('button', { class: 'secondary', style: 'padding:4px 10px;font-size:13px', onclick: (ev) => { ev.stopPropagation(); openFicheCompteConsole(x, slug); } }, '👤 Fiche')));
     }
     const addPseudo = el('input', { placeholder: 'Pseudo du compte', maxlength: 24, style: 'width:180px' });
     const addRole = el('select', {}, el('option', { value: 'admin' }, 'Administrateur'), el('option', { value: 'operateur' }, 'Opérateur'));
@@ -80,6 +76,38 @@ async function sectionRoles(slug) {
       } }, '➕ Ajouter')));
     if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(p);
   } catch (e) { p.append(el('p', { class: 'muted' }, e.message)); }
+}
+
+/* 17z. Modale « Fiche » du staff (console) : clic sur une ligne du panneau Rôles du club */
+function openFicheCompteConsole(x, slug) {
+  const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+  const fermer = () => overlay.remove();
+  const apres = () => { fermer(); charger().then(() => sectionRoles(slug)); }; // même rafraichissement que les gestes d avant 17z
+  const roleSel = el('select', { style: 'flex:1 1 auto;padding:4px 6px;font-size:13px' },
+    el('option', { value: 'admin', selected: x.role === 'admin' ? true : null }, 'Administrateur (session admin du club, sans PIN)'),
+    el('option', { value: 'operateur', selected: x.role === 'operateur' ? true : null }, 'Opérateur (routes ouvertes, confirmation exigée)'));
+  overlay.append(el('div', { class: 'panel', style: 'max-width:440px;width:92%;max-height:92vh;overflow:auto' },
+    el('h3', {}, `👤 ${x.pseudo}`),
+    el('p', { class: 'muted small' }, `Rôle sur le club ${slug} : ${x.role === 'operateur' ? 'Opérateur' : 'Administrateur'}${x.created_at ? ' · attribué le ' + (x.created_at || '').slice(0, 10) : ''}`),
+    el('div', { style: 'margin:12px 0' },
+      el('label', { class: 'small muted' }, 'Changer le rôle sur ce club (un seul geste, plus besoin de retirer puis réattribuer)'),
+      el('div', { class: 'row', style: 'margin-top:4px' }, roleSel,
+        el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
+          try { await clubApi('/api/admin/club/compte', slug, { method: 'PUT', body: JSON.stringify({ pseudo: x.pseudo, role: roleSel.value }) }); apres(); }
+          catch (e) { alert(e.message); }
+        } }, 'Appliquer'))),
+    el('div', { style: 'margin:12px 0' },
+      el('button', { class: 'danger', style: 'width:100%', onclick: async () => {
+        try {
+          await adminApiDestructif('/api/admin/club/compte', { method: 'DELETE', headers: adminHeaders({ 'X-Club': slug }), body: JSON.stringify({ compte_id: x.compte_id }) }, `retirer le rôle de ${x.pseudo}`);
+          apres();
+        } catch (e) { alert(e.message); }
+      } }, ['🗑 ', 'Retirer du club'])),
+    el('div', { class: 'row', style: 'justify-content:flex-end;margin-top:12px;gap:8px' },
+      el('a', { href: '/super-comptes.html' }, el('button', { class: 'secondary' }, '👤 Fiche plateforme')),
+      el('button', { class: 'secondary', onclick: fermer }, 'Fermer'))));
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(); });
+  document.body.append(overlay);
 }
 
 // 17h/17i: vue « tous les comptes de la plateforme » ; 17i v2: la liste détaillée et les réglages
