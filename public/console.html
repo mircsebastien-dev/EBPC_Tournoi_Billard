@@ -82,7 +82,9 @@ async function sectionRoles(slug) {
   } catch (e) { p.append(el('p', { class: 'muted' }, e.message)); }
 }
 
-// 17h/17i: vue « tous les comptes de la plateforme » + rôles plateforme (user / admin / super_admin)
+// 17h/17i: vue « tous les comptes de la plateforme » ; 17i v2: la liste détaillée et les réglages
+// (rôle plateforme, rôles club) ont déménagé dans la page dédiée /super-comptes.html, la console
+// n affiche plus qu un accès rapide avec le décompte des comptes par club d attachement
 async function chargerComptes() {
   const p = document.getElementById('comptes-tous');
   if (!p) return;
@@ -90,30 +92,15 @@ async function chargerComptes() {
     const rep = await adminApi('/api/super/comptes');
     const rows = (rep && rep.comptes) || [];
     p.innerHTML = '';
+    const parClub = {}; // décompte des comptes par club d attachement (club d origine)
+    for (const c of rows) { const s = c.club_slug || '-'; parClub[s] = (parClub[s] || 0) + 1; }
     p.append(el('h2', {}, '👥 Comptes de la plateforme'),
-      el('p', { class: 'muted small' }, 'Tous clubs confondus. Le rôle plateforme (🛡️ super_admin = accès console, 👑 admin = ancien rôle plateforme) se règle ici ; la page Comptes d un club reste cloisonnée à son club.'));
-    if (rows.length === 0) { p.append(el('p', { class: 'muted' }, 'Aucun compte.')); return; }
-    const entetes = ['Pseudo', 'Club', 'Rôle plateforme', 'Rôles club', 'Dernière connexion', 'Action'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h));
-    const corps = rows.map(c => {
-      const sel = el('select', { style: 'padding:3px 6px' },
-        el('option', { value: 'user', selected: (c.role || 'user') === 'user' ? true : null }, 'user'),
-        el('option', { value: 'admin', selected: c.role === 'admin' ? true : null }, '👑 admin (legacy)'),
-        el('option', { value: 'super_admin', selected: c.role === 'super_admin' ? true : null }, '🛡️ super_admin'));
-      return el('tr', { style: 'border-top:1px solid var(--line)' },
-        el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo,
-          el('span', { class: 'muted small', style: 'margin-left:5px' }, '#' + c.id)),
-        el('td', { style: 'padding:6px 8px' }, c.club_slug || '—'),
-        el('td', { style: 'padding:6px 8px' }, c.role === 'super_admin' ? '🛡️ super-admin' : (c.role === 'admin' ? '👑 admin' : 'user'), sel),
-        el('td', { style: 'padding:6px 8px' }, c.roles_clubs || '—'),
-        el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.last_login_at ? String(c.last_login_at).slice(0, 16).replace('T', ' ') : 'jamais'),
-        el('td', { style: 'padding:6px 8px' },
-          el('button', { class: 'secondary', style: 'padding:4px 10px;font-size:13px', onclick: async () => {
-            try { await adminApi(`/api/super/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: sel.value }) }); chargerComptes(); }
-            catch (e) { alert(e.message); }
-          } }, '⚙️ Appliquer')));
-    });
-    p.append(el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' },
-      el('thead', {}, el('tr', {}, entetes)), el('tbody', {}, corps))));
+      el('p', { class: 'muted small' },
+        rows.length + ' compte(s), tous clubs confondus. Le rôle plateforme (🛡️ super_admin = accès console, 👑 admin = ancien rôle plateforme) et les rôles club se règlent désormais sur la page dédiée : liste filtrable par club d attachement, rôle plateforme ou recherche, fiche complète par compte.'),
+      ...(Object.keys(parClub).length ? [el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' },
+        ...Object.keys(parClub).sort().map(s => el('span', { class: 'muted small' }, s + ' × ' + parClub[s])))] : []),
+      el('div', { class: 'row', style: 'margin-top:10px' },
+        el('button', { onclick: () => { location.href = '/super-comptes.html'; } }, '👤 Ouvrir la page dédiée')));
     if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(p);
   } catch (e) { p.append(el('p', { class: 'muted' }, e.message)); }
 }

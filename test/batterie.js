@@ -1307,7 +1307,14 @@ async function nouveauTournoi(body) {
   const spec17h = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
   const srv17h = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
   const cons17h = fs.readFileSync(path.join(__dirname, '..', 'public', 'console.html'), 'utf8');
-  check('doc: SPEC 17h + serveur (scoping inconditionnel + ?tous=1 super-admin) + front (panneau tous comptes de la plateforme dans la console, 17i)', spec17h.includes('17h. Tenant principal cloisonné') && spec17h.includes('524 checks') && srv17h.includes('tous = superAdminSoumis(req) && String(req.query.tous') && cons17h.includes('/api/super/comptes') && cons17h.includes('Comptes de la plateforme'), '');
+  const supc17h = fs.readFileSync(path.join(__dirname, '..', 'public', 'super-comptes.html'), 'utf8'); // 17i v2: page dédiée de la vue tous comptes
+  const rm17h = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
+  check('doc: SPEC 17h + serveur (scoping inconditionnel + ?tous=1 super-admin) + front (panneau tous comptes de la plateforme dans la console, 17i + page dédiée /super-comptes.html 17i v2 : filtres club d attachement / rôle / recherche + fiche complète)', spec17h.includes('17h. Tenant principal cloisonné') && spec17h.includes('524 checks') && srv17h.includes('tous = superAdminSoumis(req) && String(req.query.tous') && cons17h.includes('/api/super/comptes') && cons17h.includes('Comptes de la plateforme')
+    && cons17h.includes('/super-comptes.html') // 17i v2: accès rapide de la console vers la page dédiée + décompte par club d attachement
+    && spec17h.includes('super-comptes.html') // 17i v2: la SPEC 17i documente la page dédiée
+    && supc17h.includes("Club d'attachement") && supc17h.includes('/api/super/comptes') // 17i v2: liste filtrable par club d attachement, même vue plateforme
+    && supc17h.includes('/api/super/compte/') && supc17h.includes('/api/admin/club/compte') // 17i v2: fiche complète (rôle plateforme + rôles club attribués/retirés)
+    && rm17h.includes('| 61 |'), '');
 
   // ---------- 17i. Console super-admin décorrelée des clubs (zone /api/super/*) ----------
   sec('17i. Console super-admin décorrelée: zone /api/super/* + rôle super_admin dédié (aucun club)');

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>👥 Comptes de la plateforme - Console</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>👥 Comptes de la plateforme</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+
+// 17i v2: page dédiée de la vue « tous les comptes de la plateforme », zone super-admin décorrelée
+// des clubs (même accès que la console : code global ou session plateforme ; un code ou une session
+// de club n y entre jamais). La liste vient de /api/super/comptes (vueComptesTous : club_slug d
+// attachement + roles_clubs agrégés) ; la fiche règle le rôle plateforme (/api/super/compte/:id/role)
+// et les rôles club (/api/admin/club/compte, X-Club explicite par appel, super-admin cross-club).
+const clubApi = (path, slug, opts = {}) => adminApi(path, { ...opts, headers: adminHeaders({ 'X-Club': slug }) });
+
+let COMPTES = [], CLUBS = [];
+let filtreTxt = '', filtreClub = '', filtreRole = '';
+let ficheId = null; // compte affiché dans la fiche dédiée
+
+const rolePlateformeLabel = (r) => r === 'super_admin' ? '🛡️ super_admin' : (r === 'admin' ? '👑 admin plateforme' : 'user');
+const parseRolesClubs = (rc) => (rc || '').split(', ').filter(Boolean).map(x => { const [slug, role] = x.split(':'); return { slug, role }; });
+
+async function charger() {
+  const rep = await adminApi('/api/super/comptes');
+  COMPTES = (rep && rep.comptes) || [];
+  try {
+    const rc = await adminApi('/api/super/clubs');
+    CLUBS = (rc && rc.clubs) || [];
+  } catch (e) { CLUBS = []; }
+  render();
+}
+
+function fichePanel(c) {
+  // fiche complète DU compte : identité, club d attachement, stats, rôles plateforme et club
+  const origine = CLUBS.find(x => x.slug === c.club_slug) || null;
+  const roles = parseRolesClubs(c.roles_clubs);
+  const selRole = el('select', { style: 'padding:4px 6px' },
+    el('option', { value: 'user', selected: (c.role || 'user') === 'user' ? true : null }, 'user'),
+    el('option', { value: 'admin', selected: c.role === 'admin' ? true : null }, '👑 admin (legacy)'),
+    el('option', { value: 'super_admin', selected: c.role === 'super_admin' ? true : null }, '🛡️ super_admin'));
+  const selClub = el('select', { style: 'max-width:240px' },
+    ...CLUBS.filter(x => !roles.some(r => r.slug === x.slug)).map(x => el('option', { value: x.slug }, `${x.nom} (${x.slug})`)));
+  const selRoleClub = el('select', {}, el('option', { value: 'admin' }, 'Administrateur'), el('option', { value: 'operateur' }, 'Opérateur'));
+  const info = (label, valeur) => el('tr', { style: 'border-top:1px solid var(--line)' },
+    el('td', { style: 'padding:6px 8px', class: 'muted small' }, label),
+    el('td', { style: 'padding:6px 8px' }, valeur));
+  return el('div', { id: 'fiche-compte', class: 'panel', style: 'margin-top:12px' },
+    el('div', { class: 'row', style: 'align-items:center;gap:8px;flex-wrap:wrap' },
+      el('h2', { style: 'margin:0' }, `👤 Fiche de « ${c.pseudo} »`),
+      el('span', { class: 'muted small' }, '#' + c.id),
+      el('button', { class: 'secondary', style: 'margin-left:auto;padding:5px 10px;font-size:13px', onclick: () => { ficheId = null; render(); } }, '✖ Fermer la fiche')),
+    el('div', { class: 'row', style: 'align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px' },
+      el('span', { class: 'chip' }, rolePlateformeLabel(c.role)),
+      ...roles.map(x => el('span', { class: 'chip', title: `rôle sur le club ${x.slug}` }, `${x.slug} : ${x.role === 'admin' ? '👑 admin club' : '🛠 opérateur club'}`))),
+    el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse;margin-top:8px' },
+      el('tbody', {},
+        info("Club d'attachement", origine ? `${origine.nom} (${c.club_slug})` : (c.club_slug || '-')),
+        info('Créé le', String(c.created_at || '').slice(0, 10)),
+        info('Dernière connexion', c.last_login_at ? String(c.last_login_at).slice(0, 16).replace('T', ' ') : 'jamais'),
+        info('Email (masqué)', maskEmail(c.email)),
+        info('Sessions', String(c.sessions || 0)),
+        info('Inscri. tournois (joueurs)', String(c.joueurs || 0)),
+        info('Matchs', String(c.matchs || 0)),
+        info('Push', (c.push_abonnements || 0) > 0 ? `🔔 ${c.push_abonnements}` : '-'),
+        info('Amis', [c.amis_comptes, c.amis_pseudos].filter(Boolean).join(' · ') || '-')))),
+    el('div', { class: 'panel', style: 'margin-top:10px;padding:10px 14px' },
+      el('p', { class: 'muted small', style: 'margin:0 0 8px' }, 'Rôle PLATEFORME (un seul réglage pour toute la plateforme, affiché dans chaque fenêtre club ; 👑 admin n administre que son club d origine depuis 19b) :'),
+      el('div', { class: 'row', style: 'flex-wrap:wrap;align-items:center;gap:8px' },
+        selRole,
+        el('button', { onclick: async () => {
+          try { await adminApi(`/api/super/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: selRole.value }) }); await charger(); }
+          catch (e) { alert(e.message); }
+        } }, '⚙️ Appliquer le rôle plateforme'))),
+    el('div', { class: 'panel', style: 'margin-top:8px;padding:10px 14px' },
+      el('p', { class: 'muted small', style: 'margin:0 0 8px' }, 'Rôles CLUB (compte_club, propres à un club, invisibles des autres clubs) :'),
+      roles.length === 0 ? el('p', { class: 'muted small', style: 'margin:0 0 8px' }, 'Aucun rôle club actuellement.') :
+        el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;margin-bottom:8px' },
+          ...roles.map(x => el('span', { class: 'row', style: 'align-items:center;gap:4px' },
+            el('span', { class: 'muted small' }, `${x.slug} : ${x.role}`),
+            el('button', { class: 'secondary', style: 'padding:3px 8px;font-size:12px', onclick: async () => {
+              try {
+                await adminApiDestructif('/api/admin/club/compte', { method: 'DELETE', headers: adminHeaders({ 'X-Club': x.slug }), body: JSON.stringify({ compte_id: c.id }) }, `retirer le rôle ${x.role} de ${c.pseudo} sur ${x.slug}`);
+                await charger();
+              } catch (e) { alert(e.message); }
+            } }, '✖ Retirer')))),
+      el('div', { class: 'row', style: 'flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px' },
+        el('span', { class: 'muted small' }, 'Attribuer :'), selClub, selRoleClub,
+        el('button', { onclick: async () => {
+          if (!selClub.value) { alert('Choisis un club.'); return; }
+          try { await clubApi('/api/admin/club/compte', selClub.value, { method: 'PUT', body: JSON.stringify({ pseudo: c.pseudo, role: selRoleClub.value }) }); await charger(); }
+          catch (e) { alert(e.message); }
+        } }, '➕ Attribuer sur ce club'))));
+}
+
+function render() {
+  main.innerHTML = '';
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
+  const txt = el('input', { placeholder: '🔍 Rechercher (pseudo ou email)', maxlength: 40, style: 'width:100%;max-width:340px', value: filtreTxt });
+  txt.addEventListener('input', () => { filtreTxt = txt.value.trim().toLowerCase(); liste(); });
+  const selF = el('select', { style: 'max-width:240px' },
+    el('option', { value: '' }, "Club d'attachement : tous"),
+    ...CLUBS.map(x => el('option', { value: x.slug, selected: filtreClub === x.slug ? true : null }, `${x.nom} (${x.slug})`)));
+  selF.addEventListener('change', () => { filtreClub = selF.value; liste(); });
+  const selR = el('select', {},
+    el('option', { value: '' }, 'Rôle plateforme : tous'),
+    el('option', { value: 'user', selected: filtreRole === 'user' ? true : null }, 'user'),
+    el('option', { value: 'admin', selected: filtreRole === 'admin' ? true : null }, '👑 admin'),
+    el('option', { value: 'super_admin', selected: filtreRole === 'super_admin' ? true : null }, '🛡️ super_admin'));
+  selR.addEventListener('change', () => { filtreRole = selR.value; liste(); });
+  main.append(el('div', { class: 'panel', style: 'padding:10px 14px;margin-bottom:12px' },
+    el('div', { class: 'hero-title' }, 'Tous les clubs confondus'),
+    el('p', { class: 'muted small' }, "Zone super-admin. Filtre par club d'attachement (club d origine du compte), rôle plateforme ou recherche ; la page Comptes d un club reste cloisonnée à son club."),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, txt, selF, selR,
+      el('a', { href: '/console.html', style: 'margin-left:auto' }, el('button', { class: 'secondary', style: 'font-size:13px' }, '← Console')))));
+  const zone = el('div', { id: 'liste-comptes' }, el('p', { class: 'muted' }, 'Chargement…'));
+  main.append(zone);
+  main.append(el('div', { id: 'zone-fiche' }));
+  liste();
+}
+
+function liste() {
+  const zone = document.getElementById('liste-comptes');
+  if (!zone) return;
+  zone.innerHTML = '';
+  const q = filtreTxt.toLowerCase();
+  const rows = COMPTES.filter(c =>
+    (!filtreClub || c.club_slug === filtreClub)
+    && (!filtreRole || (c.role || 'user') === filtreRole)
+    && (!q || (c.pseudo || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q)));
+  zone.append(el('p', { class: 'muted small' }, `${rows.length} compte(s) affiché(s) sur ${COMPTES.length}`));
+  if (rows.length === 0) { zone.append(el('p', { class: 'muted' }, 'Aucun compte pour ces filtres.')); }
+  else {
+    zone.append(el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' },
+      el('thead', {}, el('tr', {}, ['Pseudo', "Club d'attachement", 'Rôle plateforme', 'Rôles club', 'Dernière connexion', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
+      el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line);cursor:pointer', onclick: () => { ficheId = c.id; rafraichirFiche(); } },
+        el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo, el('span', { class: 'muted small', style: 'margin-left:5px' }, '#' + c.id),
+          c.role === 'super_admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '🛡️') : null,
+          c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑') : null),
+        el('td', { style: 'padding:6px 8px' }, c.club_slug || '-'),
+        el('td', { style: 'padding:6px 8px' }, rolePlateformeLabel(c.role)),
+        el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.roles_clubs || '-'),
+        el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.last_login_at ? String(c.last_login_at).slice(0, 16).replace('T', ' ') : 'jamais'),
+        el('td', { style: 'padding:6px 8px;text-align:right' },
+          el('button', { class: ficheId === c.id ? 'danger' : 'secondary', style: 'padding:4px 10px;font-size:13px', onclick: (ev) => { ev.stopPropagation(); ficheId = c.id; rafraichirFiche(); } }, '👤 Fiche'))))))));
+  }
+  if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(zone);
+  rafraichirFiche();
+}
+
+function rafraichirFiche() {
+  const z = document.getElementById('zone-fiche');
+  if (!z) return;
+  z.innerHTML = '';
+  if (ficheId == null) return;
+  const c = COMPTES.find(x => x.id === ficheId);
+  if (!c) { ficheId = null; return; }
+  z.append(fichePanel(c));
+  if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(z);
+  z.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function init() {
+  main.append(el('p', { class: 'muted' }, 'Chargement…'));
+  const ok = await adminInit(() => {});
+  if (!ok) { main.innerHTML = ''; renderAdminLogin(main); return; }
+  try {
+    const scan = await adminApi('/api/super/scan');
+    if (!scan || scan.super_admin !== true) throw Object.assign(new Error('zone refusée'), { status: 403 });
+  } catch (e) {
+    main.innerHTML = '';
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + (e.status === 403
+      ? 'Page réservée au super-admin de la plateforme : code global ou compte super-admin.'
+      : e.message))));
+    return;
+  }
+  render();
+  await charger();
+}
+init();
+</script>
+</body>
+</html>
