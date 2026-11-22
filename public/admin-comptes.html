@@ -51,7 +51,8 @@ function render(comptes) {
     rows.length === 0 ? el('p', { class: 'muted' }, 'Aucun compte.') :
     el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' },
       el('thead', {}, el('tr', {}, ['Pseudo', 'Email', 'Créé le', 'Dernière connexion', 'Nb inscri. tournois', 'Matchs', 'Sessions', 'Push', 'Amis', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
-      el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
+      // 17y: clic sur la ligne -> modale « Fiche » qui regroupe toutes les actions de gestion du compte
+      el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line);cursor:pointer', title: 'Ouvrir la fiche de ' + c.pseudo, onclick: () => openFicheCompte(c) },
         el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo,
           (c.role === 'super_admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '🛡️ super-admin') : null),
           (c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑 admin plateforme') : null),
@@ -71,51 +72,84 @@ function render(comptes) {
           if (c.amis_pseudos) t.push(c.amis_pseudos.split(', ').map(p => p + ' (sans compte)').join(', '));
           return t.length ? t.join(' · ') : '—';
         })()),
+        // 17y: toutes les actions du compte (rôle club, rôle plateforme, pseudo, mot de passe, suppression) vivent dans la modale Fiche
         el('td', { style: 'padding:6px 8px;text-align:right' },
-          // 19b: sélecteur proposé pour tous les comptes PRÉSENTS du club (origine, rôle club ou inscrit à un tournoi du club), la liste est déjà scopée par le serveur
-          ...(peutRolesClub && clubCtx ? [el('select', { title: `Rôle de « ${c.pseudo} » sur le club ${clubCtx.slug} : admin (session admin du club, sans PIN), opérateur (routes ouvertes, confirmations et rôles refusés) ou aucun`, style: 'padding:4px 6px;font-size:13px;margin-right:6px', onchange: async (ev) => {
-            const v = ev.target.value;
-            if (v === (c.role_club || '')) return;
-            const remettre = () => { ev.target.value = c.role_club || ''; };
-            try {
-              if (v === '') {
-                if (!confirm(`Retirer le rôle de « ${c.pseudo} » sur le club ${clubCtx.slug} ?\nSes sessions perdront l'accès admin de ce club.`)) return remettre();
-                await adminApiDestructif('/api/admin/club/compte', { method: 'DELETE', body: JSON.stringify({ compte_id: c.id }) }, `retirer le rôle club de ${c.pseudo}`);
-              } else {
-                if (!confirm(v === 'admin'
-                  ? `Promouvoir « ${c.pseudo} » en ADMIN du club ${clubCtx.slug} ?\nSa connexion suffira pour l'admin complet de ce club, sans PIN.`
-                  : `Attribuer à « ${c.pseudo} » le rôle OPÉRATEUR du club ${clubCtx.slug} ?\nRoutes admin ouvertes, confirmations destructives et gestion des rôles refusées.`)) return remettre();
-                await adminApi('/api/admin/club/compte', { method: 'PUT', body: JSON.stringify({ pseudo: c.pseudo, role: v }) });
-              }
-              charger();
-            } catch (e) { alert(e.message); remettre(); }
-          } },
-            el('option', { value: '', selected: c.role_club ? null : true }, 'Club : aucun'),
-            el('option', { value: 'operateur', selected: c.role_club === 'operateur' ? true : null }, '🛠 Club : opérateur'),
-            el('option', { value: 'admin', selected: c.role_club === 'admin' ? true : null }, '👑 Club : admin'))] : []),
-          ...(superAdminComptes ? [el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: c.role === 'admin' ? "Rétrograder en simple utilisateur plateforme (le badge disparaît de toutes les fenêtres club)" : "Rôle PLATEFORME admin : admin de SON club d origine uniquement (19b), même réglage affiché dans toutes les fenêtres club", onclick: async () => {
-            const cible = (c.role === 'admin' || c.role === 'super_admin') ? 'user' : 'admin'; // 17i: retrait super_admin -> user
-            if (!confirm(`${cible === 'admin' ? 'Promouvoir' : 'Rétrograder'} « ${c.pseudo} » en ${cible === 'admin' ? 'admin PLATEFORME (admin de son club d origine uniquement, pas des autres clubs)' : 'user'} ?`)) return;
-            try { await adminApi(`/api/admin/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: cible }) }); charger(); }
-            catch (e) { alert(e.message); }
-          } }, (c.role === 'admin' || c.role === 'super_admin') ? '👑\u2193 user' : '👑 admin plateforme')] : []),
-          el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: 'Renommer le pseudo du compte', onclick: async () => {
-            const p = prompt(`Nouveau pseudo pour « ${c.pseudo} » (min 2 caractères) :`, c.pseudo);
-            if (!p || p === c.pseudo) return;
-            try { await adminApi(`/api/admin/compte/${c.id}/pseudo`, { method: 'POST', body: JSON.stringify({ pseudo: p }) }); alert('✅ Pseudo changé'); charger(); }
-            catch (e) { alert(e.message); }
-          } }, '✏️ pseudo'),
-          el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', title: 'Changer le mot de passe du compte', onclick: async () => {
-            const mdp = prompt(`Nouveau mot de passe pour « ${c.pseudo} » (min 4 caractères) :`);
-            if (!mdp) return;
-            try { await adminApi(`/api/admin/compte/${c.id}/password`, { method: 'POST', body: JSON.stringify({ password: mdp }) }); alert('✅ Mot de passe changé (sessions invalidées)'); }
-            catch (e) { alert(e.message); }
-          } }, '🔑 mdp'),
-          el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px', onclick: async () => {
-            if (!confirm(`Supprimer le compte « ${c.pseudo} » ?\nLes joueurs rattachés sont détachés (l'historique des matchs est conservé), les sessions et abonnements push sont supprimés.`)) return;
-            try { await adminApiDestructif(`/api/admin/compte/${c.id}`, { method: 'DELETE' }, `supprimer le compte « ${c.pseudo} »`); charger(); }
-            catch (e) { alert(e.message); }
-          } }, ['🗑 ', 'Supprimer'])))))))));
+          el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px', title: 'Rôles, pseudo, mot de passe, suppression : la fiche du compte', onclick: (ev) => { ev.stopPropagation(); openFicheCompte(c); } }, '👤 Fiche')))))))));
+}
+
+/* 17y: fiche compte en modale — toutes les actions regroupées, le tableau ne montre plus que les infos */
+function openFicheCompte(c) {
+  const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+  const fermer = () => overlay.remove();
+  const apres = () => { fermer(); charger(); }; // comme avant 17y : la liste est rechargée après chaque action
+  overlay.append(el('div', { class: 'panel', style: 'max-width:520px;width:92%;max-height:92vh;overflow:auto' },
+    el('h3', {}, `👤 Fiche de « ${c.pseudo} »`),
+    el('p', { class: 'muted small' }, `${(c.created_at || '').slice(0, 16).replace('T', ' ')} · ${c.last_login_at ? 'dernière connexion ' + fmtDateHeureSql(c.last_login_at) : 'jamais connecté'}`),
+    el('p', { style: 'font-size:13px;line-height:2' },
+      el('span', { class: 'chip', title: c.email }, maskEmail(c.email)), ' ',
+      el('span', { class: 'chip' }, `${c.joueurs} inscri.`), ' ',
+      el('span', { class: 'chip' }, `${c.matchs} matchs`), ' ',
+      el('span', { class: 'chip' }, `${c.sessions} sessions`), ' ',
+      el('span', { class: 'chip', title: c.push_abonnements > 0 ? `${c.push_abonnements} appareil(s) avec notifs activées` : 'Aucune notification activée' }, c.push_abonnements > 0 ? `🔔 ${c.push_abonnements}` : '— push'), ' ',
+      (function () {
+        const tt = [];
+        if (c.amis_comptes) tt.push(c.amis_comptes);
+        if (c.amis_pseudos) tt.push(c.amis_pseudos.split(', ').map(p => p + ' (sans compte)').join(', '));
+        return el('span', { class: 'chip', title: [c.amis_comptes, c.amis_pseudos].filter(Boolean).join(' · ') || 'Aucun ami' }, tt.length ? tt.join(' · ') : 'aucun ami');
+      })()),
+    (c.role === 'super_admin' ? el('p', {}, el('span', { class: 'chip' }, '🛡️ super-admin')) : null),
+    (c.role === 'admin' ? el('p', {}, el('span', { class: 'chip' }, '👑 admin plateforme')) : null),
+    // 19b: sélecteur proposé pour tous les comptes PRÉSENTS du club (origine, rôle club ou inscrit à un tournoi du club), la liste est déjà scopée par le serveur
+    ...(peutRolesClub && clubCtx ? [el('div', { style: 'margin:12px 0' },
+      el('label', { class: 'small muted' }, `Rôle de « ${c.pseudo} » sur le club ${clubCtx.slug}`),
+      el('div', { style: 'margin-top:4px' },
+        el('select', { title: `Rôle de « ${c.pseudo} » sur le club ${clubCtx.slug} : admin (session admin du club, sans PIN), opérateur (routes ouvertes, confirmations et rôles refusés) ou aucun`, style: 'padding:4px 6px;font-size:13px;width:100%', onchange: async (ev) => {
+          const v = ev.target.value;
+          if (v === (c.role_club || '')) return;
+          const remettre = () => { ev.target.value = c.role_club || ''; };
+          try {
+            if (v === '') {
+              if (!confirm(`Retirer le rôle de « ${c.pseudo} » sur le club ${clubCtx.slug} ?\nSes sessions perdront l'accès admin de ce club.`)) return remettre();
+              await adminApiDestructif('/api/admin/club/compte', { method: 'DELETE', body: JSON.stringify({ compte_id: c.id }) }, `retirer le rôle club de ${c.pseudo}`);
+            } else {
+              if (!confirm(v === 'admin'
+                ? `Promouvoir « ${c.pseudo} » en ADMIN du club ${clubCtx.slug} ?\nSa connexion suffira pour l'admin complet de ce club, sans PIN.`
+                : `Attribuer à « ${c.pseudo} » le rôle OPÉRATEUR du club ${clubCtx.slug} ?\nRoutes admin ouvertes, confirmations destructives et gestion des rôles refusées.`)) return remettre();
+              await adminApi('/api/admin/club/compte', { method: 'PUT', body: JSON.stringify({ pseudo: c.pseudo, role: v }) });
+            }
+            apres();
+          } catch (e) { alert(e.message); remettre(); }
+        } },
+          el('option', { value: '', selected: c.role_club ? null : true }, 'Club : aucun'),
+          el('option', { value: 'operateur', selected: c.role_club === 'operateur' ? true : null }, '🛠 Club : opérateur'),
+          el('option', { value: 'admin', selected: c.role_club === 'admin' ? true : null }, '👑 Club : admin'))))] : []),
+    ...(superAdminComptes ? [el('div', { style: 'margin:12px 0' }, el('button', { class: 'secondary', style: 'width:100%', title: c.role === 'admin' ? "Rétrograder en simple utilisateur plateforme (le badge disparaît de toutes les fenêtres club)" : "Rôle PLATEFORME admin : admin de SON club d origine uniquement (19b), même réglage affiché dans toutes les fenêtres club", onclick: async () => {
+      const cible = (c.role === 'admin' || c.role === 'super_admin') ? 'user' : 'admin'; // 17i: retrait super_admin -> user
+      if (!confirm(`${cible === 'admin' ? 'Promouvoir' : 'Rétrograder'} « ${c.pseudo} » en ${cible === 'admin' ? 'admin PLATEFORME (admin de son club d origine uniquement, pas des autres clubs)' : 'user'} ?`)) return;
+      try { await adminApi(`/api/admin/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: cible }) }); apres(); }
+      catch (e) { alert(e.message); }
+    } }, (c.role === 'admin' || c.role === 'super_admin') ? '👑\u2193 user' : '👑 admin plateforme'))] : []),
+    el('div', { class: 'row', style: 'margin-top:12px;gap:8px;flex-wrap:wrap' },
+      el('button', { class: 'secondary', onclick: async () => {
+        const p = prompt(`Nouveau pseudo pour « ${c.pseudo} » (min 2 caractères) :`, c.pseudo);
+        if (!p || p === c.pseudo) return;
+        try { await adminApi(`/api/admin/compte/${c.id}/pseudo`, { method: 'POST', body: JSON.stringify({ pseudo: p }) }); alert('✅ Pseudo changé'); apres(); }
+        catch (e) { alert(e.message); }
+      } }, '✏️ pseudo'),
+      el('button', { class: 'secondary', onclick: async () => {
+        const mdp = prompt(`Nouveau mot de passe pour « ${c.pseudo} » (min 4 caractères) :`);
+        if (!mdp) return;
+        try { await adminApi(`/api/admin/compte/${c.id}/password`, { method: 'POST', body: JSON.stringify({ password: mdp }) }); alert('✅ Mot de passe changé (sessions invalidées)'); }
+        catch (e) { alert(e.message); }
+      } }, '🔑 mdp'),
+      el('button', { class: 'danger', onclick: async () => {
+        if (!confirm(`Supprimer le compte « ${c.pseudo} » ?\nLes joueurs rattachés sont détachés (l'historique des matchs est conservé), les sessions et abonnements push sont supprimés.`)) return;
+        try { await adminApiDestructif(`/api/admin/compte/${c.id}`, { method: 'DELETE' }, `supprimer le compte « ${c.pseudo} »`); apres(); }
+        catch (e) { alert(e.message); }
+      } }, ['🗑 ', 'Supprimer'])),
+    el('div', { class: 'row', style: 'justify-content:flex-end;margin-top:12px' }, el('button', { class: 'secondary', onclick: fermer }, 'Fermer'))));
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(); });
+  document.body.append(overlay);
 }
 
 async function init() {

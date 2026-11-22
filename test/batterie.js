@@ -1278,10 +1278,18 @@ async function nouveauTournoi(body) {
   const ga17g = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
   const srv17g = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
   const adm17g = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
+  const rm17y = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8'); // 17y: modales de gestion, docs
+  const at17y = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-tournoi.html'), 'utf8'); // 17y: modale fiche joueur des inscriptions
   check('doc: SPEC 17g + GUIDE_ADMIN + serveur (PIN du club suffit: adminViaPin club, cible DU club, peut_gerer_roles) + front (chips + sélecteur rôle club + 19b: badge plateforme explicite, sélecteur étendu aux comptes présents)', spec17g.includes('17g. Promotion admin du club') && spec17g.includes('524 checks') && ga17g.includes('👑 Rôle club') && srv17g.includes("req.adminViaPin === 'club'") && srv17g.includes('introuvable dans ce club') && srv17g.includes('peut_gerer_roles') && adm17g.includes('👑 Club : admin') && adm17g.includes('role_club')
     && adm17g.includes('admin plateforme') // 19b: badge et bouton plateforme explicites, ne se confondent plus avec un rôle club
     && !adm17g.includes('c.club_id === clubCtx.id') // 19b: sélecteur de rôle proposé pour tous les comptes présents du club (la liste est déjà scopée par le serveur)
-    && ga17g.includes('tous les comptes PRÉSENTS'), '');
+    && ga17g.includes('tous les comptes PRÉSENTS')
+    // 17y: modales de gestion (fiche joueur des inscriptions, fiche compte du club), actions regroupées hors du tableau, serveur inchangé
+    && spec17g.includes('17y. Modales de gestion (fiche joueur, fiche compte du club)')
+    && ga17g.includes('Modales de gestion joueurs / comptes (17y)')
+    && rm17y.includes('| 62 |') && rm17y.includes('Modales de gestion (17y)')
+    && adm17g.includes('openFicheCompte') && adm17g.includes('👤 Fiche')
+    && at17y.includes('openFicheJoueur') && at17y.includes('marquer payé') && at17y.includes('payé annuler') && at17y.includes('Retirer du tournoi'), '');
 
   // ---------- 17h. Tenant principal: liste des comptes TOUJOURS scopée au club du contexte ----------
   sec('17h. Tenant principal cloisonné: la table de marque ne montre jamais les comptes des autres clubs, même au super-admin');

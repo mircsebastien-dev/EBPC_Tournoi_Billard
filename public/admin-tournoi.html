@@ -158,11 +158,9 @@ function renderInscriptions(t) {
       tn.tetes_de_serie ? el('div', { style: 'flex:0 0 90px' }, el('label', {}, 'N° série'), el('input', { id: 'tds', type: 'number', min: 1 })) : null,
       el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: ajouter }, 'Inscrire'))),
     el('div', { class: 'liste-joueurs', style: 'margin-top:10px' },
-      t.joueurs.map(j => el('span', { class: 'chip' }, `${j.tete_de_serie ? '#' + j.tete_de_serie + ' ' : ''}${j.pseudo}`,
-        j.statut === 'paye'
-          ? el('button', { class: 'secondary', onclick: () => paiement(j, 'en_attente') }, 'payé annuler')
-          : el('button', { onclick: () => paiement(j, 'paye') }, 'marquer payé'),
-        el('button', { class: 'danger', onclick: async () => { if (confirmer(`Retirer ${j.pseudo} ?`)) { try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); } } } }, ''))))));
+      // 17y: la gestion d un joueur (pseudo, paiement, retrait) vit dans la modale ouvert au clic sur sa puce
+      t.joueurs.map(j => el('span', { class: 'chip', style: 'cursor:pointer', title: 'Gérer ' + j.pseudo + ' (pseudo, paiement, retrait)', onclick: () => openFicheJoueur(j, t) }, `${j.tete_de_serie ? '#' + j.tete_de_serie + ' ' : ''}${j.pseudo}`,
+        el('span', { style: 'margin-left:5px;font-weight:400', class: j.statut === 'paye' ? '' : 'muted' }, j.statut === 'paye' ? '· payé' : '· attente'))))));
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🎲 Mode simulation'),
@@ -216,9 +214,6 @@ function renderInscriptions(t) {
       } else alert(e.message);
     }
   }
-  async function paiement(j, statut) {
-    try { await adminApi(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: JSON.stringify({ statut }) }); } catch (e) { alert(e.message); }
-  }
   async function simuler() {
     try {
       const r = await adminApi('/api/admin/joueurs/simulation', { method: 'POST', body: JSON.stringify({ count: Number(val('simcount')) || 8, prefix: val('simprefix') || 'Simu' }) });
@@ -245,6 +240,43 @@ function renderInscriptions(t) {
     try { await adminApiDestructif('/api/admin/tournoi', { method: 'DELETE' }, 'supprimer le tournoi actif et tout son contenu'); } catch (e) { alert(e.message); }
   }
   renderPanneauAuto();
+}
+
+/* ---------- 17y. Fiche joueur en modale : gestion au clic sur la puce d un inscrit ---------- */
+function openFicheJoueur(j, t) {
+  const tdsTxt = j.tete_de_serie ? `Tête de série ${j.tete_de_serie} · ` : ''; // info du tournoi, pas éditable ici
+  const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+  const fermer = () => overlay.remove();
+  const apres = () => fermer(); // l état revient par la diffusion serveur (SSE) comme avant 17y
+  const pseudoI = el('input', { value: j.pseudo, maxlength: 40, style: 'width:100%' });
+  overlay.append(el('div', { class: 'panel', style: 'max-width:440px;width:92%;max-height:92vh;overflow:auto' },
+    el('h3', {}, `👤 Gérer « ${j.pseudo} »`),
+    el('p', { class: 'muted small' }, `${tdsTxt}${j.statut === 'paye' ? 'payé' : 'en attente de paiement'}${t && t.tournoi ? ' · ' + t.tournoi.nom : ''}`),
+    el('div', { style: 'margin:12px 0' },
+      el('label', { class: 'small muted' }, 'Pseudo (le pseudo d un compte existant est réservé)'),
+      el('div', { class: 'row', style: 'margin-top:4px' }, pseudoI,
+        el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
+          const p = pseudoI.value.trim();
+          if (!p || p === j.pseudo) return;
+          try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'PUT', body: JSON.stringify({ pseudo: p }) }); }
+          catch (e) { alert(e.message); return; }
+          apres();
+        } }, 'Enregistrer'))),
+    el('div', { style: 'margin:12px 0' },
+      el('label', { class: 'small muted' }, 'Inscription (phase inscriptions)'),
+      el('div', { style: 'margin-top:4px' },
+        j.statut === 'paye'
+          ? el('button', { class: 'secondary', style: 'width:100%', onclick: async () => { try { await adminApi(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: JSON.stringify({ statut: 'en_attente' }) }); } catch (e) { alert(e.message); return; } apres(); } }, 'payé annuler')
+          : el('button', { style: 'width:100%', onclick: async () => { try { await adminApi(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: JSON.stringify({ statut: 'paye' }) }); } catch (e) { alert(e.message); return; } apres(); } }, 'marquer payé'))),
+    el('div', { style: 'margin:12px 0' }, el('button', { class: 'danger', style: 'width:100%', onclick: async () => {
+      if (!confirmer(`Retirer ${j.pseudo} du tournoi ?`)) return;
+      try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); return; }
+      apres();
+    } }, ['🗑 ', 'Retirer du tournoi'])),
+    el('div', { class: 'row', style: 'justify-content:flex-end;margin-top:12px' }, el('button', { class: 'secondary', onclick: fermer }, 'Fermer'))));
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(); });
+  document.body.append(overlay);
+  pseudoI.focus();
 }
 
 /* ---------- Tournoi en cours ---------- */

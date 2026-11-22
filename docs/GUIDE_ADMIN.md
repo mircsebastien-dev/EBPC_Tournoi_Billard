@@ -23,6 +23,7 @@ Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly) **ou** co
 ## 2. Inscriptions
 
 - Ajouter un joueur (pseudo), **simuler** N joueurs, marquer **payé**, supprimer
+- 🧑 **Gérer un inscrit (17y)** : clic sur sa puce dans la liste -> modale « 👤 Gérer » : pseudo (celui d un compte existant reste réservé), marquer payé / payé annuler, retirer du tournoi (confirmation)
 - Seuls les joueurs **payés** sont tirés au sort
 - ⛔ **Pseudo d'un compte = réservé** : l'inscription publique anonyme est refusée avec **409** (anti-usurpation) ; l'ajout admin est possible **après confirmation explicite** (l'UI demande « inscrire quand même ? », le joueur est alors rattaché au compte). Exception renommage : aligner le pseudo d'un joueur déjà rattaché à son propre compte reste possible
 - Un joueur inscrit en invité (sans compte) qui crée plus tard un compte avec le **même pseudo** est rattaché automatiquement (inscription ET connexion, phase inscription ET tournoi en cours) → il reçoit les pushs
@@ -110,6 +111,12 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 - **La console n appartient à AUCUN club** : routes `/api/super/*` sans contexte de club ; accès par le code global ou un compte `super_admin` (`👑 admin` legacy accepté) ; un code de club ou une session de club y reçoit toujours 401/403, les gestes sensibles demandent le code global en confirmation. Elle regroupe la gestion des clubs (création, PIN, actif, rôles, suppression) et la sauvegarde complète de la base (voir §13).
 - **Accès support** : sélecteur « 🚪 Accès aux pages d un club » pour ouvrir l admin d un club précis dans son contexte explicite (X-Club) ; le club par défaut (ebpc) reste protégé (non supprimable, non désactivable).
 - Un code de club (ou une session de club) ne peut jamais forcer cette vue globale : le paramètre est ignoré côté serveur.
+
+### 9.4 👤 Modales de gestion joueurs / comptes (17y)
+
+- **Liste des inscrits** (`/admin-tournoi.html`, phase inscriptions) : chaque joueur est une puce cliquable qui ouvre la modale « 👤 Gérer » : pseudo modifiable (le pseudo d un compte existant reste réservé, 409), marquer payé / payé annuler, retirer du tournoi (confirmation).
+- **Page Comptes** (`/admin-comptes.html`) : clic sur une ligne ou bouton « 👤 Fiche » -> modale « Fiche de » regroupant TOUTES les actions de gestion (sélecteur de rôle club si vous pouvez gérer les rôles, bouton 👑 admin plateforme pour le super-admin, changement de pseudo, de mot de passe, suppression) + identité (email masqué, date de création, dernière connexion) et stats (inscriptions, matchs, sessions, push, amis). Le tableau ne porte plus aucun bouton d action.
+- Comportement serveur inchangé : mêmes routes, mêmes confirmations (PIN ou mot de confirmation) qu avant 17y.
 
 ## 10. Journal d'audit + rollback point-in-time (`/admin-journal.html`)
 
