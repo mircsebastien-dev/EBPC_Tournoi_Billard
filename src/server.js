@@ -267,7 +267,7 @@ app.get('/manifest.webmanifest', (req, res) => {
     name: club17o.nom + ' — Tournois',
     short_name: club17o.nom.slice(0, 12),
     description: th17o.description ? th17o.description.slice(0, 200) : 'Tournois de billard — tableaux, scores en direct, notifications',
-    start_url: club17o.id === clubParDefaut().id ? '/' : '/?club=' + encodeURIComponent(club17o.slug),
+    start_url: '/?club=' + encodeURIComponent(club17o.slug), // 20a: accueil = hub plateforme, chaque install (même le club par défaut) démarre sur SON club
     scope: '/',
     display: 'standalone',
     background_color: th17o.accent, // 17q: écran de lancement Android aux couleurs du club (Chrome compose le splash depuis le manifeste)
@@ -291,7 +291,7 @@ app.get('/manifest-:slug17t.webmanifest', (req, res) => {
     name: club17t.nom + ' — Tournois',
     short_name: club17t.nom.slice(0, 12),
     description: th17t.description ? th17t.description.slice(0, 200) : 'Tournois de billard — tableaux, scores en direct, notifications',
-    start_url: club17t.id === clubParDefaut().id ? '/' : '/?club=' + encodeURIComponent(club17t.slug),
+    start_url: '/?club=' + encodeURIComponent(club17t.slug), // 20a: idem route ?club= : même le club par défaut démarre sur SON club
     scope: '/',
     display: 'standalone',
     background_color: th17t.accent, // 17q: écran de lancement Android aux couleurs du club (Chrome compose le splash depuis le manifeste)
@@ -685,6 +685,42 @@ app.get('/api/etat', (req, res) => res.json(etatGlobal(req)));
 // liste publique des clubs actifs (slug pour ?club= / X-Club)
 app.get('/api/clubs', (req, res) => {
   res.json({ clubs: db.prepare('SELECT id, slug, nom FROM club WHERE actif = 1 ORDER BY id').all() });
+});
+
+// 20a. Hub plateforme : la page d accueil globale n appartient à AUCUN club ; elle présente les clubs actifs
+// et TOUS les tournois en cours / inscriptions ouvertes, toutes clubs confondus (données déjà publiques par
+// club ; aucune authentification, le hub ne fait que lister, jamais de compte ni d email).
+app.get('/api/plateforme', (req, res) => {
+  const clubs20a = db.prepare('SELECT slug, nom FROM club WHERE actif = 1 ORDER BY id').all();
+  const t20a = db.prepare(`SELECT t.id, t.nom, t.statut, t.taille, t.date_heure, t.lieu, c.slug AS club_slug, c.nom AS club_nom,
+    (SELECT COUNT(*) FROM joueur j WHERE j.tournoi_id = t.id) AS inscrits
+    FROM tournoi t JOIN club c ON c.id = COALESCE(t.club_id, (SELECT MIN(id) FROM club))
+    WHERE t.statut IN ('inscription', 'en_cours') AND c.actif = 1
+    ORDER BY CASE t.statut WHEN 'en_cours' THEN 0 ELSE 1 END, t.id DESC`).all();
+  res.json({ clubs: clubs20a, tournois: t20a });
+});
+
+// 20a. Recherche PUBLIQUE de joueurs sur toute la plateforme (page joueur globale) : un pseudo -> les clubs
+// où il a joué et un lien direct vers sa fiche dans le contexte du club. Moins de 2 caractères -> vide (pas
+// d annuaire complet), pas de donnée privée (pseudo public déjà sur les pages des clubs).
+app.get('/api/plateforme/joueurs', (req, res) => {
+  const q20a = String(req.query.q || '').trim().slice(0, 40);
+  if (q20a.length < 2) return res.json({ joueurs: [] });
+  const like20a = '%' + q20a.replace(/[\\%_]/g, (m) => '\\' + m) + '%';
+  const rows20a = db.prepare(`SELECT j.pseudo, COUNT(*) AS nb20a, MAX(j.id) AS joueur_id20a, c.slug AS club_slug, c.nom AS club_nom
+    FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id
+    JOIN club c ON c.id = COALESCE(t.club_id, (SELECT MIN(id) FROM club))
+    WHERE j.pseudo LIKE ? ESCAPE '\\' AND c.actif = 1
+    GROUP BY j.pseudo COLLATE NOCASE, c.id
+    ORDER BY UPPER(j.pseudo), nb20a DESC
+    LIMIT 120`).all(like20a);
+  const parPseudo20a = new Map();
+  for (const r of rows20a) {
+    const cle20a = r.pseudo.toUpperCase();
+    if (!parPseudo20a.has(cle20a)) { if (parPseudo20a.size >= 20) break; parPseudo20a.set(cle20a, { pseudo: r.pseudo, clubs: [] }); }
+    parPseudo20a.get(cle20a).clubs.push({ slug: r.club_slug, nom: r.club_nom, nb: r.nb20a, joueur_id: r.joueur_id20a });
+  }
+  res.json({ joueurs: [...parPseudo20a.values()] });
 });
 
 // 17j. personnalisation publique : l accent de l interface du club résolu (léger, sans authentification, pour TOUS les visiteurs)

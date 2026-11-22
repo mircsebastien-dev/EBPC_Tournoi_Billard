@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Joueur de la plateforme - Pink City Billard</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>🎱 Pink City Billard</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script>
+document.getElementById('nav').append(nav(''));
+const main = document.getElementById('main');
+
+// 20a. Page joueur de la plateforme : recherche PUBLIQUE d un pseudo dans TOUS les clubs (aucune connexion
+// requise, comme le reste du site) ; résultat : les clubs où le pseudo a joué + lien direct vers la fiche
+// joueur dans le contexte explicite du club (17s). Page neutre : aucun thème de club (pageSansClub20a).
+async function init20a() {
+  const q20a = new URLSearchParams(location.search).get('q') || '';
+  const inpJ20a = el('input', { placeholder: t('Un pseudo'), maxlength: 40, value: q20a, style: 'max-width:280px' });
+  const allerJ20a = () => { const v = inpJ20a.value.trim(); if (v) location.href = '/joueurs.html?q=' + encodeURIComponent(v); };
+  inpJ20a.addEventListener('keydown', (e) => { if (e.key === 'Enter') allerJ20a(); });
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, t('Joueur de la plateforme')),
+    el('p', { class: 'muted small' }, t('Rechercher un joueur dans tous les clubs de la plateforme.')),
+    el('div', { class: 'row' }, el('div', {}, inpJ20a), el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: allerJ20a }, t('Rechercher un joueur'))))));
+  const v20a = q20a.trim();
+  if (v20a.length < 2) return;
+  let joueurs20a = [];
+  try { joueurs20a = (await api('/api/plateforme/joueurs?q=' + encodeURIComponent(v20a))).joueurs || []; } catch (e) { alert(e.message); return; }
+  const pRes20a = el('div', { class: 'panel' });
+  pRes20a.append(el('h2', {}, t('Résultats')));
+  if (!joueurs20a.length) pRes20a.append(el('p', { class: 'muted' }, t('Aucun joueur trouvé.')));
+  for (const j of joueurs20a) {
+    const lig20a = el('div', { style: 'border-top:1px solid var(--line);padding:10px 2px' });
+    lig20a.append(el('div', { style: 'font-weight:800' }, j.pseudo));
+    for (const c of j.clubs) {
+      lig20a.append(el('div', { class: 'row', style: 'justify-content:space-between;align-items:center;gap:8px' },
+        el('a', { href: '/joueur.html?id=' + c.joueur_id + '&club=' + encodeURIComponent(c.slug), style: 'text-decoration:none;color:inherit;font-weight:700' }, '👤 ' + c.nom),
+        el('span', { class: 'muted small' }, c.nb + ' tournoi(s)')));
+    }
+    pRes20a.append(lig20a);
+  }
+  main.append(pRes20a);
+}
+init20a();
+</script>
+</body>
+</html>

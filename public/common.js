@@ -33,6 +33,16 @@ function qsClub17n() {
 function clubParam17s() {
   try { const c = localStorage.getItem(CLUB_KEY); return c ? 'club=' + encodeURIComponent(c) : ''; } catch { return ''; }
 }
+
+// 20a. Hub plateforme : les pages SANS club explicite (accueil / sans ?club=, page joueur de la plateforme)
+// sont NEUTRES : la page n appartient à aucun club, aucun accent, logo, bannière ou badge de club ne doit
+// s y appliquer (EBPC est un club comme les autres). Toute autre page garde le comportement d origine.
+function pageSansClub20a() {
+  try {
+    if (!['/', '/index.html', '/joueurs.html'].includes(location.pathname)) return false;
+    return !new URLSearchParams(location.search).get('club');
+  } catch (e) { return false; }
+}
 document.addEventListener('click', (e) => {
   try {
     const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
@@ -96,6 +106,7 @@ function appliquerAccentClub(hex) {
 function accentDepuisCache() {
   try {
     if (location.pathname.startsWith('/tv.html')) return; // page TV : thème sombre d origine, jamais d accent de club
+    if (pageSansClub20a()) return; // 20a: accueil hub et joueur de la plateforme : pages neutres, aucun accent de club
     const stocke = JSON.parse(localStorage.getItem(ACCENT_KEY) || '{}');
     const k = localStorage.getItem(CLUB_KEY) || '_defaut';
     if (typeof stocke[k] === 'string' && stocke[k] !== '#d6336c') appliquerAccentClub(stocke[k]);
@@ -107,6 +118,7 @@ function accentDepuisCache() {
 function rafraichirThemeClub() {
   try {
     if (location.pathname.startsWith('/tv.html')) return; // page TV : jamais d accent de club
+    if (pageSansClub20a()) return; // 20a: accueil hub et joueur de la plateforme : neutres, ni logo ni badge de club
     api('/api/club-theme').then((th) => {
       if (!th || !th.accent) return;
       const stocke = JSON.parse(localStorage.getItem(ACCENT_KEY) || '{}');
@@ -225,6 +237,7 @@ function appliquerLogoClub(logo, mode) {
 function logoDepuisCache() {
   try {
     if (location.pathname.startsWith('/tv.html')) return; // page TV : filigrane exclu comme l accent
+    if (pageSansClub20a()) return; // 20a: accueil hub et joueur de la plateforme : neutres, aucun logo de club
     const stocke = JSON.parse(localStorage.getItem(LOGO_KEY) || '{}');
     const k = localStorage.getItem(CLUB_KEY) || '_defaut';
     const entree = stocke[k];
@@ -827,6 +840,17 @@ const I18N = {
   "Club introuvable": "Club not found",
   "Club inconnu ici, tu regardes le club par défaut": "Unknown club here, you are viewing the default club",
   "Choisis ton club": "Pick your club",
+  "Bienvenue sur la plateforme": "Welcome to the platform",
+  "Choisis ton club, ouvre un tournoi en cours, retrouve un joueur.": "Pick your club, open a live tournament, find a player.",
+  "Reprendre": "Resume",
+  "Les tournois en cours et à venir": "Live and upcoming tournaments",
+  "Aucun tournoi en cours ou à venir.": "No live or upcoming tournament.",
+  "Joueur de la plateforme": "Player of the platform",
+  "Un pseudo": "A nickname",
+  "Rechercher un joueur": "Search a player",
+  "Rechercher un joueur dans tous les clubs de la plateforme.": "Search a player across all the clubs of the platform.",
+  "Résultats": "Results",
+  "Aucun joueur trouvé.": "No player found.",
   "Choisir le club": "Choose the club",
   "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "One account for the whole platform: the same login in every club.",
   "Bannière du club": "Club banner",
@@ -1567,6 +1591,17 @@ const I18N_ES = {
   "Club introuvable": "Club no encontrado",
   "Club inconnu ici, tu regardes le club par défaut": "Club desconocido aquí, estás viendo el club predeterminado",
   "Choisis ton club": "Elige tu club",
+  "Bienvenue sur la plateforme": "Bienvenida a la plataforma",
+  "Choisis ton club, ouvre un tournoi en cours, retrouve un joueur.": "Elige tu club, abre un torneo en curso, encuentra a un jugador.",
+  "Reprendre": "Reanudar",
+  "Les tournois en cours et à venir": "Torneos en curso y próximos",
+  "Aucun tournoi en cours ou à venir.": "Ningún torneo en curso ni próximo.",
+  "Joueur de la plateforme": "Jugador de la plataforma",
+  "Un pseudo": "Un pseudo",
+  "Rechercher un joueur": "Buscar a un jugador",
+  "Rechercher un joueur dans tous les clubs de la plateforme.": "Busca a un jugador en todos los clubes de la plataforma.",
+  "Résultats": "Resultados",
+  "Aucun joueur trouvé.": "Ningún jugador encontrado.",
   "Choisir le club": "Elige el club",
   "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "Una sola cuenta para toda la plataforma: el mismo inicio de sesión en todos los clubes.",
   "Bannière du club": "Banner del club",
@@ -2308,6 +2343,17 @@ const I18N_IT = {
   "Club introuvable": "Club non trovato",
   "Club inconnu ici, tu regardes le club par défaut": "Club sconosciuto qui, stai vedendo il club predefinito",
   "Choisis ton club": "Scegli il tuo club",
+  "Bienvenue sur la plateforme": "Benvenuto sulla piattaforma",
+  "Choisis ton club, ouvre un tournoi en cours, retrouve un joueur.": "Scegli il tuo club, apri un torneo in corso, trova un giocatore.",
+  "Reprendre": "Riprendi",
+  "Les tournois en cours et à venir": "Tornei in corso e in arrivo",
+  "Aucun tournoi en cours ou à venir.": "Nessun torneo in corso né in arrivo.",
+  "Joueur de la plateforme": "Giocatore della piattaforma",
+  "Un pseudo": "Uno pseudonimo",
+  "Rechercher un joueur": "Cerca un giocatore",
+  "Rechercher un joueur dans tous les clubs de la plateforme.": "Cerca un giocatore in tutti i club della piattaforma.",
+  "Résultats": "Risultati",
+  "Aucun joueur trouvé.": "Nessun giocatore trovato.",
   "Choisir le club": "Scegli il club",
   "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "Un solo account per tutta la piattaforma: lo stesso login in tutti i circoli.",
   "Bannière du club": "Banner del club",
@@ -3049,6 +3095,17 @@ const I18N_DE = {
   "Club introuvable": "Club nicht gefunden",
   "Club inconnu ici, tu regardes le club par défaut": "Club hier unbekannt, du siehst den Standard-Club",
   "Choisis ton club": "Wähle deinen Club",
+  "Bienvenue sur la plateforme": "Willkommen auf der Plattform",
+  "Choisis ton club, ouvre un tournoi en cours, retrouve un joueur.": "Wähle deinen Club, öffne ein laufendes Turnier, finde einen Spieler.",
+  "Reprendre": "Fortsetzen",
+  "Les tournois en cours et à venir": "Laufende und kommende Turniere",
+  "Aucun tournoi en cours ou à venir.": "Kein laufendes oder kommendes Turnier.",
+  "Joueur de la plateforme": "Spieler der Plattform",
+  "Un pseudo": "Ein Nickname",
+  "Rechercher un joueur": "Einen Spieler suchen",
+  "Rechercher un joueur dans tous les clubs de la plateforme.": "Suche einen Spieler in allen Clubs der Plattform.",
+  "Résultats": "Ergebnisse",
+  "Aucun joueur trouvé.": "Kein Spieler gefunden.",
   "Choisir le club": "Club wählen",
   "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "Ein Konto für die ganze Plattform: derselbe Login in allen Clubs.",
   "Bannière du club": "Club-Banner",

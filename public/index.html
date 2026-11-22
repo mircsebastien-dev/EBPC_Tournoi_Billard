@@ -21,8 +21,13 @@ document.getElementById('nav').append(nav('home'));
 const main = document.getElementById('main');
 let state = null;
 
+// 20a. Hub plateforme : sans ?club= dans l URL (aucun club explicite), l accueil ne montre PLUS le club par
+// défaut mais le hub de la plateforme (clubs, tournois en cours / à venir, recherche joueur). Avec ?club=
+// explicite (lien 17s, PWA installée 17o/17t, notification), l accueil du club ci-dessous est INCHANGÉ.
+const CLUB_EXPLICITE_20A = (() => { try { return new URLSearchParams(location.search).get('club'); } catch (e) { return null; } })();
+
 // 17n: bannière du club en tête de l accueil (aucune bannière configurée -> rien ne s affiche)
-(function () {
+if (CLUB_EXPLICITE_20A) (function () {
   const boite17n = document.createElement('div');
   boite17n.style.cssText = 'max-width:1100px;margin:14px auto -4px;padding:0 18px';
   const img17n = document.createElement('img');
@@ -37,7 +42,7 @@ let state = null;
 // 17v. Suggestions de clubs au premier écran : un visiteur SANS club mémorisé découvre les clubs
 // actifs de la plateforme en cartes (icône 17t + nom) ; un clic mémorise le club (ouvrirClub17v)
 // et recharge l accueil dans son contexte. Rien en mono-club ni si un club est déjà mémorisé.
-(function () {
+if (CLUB_EXPLICITE_20A) (function () {
   try { if (localStorage.getItem(CLUB_KEY)) return; } catch (e) {}
   const boite17v = document.createElement('div');
   boite17v.id = 'clubs-17v';
@@ -409,13 +414,73 @@ async function renderAmisPanel() {
   }
 }
 
+
+// ---- 20a. Hub de la plateforme (accueil sans ?club= dans l URL) : la page n appartient à aucun club ----
+// Neutre (pageSansClub20a dans common.js) : clubs actifs, tournois en cours / inscriptions ouvertes de
+// TOUS les clubs (route publique /api/plateforme) et recherche de joueur (/joueurs.html). Le club mémorisé
+// reste à UN clic : mêmes cartes que les suggestions 17v (icône 17t, clic = ouvrirClub17v).
+async function initHub20a() {
+  main.innerHTML = '';
+  let clubs17v = [];
+  try { clubs17v = (await api('/api/clubs')).clubs || []; } catch (e) {}
+  const clubMemo20a = (() => { try { return localStorage.getItem(CLUB_KEY); } catch (e) { return null; } })();
+  const clubRetenu20a = clubs17v.find((c) => c.slug === clubMemo20a) || null;
+  main.append(el('div', { class: 'panel', style: 'text-align:center;padding:32px 20px' },
+    el('div', { class: 'hero-title' }, '🎱 ' + t('Bienvenue sur la plateforme')),
+    el('p', { class: 'muted' }, t('Choisis ton club, ouvre un tournoi en cours, retrouve un joueur.'))));
+  if (clubRetenu20a) {
+    main.append(el('div', { class: 'panel', style: 'text-align:center' },
+      el('button', { style: 'width:100%;max-width:420px', onclick: () => ouvrirClub17v(clubRetenu20a.slug) }, '➡️ ' + t('Reprendre') + ' ' + clubRetenu20a.nom)));
+  }
+  const boite20a = el('div', { id: 'clubs-17v', class: 'panel' });
+  boite20a.append(el('h2', {}, t('Choisis ton club')));
+  const rangee17v = el('div', { style: 'display:flex;flex-wrap:wrap;gap:12px' });
+  boite20a.append(rangee17v);
+  for (const c of clubs17v) {
+    const carte17v = el('a', { href: '/?club=' + encodeURIComponent(c.slug) });
+    carte17v.className = 'panel';
+    carte17v.style.cssText = 'flex:1 1 200px;min-width:180px;max-width:420px;display:flex;align-items:center;gap:12px;padding:12px 14px;text-decoration:none;color:inherit';
+    const icone17v = el('img', { alt: 'Icône de ' + c.nom, src: '/icone-' + encodeURIComponent(c.slug) + '.png' });
+    icone17v.style.cssText = 'width:42px;height:42px;border-radius:8px;object-fit:cover;flex:0 0 auto';
+    icone17v.onerror = function () { icone17v.remove(); };
+    const nom17v = el('div', { style: 'font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, c.nom);
+    carte17v.append(icone17v, nom17v);
+    carte17v.addEventListener('click', function (e) { e.preventDefault(); ouvrirClub17v(c.slug); });
+    rangee17v.append(carte17v);
+  }
+  main.append(boite20a);
+  const pT20a = el('div', { class: 'panel' });
+  pT20a.append(el('h2', {}, t('Les tournois en cours et à venir')));
+  const listeT20a = el('div', {});
+  pT20a.append(listeT20a);
+  main.append(pT20a);
+  let tt20a = [];
+  try { tt20a = (await api('/api/plateforme')).tournois || []; } catch (e) {}
+  if (!tt20a.length) listeT20a.append(el('p', { class: 'muted' }, t('Aucun tournoi en cours ou à venir.')));
+  for (const tn of tt20a) {
+    const lig20a = el('a', { href: '/?club=' + encodeURIComponent(tn.club_slug), style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--line);padding:10px 2px;text-decoration:none;color:inherit' });
+    lig20a.append(el('span', { class: 'badge ' + tn.statut }, tn.statut === 'en_cours' ? '🔴 en cours' : '📝 inscriptions'),
+      el('b', {}, tn.nom),
+      el('span', { class: 'muted small' }, tn.club_nom),
+      el('span', { class: 'muted small' }, `${tn.inscrits}/${tn.taille} inscrits`),
+      el('span', { class: 'muted small' }, ((tn.date_heure ? fmtDateHeure(tn.date_heure) : '') + (tn.lieu ? ' · ' + tn.lieu : '')) || ''));
+    listeT20a.append(lig20a);
+  }
+  const pJ20a = el('div', { class: 'panel' });
+  const inpJ20a = el('input', { placeholder: t('Un pseudo'), maxlength: 40, style: 'max-width:260px' });
+  const allerJ20a = () => { const v = inpJ20a.value.trim(); if (v) location.href = '/joueurs.html?q=' + encodeURIComponent(v); };
+  inpJ20a.addEventListener('keydown', (e) => { if (e.key === 'Enter') allerJ20a(); });
+  pJ20a.append(el('h2', {}, t('Joueur de la plateforme')),
+    el('div', { class: 'row' }, el('div', {}, inpJ20a), el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: allerJ20a }, t('Rechercher un joueur')))));
+  main.append(pJ20a);
+}
 async function init() {
   state = await api(urlEtat19a()); // 19a: suit le tournoi choisi (sélecteur du bandeau)
   render();
   renderAmisPanel();
 connecterSSE((s) => { renderAmisPanel(); state = s; render(); });
 }
-init();
+if (CLUB_EXPLICITE_20A) init(); else initHub20a();
 </script>
 </body>
 </html>
