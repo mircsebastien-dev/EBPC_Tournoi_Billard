@@ -1186,7 +1186,14 @@ async function nouveauTournoi(body) {
   r17f = await xhr17f('/api/tournoi/inscrire', '203.0.113.110', { club: 'clubvm', cookie: cookieMembreSb, body: {} });
   const moiVm17x = await xhr17f('/api/compte/moi', '203.0.113.132', { method: 'GET', club: 'clubvm', cookie: cookieMembreSb });
   const moiSb17x = await xhr17f('/api/compte/moi', '203.0.113.133', { method: 'GET', club: 'clubsb', cookie: cookieMembreSb });
-  check('inscription au tournoi d un AUTRE club avec sa session (MembreSb, origine clubsb) -> 201 (compte plateforme, plus de refus club d origine) + 17x joueur_id de moi scopé au club OUVERT (clubvm -> le joueur inscrit au tournoi ClubVM-T, clubsb sans joueur du compte -> null, plus de joueur d un autre club pointé)', r17f.status === 201 && r17f.data.joueur && r17f.data.joueur.pseudo === 'MembreSb' && moiVm17x.status === 200 && moiVm17x.data.joueur_id === r17f.data.joueur.id && moiSb17x.status === 200 && moiSb17x.data.joueur_id === null, r17f.status + ' ' + JSON.stringify({ moiVm17x: moiVm17x.data.joueur_id, moiSb17x: moiSb17x.data.joueur_id }));
+  // 19b: privilèges et visibilité scopés au club organisateur
+  const marqueVm19b = await api('/api/admin/comptes', { club: 'clubvm', pin: '5678' });
+  const mbVm19b = marqueVm19b.data && Array.isArray(marqueVm19b.data.comptes) ? marqueVm19b.data.comptes.find(c => c.pseudo === 'MembreSb') : null;
+  const promoMb19b = await put('/api/admin/club/compte', { pseudo: 'MembreSb', role: 'operateur' }, { pin: '5678', club: 'clubvm' });
+  const retireMb19b = await api('/api/admin/club/compte', { method: 'DELETE', pin: '5678', club: 'clubvm', body: { compte_id: promoMb19b.data ? promoMb19b.data.compte_id : 0, confirm_pin: '5678' } });
+  const connAlice19b = await xhr17f('/api/compte/connexion', '203.0.113.134', { club: 'clubvm', body: { pseudo: 'AliceBT', password: '1234' } });
+  const admVm19b = await xhr17f('/api/admin/comptes', '203.0.113.135', { method: 'GET', club: 'clubvm', cookie: (connAlice19b.cookie || '').split(';')[0] });
+  check('inscription au tournoi d un AUTRE club avec sa session (MembreSb, origine clubsb) -> 201 (compte plateforme, plus de refus club d origine) + 17x joueur_id de moi scopé au club OUVERT (clubvm -> le joueur inscrit au tournoi ClubVM-T, clubsb sans joueur du compte -> null, plus de joueur d un autre club pointé) + 19b: le club organisateur voit son inscrit (table de marque clubvm) et lui accorde un rôle local (promotion opérateur par le code du club puis retrait 200) + session d un compte admin GLOBAL (AliceBT, club d origine défaut) sur les routes admin de clubvm -> 401 (privilèges scopés au club)', r17f.status === 201 && r17f.data.joueur && r17f.data.joueur.pseudo === 'MembreSb' && moiVm17x.status === 200 && moiVm17x.data.joueur_id === r17f.data.joueur.id && moiSb17x.status === 200 && moiSb17x.data.joueur_id === null && marqueVm19b.status === 200 && !!mbVm19b && promoMb19b.status === 200 && promoMb19b.data.role === 'operateur' && retireMb19b.status === 200 && admVm19b.status === 401, r17f.status + ' 19b marque=' + marqueVm19b.status + ' vm=' + !!mbVm19b + ' promo=' + promoMb19b.status + ' retrait=' + retireMb19b.status + ' adminVm=' + admVm19b.status + ' ' + JSON.stringify({ moiVm17x: moiVm17x.data.joueur_id, moiSb17x: moiSb17x.data.joueur_id }));
   r17f = await xhr17f('/api/joueur', '203.0.113.111', { club: 'clubvm', body: { pseudo: 'MembreSb' } });
   check('pseudo MembreSb réservé en anonyme depuis clubvm -> 409 compte_pseudo (réservation GLOBALE)', r17f.status === 409 && r17f.data.compte_pseudo === true, r17f.status + ' ' + (r17f.data.error || ''));
   await post('/api/admin/tournoi', { nom: 'Sb-Open', regle: 'blackball', taille: 16, format: 'simple', notif_push: false }, { club: 'clubsb', pin: '4321' });
@@ -1209,7 +1216,9 @@ async function nouveauTournoi(body) {
     && spec17f.includes('17x. Fiche joueur du compte scopée au club ouvert')
     && spec17f.includes('19a. Sélecteur de tournoi dans le bandeau')
     && rm17u.includes('| 58 |')
-    && rm17u.includes('| 59 |'), '');
+    && rm17u.includes('| 59 |')
+    && spec17f.includes('19b. Privilèges et visibilité des comptes scopés au club')
+    && rm17u.includes('| 60 |'), '');
   check('doc: db compte plateforme (index uniques pseudo/email sur TOUTE la plateforme + fusion automatique des jumeaux)', db17f.includes('idx17u_pseudo') && db17f.includes('idx17u_email') && db17f.includes('reparerComptes17u') && db17f.includes('fusion des comptes jumeaux'), '');
   check('doc: serveur + comptes plateforme (compteAvecPseudo global, inscription/connexion/oubli globaux, inscription tournoi cross-club)', srv17f.includes('compteAvecPseudo(pseudo)') && srv17f.includes('reparerComptes17u') && cpt17f.includes('déjà utilisé sur la plateforme') && cpt17f.includes('SELECT id FROM compte WHERE pseudo = ? COLLATE NOCASE OR email = ? COLLATE NOCASE') && cpt17f.includes('SELECT * FROM compte WHERE pseudo = ? COLLATE NOCASE') && !cpt17f.includes('compte introuvable dans ce club') && !cpt17f.includes('appartient à un autre club')
     && cpt17f.includes('17x')

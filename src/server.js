@@ -131,7 +131,9 @@ function roleClubSession(req) {
 }
 
 function requireAdmin(req, res, next) {
-  if (estAdminSession(req)) { req.adminVia = 'session'; return next(); }
+  // 19b: un compte role=admin (global, mécanique d origine) n administre QUE son club d origine ;
+  // seul super_admin (17i) garde l admin sur tous les clubs ; les rôles compte_club ne changent pas
+  if (estAdminSession(req) && (req.compte.role === 'super_admin' || !req.club || req.compte.club_id === req.club.id)) { req.adminVia = 'session'; return next(); }
   if (roleClubSession(req)) { req.adminVia = 'session_club'; return next(); } // session d un compte rattaché au club
   // PAS de req.query.pin: le PIN dans l'URL fuirait dans les logs des proxies
   const pin = req.headers['x-admin-pin'] || (req.body && req.body.pin);
@@ -146,7 +148,7 @@ function requireAdmin(req, res, next) {
 // geste admin destructif : exige le code re-saisi dans le body (confirm_pin), pas juste la session PIN —
 // sauf si session d'un compte admin (déjà authentifié fortement par mdp + session)
 function requireConfirmPin(req, res, next) {
-  if (estAdminSession(req) || roleClubSession(req) === 'admin') return next(); // admin global ou admin du club (auth forte par mdp + session)
+  if ((estAdminSession(req) && (req.compte.role === 'super_admin' || !req.club || req.compte.club_id === req.club.id)) || roleClubSession(req) === 'admin') return next(); // 19b: admin global de son club d origine ou super_admin ; admin du club (auth forte par mdp + session)
   const pin = req.body && req.body.confirm_pin;
   const r = verifierPinAdmin(req, pin);
   if (r.bloque) return res.status(429).json({ error: r.message });
@@ -1448,7 +1450,8 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
   const cid = req.club ? req.club.id : clubParDefaut().id;
   const tous = superAdminSoumis(req) && String(req.query.tous || '') === '1'; // 17h: vue plateforme explicite
   const where = tous ? '' : `
-      WHERE c.club_id = ? OR EXISTS (SELECT 1 FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?)`; // 17f: comptes DU club + roles staff
+      WHERE c.club_id = ? OR EXISTS (SELECT 1 FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = ?)
+         OR EXISTS (SELECT 1 FROM joueur j JOIN tournoi t ON t.id = j.tournoi_id WHERE j.compte_id = c.id AND t.club_id = ?)`; // 17f: comptes DU club + roles staff + 19b: comptes ayant un joueur inscrit dans un tournoi du club (club organisateur)
   const colTous = tous
     ? `,
            (SELECT cl.slug FROM club cl WHERE cl.id = c.club_id) club_slug,
@@ -1467,7 +1470,7 @@ app.get('/api/admin/comptes', requireAdmin, (req, res) => {
            (SELECT group_concat(p.pseudo, ', ') FROM ami_pseudo p WHERE p.compte_id = c.id) amis_pseudos
     FROM compte c${where}
     ORDER BY c.id DESC
-  `).all(cid, cid, ...(tous ? [] : [cid, cid]));
+  `).all(cid, cid, ...(tous ? [] : [cid, cid, cid])); // 19b: 3 parametres du where club (origine, roles, inscrits)
   // 17g: rôle club du contexte + autorisation de gérer les rôles (table de marque: sélecteur par compte)
   res.json({
     comptes: rows,
@@ -1874,9 +1877,11 @@ app.put('/api/admin/club/compte', requireAdmin, requireRoleClub, (req, res) => {
   // 17g: un acteur du club (code du club ou session admin du club) ne promeut QUE des comptes DU club;
   // le super-admin garde l attachement cross-club (staff multi-club, page clubs.html)
   const superSoumis = superAdminSoumis(req);
-  const cible = superSoumis
-    ? db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo)
-    : db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE AND club_id = ?').get(pseudo, req.club.id);
+  const cible = db.prepare('SELECT id, pseudo FROM compte WHERE pseudo = ? COLLATE NOCASE').get(pseudo);
+  // 19b: un acteur du club ne promeut qu'un compte PRÉSENT dans le club (comptePresentClub: club d origine,
+  // rôle club, ou joueur inscrit à un tournoi du club, y compris le club organisateur d une inscription) ;
+  // le super-admin garde l attachement cross-club (staff multi-club, page clubs.html)
+  if (!cible || (!superSoumis && !comptePresentClub(req.club.id, cible.id))) return res.status(404).json({ error: superSoumis ? `Compte « ${pseudo} » introuvable` : `Compte « ${pseudo} » introuvable dans ce club` });
   if (!cible) return res.status(404).json({ error: superSoumis ? `Compte « ${pseudo} » introuvable` : `Compte « ${pseudo} » introuvable dans ce club` });
   const deja = db.prepare('SELECT id FROM compte_club WHERE compte_id = ? AND club_id = ?').get(cible.id, req.club.id);
   if (deja) db.prepare('UPDATE compte_club SET role = ? WHERE id = ?').run(role, deja.id);
