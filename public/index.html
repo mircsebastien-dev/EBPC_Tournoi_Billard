@@ -24,7 +24,7 @@ let state = null;
 // 20a. Hub plateforme : sans ?club= dans l URL (aucun club explicite), l accueil ne montre PLUS le club par
 // défaut mais le hub de la plateforme (clubs, tournois en cours / à venir, recherche joueur). Avec ?club=
 // explicite (lien 17s, PWA installée 17o/17t, notification), l accueil du club ci-dessous est INCHANGÉ.
-const CLUB_EXPLICITE_20A = (() => { try { return new URLSearchParams(location.search).get('club'); } catch (e) { return null; } })();
+const CLUB_EXPLICITE_20A = (() => { try { const p20b = new URLSearchParams(location.search); return p20b.get('club') && !p20b.get('hub'); } catch (e) { return null; } })(); // 20b: ?hub=1 force le hub même depuis une page de club
 
 // 17n: bannière du club en tête de l accueil (aucune bannière configurée -> rien ne s affiche)
 if (CLUB_EXPLICITE_20A) (function () {

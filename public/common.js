@@ -40,7 +40,10 @@ function clubParam17s() {
 function pageSansClub20a() {
   try {
     if (!['/', '/index.html', '/joueurs.html'].includes(location.pathname)) return false;
-    return !new URLSearchParams(location.search).get('club');
+    const p20b = new URLSearchParams(location.search);
+    if (p20b.get('hub')) return true; // 20b: ?hub=1 force le hub (retour depuis une page de club), même avec un club mémorisé
+    if (location.pathname === '/joueurs.html') return true; // 20b: page joueur = toujours plateforme
+    return !p20b.get('club');
   } catch (e) { return false; }
 }
 document.addEventListener('click', (e) => {
@@ -49,6 +52,7 @@ document.addEventListener('click', (e) => {
     if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
     const href = a.getAttribute('href') || '';
     if (!href.startsWith('/') || href.startsWith('//')) return;
+    if (/[?&]hub=/.test(href)) return; // 20b: ?hub=1 (retour au hub de la plateforme) : pas une page de club, jamais de club ajouté
     if (/[?&]club=/.test(href)) return; // le club est déjà explicite dans le lien
     const param17s = clubParam17s();
     if (!param17s) return;
@@ -841,6 +845,8 @@ const I18N = {
   "Club inconnu ici, tu regardes le club par défaut": "Unknown club here, you are viewing the default club",
   "Choisis ton club": "Pick your club",
   "Bienvenue sur la plateforme": "Welcome to the platform",
+  "Plateforme": "Platform",
+  "Hub de la plateforme": "Platform hub",
   "Choisis ton club, ouvre un tournoi en cours, retrouve un joueur.": "Pick your club, open a live tournament, find a player.",
   "Reprendre": "Resume",
   "Les tournois en cours et à venir": "Live and upcoming tournaments",
@@ -1592,6 +1598,8 @@ const I18N_ES = {
   "Club inconnu ici, tu regardes le club par défaut": "Club desconocido aquí, estás viendo el club predeterminado",
   "Choisis ton club": "Elige tu club",
   "Bienvenue sur la plateforme": "Bienvenida a la plataforma",
+  "Plateforme": "Plataforma",
+  "Hub de la plateforme": "Hub de la plataforma",
   "Choisis ton club, ouvre un tournoi en cours, retrouve un joueur.": "Elige tu club, abre un torneo en curso, encuentra a un jugador.",
   "Reprendre": "Reanudar",
   "Les tournois en cours et à venir": "Torneos en curso y próximos",
@@ -2344,6 +2352,8 @@ const I18N_IT = {
   "Club inconnu ici, tu regardes le club par défaut": "Club sconosciuto qui, stai vedendo il club predefinito",
   "Choisis ton club": "Scegli il tuo club",
   "Bienvenue sur la plateforme": "Benvenuto sulla piattaforma",
+  "Plateforme": "Piattaforma",
+  "Hub de la plateforme": "Hub della piattaforma",
   "Choisis ton club, ouvre un tournoi en cours, retrouve un joueur.": "Scegli il tuo club, apri un torneo in corso, trova un giocatore.",
   "Reprendre": "Riprendi",
   "Les tournois en cours et à venir": "Tornei in corso e in arrivo",
@@ -3096,6 +3106,8 @@ const I18N_DE = {
   "Club inconnu ici, tu regardes le club par défaut": "Club hier unbekannt, du siehst den Standard-Club",
   "Choisis ton club": "Wähle deinen Club",
   "Bienvenue sur la plateforme": "Willkommen auf der Plattform",
+  "Plateforme": "Plattform",
+  "Hub de la plateforme": "Hub der Plattform",
   "Choisis ton club, ouvre un tournoi en cours, retrouve un joueur.": "Wähle deinen Club, öffne ein laufendes Turnier, finde einen Spieler.",
   "Reprendre": "Fortsetzen",
   "Les tournois en cours et à venir": "Laufende und kommende Turniere",
@@ -3551,7 +3563,14 @@ function nav(active) {
     if (compteNav.role === 'admin' || compteNav.role === 'super_admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, 'Table de marque')); // 17i
     drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, 'Se déconnecter'));
   });
-  return el('nav', {}, wrap, btnCompte, btnClub17v, btnLang, btnTournoi19a); // 19a: sélecteur de tournoi (affiché si plusieurs actifs)
+  // 20b. Retour au hub de la plateforme depuis toutes les pages de club : bouton discret du bandeau
+  // ouvrant /?hub=1 (l intercepteur 17s n ajoute jamais de club à un lien ?hub= ; le hub n est pas une
+  // page de club). Masqué quand on est déjà sur une page plateforme (hub, page joueur) et sur la console.
+  const btnPlateforme20b = el('button', { class: 'nav-lang', type: 'button', title: t('Hub de la plateforme'), style: 'display:none' }, '🏠 ' + t('Plateforme'));
+  if (!location.pathname.startsWith('/console.html') && !pageSansClub20a()) btnPlateforme20b.style.display = '';
+  btnPlateforme20b.addEventListener('click', () => { location.href = '/?hub=1'; });
+
+  return el('nav', {}, wrap, btnCompte, btnPlateforme20b, btnClub17v, btnLang, btnTournoi19a); // 19a: sélecteur de tournoi (affiché si plusieurs actifs)
 }
 
 function codeMatch(m) {
