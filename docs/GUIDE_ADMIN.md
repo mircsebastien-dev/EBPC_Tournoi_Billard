@@ -95,10 +95,11 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 
 ### 9.2 👑 Rôle club depuis la table de marque (multi-club)
 
-- **Sélecteur « Club : aucun / 🛠 opérateur / 👑 admin »** en face de chaque compte de votre club dans `/admin-comptes.html`, visible dès que vous pouvez gérer les rôles : **le code PIN de votre club suffit**, ou une session admin du club (ou le code global).
+- **Sélecteur « Club : aucun / 🛠 opérateur / 👑 admin »** en face de chaque compte PRÉSENT dans le club (club d origine, rôle club ou inscrit à un tournoi du club) dans `/admin-comptes.html`, visible dès que vous pouvez gérer les rôles : **le code PIN de votre club suffit**, ou une session admin du club (ou le code global).
 - **Le code de votre club suffit pour nommer un admin** : choix assumé, c est votre club, votre code ; toute personne qui a le code peut promouvoir (y compris son propre compte une fois connecté). Le nouveau code PIN d un club ne peut rien sur les autres clubs.
 - Un **admin du club** se connecte (pseudo + mdp) et administre le club **sans jamais taper le PIN**, confirmations destructives levées ; un **opérateur** garde les routes admin du club mais ne gère ni les rôles ni les actions destructives (code exigé).
-- Le sélecteur n apparaît que pour les comptes DE votre club (isolation stricte) ; le super-admin de la plateforme conserve l attachement cross-club (staff multi-club) depuis la console super-admin.
+- Le sélecteur apparaît pour tous les comptes PRÉSENTS dans la fenêtre du club (origine, rôle club ou inscrit à un tournoi du club, 19b) ; le super-admin de la plateforme conserve l attachement cross-club (staff multi-club) depuis la console super-admin.
+- **Ne pas confondre avec le badge / bouton « 👑 admin plateforme »** (super-admin uniquement) : c est le rôle PLATEFORME du compte, un seul réglage pour toute la plateforme, affiché tel quel dans chaque fenêtre club ; depuis 19b il ne donne l admin que du club d origine du compte. Le sélecteur « Club : ... » règle au contraire un rôle propre au club (compte_club), invisible des autres clubs.
 - **Retirer un rôle** : sélecteur sur « Club : aucun », confirmation par le code (ou mot de confirmation pour une session admin). Les sessions du compte perdent immédiatement l accès admin du club.
 
 ### 9.3 🛡️ Console super-admin (`/console.html`) et vue « tous les clubs »

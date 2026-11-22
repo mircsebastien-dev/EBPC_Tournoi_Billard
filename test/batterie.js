@@ -1278,7 +1278,10 @@ async function nouveauTournoi(body) {
   const ga17g = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
   const srv17g = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
   const adm17g = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-comptes.html'), 'utf8');
-  check('doc: SPEC 17g + GUIDE_ADMIN + serveur (PIN du club suffit: adminViaPin club, cible DU club, peut_gerer_roles) + front (chips + sélecteur rôle club)', spec17g.includes('17g. Promotion admin du club') && spec17g.includes('524 checks') && ga17g.includes('👑 Rôle club') && srv17g.includes("req.adminViaPin === 'club'") && srv17g.includes('introuvable dans ce club') && srv17g.includes('peut_gerer_roles') && adm17g.includes('👑 Club : admin') && adm17g.includes('role_club'), '');
+  check('doc: SPEC 17g + GUIDE_ADMIN + serveur (PIN du club suffit: adminViaPin club, cible DU club, peut_gerer_roles) + front (chips + sélecteur rôle club + 19b: badge plateforme explicite, sélecteur étendu aux comptes présents)', spec17g.includes('17g. Promotion admin du club') && spec17g.includes('524 checks') && ga17g.includes('👑 Rôle club') && srv17g.includes("req.adminViaPin === 'club'") && srv17g.includes('introuvable dans ce club') && srv17g.includes('peut_gerer_roles') && adm17g.includes('👑 Club : admin') && adm17g.includes('role_club')
+    && adm17g.includes('admin plateforme') // 19b: badge et bouton plateforme explicites, ne se confondent plus avec un rôle club
+    && !adm17g.includes('c.club_id === clubCtx.id') // 19b: sélecteur de rôle proposé pour tous les comptes présents du club (la liste est déjà scopée par le serveur)
+    && ga17g.includes('tous les comptes PRÉSENTS'), '');
 
   // ---------- 17h. Tenant principal: liste des comptes TOUJOURS scopée au club du contexte ----------
   sec('17h. Tenant principal cloisonné: la table de marque ne montre jamais les comptes des autres clubs, même au super-admin');
