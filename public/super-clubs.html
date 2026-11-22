@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🏛️ Clubs de la plateforme - Console</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>🏛️ Clubs de la plateforme</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+
+// 17i v3: page dédiée Clubs de la plateforme, éclatée de la console (17i). Même zone super-admin
+// décorrelée des clubs : tout passe par /api/super/*, les appels à un club précis portent un X-Club explicite.
+// Création, réglages par club (nom, PIN, actif), rôles du staff (modale 17z), personnalisation (17j/17k),
+// suppression : tout ce pan de la console vit ici, la console n affiche que le hub.
+const clubApi = (path, slug, opts = {}) => adminApi(path, { ...opts, headers: adminHeaders({ 'X-Club': slug }) });
+
+// 17i v3: même accès que la console (code global ou session plateforme, un code ou une session
+// de club n y entre jamais), via /api/super/scan qui décorelle du contexte club.
+async function charger() {
+  main.innerHTML = '';
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
+  try {
+    const scan = await adminApi('/api/super/scan');
+    if (!scan || scan.super_admin !== true) throw Object.assign(new Error('zone refusée'), { status: 403 });
+  } catch (e) {
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + (e.status === 403
+      ? 'Page réservée au super-admin de la plateforme : code global ou compte super-admin. Un code de club ou une session de club n y a jamais accès.'
+      : e.message))));
+    return;
+  }
+  try {
+    const { clubs } = await adminApi('/api/super/clubs');
+    render(clubs);
+    if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(main);
+  } catch (e) {
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + e.message)));
+  }
+}
+
+async function sectionRoles(slug) {
+  const zone = document.getElementById('roles-' + slug);
+  if (zone) { zone.remove(); return; }
+  const p = el('div', { id: 'roles-' + slug, class: 'panel', style: 'margin-top:8px' });
+  main.append(p);
+  try {
+    const { comptes } = await clubApi('/api/admin/club/comptes', slug);
+    p.append(el('h2', {}, `Rôles du club « ${slug} »`));
+    if (!comptes.length) p.append(el('p', { class: 'muted' }, 'Aucun compte rattaché.'));
+    for (const x of comptes) {
+      // 17z: la ligne devient cliquable -> modale « Fiche » du staff (changement de rôle, retrait, fiche plateforme)
+      p.append(el('div', { class: 'row', style: 'align-items:center;gap:8px;margin:4px 0;flex-wrap:wrap;cursor:pointer', title: 'Fiche de ' + x.pseudo, onclick: () => openFicheCompteConsole(x, slug) },
+        el('strong', {}, x.pseudo),
+        el('span', { class: 'muted' }, ' · ' + (x.role === 'operateur' ? 'Opérateur' : 'Administrateur')),
+        el('button', { class: 'secondary', style: 'padding:4px 10px;font-size:13px', onclick: (ev) => { ev.stopPropagation(); openFicheCompteConsole(x, slug); } }, '👤 Fiche')));
+    }
+    const addPseudo = el('input', { placeholder: 'Pseudo du compte', maxlength: 24, style: 'width:180px' });
+    const addRole = el('select', {}, el('option', { value: 'admin' }, 'Administrateur'), el('option', { value: 'operateur' }, 'Opérateur'));
+    p.append(el('div', { class: 'row', style: 'flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px' },
+      el('span', {}, 'Attribuer :'), addPseudo, addRole,
+      el('button', { onclick: async () => {
+        if (!addPseudo.value.trim()) { alert('Pseudo requis.'); return; }
+        try {
+          await clubApi('/api/admin/club/compte', slug, { method: 'PUT', body: JSON.stringify({ pseudo: addPseudo.value.trim(), role: addRole.value }) });
+          charger().then(() => sectionRoles(slug));
+        } catch (e) { alert(e.message); }
+      } }, '➕ Ajouter')));
+    if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(p);
+  } catch (e) { p.append(el('p', { class: 'muted' }, e.message)); }
+}
+
+/* 17z. Modale « Fiche » du staff (console) : clic sur une ligne du panneau Rôles du club */
+function openFicheCompteConsole(x, slug) {
+  const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+  const fermer = () => overlay.remove();
+  const apres = () => { fermer(); charger().then(() => sectionRoles(slug)); }; // même rafraichissement que les gestes d avant 17z
+  const roleSel = el('select', { style: 'flex:1 1 auto;padding:4px 6px;font-size:13px' },
+    el('option', { value: 'admin', selected: x.role === 'admin' ? true : null }, 'Administrateur (session admin du club, sans PIN)'),
+    el('option', { value: 'operateur', selected: x.role === 'operateur' ? true : null }, 'Opérateur (routes ouvertes, confirmation exigée)'));
+  overlay.append(el('div', { class: 'panel', style: 'max-width:440px;width:92%;max-height:92vh;overflow:auto' },
+    el('h3', {}, `👤 ${x.pseudo}`),
+    el('p', { class: 'muted small' }, `Rôle sur le club ${slug} : ${x.role === 'operateur' ? 'Opérateur' : 'Administrateur'}${x.created_at ? ' · attribué le ' + (x.created_at || '').slice(0, 10) : ''}`),
+    el('div', { style: 'margin:12px 0' },
+      el('label', { class: 'small muted' }, 'Changer le rôle sur ce club (un seul geste, plus besoin de retirer puis réattribuer)'),
+      el('div', { class: 'row', style: 'margin-top:4px' }, roleSel,
+        el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
+          try { await clubApi('/api/admin/club/compte', slug, { method: 'PUT', body: JSON.stringify({ pseudo: x.pseudo, role: roleSel.value }) }); apres(); }
+          catch (e) { alert(e.message); }
+        } }, 'Appliquer'))),
+    el('div', { style: 'margin:12px 0' },
+      el('button', { class: 'danger', style: 'width:100%', onclick: async () => {
+        try {
+          await adminApiDestructif('/api/admin/club/compte', { method: 'DELETE', headers: adminHeaders({ 'X-Club': slug }), body: JSON.stringify({ compte_id: x.compte_id }) }, `retirer le rôle de ${x.pseudo}`);
+          apres();
+        } catch (e) { alert(e.message); }
+      } }, ['🗑 ', 'Retirer du club'])),
+    el('div', { class: 'row', style: 'justify-content:flex-end;margin-top:12px;gap:8px' },
+      el('a', { href: '/super-comptes.html' }, el('button', { class: 'secondary' }, '👤 Fiche plateforme')),
+      el('button', { class: 'secondary', onclick: fermer }, 'Fermer'))));
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(); });
+  document.body.append(overlay);
+}
+
+// 17i: gestion des clubs DEPUIS la console (routes /api/super/*: aucun club du contexte)
+function rowClub(c, estDefaut) {
+  return el('tr', { style: 'border-top:1px solid var(--line)' },
+    el('td', { style: 'padding:6px 8px' }, el('strong', {}, c.nom), el('div', { class: 'muted', style: 'font-size:12px' }, c.slug)),
+    el('td', { style: 'padding:6px 8px' }, c.actif ? '✅ Actif' : '⛔ Inactif'),
+    el('td', { style: 'padding:6px 8px' }, c.pin_propre ? '🔒 oui' : 'non (code global)'),
+    el('td', { style: 'padding:6px 8px' }, String(c.nb_comptes || 0)),
+    el('td', { style: 'padding:6px 8px;white-space:nowrap' }, String(c.created_at || '').slice(0, 10)),
+    el('td', { style: 'padding:6px 8px;white-space:nowrap' },
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', onclick: async () => {
+        const nom = prompt(`Nouveau nom du club « ${c.nom} » :`);
+        if (!nom || !nom.trim()) return;
+        try { await adminApi('/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug, nom: nom.trim(), confirm_pin: adminPin }) }); charger(); }
+        catch (e) { alert(e.message); }
+      } }, '✏️ Renommer'),
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', onclick: async () => {
+        const pin = prompt(`Nouveau code PIN du club « ${c.nom} » (4 à 8 chiffres) :`);
+        if (!pin || !pin.trim()) return;
+        try { await adminApi('/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug, pin: pin.trim(), confirm_pin: adminPin }) }); charger(); }
+        catch (e) { alert(e.message); }
+      } }, '🔒 Code PIN'),
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', onclick: async () => {
+        try { await adminApi('/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug, actif: !c.actif, confirm_pin: adminPin }) }); charger(); }
+        catch (e) { alert(e.message); }
+      } }, c.actif ? '⛔ Désactiver' : '✅ Activer'),
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px', onclick: () => sectionRoles(c.slug) }, '👥 Rôles'),
+      ...(estDefaut ? [el('span', { class: 'muted small', style: 'margin-left:6px' }, '⏳ club par défaut protégé')] : [el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px;margin-left:6px', onclick: async () => {
+        try {
+          await adminApiDestructif('/api/super/club', { method: 'DELETE', body: JSON.stringify({ slug: c.slug }) }, `supprimer définitivement le club « ${c.nom} » (rôles purgés)`);
+          charger();
+        } catch (e) { alert(e.message); }
+      } }, 'Supprimer')])));
+}
+
+// 17j. Personnalisation des clubs : accent de l interface + défauts de tournoi, réglables à distance (body.slug = club cible)
+const LOGOS_PRESETS_CONSOLE = ['bille-noire', 'bille-8', 'queue', 'triangle', 'table', 'etoile', 'bouclier', 'couronne', 'flamme', 'cercle']; // 17k: même bibliothèque que la table de marque
+
+function panelPersonnalisation(clubs) {
+  const sel = el('select', { style: 'max-width:280px' }, ...clubs.map(c => el('option', { value: c.slug }, `${c.nom} (${c.slug})`)));
+  const accentI = el('input', { type: 'color', value: '#d6336c', style: 'width:64px;height:34px;padding:2px' });
+  const nomI = el('input', { maxlength: 80, placeholder: 'Nom par défaut des tournois (ex : Open du Mercredi)', style: 'width:270px' });
+  const jourS = el('select', {}, el('option', { value: '' }, 'Aucun'),
+    ...[[0, 'Dimanche'], [1, 'Lundi'], [2, 'Mardi'], [3, 'Mercredi'], [4, 'Jeudi'], [5, 'Vendredi'], [6, 'Samedi']]
+      .map(([v, l]) => el('option', { value: v }, l)));
+  const heureI = el('input', { type: 'time', value: '20:00' });
+  const adresseI = el('input', { maxlength: 200, placeholder: 'Adresse par défaut du club (lieu prérenseigné à la création)', style: 'width:340px' }); // 17j v2
+  // 17k: logo du club (prédéfini ou importé), même logique que la table de marque
+  let logo17k = '';
+  let logoImporte17kC = ''; // 17k v8: data URL du dernier logo importé du club affiché (vignette sélectionnable, non persistée tant qu non enregistrée)
+  let mode17k = 'les-deux'; // entete / filigrane / les-deux
+  const modes17k = el('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px' },
+    ...[['entete', 'Logo d en-tête'], ['filigrane', 'Filigrane (discret, centré)'], ['les-deux', 'Logo + filigrane']].map(([mv, ml]) =>
+      el('button', { class: 'secondary', 'data-mode': mv, style: 'outline:3px solid transparent', onclick: () => { mode17k = mv; marquerLogo17k(); } }, ml)));
+  const galerie17k = el('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center' },
+    ...LOGOS_PRESETS_CONSOLE.map((cle) => el('img', { src: '/logos/' + cle + '.svg', alt: cle, title: cle, 'data-logo': '/logos/' + cle + '.svg', style: 'width:44px;height:44px;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent', onclick: () => { logo17k = '/logos/' + cle + '.svg'; marquerLogo17k(); } })),
+    el('button', { class: 'secondary', style: 'height:44px', onclick: () => { logo17k = ''; marquerLogo17k(); } }, 'Aucun logo'));
+  const importI = el('input', { id: 'pref-logo-import-console', type: 'file', accept: 'image/*' });
+  const apercuI17k = el('img', { id: 'pref-logo-img-console', title: 'Logo importé', style: 'width:44px;height:44px;object-fit:contain;background:var(--bg2);border-radius:8px;padding:4px;cursor:pointer;outline:3px solid transparent;display:none', onclick: () => { if (logoImporte17kC) { logo17k = logoImporte17kC; marquerLogo17k(); } } }); // 17k v8: vignette importée sélectionnable dans la galerie
+  galerie17k.insertBefore(apercuI17k, galerie17k.lastElementChild); // placée juste avant le bouton « Aucun logo »
+  const marquerLogo17k = () => {
+    apercuI17k.dataset.logo = logoImporte17kC || ''; // 17k v8: la vignette importée participe à la sélection comme les prédéfinis
+    apercuI17k.src = logoImporte17kC || '';
+    apercuI17k.style.display = logoImporte17kC ? '' : 'none';
+    for (const b of galerie17k.children) b.style.outline = (b.dataset.logo && b.dataset.logo === logo17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
+    for (const b of modes17k.children) b.style.outline = (b.dataset.mode === mode17k) ? '3px solid var(--pink-fort)' : '3px solid transparent';
+    importI.value = '';
+  };
+  // 17k v5: refus explicite, le message dit ce qui a été reçu vs ce qui est attendu + la cause probable
+  const causeSvg17k = 'Cause probable : le fichier SVG est vide ou ne contient pas de balise <svg>.';
+  const causeDecod17k = 'Cause probable : le navigateur n a pas réussi à décoder ce fichier (fichier endommagé ou format d image exotique).';
+  const refusLogo17k = (cause, fic) => {
+    const f = fic || (importI.files && importI.files[0]);
+    alert('Logo refusé\n\nReçu : « ' + (f ? f.name : '?') + ' », ' + (f ? (f.size / 1024).toFixed(1) : '?') + ' Ko, type MIME « ' + (f && f.type ? f.type : '(aucun)') + ' ».\nAttendu : image PNG, JPG ou SVG décodable (photo iPhone acceptée), 8 Mo maximum.\n\n' + cause);
+    importI.value = '';
+  };
+  const importerLogo17k = () => {
+    const f = importI.files && importI.files[0];
+    if (!f) return;
+    if (f.size > 8 * 1024 * 1024) return refusLogo17k('Cause : fichier plus lourd que la limite de 8 Mo.', f); // 17k v5 cause explicite ; photo jusqu à 8 Mo puis réduction: photo acceptée jusqu à 8 Mo, réduite ensuite à 256 px
+    const poser = (uri) => { logoImporte17kC = uri; logo17k = uri; marquerLogo17k(); }; // 17k v8: l import sélectionne ET expose la vignette
+    if (f.type === 'image/svg+xml' || /\.svg$/i.test(f.name)) {
+      f.text().then((txt) => { if (!txt || !txt.includes('<svg')) return refusLogo17k(causeSvg17k, f); poser('data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(txt)))); }).catch(() => refusLogo17k(causeSvg17k, f));
+      return;
+    }
+    // 17k v4: plus de refus abusif sur le type MIME (photo iPhone HEIC, image/jpg, type absent)
+  // on tente le décodage navigateur, seul un échec de chargement refuse
+    const imgL = new Image();
+    imgL.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        const ech = Math.min(1, 256 / Math.max(imgL.naturalWidth || 256, imgL.naturalHeight || 256));
+        c.width = Math.max(1, Math.round((imgL.naturalWidth || 256) * ech));
+        c.height = Math.max(1, Math.round((imgL.naturalHeight || 256) * ech));
+        const ctx = c.getContext('2d');
+        ctx.drawImage(imgL, 0, 0, c.width, c.height);
+        let uri = c.toDataURL('image/png');
+        if (uri.length > 190000) { // 17k v4: photo bruitée dont le PNG dépasserait le plafond serveur
+          ctx.globalCompositeOperation = 'destination-over';
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, c.width, c.height);
+          uri = c.toDataURL('image/jpeg', 0.85);
+        }
+        poser(uri);
+      } catch (e) { refusLogo17k(causeDecod17k, f); }
+    };
+    imgL.onerror = () => refusLogo17k(causeDecod17k, f);
+    imgL.src = URL.createObjectURL(f);
+  };
+  importI.addEventListener('change', importerLogo17k);
+  const chargerPrefs = async () => {
+    try {
+      const rep = await adminApi('/api/admin/club/prefs?slug=' + encodeURIComponent(sel.value));
+      const p = rep && rep.prefs ? rep.prefs : {};
+      accentI.value = p.accent || '#d6336c';
+      nomI.value = p.defaut_nom || '';
+      jourS.value = p.defaut_jour == null ? '' : String(p.defaut_jour);
+      heureI.value = p.defaut_heure || '20:00';
+      adresseI.value = p.adresse || ''; // 17j v2
+      logo17k = (p && typeof p.logo === 'string') ? p.logo : '';
+      logoImporte17kC = logo17k.startsWith('data:image/') ? logo17k : ''; // 17k v8: logo sauvegardé en data URL -> vignette importée
+      mode17k = (p && (p.logo_mode === 'entete' || p.logo_mode === 'filigrane' || p.logo_mode === 'les-deux')) ? p.logo_mode : 'les-deux';
+      marquerLogo17k();
+    } catch (e) {}
+  };
+  sel.addEventListener('change', chargerPrefs);
+  chargerPrefs();
+  return el('div', { class: 'panel', style: 'margin-top:12px' },
+    el('h2', {}, '🎨 Personnalisation du club (couleur d interface, logo + défauts de tournoi)'),
+    el('p', { class: 'muted small' }, 'Sélectionne un club puis ajuste sa couleur d accent, son logo (prédéfini ou importé, affiché en filigrane discret et à côté du nom du club) et ses défauts de tournoi : nom, jour récurrent (0 = dimanche), heure habituelle et adresse par défaut du club (17j v2 : prérenseigne le champ Lieu de la création de tournoi), prérenseignés à la création.'),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, sel, accentI, nomI, jourS, heureI, adresseI,
+    el('div', { style: 'width:100%;margin-top:6px' }, el('label', {}, 'Logo du club :'), galerie17k,
+      el('div', { style: 'margin-top:6px' }, el('label', {}, 'Importer une image pour ce club (PNG/JPG/SVG, réduite à 256 px) :'), importI),
+      el('div', { style: 'margin-top:6px' }, el('label', {}, 'Affichage du logo :'), modes17k)),
+      el('button', { onclick: async () => {
+        try {
+          await adminApi('/api/admin/club/prefs', { method: 'PUT', body: JSON.stringify({ slug: sel.value, accent: accentI.value, defaut_nom: nomI.value.trim(), defaut_jour: jourS.value === '' ? null : Number(jourS.value), defaut_heure: heureI.value || '20:00', adresse: adresseI.value.trim(), logo: logo17k, logo_mode: mode17k }) });
+          alert('✅ Personnalisation du club « ' + sel.value + ' » enregistrée.');
+        } catch (e) { alert(e.message); }
+      } }, 'Enregistrer pour ce club')));
+}
+
+// 17i v3: rendu de la page dédiée : lien retour console + création, liste (réglages, rôles,
+// suppression) et personnalisation, recopiés de la console avant l éclatement.
+function render(clubs) {
+  main.append(el('div', { class: 'panel', style: 'padding:10px 14px;margin-bottom:12px' },
+    el('div', { class: 'hero-title' }, 'Clubs de la plateforme'),
+    el('p', { class: 'muted small' }, 'Page dédiée de la console (17i v3) : création des clubs, réglages par club (nom, code PIN, actif), rôles du staff, personnalisation (couleur, logo, défauts de tournoi) et suppression.'),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' },
+      el('a', { href: '/console.html' }, el('button', { class: 'secondary', style: 'font-size:13px' }, '← Console')),
+      el('a', { href: '/super-comptes.html' }, el('button', { class: 'secondary', style: 'font-size:13px' }, '👤 Comptes de la plateforme')))));
+  const slugI = el('input', { placeholder: 'slug (2-30 : lettres minuscules, chiffres, tirets)', maxlength: 30, style: 'width:250px' });
+  const nomI = el('input', { placeholder: 'Nom du club', maxlength: 80, style: 'width:220px' });
+  const pinI = el('input', { placeholder: 'Code PIN du club (4 à 8 chiffres, optionnel)', inputmode: 'numeric', maxlength: 8, style: 'width:270px' });
+  const creer = el('button', { onclick: async () => {
+    const slg = slugI.value.trim().toLowerCase();
+    const nom = nomI.value.trim();
+    if (!slg || !nom) { alert('Slug et nom du club requis.'); return; }
+    try {
+      await adminApi('/api/super/club', { method: 'POST', body: JSON.stringify({ slug: slg, nom, pin: pinI.value.trim() || undefined }) });
+      charger();
+    } catch (e) { alert(e.message); }
+  } }, '➕ Créer un club');
+  main.append(el('div', { class: 'panel' }, el('h2', {}, '🏛️ Clubs de la plateforme'), el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' }, slugI, nomI, pinI, creer)));
+  const thead = el('thead', {}, el('tr', {}, ['Club', 'Actif', 'Code PIN propre', 'Comptes rattachés', 'Créé le', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h))));
+  const tbody = el('tbody', {}, ...clubs.map((c, i) => rowClub(c, i === 0)));
+  const table = el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' }, thead, tbody));
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, `${clubs.length} club(s)`),
+    clubs.length === 0 ? el('p', { class: 'muted' }, 'Aucun club.') : table));
+  main.append(panelPersonnalisation(clubs));
+}
+
+async function init() {
+  const ok = await adminInit(() => {});
+  if (!ok) { renderAdminLogin(main); return; }
+  await charger();
+}
+init();
+</script>
+</body>
+</html>

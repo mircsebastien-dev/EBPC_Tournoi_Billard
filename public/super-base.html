@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>💾 Base de la plateforme - Console</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>💾 Base complète de la plateforme</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+
+// 17i v3: page dédiée sauvegarde/restauration de la base complète, éclatée de la console (17d/17i).
+// Réservée au code global ou à un compte super-admin (routes /api/super/base/*), comme au sein de la console.
+
+// 17i v3: même accès que la console (code global ou session plateforme, un code ou une session
+// de club n y entre jamais), via /api/super/scan qui décorelle du contexte club.
+async function charger() {
+  main.innerHTML = '';
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
+  try {
+    const scan = await adminApi('/api/super/scan');
+    if (!scan || scan.super_admin !== true) throw Object.assign(new Error('zone refusée'), { status: 403 });
+  } catch (e) {
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + (e.status === 403
+      ? 'Page réservée au super-admin de la plateforme : code global ou compte super-admin. Un code de club ou une session de club n y a jamais accès.'
+      : e.message))));
+    return;
+  }
+  main.append(el('div', { class: 'panel', style: 'padding:10px 14px;margin-bottom:12px' },
+    el('div', { class: 'hero-title' }, 'Base complète de la plateforme'),
+    el('p', { class: 'muted small' }, 'Page dédiée de la console (17i v3) : export et restauration de TOUTE la base (tous les clubs, tournois, comptes, matchs, journal), réservés au code global ou à un compte super-admin.'),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' },
+      el('a', { href: '/console.html' }, el('button', { class: 'secondary', style: 'font-size:13px' }, '← Console')))));
+  main.append(panelBase());
+  if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(main);
+}
+
+// 17d/17i: sauvegarde complète de la base, DEPUIS la console uniquement (routes /api/super/base/*)
+function panelBase() {
+  const inp = el('input', { type: 'file', accept: '.json,application/json', style: 'display:none' });
+  inp.addEventListener('change', () => restaurerBase(inp.files && inp.files[0]));
+  return el('div', { class: 'panel', style: 'margin-top:12px' },
+    el('h2', {}, '💾 Base complète de la plateforme : sauvegarde / restauration'),
+    el('p', { class: 'muted small' }, 'Exporte TOUTE la base (tous les clubs, tournois, comptes, matchs, journal) en un fichier JSON, ou restaure la base depuis un fichier. Réservé à la console super-admin. La restauration REMPLACE tout le contenu actuel. Les sauvegardes de club restent dans la page Données de chaque club.'),
+    el('div', { class: 'row', style: 'flex-wrap:wrap' },
+      el('button', { onclick: exporterBase }, '⬇️ Télécharger la sauvegarde (JSON)'),
+      el('button', { class: 'secondary', style: 'margin-left:8px', onclick: () => inp.click() }, '⬆️ Restaurer depuis un fichier…'),
+      inp));
+}
+
+async function exporterBase() {
+  try {
+    const res = await fetch('/api/super/base/export', { headers: adminHeaders() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || ('Erreur ' + res.status)), { status: res.status });
+    const cd = res.headers.get('content-disposition') || '';
+    const nomFichier = (cd.match(/filename="?([^";]+)"?/) || [])[1] || 'base-ebpc.json';
+    const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+    const a = el('a', { href: URL.createObjectURL(blob), download: nomFichier });
+    a.click(); URL.revokeObjectURL(a.href);
+    alert('✅ Sauvegarde téléchargée (' + nomFichier + '). Conserve ce fichier en lieu sûr.');
+  } catch (e) { alert('Export impossible : ' + e.message); }
+}
+
+async function restaurerBase(fichier) {
+  if (!fichier) return;
+  try {
+    const payload = JSON.parse(await fichier.text());
+    if (!confirm('Restaurer "' + fichier.name + '" ? TOUT le contenu actuel de la base sera REMPLACÉ (tous les clubs, tournois, comptes, matchs).')) return;
+    await adminApiDestructif('/api/super/base/import', { method: 'POST', body: JSON.stringify({ payload }) }, 'restaurer toute la base depuis ' + fichier.name);
+    alert('✅ Base restaurée.');
+    location.reload();
+  } catch (e) { alert('Restauration impossible : ' + e.message); }
+}
+
+async function init() {
+  const ok = await adminInit(() => {});
+  if (!ok) { renderAdminLogin(main); return; }
+  await charger();
+}
+init();
+</script>
+</body>
+</html>

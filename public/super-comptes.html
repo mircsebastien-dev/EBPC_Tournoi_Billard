@@ -29,7 +29,8 @@ const clubApi = (path, slug, opts = {}) => adminApi(path, { ...opts, headers: ad
 
 let COMPTES = [], CLUBS = [];
 let filtreTxt = '', filtreClub = '', filtreRole = '';
-let ficheId = null; // compte affiché dans la fiche dédiée
+let ficheId = null; // 17i v3: compte affiché dans la fiche, désormais en modale
+let ficheOverlay = null; // 17i v3: overlay de la modale fiche
 
 const rolePlateformeLabel = (r) => r === 'super_admin' ? '🛡️ super_admin' : (r === 'admin' ? '👑 admin plateforme' : 'user');
 const parseRolesClubs = (rc) => (rc || '').split(', ').filter(Boolean).map(x => { const [slug, role] = x.split(':'); return { slug, role }; });
@@ -58,11 +59,11 @@ function fichePanel(c) {
   const info = (label, valeur) => el('tr', { style: 'border-top:1px solid var(--line)' },
     el('td', { style: 'padding:6px 8px', class: 'muted small' }, label),
     el('td', { style: 'padding:6px 8px' }, valeur));
-  return el('div', { id: 'fiche-compte', class: 'panel', style: 'margin-top:12px' },
+  return el('div', { id: 'fiche-compte', class: 'panel', style: 'max-width:720px;width:92%;max-height:92vh;overflow:auto' },
     el('div', { class: 'row', style: 'align-items:center;gap:8px;flex-wrap:wrap' },
       el('h2', { style: 'margin:0' }, `👤 Fiche de « ${c.pseudo} »`),
       el('span', { class: 'muted small' }, '#' + c.id),
-      el('button', { class: 'secondary', style: 'margin-left:auto;padding:5px 10px;font-size:13px', onclick: () => { ficheId = null; render(); } }, '✖ Fermer la fiche')),
+      el('button', { class: 'secondary', style: 'margin-left:auto;padding:5px 10px;font-size:13px', onclick: fermerFiche }, '✖ Fermer la fiche')),
     el('div', { class: 'row', style: 'align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px' },
       el('span', { class: 'chip' }, rolePlateformeLabel(c.role)),
       ...roles.map(x => el('span', { class: 'chip', title: `rôle sur le club ${x.slug}` }, `${x.slug} : ${x.role === 'admin' ? '👑 admin club' : '🛠 opérateur club'}`))),
@@ -82,7 +83,7 @@ function fichePanel(c) {
       el('div', { class: 'row', style: 'flex-wrap:wrap;align-items:center;gap:8px' },
         selRole,
         el('button', { onclick: async () => {
-          try { await adminApi(`/api/super/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: selRole.value }) }); await charger(); }
+          try { await adminApi(`/api/super/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: selRole.value }) }); await charger(); majFiche(); }
           catch (e) { alert(e.message); }
         } }, '⚙️ Appliquer le rôle plateforme'))),
     el('div', { class: 'panel', style: 'margin-top:8px;padding:10px 14px' },
@@ -94,14 +95,14 @@ function fichePanel(c) {
             el('button', { class: 'secondary', style: 'padding:3px 8px;font-size:12px', onclick: async () => {
               try {
                 await adminApiDestructif('/api/admin/club/compte', { method: 'DELETE', headers: adminHeaders({ 'X-Club': x.slug }), body: JSON.stringify({ compte_id: c.id }) }, `retirer le rôle ${x.role} de ${c.pseudo} sur ${x.slug}`);
-                await charger();
+                await charger(); majFiche();
               } catch (e) { alert(e.message); }
             } }, '✖ Retirer')))),
       el('div', { class: 'row', style: 'flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px' },
         el('span', { class: 'muted small' }, 'Attribuer :'), selClub, selRoleClub,
         el('button', { onclick: async () => {
           if (!selClub.value) { alert('Choisis un club.'); return; }
-          try { await clubApi('/api/admin/club/compte', selClub.value, { method: 'PUT', body: JSON.stringify({ pseudo: c.pseudo, role: selRoleClub.value }) }); await charger(); }
+          try { await clubApi('/api/admin/club/compte', selClub.value, { method: 'PUT', body: JSON.stringify({ pseudo: c.pseudo, role: selRoleClub.value }) }); await charger(); majFiche(); }
           catch (e) { alert(e.message); }
         } }, '➕ Attribuer sur ce club'))));
 }
@@ -128,7 +129,6 @@ function render() {
       el('a', { href: '/console.html', style: 'margin-left:auto' }, el('button', { class: 'secondary', style: 'font-size:13px' }, '← Console')))));
   const zone = el('div', { id: 'liste-comptes' }, el('p', { class: 'muted' }, 'Chargement…'));
   main.append(zone);
-  main.append(el('div', { id: 'zone-fiche' }));
   liste();
 }
 
@@ -146,7 +146,7 @@ function liste() {
   else {
     zone.append(el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' },
       el('thead', {}, el('tr', {}, ['Pseudo', "Club d'attachement", 'Rôle plateforme', 'Rôles club', 'Dernière connexion', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
-      el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line);cursor:pointer', onclick: () => { ficheId = c.id; rafraichirFiche(); } },
+      el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line);cursor:pointer', onclick: () => openFicheModal(c) },
         el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo, el('span', { class: 'muted small', style: 'margin-left:5px' }, '#' + c.id),
           c.role === 'super_admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '🛡️') : null,
           c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑') : null),
@@ -155,22 +155,34 @@ function liste() {
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.roles_clubs || '-'),
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.last_login_at ? String(c.last_login_at).slice(0, 16).replace('T', ' ') : 'jamais'),
         el('td', { style: 'padding:6px 8px;text-align:right' },
-          el('button', { class: ficheId === c.id ? 'danger' : 'secondary', style: 'padding:4px 10px;font-size:13px', onclick: (ev) => { ev.stopPropagation(); ficheId = c.id; rafraichirFiche(); } }, '👤 Fiche'))))))));
+          el('button', { class: 'secondary', style: 'padding:4px 10px;font-size:13px', onclick: (ev) => { ev.stopPropagation(); openFicheModal(c); } }, '👤 Fiche'))))))));
   }
   if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(zone);
-  rafraichirFiche();
 }
 
-function rafraichirFiche() {
-  const z = document.getElementById('zone-fiche');
-  if (!z) return;
-  z.innerHTML = '';
-  if (ficheId == null) return;
+// 17i v3: la fiche quitte le pied de page pour une modale (même geste que les modales 17y/17z).
+function fermerFiche() {
+  if (ficheOverlay) { ficheOverlay.remove(); ficheOverlay = null; }
+  ficheId = null;
+}
+
+// rafraîchit le contenu de la modale sans la refermer (après un changement de rôle par exemple)
+function majFiche() {
+  if (!ficheOverlay) return;
   const c = COMPTES.find(x => x.id === ficheId);
-  if (!c) { ficheId = null; return; }
-  z.append(fichePanel(c));
-  if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(z);
-  z.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (!c) { fermerFiche(); return; }
+  ficheOverlay.innerHTML = '';
+  ficheOverlay.append(fichePanel(c));
+  if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(ficheOverlay);
+}
+
+function openFicheModal(c) {
+  fermerFiche();
+  ficheId = c.id;
+  ficheOverlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+  ficheOverlay.addEventListener('click', (e) => { if (e.target === ficheOverlay) fermerFiche(); });
+  document.body.append(ficheOverlay);
+  majFiche();
 }
 
 async function init() {
