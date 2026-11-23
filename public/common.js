@@ -3467,6 +3467,7 @@ function ouvrirClub17v(slug) {
   try { localStorage.setItem(CLUB_KEY, slug); } catch {}
   try {
     const u17v = new URL(location.href);
+    u17v.searchParams.delete('hub'); // 20b v2: le retour hub (?hub=1) ne survit pas au choix d un club
     u17v.searchParams.set('club', slug);
     location.href = u17v.pathname + u17v.search + u17v.hash;
   } catch { location.href = '/?club=' + encodeURIComponent(slug); }
