@@ -948,6 +948,41 @@ app.get('/api/stats-joueurs', (req, res) => {
   })) });
 });
 
+// ---------- 26a. Classement saison du club : points cumulés des tournois terminés ----------
+// Les points du classement = la profondeur atteinte dans CHAQUE tournoi terminé du club
+// (pointsParTournoi, même mécanique que les stats du tournoi), sommée : les joueurs reviennent
+// d un tournoi à l autre défendre leur place. Identité = compte si connu (rattachement par
+// pseudo au boot), sinon le pseudo ; ?annee= restreint aux tournoi créés cette année (UTC),
+// la réponse liste les années disponibles pour le sélecteur de la page publique.
+function classementSaison(clubId, annee) {
+  const ts26 = db.prepare(annee
+    ? "SELECT id, nom, champion_id, created_at FROM tournoi WHERE club_id = ? AND statut = 'termine' AND strftime('%Y', created_at) = ? ORDER BY id"
+    : "SELECT id, nom, champion_id, created_at FROM tournoi WHERE club_id = ? AND statut = 'termine' ORDER BY id")
+    .all(...(annee ? [clubId, annee] : [clubId]));
+  const parIdentite26 = new Map();
+  for (const tr of ts26) {
+    const pts26 = pointsParTournoi(tr.id);
+    for (const j of db.prepare('SELECT id, pseudo, compte_id FROM joueur WHERE tournoi_id = ?').all(tr.id)) {
+      const cle26 = j.compte_id != null ? 'c' + j.compte_id : 'p' + String(j.pseudo).toLowerCase();
+      let e26 = parIdentite26.get(cle26);
+      if (!e26) { e26 = { pseudo: j.pseudo, points: 0, tournois: 0, titres: 0, dernier: null, idDernier: null }; parIdentite26.set(cle26, e26); }
+      e26.points += pts26[j.id] || 0;
+      e26.tournois += 1;
+      if (tr.champion_id === j.id) e26.titres += 1;
+      if (!e26.dernier || String(tr.created_at) > e26.dernier) { e26.dernier = tr.created_at; e26.pseudo = j.pseudo; e26.idDernier = j.id; } // dernier joué : pseudo et fiche courants (renommé 23a)
+    }
+  }
+  const liste26 = [...parIdentite26.values()]
+    .sort((a, b) => (b.points - a.points) || (b.titres - a.titres) || (b.tournois - a.tournois) || String(a.pseudo).localeCompare(String(b.pseudo)));
+  return liste26.map((e, i) => ({ rang: i + 1, pseudo: e.pseudo, points: e.points, tournois: e.tournois, titres: e.titres, dernier: e.dernier, id: e.idDernier }));
+}
+app.get('/api/classement-saison', (req, res) => {
+  let annee26 = null;
+  if (req.query.annee != null && /^\d{4}$/.test(String(req.query.annee).trim())) annee26 = String(req.query.annee).trim();
+  const annees26 = db.prepare("SELECT DISTINCT strftime('%Y', created_at) a FROM tournoi WHERE club_id = ? AND statut = 'termine' ORDER BY a DESC").all(req.club.id).map((r) => r.a);
+  res.json({ classement: classementSaison(req.club.id, annee26), annees: annees26 });
+});
+
 app.get('/api/events', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
