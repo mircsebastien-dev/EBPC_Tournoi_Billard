@@ -1275,6 +1275,34 @@ app.post('/api/admin/joueur/:id/paiement', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// 23a: remplacer un joueur APRÈS le tirage (le remplaçant prend la place, bracket et matchs inchangés)
+app.post('/api/admin/joueur/:id/remplace', requireAdmin, (req, res) => { // routine comme l édition du pseudo: pas de re-confirmation PIN
+  const t = tournoiActif(req.club.id);
+  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  if (t.statut !== 'en_cours') return res.status(409).json({ error: 'Phase inscriptions : retire le joueur et inscris le remplaçant' });
+  const j = joueurDuClub(req, req.params.id);
+  if (!j || j.tournoi_id !== t.id) return res.status(404).json({ error: 'Joueur introuvable' });
+  const joue = db.prepare("SELECT COUNT(*) c FROM match WHERE tournoi_id = ? AND (joueur1_id = ? OR joueur2_id = ?) AND etat IN ('en_cours', 'termine', 'forfait')").get(t.id, j.id, j.id).c;
+  if (joue > 0) return res.status(409).json({ error: `${j.pseudo} a déjà un match lancé ou terminé : impossible de remplacer` });
+  const pseudo = cleanPseudo(req.body.pseudo, 40);
+  if (!pseudo) return res.status(400).json({ error: 'Pseudo du remplaçant requis' });
+  const pris = db.prepare('SELECT id FROM joueur WHERE tournoi_id = ? AND pseudo = ? COLLATE NOCASE AND id != ?').get(j.tournoi_id, pseudo, j.id);
+  if (pris) return res.status(409).json({ error: 'Pseudo déjà pris dans ce tournoi' });
+  // pseudo d un compte = réservé: confirmation explicite puis rattachement du remplaçant au compte (même mécanique que l ajout admin)
+  const cReserve = compteAvecPseudo(pseudo); // 17u: réservé sur TOUTE la plateforme
+  if (cReserve && cReserve.id !== j.compte_id && !req.body.confirme) {
+    // exception implicite conservée: l alignement sur SON propre compte passe sans confirmation (même règle que l édition)
+    return res.status(409).json({ error: `Le pseudo « ${pseudo} » appartient à un compte : remplacer quand même ?`, compte_pseudo: true });
+  }
+  const compte = cReserve ? cReserve.id : null; // le remplaçant devient titulaire du pseudo: les notifs et liens de compte suivent
+  db.prepare('UPDATE joueur SET pseudo = ?, compte_id = ? WHERE id = ?').run(pseudo, compte, j.id);
+  logAuditReq(req, 'joueur_remplace', `joueur ${j.id}`, { pseudo: j.pseudo, compte_id: j.compte_id }, { pseudo, compte_id: compte, statut: j.statut, tete_de_serie: j.tete_de_serie });
+  // push « inscription d un ami » au titre du remplaçant (même comportement que l ajout admin)
+  try { push.notifierInscriptionAmi(compte, pseudo, t.nom, req.club.id); } catch (e) { console.error('[PUSH] notifierInscriptionAmi:', e.message); }
+  majEtBroadcast();
+  res.json({ ok: true, joueur: db.prepare('SELECT * FROM joueur WHERE id = ?').get(j.id) });
+});
+
 app.post('/api/admin/tirage', requireAdmin, (req, res) => {
   const t = tournoiActif(req.club.id);
   if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });

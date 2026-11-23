@@ -244,6 +244,8 @@ function renderInscriptions(t) {
 
 /* ---------- 17y. Fiche joueur en modale : gestion au clic sur la puce d un inscrit ---------- */
 function openFicheJoueur(j, t) {
+  // 23a: pendant le tournoi, la fiche devient le remplacement (paiement et retrait n ont plus de sens après le tirage)
+  const enCours23a = !!(t && t.tournoi && t.tournoi.statut === 'en_cours');
   const tdsTxt = j.tete_de_serie ? `Tête de série ${j.tete_de_serie} · ` : ''; // info du tournoi, pas éditable ici
   const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
   const fermer = () => overlay.remove();
@@ -252,7 +254,7 @@ function openFicheJoueur(j, t) {
   overlay.append(el('div', { class: 'panel', style: 'max-width:440px;width:92%;max-height:92vh;overflow:auto' },
     el('h3', {}, `👤 Gérer « ${j.pseudo} »`),
     el('p', { class: 'muted small' }, `${tdsTxt}${j.statut === 'paye' ? 'payé' : 'en attente de paiement'}${t && t.tournoi ? ' · ' + t.tournoi.nom : ''}`),
-    el('div', { style: 'margin:12px 0' },
+    enCours23a ? null : el('div', { style: 'margin:12px 0' },
       el('label', { class: 'small muted' }, 'Pseudo (le pseudo d un compte existant est réservé)'),
       el('div', { class: 'row', style: 'margin-top:4px' }, pseudoI,
         el('button', { class: 'secondary', style: 'margin-left:8px', onclick: async () => {
@@ -262,13 +264,32 @@ function openFicheJoueur(j, t) {
           catch (e) { alert(e.message); return; }
           apres();
         } }, 'Enregistrer'))),
-    el('div', { style: 'margin:12px 0' },
+    enCours23a ? el('div', { style: 'margin:12px 0' },
+      el('label', { class: 'small muted' }, 'Remplacer par (place, paiement et tête de série conservés)'),
+      el('div', { class: 'row', style: 'margin-top:4px' },
+        el('input', { id: 'remp23a', maxlength: 40, placeholder: 'Pseudo du remplaçant', style: 'width:100%' }),
+        el('button', { style: 'margin-left:8px', onclick: async () => {
+          const p = document.getElementById('remp23a').value.trim();
+          if (!p || p === j.pseudo) return;
+          try { await adminApi(`/api/admin/joueur/${j.id}/remplace`, { method: 'POST', body: JSON.stringify({ pseudo: p }) }); }
+          catch (e) {
+            // pseudo d un compte existant: confirmation explicite avant de rattacher le remplaçant au compte
+            if (e.data && e.data.compte_pseudo) {
+              if (confirm(`Un compte existe déjà avec le pseudo « ${p} ».\n\nRemplacer quand même ? Le remplaçant sera rattaché à ce compte (notifications « à toi de jouer » et amis incluses).`)) {
+                try { await adminApi(`/api/admin/joueur/${j.id}/remplace`, { method: 'POST', body: JSON.stringify({ pseudo: p, confirme: true }) }); }
+                catch (e2) { alert(e2.message); return; }
+              } else return;
+            } else { alert(e.message); return; }
+          }
+          apres();
+        } }, 'Remplacer'))) : null,
+    enCours23a ? null : el('div', { style: 'margin:12px 0' },
       el('label', { class: 'small muted' }, 'Inscription (phase inscriptions)'),
       el('div', { style: 'margin-top:4px' },
         j.statut === 'paye'
           ? el('button', { class: 'secondary', style: 'width:100%', onclick: async () => { try { await adminApi(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: JSON.stringify({ statut: 'en_attente' }) }); } catch (e) { alert(e.message); return; } apres(); } }, 'payé annuler')
           : el('button', { style: 'width:100%', onclick: async () => { try { await adminApi(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: JSON.stringify({ statut: 'paye' }) }); } catch (e) { alert(e.message); return; } apres(); } }, 'marquer payé'))),
-    el('div', { style: 'margin:12px 0' }, el('button', { class: 'danger', style: 'width:100%', onclick: async () => {
+    enCours23a ? null : el('div', { style: 'margin:12px 0' }, el('button', { class: 'danger', style: 'width:100%', onclick: async () => {
       if (!confirmer(`Retirer ${j.pseudo} du tournoi ?`)) return;
       try { await adminApi(`/api/admin/joueur/${j.id}`, { method: 'DELETE' }); } catch (e) { alert(e.message); return; }
       apres();
@@ -288,6 +309,13 @@ function renderTournoi(t) {
     el('div', { class: 'row' },
       el('span', { class: 'chip' }, `${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués`)),
     t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, ['🏆 Champion : ', t.champion.pseudo]) : null));
+
+  // 23a: pendant le tournoi, chaque joueur reste gérable (remplacement post-tirage) depuis sa puce
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, '👥 Joueurs'),
+    el('div', { class: 'liste-joueurs' },
+      t.joueurs.map(j => el('span', { class: 'chip', style: 'cursor:pointer', title: 'Gérer ' + j.pseudo + ' (remplacement après tirage)', onclick: () => openFicheJoueur(j, t) }, `${j.tete_de_serie ? '#' + j.tete_de_serie + ' ' : ''}${j.pseudo}`)))));
+
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🎱 Tables disponibles'),
