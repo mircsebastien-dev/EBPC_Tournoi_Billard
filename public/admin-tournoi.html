@@ -337,14 +337,11 @@ function renderTournoi(t) {
   if (prets.length > 0) {
     const p = el('div', { class: 'panel' }, el('h2', {}, `⏳ Prêts à lancer (${prets.length})`));
     for (const m of prets) {
-      const occupees = new Set(t.matchs.filter(mm => mm.etat === 'en_cours' && mm.table != null).map(mm => mm.table));
-      const sel = el('select', { id: `table-${m.id}`, style: 'width:auto' },
-        el('option', { value: '' }, '🎱 Table auto (libre)'),
-        t.tables.map(tb => el('option', { value: tb.id, ...(occupees.has(tb.numero) ? { disabled: '' } : {}) }, `Table ${tb.numero}${occupees.has(tb.numero) ? ' (occupée)' : ''}`)));
+      // 24a: la table et le Lancer vivent dans la modale, la ligne reste compacte
       p.append(el('div', { class: 'match-admin' },
         el('div', { style: 'font-weight:700;font-size:16px' }, `${m.joueur1 ? m.joueur1.pseudo : '—'} vs ${m.joueur2 ? m.joueur2.pseudo : '—'}`),
         el('div', { class: 'muted small' }, [m.bracket === 'WB' ? 'Tour' : m.bracket === 'LB' ? 'Loser bracket' : 'Tableau final', ` ${m.tour} · race to ${m.manches}`]),
-        el('div', { class: 'actions' }, sel, el('button', { onclick: () => lancer(m.id, sel.value ? Number(sel.value) : null) }, '▶ Lancer'))));
+        el('div', { class: 'actions' }, el('button', { class: 'secondary', onclick: () => openGestion24a(m) }, '⚙️ Gérer'))));
     }
     main.append(p);
   }
@@ -352,13 +349,10 @@ function renderTournoi(t) {
   if (enCours.length > 0) {
     const p = el('div', { class: 'panel' }, el('h2', {}, `🔴 En cours (${enCours.length})`));
     for (const m of enCours) {
+      // 24a: un seul bouton par carte, les actions vivent dans la modale
       p.append(el('div', { class: 'match-admin' },
         matchCard(m, { t }),
-        el('div', { class: 'actions' },
-          el('button', { class: 'secondary', onclick: () => corriger(m) }, 'Corriger'),
-          m.score1 === 0 && m.score2 === 0 ? el('button', { class: 'secondary', onclick: () => suspendre(m) }, '⏸ Suspendre') : null, // 23b: match lancé 0-0 mis en attente (table libérée, remplacement débloqué)
-          el('button', { class: 'danger', onclick: () => forfait(m, m.joueur1.id) }, `${m.joueur1 ? m.joueur1.pseudo : ''} forfait`),
-          el('button', { class: 'danger', onclick: () => forfait(m, m.joueur2.id) }, `${m.joueur2 ? m.joueur2.pseudo : ''} forfait`))));
+        el('div', { class: 'actions' }, el('button', { class: 'secondary', onclick: () => openGestion24a(m) }, '⚙️ Gérer'))));
     }
     main.append(p);
   }
@@ -398,6 +392,39 @@ function renderTournoi(t) {
   async function suspendre(m) { // 23b: match 0-0 remis en attente, table libérée, le joueur redevient remplaçable (23a)
     if (!confirmer(`Suspendre ${m.joueur1 ? m.joueur1.pseudo : ''} vs ${m.joueur2 ? m.joueur2.pseudo : ''} ? Le match repasse à 0-0 en attente de lancement, sa table est libérée, la manche entamée est à rejouer.`)) return;
     try { await adminApi(`/api/admin/match/${m.id}/suspendre`, { method: 'POST', body: '{}' }); } catch (e) { alert(e.message); }
+  }
+  function openGestion24a(m) { // 24a: toutes les actions du match regroupées en modale (plus de pile de boutons sous chaque carte)
+    const estEnCours = m.etat === 'en_cours';
+    const occupees = new Set(t.matchs.filter(mm => mm.etat === 'en_cours' && mm.table != null).map(mm => mm.table));
+    const sel = el('select', { id: `table-${m.id}`, style: 'width:auto' },
+      el('option', { value: '' }, '🎱 Table auto (libre)'),
+      t.tables.map(tb => el('option', { value: tb.id, ...(occupees.has(tb.numero) ? { disabled: '' } : {}) }, `Table ${tb.numero}${occupees.has(tb.numero) ? ' (occupée)' : ''}`)));
+    const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
+    const fermer = () => overlay.remove(); // l état revient par la diffusion serveur (SSE), même pattern que la fiche joueur 17y
+    overlay.append(el('div', { class: 'panel', style: 'max-width:440px;width:92%;max-height:92vh;overflow:auto' },
+      el('h3', {}, `⚙️ ${m.bracket}${m.tour} · ${m.joueur1 ? m.joueur1.pseudo : ''} vs ${m.joueur2 ? m.joueur2.pseudo : ''}`),
+      el('p', { class: 'muted small' }, `${estEnCours ? 'En cours' : 'Prêt à lancer'} · ${m.score1}-${m.score2} · race to ${m.manches}${m.table != null ? ' · table ' + m.table : ''}`),
+      estEnCours ? null : el('div', { style: 'margin:12px 0' },
+        el('label', { class: 'small muted' }, 'Table'),
+        el('div', { class: 'row', style: 'margin-top:4px' }, sel,
+          el('button', { style: 'margin-left:8px', onclick: () => { lancer(m.id, sel.value ? Number(sel.value) : null); fermer(); } }, '▶ Lancer'))),
+      estEnCours ? el('div', { style: 'margin:12px 0' },
+        el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' },
+          el('button', { class: 'secondary', onclick: () => { corriger(m); } }, 'Corriger'),
+          m.score1 === 0 && m.score2 === 0 ? el('button', { class: 'secondary', onclick: () => { suspendre(m); } }, '⏸ Suspendre') : null, // 23b: possible seulement à 0 manche jouée
+          el('button', { class: 'danger', onclick: () => { forfait(m, m.joueur1.id); } }, `${m.joueur1 ? m.joueur1.pseudo : ''} forfait`),
+          el('button', { class: 'danger', onclick: () => { forfait(m, m.joueur2.id); } }, `${m.joueur2 ? m.joueur2.pseudo : ''} forfait`))) : null,
+      el('div', { style: 'margin:12px 0' }, el('button', { class: 'secondary', style: 'width:100%', onclick: async () => { // 24a: lien public du match (même URL que les notifications push)
+        try {
+          const cp = clubParam17s(); // 17s: le club courant dans l URL
+          const url = location.origin + '/match.html?id=' + m.id + (cp ? '&' + cp : '');
+          try { await navigator.clipboard.writeText(url); alert('Lien du match copié :\n\n' + url); }
+          catch (e) { prompt('Copie le lien du match :', url); }
+        } catch (e) { alert(e.message); }
+      } }, '🔗 Partager le match')),
+      el('div', { class: 'row', style: 'justify-content:flex-end;margin-top:12px' }, el('button', { class: 'secondary', onclick: fermer }, 'Fermer'))));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(); });
+    document.body.append(overlay);
   }
   function corriger(m) {
     const s1 = prompt(`Score de ${m.joueur1 ? m.joueur1.pseudo : 'J1'} (0-${m.manches}) :`, String(m.score1));

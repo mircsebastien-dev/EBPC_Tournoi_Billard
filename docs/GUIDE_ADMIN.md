@@ -48,6 +48,8 @@ Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly) **ou** co
 
 Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / rouvrir / forfait**.
 
+Dans la table de marque, les cartes des panneaux « ⏳ Prêts à lancer » et « 🔴 En cours » ne portent plus qu un bouton « ⚙️ Gérer » ouvrant la même logique en modale (24a) : choix de la table et ▶ Lancer pour un match prêt, Corriger / ⏸ Suspendre / forfaits pour un match en cours, plus « 🔗 Partager le match ».
+
 | Action | Comment | Impacts | Risques |
 |---|---|---|---|
 | **Changer les joueurs** (👥, WB ou LB, blanc possible) | `POST /admin/match/:id/joueurs` | Maj immédiate, broadcast SSE, audit. Blanc sur match `prevu` → bye auto (uniquement si le feeder du côté blanc est terminé) | **409 automatique** si la paire est déjà appariée (jouée ou prévue) dans un autre match, hors finale — le rematch est impossible |
@@ -55,7 +57,8 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 | **Corriger le score** (✏️) | `POST /admin/match/:id/correction` (scores absolus) | Si la distance est atteinte → le match se termine et propage le gagnant | ⚠️ Si le match était terminé, l'aval est annulé en cascade (voir rouvrir) |
 | **Rouvrir un match** (🔓) | `POST /admin/match/:id/rouvrir` | **409 interdit si un match aval a déjà commencé/reçu un joueur** | Corriger alors à la main les matchs suivants (joueurs/score) |
 | **Forfait** (🚫) | `POST /admin/match/:id/forfait` (joueur perdant) | Le gagnant (l'autre) propage, le perdant part en LB (DKO) | Le forfait est définitif dans l'historique |
-| **Suspendre un match 0-0** (⏸) | bouton du panneau « 🔴 En cours » de la table de marque (`POST /admin/match/:id/suspendre`) | Le match repasse pret à 0-0, table libérée, relançable plus tard depuis « ⏳ Prêts à lancer » ; la manche entamée est à rejouer | Seulement si aucune manche n est terminée ; cas d usage : suspendre le match d un joueur absent, le remplacer (23a), puis relancer |
+| **Suspendre un match 0-0** (⏸) | bouton de la modale « ⚙️ Gérer » (table de marque, `POST /admin/match/:id/suspendre`) | Le match repasse pret à 0-0, table libérée, relançable plus tard depuis « ⏳ Prêts à lancer » ; la manche entamée est à rejouer | Seulement si aucune manche n est terminée ; cas d usage : suspendre le match d un joueur absent, le remplacer (23a), puis relancer |
+| **Partager un match** (🔗) | bouton de la modale « ⚙️ Gérer » (24a) | Copie le lien public /match.html?id=..&club=.. (même lien que les notifications push), repli fenêtre Copier | Aucun : page publique en lecture seule |
 
 ⚠️ **Règles structurelles à connaître** (DKO) : WB et LB ne se croisent qu'en finale ; swap anti-rematch automatique sur **tous les tours WB/LB/F** à chaque propagation (tant qu'un match partenaire du tour permet un échange propre).
 
