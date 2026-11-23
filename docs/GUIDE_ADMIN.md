@@ -58,7 +58,7 @@ Dans la table de marque, les cartes des panneaux « ⏳ Prêts à lancer » et �
 | **Rouvrir un match** (🔓) | `POST /admin/match/:id/rouvrir` | **409 interdit si un match aval a déjà commencé/reçu un joueur** | Corriger alors à la main les matchs suivants (joueurs/score) |
 | **Forfait** (🚫) | `POST /admin/match/:id/forfait` (joueur perdant) | Le gagnant (l'autre) propage, le perdant part en LB (DKO) | Le forfait est définitif dans l'historique |
 | **Suspendre un match 0-0** (⏸) | bouton de la modale « ⚙️ Gérer » (table de marque, `POST /admin/match/:id/suspendre`) | Le match repasse pret à 0-0, table libérée, relançable plus tard depuis « ⏳ Prêts à lancer » ; la manche entamée est à rejouer | Seulement si aucune manche n est terminée ; cas d usage : suspendre le match d un joueur absent, le remplacer (23a), puis relancer |
-| **Partager un match** (🔗) | bouton de la modale « ⚙️ Gérer » (24a) | Copie le lien public /match.html?id=..&club=.. (même lien que les notifications push), repli fenêtre Copier | Aucun : page publique en lecture seule |
+| **Partager un match** (🔗) | bouton de la modale « ⚙️ Gérer » (24a) | Copie le lien public /match.html?id=..&club=.. (même lien que les notifications push), repli fenêtre Copier | Aucun : page publique en lecture seule, consultable par tout le monde sans compte ni session (24b), la saisie restant réservée aux joueurs et à la table de marque |
 
 ⚠️ **Règles structurelles à connaître** (DKO) : WB et LB ne se croisent qu'en finale ; swap anti-rematch automatique sur **tous les tours WB/LB/F** à chaque propagation (tant qu'un match partenaire du tour permet un échange propre).
 

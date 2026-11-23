@@ -165,6 +165,8 @@ function rafraichirThemeClub() {
         }
         // 17r. Badge du club courant dans le bandeau (hors TV, jamais ici ; hors console super-admin) :
         // on voit TOUJOURS le nom du club qu on regarde, la multi-club ne doit jamais être invisible
+        // 24b: posé DANS le h1 (en fin de ligne, côte à côte du logo d en-tête) pour rester sur la même ligne
+        // que l icône en colonne mobile au lieu d être empilé dessous (retour Sébastien : icône à gauche, club à droite)
         if (th.slug && th.nom && !location.pathname.startsWith('/console.html')) {
           let bd17r = document.getElementById('club-badge-17r');
           if (!bd17r) {
@@ -172,8 +174,8 @@ function rafraichirThemeClub() {
             if (!h1b17r) return; // pas de bandeau sur cette page (le badge est purement indicatif)
             bd17r = document.createElement('span');
             bd17r.id = 'club-badge-17r';
-            bd17r.style.cssText = 'margin-left:10px;padding:2px 10px;border-radius:99px;font-size:.72em;font-weight:700;border:1px solid var(--pink);color:var(--pink);white-space:nowrap;vertical-align:middle';
-            h1b17r.after(bd17r);
+            bd17r.style.cssText = 'margin-left:10px;padding:2px 10px;border-radius:99px;font-size:.72em;font-weight:700;border:1px solid var(--pink);color:var(--pink);white-space:nowrap;vertical-align:middle;max-width:58vw;overflow:hidden;text-overflow:ellipsis';
+            h1b17r.append(bd17r); // 24b: dans le titre (plus jamais un frère sous le h1, empilé en colonne mobile)
           }
           if (bd17r.textContent !== th.nom) bd17r.textContent = th.nom;
         }

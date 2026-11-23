@@ -76,9 +76,11 @@ header.top {
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
+/* 24b: dégradé restitué (perdu dans la réécriture cosmétique du 13/11) : sans la ligne background:,
+   background-clip: text + color: transparent rendaient le titre du bandeau invisible sur toutes les pages */
 header.top h1 {
   font-size: 19px; margin: 0; letter-spacing: 0.02em; font-weight: 800;
-  color: var(--pink-soft);
+  background: linear-gradient(90deg, var(--pink), var(--pink-soft));
   -webkit-background-clip: text; background-clip: text; color: transparent;
   white-space: nowrap;
 }
