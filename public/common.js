@@ -165,19 +165,31 @@ function rafraichirThemeClub() {
         }
         // 17r. Badge du club courant dans le bandeau (hors TV, jamais ici ; hors console super-admin) :
         // on voit TOUJOURS le nom du club qu on regarde, la multi-club ne doit jamais être invisible
-        // 24b: posé DANS le h1 (en fin de ligne, côte à côte du logo d en-tête) pour rester sur la même ligne
-        // que l icône en colonne mobile au lieu d être empilé dessous (retour Sébastien : icône à gauche, club à droite)
+        // 24b/24c: sur les pages dont le titre est la marque générique « 🎱 Pink City Billard », le club
+        // EST la marque (retour Sébastien) : le titre devient le nom du club, l icône reste en haut à gauche
+        // sur la même ligne et le badge est retiré (il ne ferait que doubler le titre) ; sur les pages au
+        // titre descriptif le titre reste et le badge se place DANS le titre en fin de ligne (24b, jamais empilé)
         if (th.slug && th.nom && !location.pathname.startsWith('/console.html')) {
-          let bd17r = document.getElementById('club-badge-17r');
-          if (!bd17r) {
-            const h1b17r = document.querySelector('header.top h1');
-            if (!h1b17r) return; // pas de bandeau sur cette page (le badge est purement indicatif)
-            bd17r = document.createElement('span');
-            bd17r.id = 'club-badge-17r';
-            bd17r.style.cssText = 'margin-left:10px;padding:2px 10px;border-radius:99px;font-size:.72em;font-weight:700;border:1px solid var(--pink);color:var(--pink);white-space:nowrap;vertical-align:middle;max-width:58vw;overflow:hidden;text-overflow:ellipsis';
-            h1b17r.append(bd17r); // 24b: dans le titre (plus jamais un frère sous le h1, empilé en colonne mobile)
+          const h1b17r = document.querySelector('header.top h1');
+          if (h1b17r) {
+            if (h1b17r.textContent.trim() === '🎱 Pink City Billard') { // 24c: marque générique -> nom du club
+              const chip24c = document.getElementById('logo-entete-club');
+              if (chip24c) chip24c.remove(); // textContent efface les enfants: le logo d en-tête repart après
+              h1b17r.textContent = th.nom;
+              if (chip24c) h1b17r.prepend(chip24c);
+              const bd24c = document.getElementById('club-badge-17r');
+              if (bd24c) bd24c.remove(); // 24c: plus de badge, le nom du club est le titre
+            } else {
+              let bd17r = document.getElementById('club-badge-17r');
+              if (!bd17r) {
+                bd17r = document.createElement('span');
+                bd17r.id = 'club-badge-17r';
+                bd17r.style.cssText = 'margin-left:10px;padding:2px 10px;border-radius:99px;font-size:.72em;font-weight:700;border:1px solid var(--pink);color:var(--pink);white-space:nowrap;vertical-align:middle;max-width:58vw;overflow:hidden;text-overflow:ellipsis';
+                h1b17r.append(bd17r); // 24b: dans le titre (plus jamais un frère sous le h1, empilé en colonne mobile)
+              }
+              if (bd17r.textContent !== th.nom) bd17r.textContent = th.nom;
+            }
           }
-          if (bd17r.textContent !== th.nom) bd17r.textContent = th.nom;
         }
       } catch {}
     }).catch(() => {});
