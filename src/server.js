@@ -1282,7 +1282,7 @@ app.post('/api/admin/joueur/:id/remplace', requireAdmin, (req, res) => { // rout
   if (t.statut !== 'en_cours') return res.status(409).json({ error: 'Phase inscriptions : retire le joueur et inscris le remplaçant' });
   const j = joueurDuClub(req, req.params.id);
   if (!j || j.tournoi_id !== t.id) return res.status(404).json({ error: 'Joueur introuvable' });
-  const joue = db.prepare("SELECT COUNT(*) c FROM match WHERE tournoi_id = ? AND (joueur1_id = ? OR joueur2_id = ?) AND etat IN ('en_cours', 'termine', 'forfait')").get(t.id, j.id, j.id).c;
+  const joue = db.prepare("SELECT COUNT(*) c FROM match WHERE tournoi_id = ? AND (joueur1_id = ? OR joueur2_id = ?) AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat IN ('en_cours', 'termine', 'forfait')").get(t.id, j.id, j.id).c; // matchs REELS: une qualification par bye (adversaire absent) n est pas un match joué
   if (joue > 0) return res.status(409).json({ error: `${j.pseudo} a déjà un match lancé ou terminé : impossible de remplacer` });
   const pseudo = cleanPseudo(req.body.pseudo, 40);
   if (!pseudo) return res.status(400).json({ error: 'Pseudo du remplaçant requis' });
