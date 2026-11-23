@@ -261,11 +261,16 @@ table.audit th { color: var(--muted); }
 .tv-live-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; width: 100%; max-width: 1400px; margin: 10px auto 0; }
 .tv-live-cell { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; text-align: left; }
 .tv-live-cell.on { border-color: var(--pink); box-shadow: 0 0 18px rgba(214,51,108,.22); }
-.tv-live-cell .cell-code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 700; color: var(--pink-soft); display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.tv-live-cell .cell-code { font-family: ui-monospace, Menlo, monospace; font-size: calc(12px * var(--tvs, 1)); font-weight: 700; color: var(--pink-soft); display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .tv-live-cell .cell-race { color: #fff; font-family: inherit; }
-.tv-live-cell .cell-vs { font-size: clamp(15px, 2.2vw, 26px); font-weight: 800; margin: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tv-live-cell .cell-score { font-size: clamp(20px, 3.4vw, 40px); font-weight: 900; color: var(--gold); }
-.tv-live-cell .cell-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.tv-live-cell .cell-vs { font-size: calc(clamp(15px, 2.2vw, 26px) * var(--tvs, 1)); font-weight: 800; margin: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-live-cell .cell-score { font-size: calc(clamp(20px, 3.4vw, 40px) * var(--tvs, 1)); font-weight: 900; color: var(--gold); }
+.tv-live-cell .cell-meta { color: var(--muted); font-size: calc(12px * var(--tvs, 1)); margin-top: 2px; }
+/* 21a: cartes adaptées au nombre de matchs de la page (data-cols posé par tv.html, échelle --tvs sur la grille) */
+.tv-live-grid[data-cols="1"] { grid-template-columns: repeat(1, 1fr); max-width: 1000px; }
+.tv-live-grid[data-cols="2"] { grid-template-columns: repeat(2, 1fr); max-width: 1250px; }
+.tv-live-grid[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) { .tv-live-grid[data-cols] { grid-template-columns: repeat(2, 1fr); max-width: none; } }
 @media (max-width: 900px) { .tv-live-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (orientation: landscape) and (max-width: 900px) { .tv-live-grid { grid-template-columns: repeat(4, 1fr); } .tv-live-cell .cell-vs { font-size: clamp(12px, 2.6vw, 18px); } .tv-live-cell .cell-score { font-size: clamp(16px, 4vw, 28px); } }
 /* smartphone : slides plus compacts */

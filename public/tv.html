@@ -95,7 +95,7 @@ const dotsEl = document.getElementById('dots');
 let state = null;
 let slideIdx = 0;
 let timer = null;
-const SLIDE_MS = 6000;
+const SLIDE_MS = 20000; // 21a: au moins 20 s entre chaque défilement de page TV (une page seule ne tourne pas)
 
 function slidesList() {
   const t = state && state.actif;
@@ -104,7 +104,7 @@ function slidesList() {
   // TV = uniquement les matchs EN COURS (plus de slide « prochains matchs »)
   const enCours = t.matchs.filter(m => m.etat === 'en_cours');
   const slides = [];
-  const LIVE_PAR_PAGE = 8;
+  const LIVE_PAR_PAGE = 12; // 21a: jusqu à 12 matchs en parallèle acceptés sur une page (grille + textes redimensionnés)
   for (let i = 0; i < enCours.length; i += LIVE_PAR_PAGE) {
     slides.push({ type: 'live-group', items: enCours.slice(i, i + LIVE_PAR_PAGE), page: Math.floor(i / LIVE_PAR_PAGE) + 1, total: Math.ceil(enCours.length / LIVE_PAR_PAGE) });
   }
@@ -132,6 +132,10 @@ function render() {
     const div = el('div', { class: 'slide' + (i === slideIdx ? ' on' : '') });
     if (s.type === 'live-group') {
       const grid = el('div', { class: 'tv-live-grid' });
+      // 21a: taille des cartes adaptée au nombre de matchs de la page (1-2: 1 colonne, 3-4: 2, 5-6: 3, 7-12: 4 ; --tvs resserre les textes au-delà de 8)
+      const nb21a = s.items.length;
+      grid.dataset.cols = String(nb21a <= 2 ? Math.max(1, nb21a) : nb21a <= 4 ? 2 : nb21a <= 6 ? 3 : 4);
+      grid.style.setProperty('--tvs', nb21a <= 4 ? '1.15' : nb21a <= 8 ? '1' : '0.78');
       for (const m of s.items) {
         const r = t.rounds.find(rr => rr.bracket === m.bracket && rr.tour === m.tour);
         grid.append(el('div', { class: 'tv-live-cell' + (m.etat === 'en_cours' ? ' on' : '') },
