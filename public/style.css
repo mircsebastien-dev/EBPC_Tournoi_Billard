@@ -271,6 +271,9 @@ table.audit th { color: var(--muted); }
 .tv-live-grid[data-cols="2"] { grid-template-columns: repeat(2, 1fr); max-width: 1250px; }
 .tv-live-grid[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 900px) { .tv-live-grid[data-cols] { grid-template-columns: repeat(2, 1fr); max-width: none; } }
+/* 21a v2: les grandes cartes (1-2 colonnes) centrent leur contenu, le texte ne masse plus à gauche */
+.tv-live-grid[data-cols="1"] .tv-live-cell, .tv-live-grid[data-cols="2"] .tv-live-cell { text-align: center; padding: 18px 28px; }
+.tv-live-grid[data-cols="1"] .tv-live-cell .cell-code, .tv-live-grid[data-cols="2"] .tv-live-cell .cell-code { justify-content: center; gap: 18px; }
 @media (max-width: 900px) { .tv-live-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (orientation: landscape) and (max-width: 900px) { .tv-live-grid { grid-template-columns: repeat(4, 1fr); } .tv-live-cell .cell-vs { font-size: clamp(12px, 2.6vw, 18px); } .tv-live-cell .cell-score { font-size: clamp(16px, 4vw, 28px); } }
 /* smartphone : slides plus compacts */

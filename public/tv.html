@@ -135,7 +135,7 @@ function render() {
       // 21a: taille des cartes adaptée au nombre de matchs de la page (1-2: 1 colonne, 3-4: 2, 5-6: 3, 7-12: 4 ; --tvs resserre les textes au-delà de 8)
       const nb21a = s.items.length;
       grid.dataset.cols = String(nb21a <= 2 ? Math.max(1, nb21a) : nb21a <= 4 ? 2 : nb21a <= 6 ? 3 : 4);
-      grid.style.setProperty('--tvs', nb21a <= 4 ? '1.15' : nb21a <= 8 ? '1' : '0.78');
+      grid.style.setProperty('--tvs', nb21a <= 2 ? '2' : nb21a <= 4 ? '1.6' : nb21a <= 6 ? '1.25' : nb21a <= 8 ? '1' : '0.78'); // 21a v2: le texte suit vraiment la taille de la carte
       for (const m of s.items) {
         const r = t.rounds.find(rr => rr.bracket === m.bracket && rr.tour === m.tour);
         grid.append(el('div', { class: 'tv-live-cell' + (m.etat === 'en_cours' ? ' on' : '') },
