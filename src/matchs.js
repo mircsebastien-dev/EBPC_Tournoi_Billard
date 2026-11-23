@@ -312,6 +312,17 @@ function rouvrirMatch(matchId) {
   return matchById(matchId);
 }
 
+// 23b: suspendre un match lancé à 0 manche jouée: repasse pret, table libérée, relançable plus tard (débloque le remplacement 23a)
+function suspendreMatch(matchId) {
+  const m = matchById(matchId);
+  if (!m) throw httpError(404, 'Match introuvable');
+  if (m.etat !== 'en_cours') throw httpError(409, 'Seul un match en cours peut être suspendu');
+  if (m.score1 !== 0 || m.score2 !== 0) throw httpError(409, 'Suspension possible seulement à 0 manche jouée (utilise Corriger ou Forfait à la place)');
+  db.prepare(`UPDATE match SET etat = 'pret', table_id = NULL, started_at = NULL, updated_at = datetime('now') WHERE id = ?`).run(matchId);
+  insererEvent(matchId, null, 'correction', { action: 'suspendre' });
+  return matchById(matchId);
+}
+
 function corrigerScore(matchId, score1, score2, manches, motif, auteur) {
   let m = matchById(matchId);
   if (!m) throw httpError(404, 'Match introuvable');
@@ -602,6 +613,7 @@ module.exports = { listerEvents, supprimerEventAdmin, eviterRematchF, eviterRema
   rafraichirPrets,
   tableLibre,
   rouvrirMatch,
+  suspendreMatch,
   annulerEnAval,
   autoLancer,
   prochainMatchAuto,

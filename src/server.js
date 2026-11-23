@@ -1390,6 +1390,16 @@ app.post('/api/admin/match/:id/rouvrir', requireAdmin, (req, res) => {
   res.json({ ok: true, match: vueMatch(m) });
 });
 
+// 23b: suspendre un match lancé à 0 manche jouée (repasse pret, table libérée, relançable plus tard)
+app.post('/api/admin/match/:id/suspendre', requireAdmin, (req, res) => {
+  const lc = matchDuClub(req, req.params.id);
+  if (!lc) return res.status(404).json({ error: "Match introuvable" }); // isolation club
+  const m = M.suspendreMatch(Number(req.params.id));
+  logAuditReq(req, 'suspendre_match', `match ${m.id}`, { etat: lc.etat, table: lc.table_id, score: `${lc.score1}-${lc.score2}` }, { etat: 'pret', table: null });
+  majEtBroadcast();
+  res.json({ ok: true, match: vueMatch(m) });
+});
+
 app.post('/api/admin/match/:id/forfait', requireAdmin, (req, res) => {
   const mid = Number(req.params.id);
   const m0 = matchDuClub(req, mid);

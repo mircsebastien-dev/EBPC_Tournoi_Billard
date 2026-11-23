@@ -356,6 +356,7 @@ function renderTournoi(t) {
         matchCard(m, { t }),
         el('div', { class: 'actions' },
           el('button', { class: 'secondary', onclick: () => corriger(m) }, 'Corriger'),
+          m.score1 === 0 && m.score2 === 0 ? el('button', { class: 'secondary', onclick: () => suspendre(m) }, '⏸ Suspendre') : null, // 23b: match lancé 0-0 mis en attente (table libérée, remplacement débloqué)
           el('button', { class: 'danger', onclick: () => forfait(m, m.joueur1.id) }, `${m.joueur1 ? m.joueur1.pseudo : ''} forfait`),
           el('button', { class: 'danger', onclick: () => forfait(m, m.joueur2.id) }, `${m.joueur2 ? m.joueur2.pseudo : ''} forfait`))));
     }
@@ -393,6 +394,10 @@ function renderTournoi(t) {
     const qui = joueurId === m.joueur1.id ? m.joueur1.pseudo : m.joueur2.pseudo;
     if (!confirmer(`Forfait de ${qui} ?`)) return;
     try { await adminApi(`/api/admin/match/${m.id}/forfait`, { method: 'POST', body: JSON.stringify({ joueur_id: joueurId }) }); } catch (e) { alert(e.message); }
+  }
+  async function suspendre(m) { // 23b: match 0-0 remis en attente, table libérée, le joueur redevient remplaçable (23a)
+    if (!confirmer(`Suspendre ${m.joueur1 ? m.joueur1.pseudo : ''} vs ${m.joueur2 ? m.joueur2.pseudo : ''} ? Le match repasse à 0-0 en attente de lancement, sa table est libérée, la manche entamée est à rejouer.`)) return;
+    try { await adminApi(`/api/admin/match/${m.id}/suspendre`, { method: 'POST', body: '{}' }); } catch (e) { alert(e.message); }
   }
   function corriger(m) {
     const s1 = prompt(`Score de ${m.joueur1 ? m.joueur1.pseudo : 'J1'} (0-${m.manches}) :`, String(m.score1));
