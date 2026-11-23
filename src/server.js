@@ -322,6 +322,31 @@ app.use((req, res, next) => {
   next();
 });
 
+// ---------- 31. KPI d usage : santé des API (relevé serveur, sans cookie ni tracker) ----------
+// Latence + code de réponse de CHAQUE erreur (4xx/5xx) et d une requête normale sur dix
+// (échantillon), hors flux SSE. Rattaché au club courant et au tournoi actif du moment ;
+// jamais bloquant (try/catch, fire-and-forget sur le finish), table usage_api purgée à 90 jours.
+let compteurEchantillon31 = 0;
+const usageApi31 = (req, res, next) => {
+  const debut31 = process.hrtime.bigint();
+  res.on('finish', () => {
+    try {
+      // req.originalUrl : dans un middleware MONTÉ sur /api, req.url perd le préfixe /api
+      const route31 = String(req.originalUrl || '').split('?')[0].replace(/\d+/g, ':n').slice(0, 60);
+      if (!route31.startsWith('/api/') || route31.startsWith('/api/events') || route31 === '/api/usage') return;
+      const erreur31 = res.statusCode >= 400;
+      if (!erreur31 && (compteurEchantillon31++ % 10) !== 0) return;
+      const clubId31 = req.club ? req.club.id : null;
+      const actif31 = clubId31 != null ? tournoiActif(clubId31) : null;
+      db.prepare("INSERT INTO usage_api (club_id, tournoi_id, route, code, ms, echantillon, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))")
+        .run(clubId31, actif31 ? actif31.id : null, route31, res.statusCode,
+          Number((process.hrtime.bigint() - debut31) / 1000000n), erreur31 ? 0 : 1);
+    } catch {}
+  });
+  next();
+};
+app.use('/api', usageApi31);
+
 function tournoiActif(clubId) {
   if (clubId != null) {
     return db.prepare(`SELECT * FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1`).get(clubId) || null;
@@ -681,6 +706,26 @@ function etatGlobal(req) {
 // 19a: ?tournoi_id= cible un tournoi ACTIF du club courant (sélecteur du bandeau) ; un tournoi d un autre club
 // ou terminé -> repli silencieux sur le tournoi actif du club dans etatGlobal (données publiques de toute façon)
 app.get('/api/etat', (req, res) => res.json(etatGlobal(req)));
+
+// 31. Beacon public d usage : le front envoie le nom de sa page une fois par chargement (fire-and-forget,
+// réponse 204 sans corps). Le serveur repère le club, le tournoi actif du club et la session éventuelle :
+// SANS cookie ni tracker, aucune donnée individuelle n est collectée au-delà de ce qui existe déjà.
+// Anti-flood en mémoire : même page du même émetteur ignorée pendant 30 s (repli silencieux).
+const usageBeacons31 = new Map();
+app.post('/api/usage', (req, res) => {
+  try {
+    const page31 = String((req.body && req.body.page) || '').trim().slice(0, 40) || 'accueil';
+    const cle31 = ipClient(req) + '\u0001' + req.club.id + '\u0001' + (req.compte ? req.compte.id : '-') + '\u0001' + page31;
+    const maintenant31 = Date.now();
+    if (maintenant31 - (usageBeacons31.get(cle31) || 0) < 30000) return res.status(204).end();
+    if (usageBeacons31.size > 50000) usageBeacons31.clear(); // garde-fou mémoire
+    usageBeacons31.set(cle31, maintenant31);
+    const actif31 = tournoiActif(req.club.id);
+    db.prepare("INSERT INTO usage_page (club_id, tournoi_id, page, compte_id, created_at) VALUES (?, ?, ?, ?, datetime('now'))")
+      .run(req.club.id, actif31 ? actif31.id : null, page31, req.compte ? req.compte.id : null);
+  } catch {}
+  res.status(204).end();
+});
 
 // liste publique des clubs actifs (slug pour ?club= / X-Club)
 app.get('/api/clubs', (req, res) => {
@@ -2236,6 +2281,103 @@ app.get('/api/admin/tournoi/export', requireAdmin, (req, res) => {
   if (!t) return res.status(404).json({ error: 'Tournoi introuvable (ou aucun tournoi actif)' });
   res.setHeader('Content-Disposition', `attachment; filename="tournoi-${t.id}-${String(t.nom).replace(/[^\w-]+/g, '_')}.json"`);
   res.json(payloadTournoi(t.id));
+});
+
+// ---------- 31. Rapport d usage par tournoi (KPI) : adoption, pages, persistance, réactivité, santé ----------
+// Tout est agrégé côté serveur depuis usage_page et usage_api (compteurs et taux uniquement,
+// aucune donnée individuelle exposée). ?tournoi_id= : un tournoi du club courant seulement
+// (isolation 404 sinon) ; sans paramètre : le tournoi actif, à défaut le dernier du club.
+function mediane31(arr) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+}
+function ts31(s) { // 'YYYY-MM-DD HH:MM:SS' (UTC sqlite) -> secondes
+  if (typeof s !== 'string' || s.length < 19) return null;
+  return Math.floor(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), +s.slice(11, 13), +s.slice(14, 16), +s.slice(17, 19)) / 1000);
+}
+app.get('/api/admin/tournoi/usage', requireAdmin, (req, res) => {
+  let t31;
+  if (req.query.tournoi_id != null) {
+    t31 = tournoiDuClub(req, req.query.tournoi_id); // isolation club : jamais le tournoi d un autre club
+    if (!t31) return res.status(404).json({ error: 'Tournoi introuvable dans ce club' });
+  } else {
+    t31 = tournoiActif(req.club.id) || db.prepare('SELECT * FROM tournoi WHERE club_id = ? ORDER BY id DESC LIMIT 1').get(req.club.id) || null;
+  }
+  if (!t31) return res.json({ usage: null });
+  const pages31 = db.prepare('SELECT page, compte_id, created_at FROM usage_page WHERE tournoi_id = ?').all(t31.id);
+  const compteParPage31 = new Map();
+  for (const p of pages31) compteParPage31.set(p.page, (compteParPage31.get(p.page) || 0) + 1);
+  const dates31 = pages31.map((p) => p.created_at).sort();
+  const identifiees31 = pages31.filter((p) => p.compte_id != null).length;
+  const joueurs31 = db.prepare('SELECT id, compte_id FROM joueur WHERE tournoi_id = ?').all(t31.id);
+  const comptesVus31 = new Set(pages31.filter((p) => p.compte_id != null).map((p) => p.compte_id));
+  const avecCompte31 = joueurs31.filter((j) => j.compte_id != null);
+  // adoption : joueurs inscrits dont le COMPTE a consulté au moins une page pendant le tournoi
+  const ontOuvert31 = avecCompte31.filter((j) => comptesVus31.has(j.compte_id));
+  // persistance : sorti = dernier match terminé du joueur PERDU ; revenu = une page consultée après
+  const matchs31 = db.prepare("SELECT joueur1_id, joueur2_id, gagnant_id, ended_at FROM match WHERE tournoi_id = ? AND etat IN ('termine','forfait') AND gagnant_id IS NOT NULL AND ended_at IS NOT NULL").all(t31.id);
+  const dernier31 = new Map(); // joueur_id -> { ts, perdu } du match le plus récent
+  for (const m of matchs31) {
+    for (const jid of [m.joueur1_id, m.joueur2_id]) {
+      if (jid == null) continue;
+      const ts = ts31(m.ended_at);
+      const cur = dernier31.get(jid);
+      if (ts != null && (!cur || ts > cur.ts)) dernier31.set(jid, { ts, perdu: m.gagnant_id !== jid });
+    }
+  }
+  const joueursIndex31 = new Map(joueurs31.map((j) => [j.id, j]));
+  const elimines31 = [...dernier31.entries()].filter(([, v]) => v.perdu).map(([jid, v]) => ({ jid, ts: v.ts }));
+  const eliminesCompte31 = elimines31.filter((e) => joueursIndex31.get(e.jid) && joueursIndex31.get(e.jid).compte_id != null);
+  const pagesParCompte31 = new Map();
+  for (const p of pages31) {
+    if (p.compte_id == null) continue;
+    const ts = ts31(p.created_at);
+    if (ts == null) continue;
+    if (!pagesParCompte31.has(p.compte_id)) pagesParCompte31.set(p.compte_id, []);
+    pagesParCompte31.get(p.compte_id).push(ts);
+  }
+  const revenus31 = eliminesCompte31.filter((e) => (pagesParCompte31.get(joueursIndex31.get(e.jid).compte_id) || []).some((ts) => ts != null && ts > e.ts));
+  // réactivité : pour chaque manche saisie, délai jusqu à la prochaine consultation du tournoi
+  const manches31 = db.prepare("SELECT created_at FROM match_event WHERE type = 'manche' AND match_id IN (SELECT id FROM match WHERE tournoi_id = ?) ORDER BY created_at").all(t31.id)
+    .map((e) => ts31(e.created_at)).filter((v) => v != null);
+  const pagesTs31 = pages31.map((p) => ts31(p.created_at)).filter((v) => v != null).sort((a, b) => a - b);
+  const delais31 = [];
+  for (const ev of manches31) {
+    let lo = 0, hi = pagesTs31.length; // première consultation STRICTEMENT après la manche
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (pagesTs31[mid] > ev) hi = mid; else lo = mid + 1; }
+    if (lo < pagesTs31.length) delais31.push(pagesTs31[lo] - ev);
+  }
+  // santé d usage : relevés usage_api du tournoi (échantillons + toutes les erreurs)
+  const sante31 = db.prepare('SELECT code, ms FROM usage_api WHERE tournoi_id = ?').all(t31.id);
+  const requetes31 = sante31.length;
+  const erreurs31 = sante31.filter((r) => r.code >= 400).length;
+  res.json({ usage: {
+    tournoi: { id: t31.id, nom: t31.nom, statut: t31.statut },
+    fenetre: dates31.length ? { du: dates31[0], au: dates31[dates31.length - 1] } : null,
+    pages: { total: pages31.length, identifiees: identifiees31, anonymes: pages31.length - identifiees31 },
+    par_page: [...compteParPage31.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([page, n]) => ({ page, n })),
+    adoption: {
+      inscrits: joueurs31.length,
+      avec_compte: avecCompte31.length,
+      ont_ouvert: ontOuvert31.length,
+      taux: avecCompte31.length ? Math.round((ontOuvert31.length * 100) / avecCompte31.length) : null,
+    },
+    persistance: {
+      elimines: elimines31.length,
+      elimines_avec_compte: eliminesCompte31.length,
+      revenus: revenus31.length,
+      taux: eliminesCompte31.length ? Math.round((revenus31.length * 100) / eliminesCompte31.length) : null,
+    },
+    reactivite: { manches: manches31.length, delai_median_s: mediane31(delais31) },
+    sante: {
+      requetes: requetes31,
+      erreurs: erreurs31,
+      taux_erreurs: requetes31 ? Math.round((erreurs31 * 100) / requetes31) : null,
+      latence_mediane_ms: mediane31(sante31.filter((r) => r.ms != null).map((r) => r.ms)),
+    },
+  } });
 });
 
 // Import: recrée un tournoi depuis un export JSON. Si un tournoi est actif -> exige replace=true + confirm_pin.

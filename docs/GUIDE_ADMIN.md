@@ -157,6 +157,16 @@ Toute action admin qui **supprime des données** exige le **code PIN re-saisi** 
 - **Seule exception** : `DELETE /api/admin/joueur/:id` (désinscription d'un joueur) ne demande pas le code
 - Une **session de compte `admin`** est dispensée de `confirm_pin` (le PIN n'est pas redemandé), mais une **modale de confirmation par saisie du mot `SUPPRIMER`** reste obligatoire ; sinon le code re-saisi est obligatoire
 
+### 10.3 📊 Rapport d usage du tournoi (31)
+
+(En tête du journal d audit `/admin-journal.html`.)
+
+Le panneau « 📊 Rapport d usage du tournoi » en tête de `/admin-journal.html` donne les KPI du tournoi actif (ou `?tournoi_id=` d un tournoi du club) : **adoption** (joueurs inscrits dont le compte a ouvert l app, taux), **pages consultées** (total + top), **persistance après élimination** (part des éliminés qui rouvrent l app après leur sortie), **réactivité** (délai médian entre la saisie d une manche et la prochaine consultation) et **santé des API** (requêtes relevées, taux d erreurs, latence médiane).
+
+- Mesure **côté serveur, sans cookie ni tracker** : le front envoie `POST /api/usage` (juste le nom de la page) à chaque chargement ; aucune donnée individuelle n est exposée dans le rapport (compteurs et taux uniquement)
+- Requêtes API relevées à **1 sur 10** (échantillon) + **toutes les erreurs** ; relevés purgés à **90 jours** (comme le journal d audit) ; les relevés n ont aucune clé étrangère : supprimer un tournoi reste toujours possible
+- API : `GET /api/admin/tournoi/usage` (code du club ou session admin ; `?tournoi_id=` d un autre club -> 404)
+
 ## 11. Outils divers
 
 ### 🎨 Apparence du club : couleur d accent, logo + réglage des défauts de tournoi

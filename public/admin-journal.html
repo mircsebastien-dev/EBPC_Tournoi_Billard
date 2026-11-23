@@ -47,9 +47,48 @@ async function confirmerRollback(a) {
   } catch (e) { alert(e.message); }
 }
 
+// 31. Rapport d usage du tournoi (KPI) : panneau en tête du journal d audit.
+// Mesure agrégée côté serveur, sans cookie ni tracker : adoption des joueurs inscrits,
+// répartition des pages consultées, persistance après élimination, réactivité post-saisie,
+// santé des API (échantillon 1 sur 10 + toutes les erreurs). Rapport : GET /api/admin/tournoi/usage.
+function fmtPourcent31(v) { return typeof v === 'number' ? v + ' %' : 'sans donnée'; }
+function fmtDuree31(s) {
+  if (typeof s !== 'number') return 'sans donnée';
+  if (s < 90) return s + ' s';
+  if (s < 5400) return Math.round(s / 60) + ' min';
+  return (Math.round(s / 360) / 10) + ' h';
+}
+function panelUsage31() {
+  const box = el('div', { class: 'panel' },
+    el('div', { class: 'hero-title' }, '📊 Rapport d usage du tournoi'),
+    el('p', { class: 'muted small' }, 'Adoption, pages consultées, persistance après élimination, réactivité après saisie, santé des API. Mesure côté serveur, sans cookie ni tracker; relevés purgés après 90 jours.'),
+    el('div', { id: 'usage-31' }, 'Chargement…'));
+  (async () => {
+    try {
+      const { usage } = await adminApi('/api/admin/tournoi/usage');
+      const c = document.getElementById('usage-31');
+      if (!c) return;
+      c.innerHTML = '';
+      if (!usage) { c.append(el('p', { class: 'muted small' }, 'Aucun tournoi dans ce club.')); return; }
+      c.append(
+        el('p', { class: 'small' }, '🏆 Tournoi : ' + usage.tournoi.nom + ' (' + usage.tournoi.statut + ')' + (usage.fenetre ? ' · consultations du ' + usage.fenetre.du + ' au ' + usage.fenetre.au : '')),
+        el('p', { class: 'small' }, '👀 ' + usage.pages.total + ' consultation(s) de page (' + usage.pages.identifiees + ' par un compte connecté, ' + usage.pages.anonymes + ' anonymes)' + (usage.par_page.length ? ' · top : ' + usage.par_page.slice(0, 6).map((p) => p.page + ' ×' + p.n).join(', ') : '')),
+        el('p', { class: 'small' }, '👥 Adoption : ' + usage.adoption.ont_ouvert + ' joueur(s) sur les ' + usage.adoption.avec_compte + ' inscrits avec un compte ont ouvert l app (' + fmtPourcent31(usage.adoption.taux) + ') · ' + usage.adoption.inscrits + ' inscrits au total'),
+        el('p', { class: 'small' }, '🔁 Persistance : ' + usage.persistance.revenus + ' joueur(s) éliminé(s) sur ' + usage.persistance.elimines_avec_compte + ' (avec compte) ont rouvert l app après leur élimination (' + fmtPourcent31(usage.persistance.taux) + ')'),
+        el('p', { class: 'small' }, '⚡ Réactivité : ' + (usage.reactivite.delai_median_s != null ? fmtDuree31(usage.reactivite.delai_median_s) + ' en médiane entre la saisie d une manche et la prochaine consultation' : 'pas encore de mesure') + ' (' + usage.reactivite.manches + ' manche(s) saisie(s))'),
+        el('p', { class: 'small' }, '🩺 Santé : ' + usage.sante.requetes + ' requête(s) API relevée(s), ' + fmtPourcent31(usage.sante.taux_erreurs) + ' d erreurs, latence médiane ' + (usage.sante.latence_mediane_ms != null ? usage.sante.latence_mediane_ms + ' ms' : 'sans donnée')));
+    } catch (e) {
+      const c = document.getElementById('usage-31');
+      if (c) c.textContent = e.message;
+    }
+  })();
+  return box;
+}
+
 async function render() {
   main.innerHTML = '';
   if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
+  main.append(panelUsage31());
   main.append(el('div', { class: 'panel' },
   el('div', { class: 'row', style: 'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px' },
     el('div', { class: 'hero-title' }, 'Journal d\'audit'),

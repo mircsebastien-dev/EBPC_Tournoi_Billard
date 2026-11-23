@@ -192,6 +192,37 @@ CREATE TABLE IF NOT EXISTS audit_snapshot (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_snapshot_audit ON audit_snapshot(audit_id);
 CREATE INDEX IF NOT EXISTS idx_audit_snapshot_tournoi ON audit_snapshot(tournoi_id);
+
+-- 31. KPI d usage par tournoi : mesure SERVEUR agrégée, sans cookie ni tracker.
+-- usage_page = un relevé par chargement de page (beacon POST /api/usage, club + tournoi actif
+-- repérés côté serveur, compte seulement si une session existe déjà, NULL sinon = anonyme).
+-- usage_api = santé des API (route normalisée, code réponse, latence ms ; échantillon 1 sur 10
+-- des réponses normales + TOUTES les erreurs, jamais le flux SSE).
+-- AUCUNE clé étrangère volontairement : un tournoi supprimé ou un club supprimé ne peut JAMAIS
+-- être bloqué par ses relevés d usage ; la purge 90 jours (comme audit_log) nettoie tout.
+CREATE TABLE IF NOT EXISTS usage_page (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id INTEGER NOT NULL,
+  tournoi_id INTEGER,
+  page TEXT NOT NULL,
+  compte_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_usage_page_tournoi ON usage_page(tournoi_id);
+CREATE INDEX IF NOT EXISTS idx_usage_page_club ON usage_page(club_id);
+
+CREATE TABLE IF NOT EXISTS usage_api (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id INTEGER,
+  tournoi_id INTEGER,
+  route TEXT NOT NULL,
+  code INTEGER NOT NULL,
+  ms INTEGER,
+  echantillon INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_usage_api_tournoi ON usage_api(tournoi_id);
+CREATE INDEX IF NOT EXISTS idx_usage_api_club ON usage_api(club_id);
 `);
 
 // migration : colonne auteur du journal d'audit (pseudo du compte admin à l'origine de l'action ;
@@ -206,6 +237,12 @@ try {
   db.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')").run();
   db.prepare("DELETE FROM audit_snapshot WHERE taken_at < datetime('now', '-90 days')").run();
 } catch (e) { console.error('purge audit:', e.message); }
+
+// 31. purge des relevés d usage (pages vues + santé API) > 90 jours, même fenêtre que le journal d audit
+try {
+  db.prepare("DELETE FROM usage_page WHERE created_at < datetime('now', '-90 days')").run();
+  db.prepare("DELETE FROM usage_api WHERE created_at < datetime('now', '-90 days')").run();
+} catch (e) { console.error('purge usage:', e.message); }
 
 const joueurCols = db.prepare('PRAGMA table_info(joueur)').all().map(c => c.name);
 if (!joueurCols.includes('statut')) {

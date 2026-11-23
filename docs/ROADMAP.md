@@ -66,7 +66,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | 28 | Accessibilité : contraste, taille de police réglable, navigation clavier | S-M | ⬜ |
 | 29 | PWA offline : la card match consultable sans réseau (vérifier ce que cache `sw.js`) | S-M | ⬜ |
 | 30 | **Rôles compte (`user`/`admin`)** : session admin = accès `/api/admin/*` sans PIN + exempte de `confirm_pin` sur les destructifs (mais modale front demandant de saisir `SUPPRIMER`) ; PIN conservé en fallback ; bootstrap 1er admin via `ADMIN_EMAIL`/`ADMIN_PASSWORD`, promotion via `POST /api/admin/compte/:id/role` ; pages admin sans PIN si session admin | M | ✅ fait |
-| 31 | **Rapport d'usage par tournoi (KPI joueurs)** : taux d'adoption (joueurs inscrits ayant ouvert l'appli), répartition des pages consultées (Mon tournoi / fil / tableau), persistance après élimination, réactivité post-saisie, santé d'usage (temps de chargement médian, taux d'erreurs) ; mesure serveur agrégée, rapport généré par tournoi, sans cookie ni tracker | M | ⬜ |
+| 31 | **Rapport d'usage par tournoi (KPI joueurs)** : taux d'adoption (joueurs inscrits ayant ouvert l'appli), répartition des pages consultées (Mon tournoi / fil / tableau), persistance après élimination, réactivité post-saisie, santé d'usage (temps de chargement médian, taux d'erreurs) ; mesure serveur agrégée, rapport généré par tournoi, sans cookie ni tracker | M | ✅ fait (beacon sans cookie, purge 90 j, rapport /api/admin/tournoi/usage illustré dans le journal d audit) |
 
 ## 🏗️ Environnements / mise en production
 

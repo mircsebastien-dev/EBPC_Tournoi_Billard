@@ -3981,3 +3981,16 @@ function closeMatchEditor() {
 
 // 17j: appelé ici, en fin de fichier: LANG et les autres const sont initialisés (voir TDZ ci-dessus)
 rafraichirThemeClub();
+
+// 31. KPI d usage : un beacon léger par chargement de page, envoyé au serveur (fire-and-forget,
+// jamais bloquant). Aucune donnée personnelle : juste le nom de la page ; le serveur en déduit
+// le club, le tournoi actif et la session éventuelle pour le rapport d usage de la table de
+// marque (adoption, pages consultées, persistance, réactivité, santé), sans cookie ni tracker.
+function envoyerUsage31() {
+  try {
+    const brut31 = location.pathname.replace(/\.html$/, '').replace(/^\//, '').toLowerCase().trim();
+    const p31 = (brut31 === '' || brut31 === 'index' ? 'accueil' : brut31).slice(0, 40) || 'accueil';
+    fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json', ...clubHeaders() }, body: JSON.stringify({ page: p31 }), keepalive: true }).catch(() => {});
+  } catch {}
+}
+envoyerUsage31();
