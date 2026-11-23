@@ -782,6 +782,19 @@ app.get('/api/club-theme', (req, res) => {
   res.json({ slug: req.club.slug, nom: req.club.nom, accent: th17k.accent, logo: th17k.logo, logo_mode: th17k.logo_mode, adresse: th17k.adresse, description: th17k.description, contact: th17k.contact }); // 17k: logo public comme l accent, avec son mode d affichage
 });
 
+// 27a. Portail du club : les news rédigées par le club (page dédiée de la table de marque) et le calendrier
+// de ses tournois (à venir + passés avec champion), deux routes PUBLIQUES de la page « Le club ».
+app.get('/api/club-actu', (req, res) => {
+  const actus = db.prepare('SELECT id, texte, epingle, created_at FROM actu WHERE club_id = ? ORDER BY epingle DESC, id DESC LIMIT 50').all(req.club.id);
+  res.json({ actus }); // épinglées d abord, puis de la plus récente à la plus ancienne
+});
+app.get('/api/club-calendrier', (req, res) => {
+  const base = 'FROM tournoi t LEFT JOIN joueur j ON j.id = t.champion_id WHERE t.club_id = ?';
+  const a_venir = db.prepare('SELECT t.id, t.nom, t.statut, t.lieu, t.date_heure AS date ' + base + " AND t.statut IN ('inscription','en_cours') ORDER BY COALESCE(t.date_heure, t.created_at) ASC LIMIT 30").all(req.club.id);
+  const passes = db.prepare('SELECT t.id, t.nom, t.statut, t.lieu, t.date_heure AS date, COALESCE(t.date_heure, t.created_at) AS tri, j.pseudo AS champion ' + base + " AND t.statut = 'termine' ORDER BY tri DESC LIMIT 30").all(req.club.id);
+  res.json({ a_venir, passes }); // à venir : inscriptions et tournois en cours, passés : champion a la médaille
+});
+
 // 17n. Images du club décodées du theme_json et servies en image avec cache navigateur :
 // /api/club-banniere (tête de l accueil + page Le club) et /api/club-tv-fond (écran TV), ?club= pris en charge (les <img> ne portent pas X-Club),
 // aucune image configurée -> 204 (le front reste sur son décor d origine, pas d erreur visible côté visiteur)
@@ -1912,6 +1925,37 @@ app.put('/api/admin/club/prefs', requireAdmin, (req, res) => {
   db.prepare('UPDATE club SET theme_json = ? WHERE id = ?').run(JSON.stringify(prefs), cible.id);
   logAuditReq(req, 'club_prefs', `club ${cible.slug}`, null, { changements: Object.keys(req.body).filter(k => k !== 'slug') }); // couleurs et défauts, jamais de secret
   res.json({ ok: true, slug: cible.slug, prefs });
+});
+
+// 27a. News du club (page dédiée /admin-actu.html de la table de marque) : geste non sensible, PIN de l espace
+// admin requis mais aucun confirm_pin (pas de suppression de données historiques) ; texte de 1 à 500 caractères,
+// épinglable en tête de la page « Le club » ; CRUD isolé par club (une actu d un autre club -> 404, jamais éditable).
+app.post('/api/admin/club/actu', requireAdmin, (req, res) => {
+  const texte = String(req.body.texte || '').trim();
+  if (!texte || texte.length > 500) return res.status(400).json({ error: 'Actualité refusée : 1 à 500 caractères attendus.' });
+  const epingle = req.body.epingle ? 1 : 0;
+  const r27a = db.prepare('INSERT INTO actu (club_id, texte, epingle) VALUES (?, ?, ?)').run(req.club.id, texte, epingle);
+  logAuditReq(req, 'club_actu', `actu ${r27a.lastInsertRowid}`, null, { texte: texte.slice(0, 80), epingle }); // 27a: texte tronqué a 80 dans le journal, jamais de secret
+  res.json({ ok: true, actu: { id: Number(r27a.lastInsertRowid), texte, epingle } });
+});
+app.put('/api/admin/club/actu/:id', requireAdmin, (req, res) => {
+  const actu27a = db.prepare('SELECT id, club_id FROM actu WHERE id = ?').get(Number(req.params.id) || 0);
+  if (!actu27a || actu27a.club_id !== req.club.id) return res.status(404).json({ error: 'Actualité inconnue.' }); // 27a: isolation par club
+  if ('texte' in req.body) {
+    const texte = String(req.body.texte || '').trim();
+    if (!texte || texte.length > 500) return res.status(400).json({ error: 'Actualité refusée : 1 à 500 caractères attendus.' });
+    db.prepare('UPDATE actu SET texte = ? WHERE club_id = ? AND id = ?').run(texte, req.club.id, actu27a.id);
+  }
+  if ('epingle' in req.body) db.prepare('UPDATE actu SET epingle = ? WHERE club_id = ? AND id = ?').run(req.body.epingle ? 1 : 0, req.club.id, actu27a.id);
+  logAuditReq(req, 'club_actu', `actu ${actu27a.id} (modifiée)`, null, { champs: Object.keys(req.body) }); // 27a
+  res.json({ ok: true });
+});
+app.delete('/api/admin/club/actu/:id', requireAdmin, (req, res) => {
+  const actu27a = db.prepare('SELECT id, club_id FROM actu WHERE id = ?').get(Number(req.params.id) || 0);
+  if (!actu27a || actu27a.club_id !== req.club.id) return res.status(404).json({ error: 'Actualité inconnue.' }); // 27a: isolation par club
+  db.prepare('DELETE FROM actu WHERE club_id = ? AND id = ?').run(req.club.id, actu27a.id);
+  logAuditReq(req, 'club_actu', `actu ${actu27a.id} (supprimée)`, null, {}); // 27a: le texte lui-même n est JAMAIS journalisé entier, geste réversible (on recrée une actu)
+  res.json({ ok: true });
 });
 
 // DELETE /api/admin/club (super-admin uniquement): supprime un club créé par erreur.

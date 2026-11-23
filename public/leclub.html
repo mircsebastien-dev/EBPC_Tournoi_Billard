@@ -40,6 +40,42 @@ api('/api/club-theme').then((th) => {
   img17n.src = '/api/club-banniere' + qsClub17n(); // 17n: aucune bannière configurée -> rien ne s affiche
   main17n.append(panneau17n);
 }).catch(() => {});
+
+// 27a. Portail du club : les 📰 news rédigées par le club puis le 📅 calendrier de ses tournois.
+// IIFE async séquentiel (actus PUIS calendrier, ordre garanti sur la page) ; panneaux cachés si vides,
+// échecs silencieux (la page reste parcourable même si une route ne répond pas). FR brut comme le reste de la page.
+(async () => {
+  try {
+    const r27a = await api('/api/club-actu');
+    const actus27a = r27a && Array.isArray(r27a.actus) ? r27a.actus : [];
+    if (actus27a.length > 0) {
+      main17n.append(el('div', { class: 'panel', id: 'club-actus-27a' },
+        el('h2', {}, '📰 News du club'),
+        ...actus27a.map((a27) => el('div', { style: 'border-top:1px solid var(--bg2);margin:0;padding-top:10px' },
+          el('div', { class: 'small muted' }, (a27.epingle ? '📌 ' : '') + String(a27.created_at || '').slice(0, 10)),
+          el('p', { style: 'white-space:pre-wrap;margin:4px 0 0' }, String(a27.texte || ''))))));
+    }
+  } catch (e27a) {}
+  try {
+    const k27a = await api('/api/club-calendrier');
+    const av27 = k27a && Array.isArray(k27a.a_venir) ? k27a.a_venir : [];
+    const pa27 = k27a && Array.isArray(k27a.passes) ? k27a.passes : [];
+    if (av27.length > 0 || pa27.length > 0) {
+      main17n.append(el('div', { class: 'panel', id: 'club-calendrier-27a' },
+        el('h2', {}, '📅 Tournois du club'),
+        av27.length > 0 ? el('h3', { style: 'margin:10px 0 4px' }, 'À venir') : null,
+        av27.length > 0 ? el('ul', { style: 'margin:6px 0 0' },
+          ...av27.map((t27) => el('li', { style: 'margin:2px 0' },
+            String(t27.date || '').slice(0, 16).replace('T', ' ') + ' : ' + t27.nom +
+            (t27.statut === 'en_cours' ? ' (en cours)' : '') + (t27.lieu ? ' · ' + t27.lieu : '')))) : null,
+        pa27.length > 0 ? el('h3', { style: 'margin:14px 0 4px' }, 'Passés') : null,
+        pa27.length > 0 ? el('ul', { style: 'margin:6px 0 0' },
+          ...pa27.map((t27) => el('li', { style: 'margin:2px 0' },
+            String(t27.date || '').slice(0, 10) + ' : ' + t27.nom +
+            (t27.champion ? ' 🏆 ' + t27.champion : '')))) : null));
+    }
+  } catch (e27a) {}
+})();
 </script>
 </body>
 </html>

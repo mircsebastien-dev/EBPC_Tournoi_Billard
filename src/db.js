@@ -223,6 +223,15 @@ CREATE TABLE IF NOT EXISTS usage_api (
 );
 CREATE INDEX IF NOT EXISTS idx_usage_api_tournoi ON usage_api(tournoi_id);
 CREATE INDEX IF NOT EXISTS idx_usage_api_club ON usage_api(club_id);
+
+CREATE TABLE IF NOT EXISTS actu (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id INTEGER NOT NULL,
+  texte TEXT NOT NULL,
+  epingle INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_actu_club ON actu(club_id);
 `);
 
 // migration : colonne auteur du journal d'audit (pseudo du compte admin à l'origine de l'action ;

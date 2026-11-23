@@ -42,7 +42,8 @@ function render() {
       ...(superAdminMenu ? [el('a', { href: '/console.html' }, el('button', { class: 'secondary' }, '🛡️ Console'))] : []),
       el('a', { href: '/admin-aide.html' }, el('button', { class: 'secondary' }, 'Guide admin')),
       el('a', { href: '/admin-data.html' }, el('button', { class: 'secondary' }, 'Données')),
-      el('a', { href: '/admin-apparence.html' }, el('button', { class: 'secondary' }, t('🎨 Apparence du club'))))));
+      el('a', { href: '/admin-apparence.html' }, el('button', { class: 'secondary' }, t('🎨 Apparence du club'))),
+      el('a', { href: '/admin-actu.html' }, el('button', { class: 'secondary' }, '📰 News du club')))));
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🔗 Liens publics'),

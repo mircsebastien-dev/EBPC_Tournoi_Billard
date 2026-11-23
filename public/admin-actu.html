@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📰 News du club · Table de marque</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top"><h1>📰 News du club</h1><div id="nav"></div></header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+
+// 27a. Page dédiée « News du club » (Accès rapide de la table de marque), calquée sur admin-apparence.html :
+// les actualités rédigées ici s affichent sur la page publique « Le club ». FR brut hardcoded comme admin.html,
+// aucune clé i18n commune. Geste non sensible : PIN de la table de marque requis, jamais de confirm_pin ;
+// texte de 1 à 500 caractères, épinglable en tête de la liste publique.
+let editionId27a = null; // null = création, sinon l id de l actu en cours d édition
+
+function render() {
+  main.innerHTML = '';
+  if (!adminPin && !adminCompte) { renderAdminLogin(main); return; }
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'row' }, el('a', { href: '/admin.html' }, el('button', { class: 'secondary' }, t('← Table de marque'))))));
+  main.append(el('div', { class: 'panel', id: 'panel-actus-27a' },
+    el('h2', {}, '📰 News du club'),
+    el('p', { class: 'muted' }, 'Rédige ici les actualités affichées sur la page publique « Le club » (1 à 500 caractères, épinglables en tête).'),
+    el('textarea', { id: 'actu-texte-27a', maxlength: 500, rows: 3, placeholder: 'ex : Assemblée générale du club le vendredi 12 décembre à 19 h', style: 'width:100%' }),
+    el('div', { class: 'row', style: 'align-items:center;gap:10px;margin-top:8px' },
+      el('label', {}, el('input', { id: 'actu-epingle-27a', type: 'checkbox' }), ' 📌 Épingler en tête'),
+      el('button', { id: 'actu-bouton-27a', onclick: enregistrerActu27a }, editionId27a == null ? 'Enregistrer' : 'Modifier'),
+      editionId27a != null ? el('button', { class: 'secondary', onclick: annulerEdition27a }, 'Annuler') : null),
+    el('div', { id: 'liste-actus-27a', style: 'margin-top:14px' })));
+  rafraichirActus27a();
+}
+
+async function rafraichirActus27a() {
+  const boite27a = document.getElementById('liste-actus-27a');
+  if (!boite27a) return;
+  let actus27a = [];
+  try { const r27a = await api('/api/club-actu'); actus27a = r27a && Array.isArray(r27a.actus) ? r27a.actus : []; } catch (e27a) { return; }
+  boite27a.innerHTML = '';
+  boite27a.append(...(actus27a.length > 0 ? actus27a.map((a27) => el('div', { style: 'border-top:1px solid var(--bg2);margin:0;padding-top:10px' },
+    el('div', { class: 'small muted' }, (a27.epingle ? '📌 ' : '') + String(a27.created_at || '').slice(0, 10)),
+    el('p', { style: 'white-space:pre-wrap;margin:4px 0 0' }, String(a27.texte || '')),
+    el('div', { class: 'row', style: 'margin-top:6px' },
+      el('button', { class: 'secondary', style: 'padding:4px 10px', onclick: () => modifierActu27a(a27) }, '✏️ Modifier'),
+      el('button', { class: 'secondary', style: 'padding:4px 10px', onclick: () => epingleActu27a(a27) }, a27.epingle ? '📍 Désépingler' : '📌 Épingler'),
+      el('button', { class: 'danger', style: 'padding:4px 10px', onclick: () => supprimerActu27a(a27) }, '🗑️ Supprimer'))))
+    : [el('p', { class: 'muted' }, 'Aucune actualité pour le moment.')]));
+}
+
+function annulerEdition27a() {
+  editionId27a = null;
+  const ta27 = document.getElementById('actu-texte-27a'); if (ta27) ta27.value = '';
+  const cb27 = document.getElementById('actu-epingle-27a'); if (cb27) cb27.checked = false;
+  const b27 = document.getElementById('actu-bouton-27a'); if (b27) { b27.textContent = 'Enregistrer'; }
+  render(); // re-render propre pour retirer le bouton Annuler
+}
+
+function modifierActu27a(a27) {
+  editionId27a = a27.id;
+  const ta27 = document.getElementById('actu-texte-27a'); if (ta27) ta27.value = String(a27.texte || '');
+  const cb27 = document.getElementById('actu-epingle-27a'); if (cb27) cb27.checked = !!a27.epingle;
+  const b27 = document.getElementById('actu-bouton-27a'); if (b27) b27.textContent = 'Modifier';
+  const ann27 = document.createElement('div'); // rien de plus : le bouton Annuler revient au prochain render
+}
+
+async function enregistrerActu27a() {
+  const texte27 = document.getElementById('actu-texte-27a').value.trim();
+  const epingle27 = document.getElementById('actu-epingle-27a').checked;
+  if (!texte27) { alert('Rédige d abord l actualité (1 à 500 caractères).'); return; }
+  try {
+    if (editionId27a != null) await adminApi('/api/admin/club/actu/' + editionId27a, { method: 'PUT', body: JSON.stringify({ texte: texte27, epingle: epingle27 }) });
+    else await adminApi('/api/admin/club/actu', { method: 'POST', body: JSON.stringify({ texte: texte27, epingle: epingle27 }) });
+    annulerEdition27a();
+  } catch (e27) { alert(e27.message); }
+}
+
+async function epingleActu27a(a27) {
+  try { await adminApi('/api/admin/club/actu/' + a27.id, { method: 'PUT', body: JSON.stringify({ epingle: !a27.epingle }) }); }
+  catch (e27) { alert(e27.message); }
+  rafraichirActus27a();
+}
+
+async function supprimerActu27a(a27) {
+  if (!confirm('Supprimer cette actualité ?')) return;
+  try { await adminApi('/api/admin/club/actu/' + a27.id, { method: 'DELETE' }); }
+  catch (e27) { alert(e27.message); return; }
+  if (editionId27a === a27.id) { editionId27a = null; render(); return; }
+  rafraichirActus27a();
+}
+
+adminInit(() => {}).then((ok) => { if (ok) render(); else renderAdminLogin(main); });
+</script>
+</body>
+</html>
