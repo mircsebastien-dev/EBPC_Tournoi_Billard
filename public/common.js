@@ -857,7 +857,6 @@ const I18N = {
   "Rechercher un joueur dans tous les clubs de la plateforme.": "Search a player across all the clubs of the platform.",
   "Résultats": "Results",
   "Aucun joueur trouvé.": "No player found.",
-  "Choisir le club": "Choose the club",
   "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "One account for the whole platform: the same login in every club.",
   "Bannière du club": "Club banner",
   "Bannière de l accueil": "Home banner",
@@ -1610,7 +1609,6 @@ const I18N_ES = {
   "Rechercher un joueur dans tous les clubs de la plateforme.": "Busca a un jugador en todos los clubes de la plataforma.",
   "Résultats": "Resultados",
   "Aucun joueur trouvé.": "Ningún jugador encontrado.",
-  "Choisir le club": "Elige el club",
   "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "Una sola cuenta para toda la plataforma: el mismo inicio de sesión en todos los clubes.",
   "Bannière du club": "Banner del club",
   "Bannière de l accueil": "Banner de inicio",
@@ -2364,7 +2362,6 @@ const I18N_IT = {
   "Rechercher un joueur dans tous les clubs de la plateforme.": "Cerca un giocatore in tutti i club della piattaforma.",
   "Résultats": "Risultati",
   "Aucun joueur trouvé.": "Nessun giocatore trovato.",
-  "Choisir le club": "Scegli il club",
   "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "Un solo account per tutta la piattaforma: lo stesso login in tutti i circoli.",
   "Bannière du club": "Banner del club",
   "Bannière de l accueil": "Banner della home",
@@ -3118,7 +3115,6 @@ const I18N_DE = {
   "Rechercher un joueur dans tous les clubs de la plateforme.": "Suche einen Spieler in allen Clubs der Plattform.",
   "Résultats": "Ergebnisse",
   "Aucun joueur trouvé.": "Kein Spieler gefunden.",
-  "Choisir le club": "Club wählen",
   "Un seul compte pour toute la plateforme : le même login dans tous les clubs.": "Ein Konto für die ganze Plattform: derselbe Login in allen Clubs.",
   "Bannière du club": "Club-Banner",
   "Bannière de l accueil": "Startseiten-Banner",
@@ -3503,27 +3499,9 @@ function nav(active) {
       drop.append(el('a', { href: '#', role: 'menuitem', class: LANG === code ? 'active' : null, onclick: (e) => { e.preventDefault(); if (LANG !== code) choisirLangue(code); } }, `${drapeau} ${nom}`));
     }
   });
-  // 17v. Sélecteur discret du club dans le bandeau : affiché uniquement si PLUSIEURS clubs actifs
-  // (mono-club : rien ne change) et hors console super-admin (elle garde son sélecteur explicite 17s).
-  // Le bouton montre le nom du club courant, le menu liste les clubs actifs (GET /api/clubs public) ;
-  // choisir un club mémorise le slug et recharge la page dans son contexte (ouvrirClub17v).
-  let clubsNav17v = [];
-  const btnClub17v = el('button', { class: 'nav-lang club-selecteur-17v', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Choisir le club', style: 'display:none;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, 'Club');
-  menuDeroulant(btnClub17v, (drop) => {
-    let courant17v = null;
-    try { courant17v = localStorage.getItem(CLUB_KEY); } catch {}
-    for (const c of clubsNav17v) {
-      drop.append(el('a', { href: '#', role: 'menuitem', class: c.slug === courant17v ? 'active' : null, onclick: (e) => { e.preventDefault(); if (c.slug !== courant17v) ouvrirClub17v(c.slug); } }, c.nom));
-    }
-  });
-  api('/api/clubs').then((r17v) => {
-    clubsNav17v = (r17v && r17v.clubs) || [];
-    if (clubsNav17v.length < 2 || location.pathname.startsWith('/console.html')) return;
-    let slug17v = null;
-    try { slug17v = localStorage.getItem(CLUB_KEY); } catch {}
-    btnClub17v.textContent = ((clubsNav17v.find(c => c.slug === slug17v) || clubsNav17v[0]).nom) + ' ▾';
-    btnClub17v.style.display = '';
-  }).catch(() => {});
+  // 22a. Le sélecteur discret du club (17v) est retiré du bandeau : il doublonnait le hub, qui liste
+  // déjà les clubs (cartes cliquables -> ouvrirClub17v) ; le badge 17r affiche toujours le club
+  // regardé, les liens 17s gardent le club dans l URL. ouvrirClub17v reste utilisé par le hub.
   // 19a. Sélecteur de tournoi dans le bandeau : affiché uniquement si le club OUVERT a PLUSIEURS tournois actifs
   // (mono-tournoi : rien ne change). Le bouton montre le tournoi affiché (le mémorisé sinon le plus récent),
   // le menu liste les actifs du club (GET /api/tournois public) ; choisir un tournoi mémorise son id (clé par
@@ -3564,14 +3542,16 @@ function nav(active) {
     if (compteNav.role === 'admin' || compteNav.role === 'super_admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, 'Table de marque')); // 17i
     drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, 'Se déconnecter'));
   });
-  // 20b. Retour au hub de la plateforme depuis toutes les pages de club : bouton discret du bandeau
-  // ouvrant /?hub=1 (l intercepteur 17s n ajoute jamais de club à un lien ?hub= ; le hub n est pas une
-  // page de club). Masqué quand on est déjà sur une page plateforme (hub, page joueur) et sur la console.
-  const btnPlateforme20b = el('button', { class: 'nav-lang', type: 'button', title: t('Hub de la plateforme'), style: 'display:none' }, '🏠 ' + t('Plateforme'));
-  if (!location.pathname.startsWith('/console.html') && !pageSansClub20a()) btnPlateforme20b.style.display = '';
+  // 20b/22a. Retour au hub de la plateforme : petit logo bille 8 en haut à GAUCHE du bandeau (avant
+  // le titre), à la place de l ancien gros bouton « 🏠 Plateforme » ; un clic ouvre /?hub=1 (l intercepteur
+  // 17s n ajoute jamais de club à un lien ?hub= ; le hub n est pas une page de club). Ancre de marque
+  // visible sur TOUTES les pages (depuis le hub, il recharge le hub), sauf la console super-admin.
+  const btnPlateforme20b = el('button', { id: 'logo-plateforme-22a', type: 'button', class: 'logo-plateforme-22a', title: t('Hub de la plateforme') }, el('img', { src: '/favicon.svg', alt: '', width: '26', height: '26' }));
   btnPlateforme20b.addEventListener('click', () => { location.href = '/?hub=1'; });
+  const titre22a = document.querySelector('header.top h1');
+  if (titre22a && !document.getElementById('logo-plateforme-22a') && !location.pathname.startsWith('/console.html')) titre22a.before(btnPlateforme20b);
 
-  return el('nav', {}, wrap, btnCompte, btnClub17v, btnLang, btnTournoi19a, btnPlateforme20b); // 19a: sélecteur de tournoi + 20b: retour plateforme en extrémité
+  return el('nav', {}, wrap, btnCompte, btnLang, btnTournoi19a); // 22a: sélecteur de club retiré, retour plateforme = logo en haut à gauche du bandeau
 }
 
 function codeMatch(m) {

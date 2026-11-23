@@ -306,6 +306,10 @@ nav { display: flex; align-items: center; gap: 10px; justify-content: flex-start
 .nav-dropdown a { padding: 9px 12px; border-radius: 8px; text-decoration: none; color: var(--text); font-weight: 600; }
 .nav-dropdown a:hover, .nav-dropdown a.active { background: rgba(214,51,108,.12); color: var(--pink-soft); }
 .nav-login { padding: 8px 14px; border-radius: 10px; background: var(--pink-fort); color: #fff !important; font-weight: 800; text-decoration: none; }
+/* 22a. Logo plateforme en haut a gauche du bandeau : retour au hub discret (remplace le bouton Plateforme) */
+.logo-plateforme-22a { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 38px; height: 38px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.logo-plateforme-22a img { width: 100%; height: 100%; display: block; border-radius: 6px; }
+.logo-plateforme-22a:hover { border-color: var(--pink-fort); }
 @media (max-width: 700px) {
   .nav-burger, .nav-login, .nav-lang { padding: 7px 10px; font-size: 14px; }
   header.top { flex-wrap: wrap; }
