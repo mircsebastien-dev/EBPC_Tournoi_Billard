@@ -17,10 +17,10 @@
 <script src="/common.js"></script>
 <script>
 // 26a. Classement saison du club : points cumulés des tournois terminés (profondeur atteinte),
-// page publique scopée au club courant (X-Club posé par api()), filtre par année de saison.
+// page publique scopée au club courant (X-Club posé par api()), filtre par saison du club (26b : saisons paramétrables, ex « Saison 2026-2027 » du 1er septembre au 31 août).
 const main = document.getElementById('main');
 document.getElementById('nav').append(nav('classement'));
-let annee26 = null; // null = toutes les années
+let annee26 = null; // null = toutes les saisons
 
 async function init() {
   main.innerHTML = '';
@@ -30,10 +30,10 @@ async function init() {
   let d = null;
   try { d = await api('/api/classement-saison' + (annee26 ? '?annee=' + encodeURIComponent(annee26) : '')); }
   catch (e) { main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, e.message))); return; }
-  // sélecteur de saison : toutes les années + une entrée par saison ayant au moins un tournoi terminé
+  // sélecteur de saison : toutes les saisons + une entrée par saison du club ayant au moins un tournoi terminé (26b : « Saison 2026-2027 », les saisons du club remplacent les années civiles)
   const sel = el('select', { id: 'an26', style: 'max-width:220px' },
-    el('option', { value: '' }, 'Toutes les années'),
-    ...(d.annees || []).map((a) => el('option', { value: String(a), ...(annee26 === String(a) ? { selected: true } : {}) }, 'Saison ' + a)));
+    el('option', { value: '' }, 'Toutes les saisons'),
+    ...((d.saisons || []).map((s) => el('option', { value: s.annee, ...(annee26 === String(s.annee) ? { selected: true } : {}) }, 'Saison ' + s.label))));
   sel.addEventListener('change', () => { annee26 = sel.value || null; init(); });
   main.append(el('div', { class: 'panel', style: 'padding:12px 14px' }, sel));
   if (!d.classement || d.classement.length === 0) {

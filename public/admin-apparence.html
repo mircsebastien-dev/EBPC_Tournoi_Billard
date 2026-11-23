@@ -38,6 +38,7 @@ async function chargerPrefsApparence() {
     document.getElementById('pref-jour').value = p.defaut_jour == null ? '' : String(p.defaut_jour);
     document.getElementById('pref-heure').value = p.defaut_heure || '20:00';
     document.getElementById('pref-adresse').value = p.adresse || ''; // 17j v2: adresse par défaut du club
+    document.getElementById('pref-saison-debut').value = p.saison_debut || '09-01'; // 26b: début de saison du classement
     logoChoisi17k = (p && typeof p.logo === 'string') ? p.logo : '';
     logoImporte17k = logoChoisi17k.startsWith('data:image/') ? logoChoisi17k : ''; // 17k v8: un logo sauvegardé en data URL redevient la vignette importée
     logoMode17k = (p && (p.logo_mode === 'entete' || p.logo_mode === 'filigrane' || p.logo_mode === 'les-deux')) ? p.logo_mode : 'les-deux';
@@ -183,6 +184,7 @@ async function enregPrefsApparence() {
       defaut_jour: document.getElementById('pref-jour').value === '' ? null : Number(document.getElementById('pref-jour').value),
       defaut_heure: document.getElementById('pref-heure').value || '20:00',
       adresse: document.getElementById('pref-adresse').value.trim(), // 17j v2: adresse par défaut du club (prérenseigne le lieu de création de tournoi)
+      saison_debut: document.getElementById('pref-saison-debut').value.trim() || '09-01', // 26b: début de saison du classement (MM-JJ, défaut 09-01)
       logo: logoChoisi17k, // 17k: '' = aucun logo, prédéfini ou image importée
       logo_mode: logoMode17k, // 17k: entete / filigrane / les-deux
       banniere: banniere17n, // 17n: '' = aucune bannière (photo réduite à 1600 px)
@@ -214,7 +216,8 @@ function render() {
         el('option', { value: '' }, t('Aucun')),
         ...JOURS_PREFS.map(([v, l]) => el('option', { value: v }, t(l))))),
       el('div', {}, el('label', {}, t('Heure habituelle')), el('input', { id: 'pref-heure', type: 'time', value: '20:00' })),
-      el('div', { style: 'flex:1 1 280px' }, el('label', {}, t('Adresse par défaut du club')), el('input', { id: 'pref-adresse', maxlength: 200, placeholder: 'ex : Le 147, 12 Rue des Amidonniers 31000 Toulouse', style: 'width:100%' }))),
+      el('div', { style: 'flex:1 1 280px' }, el('label', {}, t('Adresse par défaut du club')), el('input', { id: 'pref-adresse', maxlength: 200, placeholder: 'ex : Le 147, 12 Rue des Amidonniers 31000 Toulouse', style: 'width:100%' })),
+      el('div', {}, el('label', {}, t('Début de saison du classement')), el('input', { id: 'pref-saison-debut', maxlength: 5, placeholder: 'MM-JJ', value: '09-01', style: 'width:90px' }))),
     el('div', { style: 'margin-top:12px' },
       el('label', {}, t('Logo du club')),
       el('p', { class: 'muted small', style: 'margin:4px 0' }, t('Logo prédéfini ou importé, affiché en filigrane discret et à côté du nom du club pour tous les visiteurs.')),

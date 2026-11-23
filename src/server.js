@@ -657,6 +657,11 @@ function logoClubValide(logo) {
   return logo.length <= LOGO_TAILLE_MAX && LOGO_DATA_RE.test(logo);
 }
 
+function saisonDebutValide26b(sd) { // 26b: MM-JJ réelle (le 29/02 est accepté, contrôle sur 2024 bissextile)
+  if (!/^((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[01]))$/.test(String(sd || ''))) return false;
+  const m26b = Number(sd.slice(0, 2)), j26b = Number(sd.slice(3, 5));
+  return new Date(Date.UTC(2024, m26b - 1, j26b)).getUTCDate() === j26b;
+}
 function themeDuClub(cible) {
   let p = {};
   try { p = cible && cible.theme_json ? (JSON.parse(cible.theme_json) || {}) : {}; } catch (e) { p = {}; }
@@ -667,6 +672,7 @@ function themeDuClub(cible) {
     defaut_nom: typeof p.defaut_nom === 'string' ? p.defaut_nom : '',
     defaut_jour: (jour !== null && jour >= 0 && jour <= 6) ? jour : null, // 0 = dimanche (convention JS getDay)
     defaut_heure: (typeof p.defaut_heure === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(p.defaut_heure)) ? p.defaut_heure : '20:00',
+    saison_debut: (typeof p.saison_debut === 'string' && saisonDebutValide26b(p.saison_debut)) ? p.saison_debut : '09-01', // 26b: début de saison du classement (MM-JJ, défaut 09-01)
     adresse: (typeof p.adresse === 'string') ? p.adresse.trim().slice(0, 200) : '', // 17j v2: adresse par défaut du club (prérenseigne le lieu de création de tournoi)
     logo: (typeof p.logo === 'string' && logoClubValide(p.logo)) ? p.logo : '', // 17k: '' = aucun logo
     logo_mode: logoModeValide(p.logo_mode) ? p.logo_mode : 'les-deux', // 17k: entete / filigrane / les-deux
@@ -952,15 +958,24 @@ app.get('/api/stats-joueurs', (req, res) => {
 // Les points du classement = la profondeur atteinte dans CHAQUE tournoi terminé du club
 // (pointsParTournoi, même mécanique que les stats du tournoi), sommée : les joueurs reviennent
 // d un tournoi à l autre défendre leur place. Identité = compte si connu (rattachement par
-// pseudo au boot), sinon le pseudo ; ?annee= restreint aux tournoi créés cette année (UTC),
-// la réponse liste les années disponibles pour le sélecteur de la page publique.
-function classementSaison(clubId, annee) {
-  const ts26 = db.prepare(annee
-    ? "SELECT id, nom, champion_id, created_at FROM tournoi WHERE club_id = ? AND statut = 'termine' AND strftime('%Y', created_at) = ? ORDER BY id"
-    : "SELECT id, nom, champion_id, created_at FROM tournoi WHERE club_id = ? AND statut = 'termine' ORDER BY id")
-    .all(...(annee ? [clubId, annee] : [clubId]));
+// pseudo au boot), sinon le pseudo. 26b : la saison du club est PARAMÉTRABLE, chaque admin
+// règle son début de saison (préf saison_debut MM-JJ, défaut 09-01 : la saison 2026-2027
+// court du 1er septembre 2026 au 31 août 2027 ; 01-01 = année civile). ?annee= reste
+// l année de DÉBUT de saison, toute date appartient à une saison (au pire celle commencée
+// l année d avant : les tournois de juillet et août comptent dans la saison qui vient de
+// se jouer, aucune date orpheline), la réponse liste les saisons disponibles {annee, label}.
+function anneeDebutSaison26b(d26, dm26, dj26) { // d26 'AAAA-MM-JJ...' (UTC) ; (dm26, dj26) début de saison du club
+  const s26 = String(d26 || '');
+  const a26 = Number(s26.slice(0, 4)), m26 = Number(s26.slice(5, 7)), j26 = Number(s26.slice(8, 10));
+  if (!Number.isInteger(a26) || a26 < 1) return null;
+  return (m26 > dm26 || (m26 === dm26 && j26 >= dj26)) ? a26 : a26 - 1; // >= le début de saison : partie de la saison ouverte cette année-là
+}
+function classementSaison(clubId, annee, saisonDebut26b) {
+  const dmj26b = String(saisonDebut26b || '09-01').split('-').map(Number); // 26b: [mois, jour] de début de saison
+  const ts26 = db.prepare("SELECT id, nom, champion_id, created_at FROM tournoi WHERE club_id = ? AND statut = 'termine' ORDER BY id").all(clubId); // 26b: plus de découpe SQL à l année civile
   const parIdentite26 = new Map();
   for (const tr of ts26) {
+    if (annee && String(anneeDebutSaison26b(tr.created_at, dmj26b[0], dmj26b[1])) !== String(annee)) continue; // 26b: ne retient que la saison demandée
     const pts26 = pointsParTournoi(tr.id);
     for (const j of db.prepare('SELECT id, pseudo, compte_id FROM joueur WHERE tournoi_id = ?').all(tr.id)) {
       const cle26 = j.compte_id != null ? 'c' + j.compte_id : 'p' + String(j.pseudo).toLowerCase();
@@ -979,8 +994,16 @@ function classementSaison(clubId, annee) {
 app.get('/api/classement-saison', (req, res) => {
   let annee26 = null;
   if (req.query.annee != null && /^\d{4}$/.test(String(req.query.annee).trim())) annee26 = String(req.query.annee).trim();
-  const annees26 = db.prepare("SELECT DISTINCT strftime('%Y', created_at) a FROM tournoi WHERE club_id = ? AND statut = 'termine' ORDER BY a DESC").all(req.club.id).map((r) => r.a);
-  res.json({ classement: classementSaison(req.club.id, annee26), annees: annees26 });
+  const debut26b = themeDuClub(req.club).saison_debut; // 26b: début de saison du club (MM-JJ)
+  const dmj26b = debut26b.split('-').map(Number);
+  const annees26 = [...new Set(db.prepare("SELECT created_at FROM tournoi WHERE club_id = ? AND statut = 'termine' ORDER BY id").all(req.club.id)
+    .map((r26b) => anneeDebutSaison26b(r26b.created_at, dmj26b[0], dmj26b[1])).filter((v26b) => v26b != null))].sort((a26b, b26b) => b26b - a26b); // 26b: années de DÉBUT de saison, jamais l année civile
+  const label26b = (dmj26b[0] === 1 && dmj26b[1] === 1) ? ((a26b) => String(a26b)) : ((a26b) => a26b + '-' + (a26b + 1)); // 01-01 = année civile : libellé réduit à l année seule
+  res.json({
+    classement: classementSaison(req.club.id, annee26, debut26b),
+    annees: annees26, // compat 26a : année de DÉBUT de saison
+    saisons: annees26.map((a26b) => ({ annee: String(a26b), label: label26b(a26b) })), // 26b: « Saison 2026-2027 » dans le sélecteur
+  });
 });
 
 app.get('/api/events', (req, res) => {
@@ -1842,6 +1865,11 @@ app.put('/api/admin/club/prefs', requireAdmin, (req, res) => {
     prefs.defaut_heure = h;
   }
   if ('adresse' in req.body) prefs.adresse = String(req.body.adresse || '').trim().slice(0, 200); // 17j v2: adresse par défaut du club (0-200 caractères, '' l efface)
+  if ('saison_debut' in req.body) { // 26b: début de saison du classement (MM-JJ, '' = retour au défaut 09-01)
+    const sd26b = String(req.body.saison_debut || '').trim();
+    if (sd26b !== '' && !saisonDebutValide26b(sd26b)) return res.status(400).json({ error: 'Début de saison invalide (format MM-JJ, ex 09-01, date réelle exigée)' });
+    prefs.saison_debut = sd26b === '' ? '09-01' : sd26b;
+  }
   if ('logo' in req.body) { // 17k: '' = aucun, /logos/<prédéfini>.svg ou data:image (png/jpeg/svg+xml) plafonnée
     const lg = String(req.body.logo || '').trim();
     if (!logoClubValide(lg)) { // 17k v5: la réponse 400 dit la cause réelle (envoyé vs attendu)
