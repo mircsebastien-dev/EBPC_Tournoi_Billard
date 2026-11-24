@@ -906,7 +906,7 @@ async function nouveauTournoi(body) {
   const spec17b = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
   const ga17b = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_ADMIN.md'), 'utf8');
   const srv17b = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
-  check("doc: SPEC 17b + GUIDE_ADMIN dédié + serveur (estAdminGlobal, limite 25mb sur l'import UNIQUEMENT)", spec17b.includes('17b. Sauvegarde complète de la base') && spec17b.includes('332 checks') && ga17b.includes('Sauvegarde / restauration de la base') && srv17b.includes("app.use('/api/admin/base/import', express.json({ limit: '25mb' }))") && srv17b.includes('function estAdminGlobal') && srv17b.includes('requireAdminGlobal'), '');
+  check("doc: SPEC 17b + GUIDE_ADMIN dédié + serveur (estAdminGlobal, limite 25mb sur l'import UNIQUEMENT)", spec17b.includes('17b. Sauvegarde complète de la base') && spec17b.includes('334 checks') && ga17b.includes('Sauvegarde / restauration de la base') && srv17b.includes("app.use('/api/admin/base/import', express.json({ limit: '25mb' }))") && srv17b.includes('function estAdminGlobal') && srv17b.includes('requireAdminGlobal'), '');
 
   // ---------- 18. Rattachement des anciens joueurs anonymes à leur compte ----------
   sec('18. Rattachement compte <-> anciens joueurs anonymes (même pseudo, tournois passés)');
@@ -1017,7 +1017,7 @@ async function nouveauTournoi(body) {
   check('fil: forfait exposé (etat forfait + gagnant + ended_at pour la ligne dédiée)', r.status === 200 && r.data.match.etat === 'forfait' && r.data.match.gagnant_id === m20b.joueur1.id && !!r.data.match.ended_at, r.status + ' ' + JSON.stringify(r.data.match && r.data.match.etat));
   await del('/api/admin/tournoi').catch(() => {});
   // front : le panneau, les phrases, l'élimination DKO, l'horodatage, le dernier tournoi sans actif
-  const idx20 = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const idx20 = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8') // 86: helpers du fil dans common.js;
   check('fil: front accueil (lignesFil + panneauFil + 3 lignes + Voir tout/Replier + chargerFilDernier)', idx20.includes('function lignesFil') && idx20.includes('function panneauFil') && idx20.includes('function filAgo') && idx20.includes('chargerFilDernier') && idx20.includes('Fil du tournoi') && idx20.includes('Voir tout') && idx20.includes('Replier') && idx20.includes('lignes.slice(0, 3)'), '');
   check('fil: phrases des lignes (victoire + table + forfait + champion + belle)', idx20.includes(' bat ') && idx20.includes('· table ${m.table}') && idx20.includes('déclare forfait, ') && idx20.includes('remporte le tournoi !') && idx20.includes('sont à la belle'), '');
   check('fil: élimination définitive uniquement en double KO (LB/F), fusionnée dans la ligne de victoire', idx20.includes("tv.tournoi.format === 'double' && (m.bracket === 'LB' || m.bracket === 'F')") && idx20.includes('· tournoi terminé pour ${p.pseudo}'), '');
@@ -1078,7 +1078,7 @@ async function nouveauTournoi(body) {
     JSON.stringify(h21));
   await del('/api/admin/tournoi').catch(() => {});
   // front : variantes déterministes, durées, lignes revanche (i18n 5 langues)
-  const idx21 = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const idx21 = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8') // 86: helpers du fil dans common.js;
   check('fil: variantes déterministes (filHash/filPick) - victoires, forfaits, champion, belles avec table/sans table 7/4, revanches underdog 7, égalités 6 (complément : +2 par catégorie)', idx21.includes('function filHash') && idx21.includes('function filPick')
     && idx21.includes("s'impose face à ${p.pseudo} ${gs}-${ps}") && idx21.includes("vient à bout de ${p.pseudo} ${gs}-${ps}")
     && idx21.includes("${g.pseudo} domine ${p.pseudo} ${gs}-${ps}") && idx21.includes("${g.pseudo} écarte ${p.pseudo} ${gs}-${ps}")
@@ -1205,7 +1205,7 @@ async function nouveauTournoi(body) {
   const msrc23 = fs.readFileSync(path.join(__dirname, '..', 'src', 'matchs.js'), 'utf8');
   const db23 = fs.readFileSync(path.join(__dirname, '..', 'src', 'db.js'), 'utf8');
   const cpts23 = fs.readFileSync(path.join(__dirname, '..', 'src', 'comptes.js'), 'utf8');
-  const idx23 = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const idx23 = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8') // 86: helpers du fil dans common.js;
   check('audit: sources cohérentes (colonne « Par » dans admin-journal.html, auteurAdmin(req) sur les routes et corrections/forfaits, colonne auteur en base, aucune trace compte_preferences, burger Compte sans emojis traduit)', aj23.includes("'Par'") && aj23.includes('a.auteur ||') && srv23.includes('function auteurAdmin(req)') && srv23.includes("motif || '', auteurAdmin(req))") && srv23.includes('M.declarerForfait(mid, jid, auteurAdmin(req))') && msrc23.includes('function corrigerScore(matchId, score1, score2, manches, motif, auteur)') && msrc23.includes('function declarerForfait(matchId, forfaitJoueurId, auteur)') && db23.includes('ALTER TABLE audit_log ADD COLUMN auteur TEXT') && !cpts23.includes('compte_preferences') && cjs20.includes("}, 'Compte');") && cjs20.includes("}, 'Connexion'));") && cjs20.includes("}, 'Mes matchs'));") && cjs20.includes('"Mes matchs": "My matches"') && cjs20.includes('"Connexion": "Log in"') && !cjs20.includes("'👤 Compte'") && idx23.includes('Aucun ami — ajoute-en depuis le menu Compte.'), '');
 
   // ---------- 24. Tableaux responsive : enveloppe .table-wrap (scroll horizontal dans le panneau) ----------
@@ -1232,6 +1232,13 @@ async function nouveauTournoi(body) {
   const duree = ((Date.now() - t0) / 1000).toFixed(1);
   const ok = results.filter(x => x.ok === true).length;
   const ko = results.filter(x => x.ok === false);
+  // ---------- 86. TV : bandeau breaking news (fil du tournoi en bas des cards, aligne avec le QR, blanc sur rouge) ----------
+  sec('86. TV breaking news : fil du tournoi en bandeau rouge en bas des cards, aligne avec le QR code');
+  const tv86 = fs.readFileSync(path.join(__dirname, '..', 'public', 'tv.html'), 'utf8');
+  const cjs86 = fs.readFileSync(path.join(__dirname, '..', 'public', 'common.js'), 'utf8');
+  check('86: helpers du fil partages dans common.js (lignesFil/filHash/filPick/dureeFil) et plus redefinis dans index.html', cjs86.includes('function lignesFil') && cjs86.includes('function filHash') && cjs86.includes('function filPick') && cjs86.includes('function dureeFil') && !fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8').includes('function lignesFil'), '');
+  check('86: TV — markup tv-flash + CSS fond rouge #c1121f / texte blanc color: #fff, positionne en bas (bottom: 44px) a cote du QR (right: 352px), label ⚡ FLASH, piste defilante @keyframes tvflash, classe .on si lignes ; render() alimente via lignesFil(state.actif) + t()', tv86.includes('id="tv-flash"') && tv86.includes('.tv-flash') && tv86.includes('#c1121f') && tv86.includes('color: #fff') && tv86.includes('bottom: 44px') && tv86.includes('right: 352px') && tv86.includes('FLASH') && tv86.includes('@keyframes tvflash') && tv86.includes('lignesFil(state.actif)') && tv86.includes("classList.add('on')"), '');
+
   // ---------- 26. Infra CI/CD : app de test auto sur main, prod uniquement à la demande ----------
   const flt26 = fs.readFileSync(path.join(__dirname, '..', 'fly.test.toml'), 'utf8');
   const tw26 = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'tests.yml'), 'utf8');
@@ -1239,12 +1246,12 @@ async function nouveauTournoi(body) {
   const gd26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'GUIDE_DEPLOY.md'), 'utf8');
   const rm26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec26 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('332 checks'), '');
+  check('infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour', flt26.includes("app = 'ebpc-tournoi-billard-test'") && flt26.includes("source = 'tournoi_data'") && flt26.includes("DB_PATH = '/data/tournoi.db'") && tw26.includes('deploy-test:') && tw26.includes('fly.test.toml') && tw26.includes('refs/heads/staging') && tw26.includes('branches: [main, staging]') && tw26.includes('FLY_TEST_TOKEN') && tw26.includes('needs: tests') && dp26.includes('workflow_dispatch:') && dp26.includes('!= "PROD"') && dp26.includes('FLY_PROD_TOKEN') && dp26.includes('flyctl deploy') && gd26.includes('fly tokens create deploy -a ebpc-tournoi-billard-test') && gd26.includes('fly volumes create tournoi_data') && rm26.includes('ebpc-tournoi-billard-test') && spec26.includes('334 checks'), '');
 
   // ---------- 27. Roadmap : cap produit plateforme documente (centralise, separation logique) ----------
   const rm27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ROADMAP.md'), 'utf8');
   const spec27 = fs.readFileSync(path.join(__dirname, '..', 'docs', 'SPEC_FONCTIONNELLE.md'), 'utf8');
-  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('332 checks'), '');
+  check('roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36)', rm27.includes('tout centralisé, séparation logique') && rm27.includes('**Vidéo live du tournoi**') && rm27.includes('**Chat live modéré**') && rm27.includes('**Disciplines paramétrables par club**') && rm27.includes('**Super admin plateforme**') && rm27.includes("santé d'usage") && rm27.includes('cap plateforme confirmé : multi-club (20)') && spec27.includes('334 checks'), '');
 
   let md = `# Rapport de batterie de tests — EBPC Tournoi Billard\n\n`;
   md += `- Date : ${new Date().toISOString()}\n- Base : ${BASE}\n- Résultat : **${passed} OK / ${failed} ÉCHEC** (${duree}s)\n\n`;

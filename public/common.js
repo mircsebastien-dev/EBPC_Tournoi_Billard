@@ -3307,3 +3307,136 @@ function closeMatchEditor() {
   const e = document.getElementById('match-editor');
   if (e) e.remove();
 }
+
+/* ---- 86. Fil du tournoi partage (accueil index.html + TV tv.html) : helpers deplaces depuis index.html ---- */
+// choix de variante déterministe : hachage stable de l'id, jamais de saut d'une phrase à l'autre au re-render SSE
+function filHash(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+function filPick(id, variantes) { return variantes[filHash(id) % variantes.length]; }
+
+// durée d'un match fini (duree_s du payload) -> « · durée 42 min » ou « · durée 1 h 05 »
+function dureeFil(d) {
+  if (!d) return null;
+  const min = Math.max(1, Math.round(d / 60));
+  if (min < 60) return `· durée ${min} min`;
+  return `· durée ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
+}
+
+function lignesFil(tv) {
+  if (!tv) return [];
+  const L = [];
+  // champion en tête de fil : le titre du feuilleton, pas une ligne de plus dans la masse
+  if (tv.champion && tv.champion.pseudo) L.push({ live: false, quand: null, parties: [filPick(String((tv.tournoi || {}).id), [
+    `🏆 ${tv.champion.pseudo} remporte le tournoi !`,
+    `🏆 ${tv.champion.pseudo} soulève le trophée !`,
+    `🏆 ${tv.champion.pseudo} décroche le titre !`,
+    `🏆 Fin du suspense : ${tv.champion.pseudo} est champion !`,
+    `🏆 ${tv.champion.pseudo} a eu le dernier mot : le titre est à lui !`,
+    `🏆 ${tv.champion.pseudo} entre au palmarès du club !`,
+    `🏆 ${tv.champion.pseudo} règne sur le tournoi !`,
+  ])] });
+  // instants chauds : la belle (manche décisive en cours, les deux à une manche du match)
+  const belles = new Set();
+  for (const m of (tv.matchs || [])) {
+    if (m.etat === 'en_cours' && m.joueur1 && m.joueur2 && m.score1 === m.manches - 1 && m.score2 === m.manches - 1) {
+      belles.add(String(m.id));
+      L.push({ live: true, quand: null, parties: [m.table != null
+        ? filPick(String(m.id) + 'b', [
+            `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle à la table ${m.table}`,
+            `La belle ! ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la table ${m.table}`,
+            `Ça se joue à la belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table})`,
+            `Manche décisive entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} (table ${m.table}) !`,
+            `Tous debout : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} disputent la belle à la table ${m.table} !`,
+            `Le tournoi se joue maintenant : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la belle à la table ${m.table} !`,
+            `Dernière manche pour ${m.joueur1.pseudo} et ${m.joueur2.pseudo} à la table ${m.table} !`,
+          ])
+        : filPick(String(m.id) + 'b', [
+            `Suspense : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} sont à la belle`,
+            `La belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !`,
+            `Ça se joue à la belle entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !`,
+            `Manche décisive entre ${m.joueur1.pseudo} et ${m.joueur2.pseudo} !`,
+          ])] });
+    }
+  }
+  // instants chauds : la revanche (déjà rencontrés avant, historique du club via actif.h2h)
+  const h2h = tv.h2h || {};
+  for (const m of (tv.matchs || [])) {
+    if (m.etat !== 'en_cours' || belles.has(String(m.id)) || !m.joueur1 || !m.joueur2) continue;
+    const h = h2h[m.id];
+    if (!h || typeof h.n !== 'number' || h.n < 1) continue;   // jamais joué ensemble : pas de ligne
+    const parties = [];
+    if (h.v1 === h.v2) {
+      parties.push(filPick(String(m.id) + 'e', [
+        `🔥 Revanche : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent à égalité !`,
+        `🔥 Fierté en jeu : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !`,
+        `🔥 ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent, bilan parfaitement équilibré !`,
+        `🔥 Égalité parfaite avant ce round : ${m.joueur1.pseudo} vs ${m.joueur2.pseudo} !`,
+        `🔥 Vieilles connaissances dos à dos : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} se retrouvent !`,
+        `🔥 Rien à départager : ${m.joueur1.pseudo} et ${m.joueur2.pseudo} rejouent leur histoire !`,
+      ]));
+    } else {
+      const dom = h.v1 < h.v2 ? m.joueur1 : m.joueur2;   // bilan défavorable contre lui : une revanche à prendre
+      const adv = h.v1 < h.v2 ? m.joueur2 : m.joueur1;
+      parties.push(filPick(String(m.id) + 'r', [
+        `🔥 Revanche : ${dom.pseudo} joue contre ${adv.pseudo}, une revanche à prendre !`,
+        `🔥 ${dom.pseudo} joue sa revanche contre ${adv.pseudo} !`,
+        `🔥 ${dom.pseudo} retente sa chance contre ${adv.pseudo} !`,
+        `🔥 ${dom.pseudo} veut renverser la vapeur contre ${adv.pseudo} !`,
+        `🔥 À ${dom.pseudo} de trouver la faille face à ${adv.pseudo} !`,
+        `🔥 Un compte à régler pour ${dom.pseudo} face à ${adv.pseudo} !`,
+        `🔥 Ce match sent la revanche : ${dom.pseudo} défie ${adv.pseudo} !`,
+      ]));
+      parties.push(`${adv.pseudo} mène ${Math.max(h.v1, h.v2)}-${Math.min(h.v1, h.v2)}`);
+    }
+    if (m.table != null) parties.push(`· table ${m.table}`);
+    L.push({ live: true, quand: null, parties });
+  }
+  // faits : fins de match (les byes contre blanc ne font pas de ligne), plus récents d'abord
+  const res = [];
+  // défaite éliminatoire définitive : uniquement en double KO (WB perdant -> repêché en LB) ;
+  // en élimination directe chaque défaite élimine, la mention n'apporterait rien -> pas de mention
+  const elim = (m) => tv.tournoi.format === 'double' && (m.bracket === 'LB' || m.bracket === 'F');
+  for (const m of (tv.matchs || [])) {
+    if ((m.etat === 'termine' || m.etat === 'forfait') && m.gagnant_id != null && m.joueur1 && m.joueur2) {
+      const g = m.gagnant_id === m.joueur1.id ? m.joueur1 : m.joueur2;
+      const p = m.gagnant_id === m.joueur1.id ? m.joueur2 : m.joueur1;
+      const gs = m.gagnant_id === m.joueur1.id ? m.score1 : m.score2;
+      const ps = m.gagnant_id === m.joueur1.id ? m.score2 : m.score1;
+      const parties = [];
+      const hF = h2h[m.id];   // trace persistante : paire déjà croisée avant ce match -> revanche prise ou manquée
+      const revancheF = hF && typeof hF.n === 'number' && hF.n >= 1 && hF.v1 !== hF.v2
+        ? ((hF.v1 < hF.v2 ? m.joueur1 : m.joueur2).id === g.id ? '· revanche prise !' : '· revanche manquée')
+        : null;
+      if (m.etat === 'forfait') { parties.push(filPick(String(m.id) + 'f', [
+        `${p.pseudo} déclare forfait, ${g.pseudo} passe au tour suivant`,
+        `${p.pseudo} abandonne, ${g.pseudo} passe au tour suivant`,
+        `forfait de ${p.pseudo}, ${g.pseudo} passe au tour suivant`,
+        `${p.pseudo} jette l'éponge, ${g.pseudo} passe au tour suivant`,
+        `forfait de ${p.pseudo}, ${g.pseudo} avance sans jouer`,
+        `${p.pseudo} ne se présente pas, ${g.pseudo} passe au tour suivant`,
+        `forfait de ${p.pseudo} : ${g.pseudo} file au tour suivant`,
+      ]));
+        if (revancheF) parties.push(revancheF);
+      }
+      else {
+        parties.push(filPick(String(m.id), [
+          `${g.pseudo} bat ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} s'impose face à ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} vient à bout de ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} domine ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} écarte ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} surclasse ${p.pseudo} ${gs}-${ps}`,
+          `${g.pseudo} fait la loi face à ${p.pseudo} ${gs}-${ps}`,
+        ]));
+        if (ps === m.manches - 1) parties.push('· après la belle');   // trace persistante : la manche décisive a départagé les deux
+        if (revancheF) parties.push(revancheF);
+        if (m.table != null) parties.push(`· table ${m.table}`);
+        const du = dureeFil(m.duree_s);
+        if (du) parties.push(du);
+      }
+      if (elim(m)) parties.push(`· tournoi terminé pour ${p.pseudo}`);
+      res.push({ live: false, quand: m.ended_at || null, parties });
+    }
+  }
+  res.sort((a, b) => String(b.quand || '').localeCompare(String(a.quand || '')));
+  return L.concat(res);
+}

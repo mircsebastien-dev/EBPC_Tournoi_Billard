@@ -53,6 +53,14 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 .tv-champion { font-size: clamp(40px, 9vw, 110px); font-weight: 800; background: linear-gradient(90deg, var(--gold), #fff); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .tv-qr-big { display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:18px; text-align:center; }
 .tv-qr-big img { width:min(520px,60vh,92vw); height:auto; background:#fff; padding:10px; border-radius:14px; }
+/* 86. Bandeau breaking news : fil du tournoi en bas des cards, aligne avec le QR (meme bottom: 44px, arret a sa gauche), blanc sur rouge */
+.tv-flash { display: none; position: fixed; left: 16px; right: 352px; bottom: 44px; z-index: 50; height: 52px; align-items: center; background: #c1121f; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 28px rgba(193,18,31,.5); }
+.tv-flash.on { display: flex; }
+.tv-flash-label { flex: 0 0 auto; height: 100%; display: flex; align-items: center; padding: 0 16px; background: #fff; color: #c1121f; font-weight: 900; font-size: clamp(14px, 2vw, 22px); letter-spacing: .08em; }
+.tv-flash-viewport { flex: 1 1 auto; height: 100%; overflow: hidden; display: flex; align-items: center; }
+.tv-flash-track { white-space: nowrap; color: #fff; font-weight: 800; font-size: clamp(16px, 2.4vw, 28px); animation: tvflash 24s linear infinite; }
+@keyframes tvflash { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (max-width: 900px) { .tv-flash { right: 16px; bottom: 100px; height: 42px; } }
 </style>
 </head>
 <body class="tv">
@@ -64,6 +72,7 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 <div id="tv-clock"></div>
 <main id="slides"></main>
 <div class="tv-dots" id="dots"></div>
+<div class="tv-flash" id="tv-flash"><div class="tv-flash-label">⚡ FLASH</div><div class="tv-flash-viewport"><div class="tv-flash-track" id="tv-flash-track"></div></div></div>
 <div class="tv-qr" title="Scanner pour ouvrir le site sur ton téléphone">
   <img id="qr" alt="QR code du site" width="110" height="110">
   <div class="tv-qr-label">📱 Scannez moi<br><span id="qr-url"></span></div>
@@ -169,6 +178,18 @@ function render() {
     dotsEl.append(el('span', { class: i === slideIdx ? 'on' : '' }));
   });
 
+  // 86. bandeau breaking news : les dernieres lignes du fil, defilantes, en bas a cote du QR
+  const flash86 = document.getElementById('tv-flash');
+  const lignes86 = state && state.actif ? lignesFil(state.actif) : [];
+  if (flash86) {
+    if (lignes86.length) {
+      const txt86 = lignes86.slice(0, 6).map(l => l.parties.map(x => t(x)).join(' ')).join('   •   ');
+      const track86 = document.getElementById('tv-flash-track');
+      const double86 = txt86 + '   •   ' + txt86;
+      if (track86 && track86.textContent !== double86) track86.textContent = double86;
+      flash86.classList.add('on');
+    } else flash86.classList.remove('on');
+  }
   clearInterval(timer);
   if (slides.length > 1) timer = setInterval(() => { slideIdx = (slideIdx + 1) % slides.length; render(); }, SLIDE_MS);
 }
