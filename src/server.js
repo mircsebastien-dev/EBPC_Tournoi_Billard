@@ -736,6 +736,7 @@ function etatGlobal(req) {
     club: req && req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom, accent: themeDuClub(req.club).accent } : null,
     actifs: clubId == null ? [] : db.prepare("SELECT id, nom, statut FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') ORDER BY id DESC").all(clubId), // 19a: tournois ouverts du club (sélecteur du bandeau)
     auto: getSetting('auto_on') === '1',
+    alertes: alertes82Seui(), // 82. alertes table de marque (push admins club)
     table_pref: getSetting('table_pref') || '',
     tables_reservees: getSetting('tables_reservees') || '',
     reservees_tour: getSetting('reservees_tour') || '',
@@ -1085,8 +1086,106 @@ function majEtBroadcast() {
       if (lances > 0) logAudit('auto_lancement', `tournoi ${t.id}`, null, { lances, matchs: codesLances(t.id, avant) }, c.id); // pas de req ici: logAudit direct avec le club
     }
   }
+  try { verifierAlertes82(); } catch (e) { console.error('[ALERTES82]', e.message); } // 82: alertes table de marque (fire-and-forget)
   broadcast('update', { changed: true, at: Date.now() }); // payload léger: le client re-fetch /api/etat
 }
+
+// 82. Alertes table de marque : un match en cours qui dépasse le seuil (min) ou une table restée
+// libre avec des matchs en attente déclenchent un push aux ADMINS du club (abonnés push) ;
+// une seule alerte par match et par période libre. État persisté par tournoi dans settings
+// (alerte82_t<id>), nettoyé à la terminaison du tournoi. Audit direct SANS snapshot.
+function logAlerte82(action, cible, apres, clubId) {
+  db.prepare('INSERT INTO audit_log (action, cible, avant, apres, club_id, auteur) VALUES (?, ?, NULL, ?, ?, NULL)')
+    .run(action, String(cible), JSON.stringify(apres), clubId != null ? clubId : clubParDefaut().id);
+}
+function alertes82Seui() {
+  return {
+    on: getSetting('alertes_on') !== '0', // actif par défaut
+    match_min: Math.min(240, Math.max(0, parseInt(getSetting('alerte_match_min') || '60', 10) || 0)),
+    table_min: Math.min(240, Math.max(0, parseInt(getSetting('alerte_table_min') || '30', 10) || 0)),
+  };
+}
+function verifierAlertes82() {
+  const seuils = alertes82Seui();
+  if (!seuils.on) return;
+  const maintenant = Date.now();
+  const ts = (x) => { const d = new Date(String(x || '').replace(' ', 'T') + 'Z'); return isNaN(d.getTime()) ? null : d.getTime(); };
+  for (const t of db.prepare(`SELECT * FROM tournoi WHERE statut = 'en_cours'`).all()) {
+    const clubId = t.club_id != null ? t.club_id : clubParDefaut().id;
+    let state;
+    try { state = JSON.parse(getSetting(`alerte82_t${t.id}`) || '{"m":{},"t":{}}'); } catch { state = { m: {}, t: {} }; }
+    if (!state.m) state.m = {};
+    if (!state.t) state.t = {};
+    // match en cours trop long -> push admins, une fois par match
+    for (const m of db.prepare(`
+      SELECT m.id, m.bracket, m.tour, m.position, m.started_at, m.table_id, j1.pseudo p1, j2.pseudo p2
+      FROM match m LEFT JOIN joueur j1 ON j1.id = m.joueur1_id LEFT JOIN joueur j2 ON j2.id = m.joueur2_id
+      WHERE m.tournoi_id = ? AND m.etat = 'en_cours'
+    `).all(t.id)) {
+      const st = ts(m.started_at);
+      if (st == null || state.m[m.id]) continue;
+      const ageMin = (maintenant - st) / 60000;
+      if (ageMin < seuils.match_min) continue;
+      state.m[m.id] = 1;
+      const code = `${m.bracket.toLowerCase()}${m.tour}-${String(m.position).padStart(3, '0')}`;
+      const tb = m.table_id != null ? db.prepare('SELECT numero FROM table_billard WHERE id = ?').get(m.table_id) : null;
+      const tableNum = tb ? tb.numero : null;
+      logAlerte82('alerte_match_long', `match ${code} (tournoi ${t.id})`, { match_id: m.id, age_min: Math.round(ageMin), table: tableNum }, clubId);
+      push.envoyerAdminsClub({
+        title: '⏱️ Match long — table de marque',
+        body: `${m.p1 || '—'} vs ${m.p2 || '—'} · ${code}${tableNum != null ? ' · table ' + tableNum : ''} · en cours depuis ${Math.round(ageMin)} min`,
+        url: '/admin-tournoi.html',
+        tag: 'alerte-match-' + m.id,
+      }, clubId, {
+        en: { title: '⏱️ Long match — scoreboard', body: `${m.p1 || '—'} vs ${m.p2 || '—'} · ${code}${tableNum != null ? ' · table ' + tableNum : ''} · ongoing for ${Math.round(ageMin)} min`, url: '/admin-tournoi.html', tag: 'alerte-match-' + m.id },
+        es: { title: '⏱️ Partido largo — mesa de marca', body: `${m.p1 || '—'} vs ${m.p2 || '—'} · ${code}${tableNum != null ? ' · mesa ' + tableNum : ''} · en juego desde hace ${Math.round(ageMin)} min`, url: '/admin-tournoi.html', tag: 'alerte-match-' + m.id },
+        it: { title: '⏱️ Match lungo — banco segnapunti', body: `${m.p1 || '—'} vs ${m.p2 || '—'} · ${code}${tableNum != null ? ' · tavolo ' + tableNum : ''} · in corso da ${Math.round(ageMin)} min`, url: '/admin-tournoi.html', tag: 'alerte-match-' + m.id },
+        de: { title: '⏱️ Langes Match — Punketafel', body: `${m.p1 || '—'} vs ${m.p2 || '—'} · ${code}${tableNum != null ? ' · Tisch ' + tableNum : ''} · seit ${Math.round(ageMin)} Min. im Gang`, url: '/admin-tournoi.html', tag: 'alerte-match-' + m.id },
+      }).catch(() => {});
+    }
+    // table libre avec des matchs en attente -> push admins, une fois par période libre
+    const tables = db.prepare('SELECT * FROM table_billard WHERE tournoi_id = ? ORDER BY numero').all(t.id);
+    const occup = new Set(db.prepare(`SELECT table_id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id IS NOT NULL`).all(t.id).map(r => r.table_id));
+    const enAttente = db.prepare(`SELECT COUNT(*) c FROM match WHERE tournoi_id = ? AND etat = 'pret' AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL`).get(t.id).c;
+    for (const tb of tables) {
+      if (occup.has(tb.id) || !enAttente) { delete state.t[tb.numero]; delete state.t['a' + tb.numero]; continue; }
+      const depuis = state.t[tb.numero];
+      if (depuis == null) { state.t[tb.numero] = maintenant; continue; }
+      const ageMin = (maintenant - depuis) / 60000;
+      if (ageMin >= seuils.table_min && !state.t['a' + tb.numero]) {
+        state.t['a' + tb.numero] = 1;
+        logAlerte82('alerte_table_libre', `table ${tb.numero} libre (tournoi ${t.id})`, { table: tb.numero, age_min: Math.round(ageMin), en_attente: enAttente }, clubId);
+        push.envoyerAdminsClub({
+          title: '🕳️ Table libre — table de marque',
+          body: `Table ${tb.numero} libre depuis ${Math.round(ageMin)} min · ${enAttente} match(s) en attente`,
+          url: '/admin-tournoi.html',
+          tag: `alerte-table-${clubId}-${tb.numero}`,
+        }, clubId, {
+          en: { title: '🕳️ Free table — scoreboard', body: `Table ${tb.numero} free for ${Math.round(ageMin)} min · ${enAttente} match(es) waiting`, url: '/admin-tournoi.html', tag: `alerte-table-${clubId}-${tb.numero}` },
+          es: { title: '🕳️ Mesa libre — mesa de marca', body: `Mesa ${tb.numero} libre desde hace ${Math.round(ageMin)} min · ${enAttente} partido(s) en espera`, url: '/admin-tournoi.html', tag: `alerte-table-${clubId}-${tb.numero}` },
+          it: { title: '🕳️ Tavolo libero — banco segnapunti', body: `Tavolo ${tb.numero} libero da ${Math.round(ageMin)} min · ${enAttente} partita/e in attesa`, url: '/admin-tournoi.html', tag: `alerte-table-${clubId}-${tb.numero}` },
+          de: { title: '🕳️ Freier Tisch — Punketafel', body: `Tisch ${tb.numero} seit ${Math.round(ageMin)} Min. frei · ${enAttente} Match(es) wartend`, url: '/admin-tournoi.html', tag: `alerte-table-${clubId}-${tb.numero}` },
+        }).catch(() => {});
+      }
+    }
+    setSetting(`alerte82_t${t.id}`, JSON.stringify(state));
+  }
+}
+
+// 82. Réglages des alertes table de marque (push aux admins du club) : activation + seuils en minutes
+app.post('/api/admin/alertes', requireAdmin, (req, res) => {
+  const on = req.body.on === true || req.body.on === '1' || req.body.on === 1;
+  if (![true, false, 1, 0, '1', '0'].includes(req.body.on)) return res.status(400).json({ error: 'on invalide (0/1)' });
+  const mm = Number(req.body.match_min), tm = Number(req.body.table_min);
+  if (!Number.isInteger(mm) || mm < 0 || mm > 240) return res.status(400).json({ error: 'match_min invalide (0-240 min)' });
+  if (!Number.isInteger(tm) || tm < 0 || tm > 240) return res.status(400).json({ error: 'table_min invalide (0-240 min)' });
+  setSetting('alertes_on', on ? '1' : '0');
+  setSetting('alerte_match_min', String(mm));
+  setSetting('alerte_table_min', String(tm));
+  logAuditReq(req, 'alertes_modifiees', 'alertes table de marque', null, { on, match_min: mm, table_min: tm });
+  majEtBroadcast();
+  res.json({ ok: true, ...etatGlobal(req) });
+});
 
 app.post('/api/admin/auto', requireAdmin, (req, res) => {
   const on = req.body.on === true || req.body.on === '1' || req.body.on === 1;
@@ -2925,6 +3024,7 @@ app.use((err, req, res, next) => {
 if (typeof comptes.purgerComptesInactifs === 'function') {
   try { comptes.purgerComptesInactifs(); } catch (e) { console.error('[PURGE]', e.message); }
   setInterval(() => { try { comptes.purgerComptesInactifs(); } catch {} }, 60 * 60 * 1000);
+  setInterval(() => { try { verifierAlertes82(); } catch {} }, 60 * 1000).unref(); // 82. scan alertes même sans action
 }
 
 if (require.main === module) {

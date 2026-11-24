@@ -241,6 +241,27 @@ function renderPanneauAuto() {
       el('div', { style: 'flex:0 0 auto;align-self:flex-end' }, el('button', { class: 'secondary', onclick: sauverReservees }, 'Enregistrer')))));
 }
 
+/* ---------- 82. Alertes table de marque (push aux admins du club) ---------- */
+function renderPanneauAlertes() {
+  const a = (adminState && adminState.alertes) || { on: true, match_min: 60, table_min: 30 };
+  main.append(el('div', { class: 'panel' },
+    el('h2', {}, '🔔 Alertes table de marque'),
+    el('p', { class: 'muted small' }, 'Push aux admins du club (abonnés) quand un match dépasse la durée ou qu\'une table reste libre avec des matchs en attente.'),
+    el('div', { class: 'row', style: 'margin-top:8px' },
+      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'al-on', type: 'checkbox', class: 'toggle-mini', ...(a.on ? { checked: '' } : {}) }), 'Alertes actives')),
+      el('div', {}, el('label', {}, 'Match long après (min)'), el('input', { id: 'al-match', type: 'number', value: a.match_min, min: 0, max: 240, style: 'width:80px' })),
+      el('div', {}, el('label', {}, 'Table libre après (min)'), el('input', { id: 'al-table', type: 'number', value: a.table_min, min: 0, max: 240, style: 'width:80px' })),
+      el('div', { style: 'flex:0 0 auto;align-self:flex-end' }, el('button', { class: 'secondary', onclick: sauverAlertes }, 'Enregistrer')))));
+}
+async function sauverAlertes() {
+  try {
+    await adminApi('/api/admin/alertes', { method: 'POST', body: JSON.stringify({
+      on: document.getElementById('al-on').checked,
+      match_min: Number(val('al-match')), table_min: Number(val('al-table')),
+    })});
+  } catch (e) { alert(e.message); }
+}
+
 function renderInscriptions(t) {
   const tn = t.tournoi;
   main.append(el('div', { class: 'panel' },
@@ -340,6 +361,7 @@ function renderInscriptions(t) {
     try { await adminApiDestructif('/api/admin/tournoi', { method: 'DELETE', body: JSON.stringify(avecTournoiCible19c({})) }, 'supprimer CE tournoi et tout son contenu'); } catch (e) { alert(e.message); }
   }
   renderPanneauAuto();
+  renderPanneauAlertes(); // 82
 }
 
 /* ---------- 17y. Fiche joueur en modale : gestion au clic sur la puce d un inscrit ---------- */
@@ -470,6 +492,7 @@ function renderTournoi(t) {
     el('h2', {}, '🎬 Simulation'),
     el('button', { class: 'secondary', style: 'width:100%', onclick: simulerTout }, '▶ Simuler tout le tournoi')));
   renderPanneauAuto();
+  renderPanneauAlertes(); // 82
 
 
   main.append(el('div', { class: 'panel' },

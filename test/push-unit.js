@@ -227,6 +227,30 @@ const push = require('../src/push');
   const rTest17s = await push.envoyerTest(cJ17s.lastInsertRowid, 'fr');
   check('17s: envoyerTest porte le club de la souscription', rTest17s.envoyes === 1 && envois.length === 1 && envois[0].payload.url === '/parametres.html?club=test17s', JSON.stringify(envois.map(e => e.payload.url)));
 
+  // --- 82. envoyerAdminsClub : seuls les ADMINS du club recoivent ---
+  envois.length = 0;
+  const clubId82 = db.prepare('SELECT MIN(id) id FROM club').get().id;
+  const c82a = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES (?, 'User82', 'u82@x.fr', 'h', 's')").run(clubId82);
+  const c82b = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt, role) VALUES (?, 'Admin82', 'a82@x.fr', 'h', 's', 'admin')").run(clubId82);
+  const c82c = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES (?, 'Op82', 'o82@x.fr', 'h', 's')").run(clubId82);
+  const c82d = db.prepare("INSERT INTO compte (club_id, pseudo, email, pass_hash, salt) VALUES (?, 'ClubAdm82', 'ca82@x.fr', 'h', 's')").run(clubId82);
+  for (const cid of [c82a, c82b, c82c, c82d].map(x => Number(x.lastInsertRowid))) {
+    db.prepare("INSERT INTO push_subscription (compte_id, club_id, endpoint, keys_json) VALUES (?, ?, ?, '{\"p256dh\":\"k\",\"auth\":\"a\"}')")
+      .run(cid, clubId82, 'https://push.example/adm-' + cid);
+  }
+  db.prepare("INSERT INTO compte_club (compte_id, club_id, role) VALUES (?, ?, 'operateur')").run(Number(c82c.lastInsertRowid), clubId82);
+  db.prepare("INSERT INTO compte_club (compte_id, club_id, role) VALUES (?, ?, 'admin')").run(Number(c82d.lastInsertRowid), clubId82);
+  const n82 = await push.envoyerAdminsClub({ title: 'alerte test', body: 'match long', url: '/admin-tournoi.html', tag: 'alerte-test' }, clubId82);
+  const eps82 = envois.map(e => e.endpoint).sort();
+  const attendu82 = ['https://push.example/adm-' + c82b.lastInsertRowid, 'https://push.example/adm-' + c82d.lastInsertRowid].sort();
+  check('82: envoyerAdminsClub envoie UNIQUEMENT aux admins du club (admin global + compte_club admin), pas au user ni a l operateur', n82 === 2 && eps82.join(',') === attendu82.join(','), `n=${n82} eps=${eps82}`);
+  check('82: payload alerte porte tag + url scoreboard', envois.every(e => e.payload.tag === 'alerte-test' && e.payload.url.includes('/admin-tournoi.html')), JSON.stringify(envois.map(e => e.payload.url)));
+  db.prepare("UPDATE compte SET lang = 'en' WHERE id = ?").run(Number(c82d.lastInsertRowid));
+  envois.length = 0;
+  await push.envoyerAdminsClub({ title: 'fr title', body: 'fr body', url: '/x', tag: 't82' }, clubId82, { en: { title: 'en title', body: 'en body', url: '/x', tag: 't82' } });
+  const en82 = envois.find(e => e.endpoint === 'https://push.example/adm-' + c82d.lastInsertRowid);
+  check('82: traduction selon compte.lang du destinataire', !!(en82 && en82.payload.title === 'en title'), JSON.stringify(envois.map(e => [e.endpoint, e.payload.title])));
+
   db.close();
   for (const ext of ['', '-wal', '-shm']) { try { fs.unlinkSync(DB_PATH + ext); } catch (e) {} }
   console.log(`\n=== ${passed} OK / ${failed} ÉCHEC ===`);

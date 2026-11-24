@@ -355,6 +355,49 @@ async function envoyerTous(payloadObj, clubId, autres) {
   } catch (e) { console.error('[PUSH] envoyerTous:', e.message); return 0; }
 }
 
+// 82. Alertes table de marque : push ciblés aux ADMINS d'un club (compte role admin/super_admin,
+// ou compte_club role 'admin' sur CE club) ayant un abonnement push sur ce club.
+async function envoyerAdminsClub(payloadObj, clubId, autres) {
+  try {
+    getVapid();
+    const subs = clubId != null
+      ? db.prepare(`
+          SELECT DISTINCT s.endpoint, s.keys_json, COALESCE(c.lang, 'fr') AS lang
+          FROM push_subscription s
+          JOIN compte c ON c.id = s.compte_id
+          WHERE s.compte_id IS NOT NULL AND s.club_id = ?
+            AND (c.role IN ('admin', 'super_admin')
+                 OR EXISTS (SELECT 1 FROM compte_club cc WHERE cc.compte_id = c.id AND cc.club_id = s.club_id AND cc.role = 'admin'))
+        `).all(clubId)
+      : db.prepare(`
+          SELECT DISTINCT s.endpoint, s.keys_json, COALESCE(c.lang, 'fr') AS lang
+          FROM push_subscription s
+          JOIN compte c ON c.id = s.compte_id
+          WHERE s.compte_id IS NOT NULL
+            AND (c.role IN ('admin', 'super_admin')
+                 OR EXISTS (SELECT 1 FROM compte_club cc WHERE cc.compte_id = c.id AND cc.role = 'admin'))
+        `).all();
+    const payload = payloadClub17s(payloadObj, clubId);
+    const traduits = {};
+    if (autres) {
+      if (autres.title != null) traduits.en = payloadClub17s(autres, clubId);
+      else for (const l of ['en', 'es', 'it', 'de']) if (autres[l]) traduits[l] = payloadClub17s(autres[l], clubId);
+    }
+    let n = 0;
+    for (const s of subs) {
+      try {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: JSON.parse(s.keys_json) }, traduits[s.lang] || payload);
+        n++;
+      } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          db.prepare('DELETE FROM push_subscription WHERE endpoint = ?').run(s.endpoint);
+        }
+      }
+    }
+    return n;
+  } catch (e) { console.error('[PUSH] envoyerAdminsClub:', e.message); return 0; }
+}
+
 function registerPushRoutes(app, { vueMatch }) {
   app.get('/api/push/vapid-public', (req, res) => res.json({ publicKey: publicKey() }));
   app.post('/api/push/subscribe', (req, res) => {
@@ -420,4 +463,4 @@ async function envoyerTestAmi(joueurId) {
   return { envoyes: n, ami_de: j.pseudo };
 }
 
-module.exports = { registerPushRoutes, notifierMatchLance, notifierProchainMatch17p, notifierInscriptionAmi, publicKey, envoyerTest, envoyerTestAmi, envoyerTous };
+module.exports = { registerPushRoutes, notifierMatchLance, notifierProchainMatch17p, notifierInscriptionAmi, publicKey, envoyerTest, envoyerTestAmi, envoyerTous, envoyerAdminsClub };
