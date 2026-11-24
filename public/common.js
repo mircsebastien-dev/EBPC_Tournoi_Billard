@@ -3548,8 +3548,8 @@ function nav(active) {
   const btnTournoi19a = el('button', { class: 'nav-lang club-selecteur-17v', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Choisir le tournoi', style: 'display:none;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, 'Tournoi');
   menuDeroulant(btnTournoi19a, (drop) => {
     const choisi19a = tournoiChoisi19a();
-    for (const t of tournoisNav19a) {
-      drop.append(el('a', { href: '#', role: 'menuitem', class: t.id === choisi19a ? 'active' : null, onclick: (e) => { e.preventDefault(); if (t.id !== choisi19a) { try { localStorage.setItem(TOURNOI_SEL_KEY_19a(), String(t.id)); } catch {} location.reload(); } } }, `${t.nom}${t.statut === 'inscription' ? ' (inscriptions)' : ''}`));
+    for (const tn of tournoisNav19a) { // 28b: statut traduit à côté du nom ; variable locale renommée pour liberer la fonction de traduction t()
+      drop.append(el('a', { href: '#', role: 'menuitem', class: tn.id === choisi19a ? 'active' : null, onclick: (e) => { e.preventDefault(); if (tn.id !== choisi19a) { try { localStorage.setItem(TOURNOI_SEL_KEY_19a(), String(tn.id)); } catch {} location.reload(); } } }, `${tn.nom} · ${t(tn.statut === 'inscription' ? 'Inscriptions' : 'En cours')}`));
     }
   });
   api('/api/tournois').then((r19a) => {
