@@ -82,7 +82,8 @@ async function nouveauTournoi(body) {
   r = await nouveauTournoi({ nom: 'Batterie', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 4 });
   check('création OK', r.status === 200 && r.data.actif.tournoi.nom === 'Batterie', r.status);
   r = await post('/api/admin/tournoi', { nom: 'Y', regle: 'blackball', taille: 16, format: 'simple' });
-  check('2e tournoi actif -> 409', r.status === 409, r.data.error);
+  check('2e tournoi actif désormais permis (19c) -> 200', r.status === 200 && r.data.actif && r.data.actif.tournoi.nom === 'Y', r.status); // 19c : le verrou un seul actif est retiré
+  await del('/api/admin/tournoi', { body: { confirm_pin: PIN, tournoi_id: r.data.actif ? r.data.actif.tournoi.id : 0 } }); // nettoyage : Y supprimé, la suite reste mono-tournoi
   // rappel push inscriptions ouvertes : réservé admin, phase inscription uniquement
   r = await api('/api/admin/tournoi/rappel-inscriptions', { method: 'POST', body: {}, pin: null });
   check('rappel inscriptions sans PIN -> 401', r.status === 401, r.status);

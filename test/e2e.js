@@ -321,10 +321,12 @@ async function main() {
   await api(`/api/admin/joueur/${(await api('/api/etat')).data.actif.joueurs.find(j => j.pseudo === 'CycleA2').id}/paiement`, { method: 'POST', body: { statut: 'paye' } });
   await api('/api/admin/tirage', { method: 'POST', body: {} });
   r = await api('/api/joueur', { method: 'POST', pin: null, body: { pseudo: 'TropTard' } });
-  check('inscription refusée (409) tant que le tournoi est en cours', r.status === 409, r.data);
+  check('inscription refusée (404) tant que le tournoi est en cours, plus d inscriptions ouvertes (19c)', r.status === 404, r.data);
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Trop tot', regle: 'blackball', taille: 16, format: 'simple' } });
-  check('création d\'un nouveau tournoi refusée (409) tant que A est en cours', r.status === 409, r.data);
-  await api('/api/admin/terminer', { method: 'POST', body: {} });
+  check('création permise pendant un tournoi en cours (19c)', r.status === 200, r.data);
+  const idTot = r.data.actif.tournoi.id;
+  await api('/api/admin/terminer', { method: 'POST', body: { tournoi_id: idA } }); // 19c : terminer ciblé de A, Trop tot continue
+  await delAdmin('/api/admin/tournoi', { tournoi_id: idTot }); // 19c : suppression ciblée de Trop tot, retour au mono-tournoi
   r = await api('/api/joueur', { method: 'POST', pin: null, body: { pseudo: 'TropTard2' } });
   check('inscription refusée (404) après fin tant qu\'aucun nouveau tournoi', r.status === 404, r.data);
   r = await api('/api/admin/tournoi', { method: 'POST', body: { nom: 'Cycle B', regle: 'blackball', taille: 16, format: 'simple', nb_tables: 2 } });
