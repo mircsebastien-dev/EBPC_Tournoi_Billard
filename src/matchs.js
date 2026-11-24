@@ -178,14 +178,37 @@ function numerosOccupesClub19c(tournoiId) {
   `).all(clubId).map(r => r.numero);
 }
 
+// 19d. Zone de tables du tournoi : « 1-4 », « 1,3,5-8 » (vide = toutes les tables comme avant).
+// L attribution automatique ET le choix manuel ne prennent QUE les tables de la zone du
+// tournoi : l admin garde le controle de qui joue ou (l Open sur 1-4, la consolande sur 5-8).
+function parserZone19d(zone) {
+  if (typeof zone !== 'string' || !zone.trim()) return null;
+  const nums19d = [];
+  for (const part19d of zone.split(',')) {
+    const p19d = part19d.trim();
+    if (/^\d+$/.test(p19d)) nums19d.push(parseInt(p19d, 10));
+    else if (/^\d+\s*-\s*\d+$/.test(p19d)) {
+      const b19d = p19d.split('-').map(s => parseInt(s.trim(), 10));
+      for (let n19d = Math.min(b19d[0], b19d[1]); n19d <= Math.max(b19d[0], b19d[1]); n19d++) nums19d.push(n19d);
+    } else return 'INVALIDE';
+  }
+  const uniq19d = [...new Set(nums19d)].filter(n19d => n19d >= 1).sort((a, b) => a - b);
+  return uniq19d.length ? uniq19d : null;
+}
+function zoneTables19d(tournoiId) {
+  const t19d = db.prepare('SELECT zone_tables FROM tournoi WHERE id = ?').get(tournoiId);
+  return t19d ? parserZone19d(t19d.zone_tables) : null;
+}
+
 function tableLibre(tournoiId, exclureMatchId) {
   const occupees = db.prepare(`
     SELECT table_id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id IS NOT NULL
   `).all(tournoiId).map(r => r.table_id);
   const prises19c = numerosOccupesClub19c(tournoiId); // 19c: numéros occupés par les tournois voisins du club
+  const zone19d = zoneTables19d(tournoiId); // 19d: zone de tables réservée à ce tournoi
   const t = db.prepare(`
     SELECT id, numero FROM table_billard WHERE tournoi_id = ? ORDER BY numero
-  `).all(tournoiId).find(tb => !occupees.includes(tb.id) && !prises19c.includes(tb.numero));
+  `).all(tournoiId).find(tb => !occupees.includes(tb.id) && !prises19c.includes(tb.numero) && (!zone19d || zone19d.includes(tb.numero)));
   return t || null;
 }
 
@@ -269,6 +292,8 @@ function lancerMatch(matchId, tableId) {
   } else {
     const existe = db.prepare('SELECT id, numero FROM table_billard WHERE id = ? AND tournoi_id = ?').get(tableId, m.tournoi_id);
     if (!existe) throw httpError(400, 'Table inconnue');
+    const zoneChoix19d = zoneTables19d(m.tournoi_id); // 19d: choix manuel borné à la zone du tournoi
+    if (zoneChoix19d && !zoneChoix19d.includes(existe.numero)) throw httpError(400, `Table hors zone de ce tournoi (zone : ${zoneChoix19d.join(', ')})`);
     const prise = db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id = ? AND id != ?`).get(m.tournoi_id, tableId, matchId);
     if (prise) throw httpError(409, 'Cette table est déjà occupée par un match en cours');
     const voisine19c = db.prepare(`
@@ -434,7 +459,8 @@ function tableLibrePref(tournoiId, matchId) {
   `).all(tournoiId).map(r => r.table_id);
   const toutes = db.prepare(`SELECT id, numero FROM table_billard WHERE tournoi_id = ? ORDER BY numero`).all(tournoiId);
   const prises19c = numerosOccupesClub19c(tournoiId); // 19c: numéros occupés par les tournois voisins du club
-  const libres = toutes.filter(tb => !occupees.includes(tb.id) && !reservees.includes(tb.numero) && !prises19c.includes(tb.numero));
+  const zone19d = zoneTables19d(tournoiId); // 19d: zone du tournoi, l attribution respecte la zone choisie par l admin
+  const libres = toutes.filter(tb => !occupees.includes(tb.id) && !reservees.includes(tb.numero) && !prises19c.includes(tb.numero) && (!zone19d || zone19d.includes(tb.numero)));
   const pref = (getSetting('table_pref') || '').split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
   if (pref.length === 0) return libres[0] || null;
   libres.sort((a, b) => {
@@ -484,8 +510,10 @@ function setTableAdmin(matchId, tableId) {
     db.prepare('UPDATE match SET table_id = NULL, updated_at = datetime(\'now\') WHERE id = ?').run(matchId);
     return matchById(matchId);
   }
-  const t = db.prepare('SELECT id FROM table_billard WHERE id = ? AND tournoi_id = ?').get(tableId, m.tournoi_id);
+  const t = db.prepare('SELECT id, numero FROM table_billard WHERE id = ? AND tournoi_id = ?').get(tableId, m.tournoi_id);
   if (!t) throw httpError(400, 'Table inconnue pour ce tournoi');
+  const zoneAdmin19d = zoneTables19d(m.tournoi_id); // 19d: changement de table borné à la zone du tournoi
+  if (zoneAdmin19d && !zoneAdmin19d.includes(t.numero)) throw httpError(400, `Table hors zone de ce tournoi (zone : ${zoneAdmin19d.join(', ')})`);
   const prise = db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id = ? AND id != ?`).get(m.tournoi_id, tableId, matchId);
   if (prise) throw httpError(409, `Table déjà occupée par le match #${prise}`);
   db.prepare('UPDATE match SET table_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(tableId, matchId);
@@ -641,4 +669,6 @@ module.exports = { listerEvents, supprimerEventAdmin, eviterRematchF, eviterRema
   autoLancer,
   prochainMatchAuto,
   tableLibrePref,
+  parserZone19d,
+  zoneTables19d,
 };

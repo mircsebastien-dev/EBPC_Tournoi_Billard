@@ -1130,12 +1130,26 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const seuil = ['jamais', 'quarts', 'demis', 'finale'].includes(seuil_distance) ? seuil_distance : 'jamais';
   const distSpe = [3, 5, 7].includes(Number(distance_speciale)) ? Number(distance_speciale) : 3;
   const dateH = (typeof date_heure === 'string' && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(date_heure)) ? date_heure.replace('T', ' ').slice(0, 16) : bracket.prochainMardi20h();
+  // 19d: zone de tables du tournoi (« 1-4 » ou « 1,3,5-8 », vide = toutes), stockée normalisée en numéros à virgule
+  const nbTables19d = Math.max(1, Number(nb_tables) || 8);
+  let zoneSave19d = null;
+  if (req.body.zone_tables != null && typeof req.body.zone_tables !== 'string') {
+    return res.status(400).json({ error: 'Zone de tables invalide (attendu : ex 1-4 ou 1,3)' });
+  }
+  if (typeof req.body.zone_tables === 'string' && req.body.zone_tables.trim()) {
+    const numsZone19d = M.parserZone19d(req.body.zone_tables);
+    if (numsZone19d === 'INVALIDE') return res.status(400).json({ error: 'Zone de tables invalide (attendu : ex 1-4 ou 1,3)' });
+    if (!numsZone19d || numsZone19d.some(nz19d => nz19d > nbTables19d)) {
+      return res.status(400).json({ error: `Zone hors des ${nbTables19d} tables de ce tournoi (ex : 1-${nbTables19d})` });
+    }
+    zoneSave19d = numsZone19d.join(',');
+  }
   const th17j = themeDuClub(req.club); // 17j v2: repli sur l adresse par défaut du club si définie, sinon Le 147 (comportement d origine)
   const lieuT = (typeof lieu === 'string' && lieu.trim()) ? lieu.trim().slice(0, 200) : (th17j.adresse || 'Le 147, 12 Rue des Amidonniers 31000 Toulouse');
   const info = db.prepare(`
-    INSERT INTO tournoi (club_id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, statut)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
-  `).run(req.club.id, nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 8), ajustement_auto === false ? 0 : 1, seuil, distSpe, dateH, lieuT);
+    INSERT INTO tournoi (club_id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, zone_tables, statut)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
+  `).run(req.club.id, nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 8), ajustement_auto === false ? 0 : 1, seuil, distSpe, dateH, lieuT, zoneSave19d);
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(info.lastInsertRowid));
   for (let i = 1; i <= t.nb_tables; i++) {
     db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
@@ -1253,8 +1267,21 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
       }
     }
   }
-  db.prepare('UPDATE tournoi SET nom = ?, tetes_de_serie = ?, nb_tables = ?, ajustement_auto = ?, date_heure = ?, lieu = ? WHERE id = ?')
-    .run(enCours ? t.nom : (nom || t.nom), enCours ? t.tetes_de_serie : (tetes_de_serie ? 1 : 0), nbCible, enCours ? t.ajustement_auto : (ajustement_auto === false ? 0 : 1), setDate, setLieu, t.id);
+  // 19d: édition de la zone de tables (champ absent = inchangée, chaîne vide = zone retirée)
+  let zoneEdit19d;
+  if (req.body.zone_tables == null) zoneEdit19d = t.zone_tables;
+  else if (typeof req.body.zone_tables !== 'string') return res.status(400).json({ error: 'Zone de tables invalide (attendu : ex 1-4 ou 1,3)' });
+  else if (!req.body.zone_tables.trim()) zoneEdit19d = null;
+  else {
+    const numsZone19d = M.parserZone19d(req.body.zone_tables);
+    if (numsZone19d === 'INVALIDE') return res.status(400).json({ error: 'Zone de tables invalide (attendu : ex 1-4 ou 1,3)' });
+    if (!numsZone19d || numsZone19d.some(nz19d => nz19d > nbCible)) {
+      return res.status(400).json({ error: `Zone hors des ${nbCible} tables de ce tournoi (ex : 1-${nbCible})` });
+    }
+    zoneEdit19d = numsZone19d.join(',');
+  }
+  db.prepare('UPDATE tournoi SET nom = ?, tetes_de_serie = ?, nb_tables = ?, ajustement_auto = ?, date_heure = ?, lieu = ?, zone_tables = ? WHERE id = ?')
+    .run(enCours ? t.nom : (nom || t.nom), enCours ? t.tetes_de_serie : (tetes_de_serie ? 1 : 0), nbCible, enCours ? t.ajustement_auto : (ajustement_auto === false ? 0 : 1), setDate, setLieu, zoneEdit19d, t.id);
   const t2 = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
   const existantes2 = db.prepare('SELECT numero FROM table_billard WHERE tournoi_id = ?').all(t.id).map(r => r.numero);
   // ne recréer des tables que si on a AUGMENTÉ (en phase inscriptions ou ajout en cours) — jamais après une réduction

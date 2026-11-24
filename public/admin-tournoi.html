@@ -85,6 +85,7 @@ function renderCreer() {
       el('div', {}, el('label', {}, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n, ...(n === 2 ? { selected: '' } : {}) }, `${n} tour${n > 1 ? 's' : ''}`))))),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 8, min: 1, max: 20 })),
+      el('div', { style: 'flex:1 1 170px' }, el('label', {}, '🎯 Zone de tables'), el('input', { id: 'zone', placeholder: 'ex : 1-4 ou 5-8 (vide = toutes)', maxlength: 60 })),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'tds', type: 'checkbox', class: 'toggle-mini' }), 'Têtes de série')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', class: 'toggle-mini', checked: '' }), 'Ajuster auto la taille au nombre de payés')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'notifpush', type: 'checkbox', class: 'toggle-mini', checked: '' }), '🔔 Notif push « inscriptions ouvertes »'))),
@@ -120,10 +121,26 @@ function renderCreer() {
         nom: val('nom'), regle: val('regle'), taille: Number(val('taille')), format: val('format'), dko_tours: Number(val('dko')),
         tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
         ajustement_auto: document.getElementById('auto').checked, seuil_distance: val('seuil'), distance_speciale: Number(val('distspe')),
-        date_heure: val('dateheure'), lieu: val('lieu'), notif_push: document.getElementById('notifpush').checked,
+        date_heure: val('dateheure'), lieu: val('lieu'), zone_tables: val('zone'), notif_push: document.getElementById('notifpush').checked,
       })});
     } catch (e) { alert(e.message); }
   }
+}
+
+/* ---------- 19d. Zone de tables du tournoi (tables réservées par tournoi, mode multi-tournois) ---------- */
+function zoneTablesFront19d(zone) { // « 1-4 » ou « 1,3,5-8 » (vide = toutes) ; entrée invalide -> null, le serveur refuse de toute façon
+  if (typeof zone !== 'string' || !zone.trim()) return null;
+  const nums19d = [];
+  for (const part19d of zone.split(',')) {
+    const p19d = part19d.trim();
+    if (/^\d+$/.test(p19d)) nums19d.push(parseInt(p19d, 10));
+    else if (/^\d+\s*-\s*\d+$/.test(p19d)) {
+      const b19d = p19d.split('-').map(s => parseInt(s.trim(), 10));
+      for (let n19d = Math.min(b19d[0], b19d[1]); n19d <= Math.max(b19d[0], b19d[1]); n19d++) nums19d.push(n19d);
+    } else return null;
+  }
+  const uniq19d = [...new Set(nums19d)].filter(n19d => n19d >= 1);
+  return uniq19d.length ? uniq19d : null;
 }
 
 /* ---------- 19c. Création pendant un tournoi actif (tournois en parallèle) ---------- */
@@ -145,6 +162,7 @@ function ouvrirCreation19c(t) { // modale (même pattern que 17y/24a) : la saisi
       el('div', {}, el('label', {}, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n, ...(n === 2 ? { selected: '' } : {}) }, `${n} tour${n > 1 ? 's' : ''}`))))),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 8, min: 1, max: 20 })),
+      el('div', { style: 'flex:1 1 170px' }, el('label', {}, '🎯 Zone de tables'), el('input', { id: 'zone', placeholder: 'ex : 1-4 ou 5-8 (vide = toutes)', maxlength: 60 })),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'tds', type: 'checkbox', class: 'toggle-mini' }), 'Têtes de série')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', class: 'toggle-mini', checked: '' }), 'Ajuster auto la taille au nombre de payés')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'notifpush', type: 'checkbox', class: 'toggle-mini', checked: '' }), '🔔 Notif push « inscriptions ouvertes »'))),
@@ -184,7 +202,7 @@ async function creerParallele19c() {
       nom: val('nom'), regle: val('regle'), taille: Number(val('taille')), format: val('format'), dko_tours: Number(val('dko')),
       tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
       ajustement_auto: document.getElementById('auto').checked, seuil_distance: val('seuil'), distance_speciale: Number(val('distspe')),
-      date_heure: val('dateheure'), lieu: val('lieu'), notif_push: document.getElementById('notifpush').checked,
+      date_heure: val('dateheure'), lieu: val('lieu'), zone_tables: val('zone'), notif_push: document.getElementById('notifpush').checked,
     })});
     const nouveau = rep && rep.actif && rep.actif.tournoi ? Number(rep.actif.tournoi.id) : null;
     if (nouveau) { try { localStorage.setItem(TOURNOI_SEL_KEY_19a(), String(nouveau)); } catch {} } // 19c: le sélecteur du bandeau pilote le NOUVEAU tournoi
@@ -222,6 +240,7 @@ function renderInscriptions(t) {
     el('div', { class: 'row', style: 'margin-top:10px' },
       el('div', {}, el('label', {}, '📅 Date et heure'), el('input', { id: 'edit-dateheure', type: 'datetime-local', value: toLocalInput(tn.date_heure) })),
       el('div', { style: 'flex:1 1 220px' }, el('label', {}, '📍 Lieu'), el('input', { id: 'edit-lieu', value: tn.lieu || '', maxlength: 200, placeholder: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse' })),
+      el('div', { style: 'flex:0 0 190px' }, el('label', {}, '🎯 Zone de tables'), el('input', { id: 'edit-zone', value: tn.zone_tables || '', maxlength: 60, placeholder: 'ex : 1-4 ou 5-8 (vide = toutes)' })),
       el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: majInfos }, 'Enregistrer date/lieu'))),
     el('div', { class: 'row' },
       el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'pseudo', maxlength: 40, placeholder: 'Nouveau joueur', autocomplete: 'off' })),
@@ -262,7 +281,7 @@ function renderInscriptions(t) {
     try {
       await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify(avecTournoiCible19c({
         nom: tn.nom, tetes_de_serie: tn.tetes_de_serie, nb_tables: tn.nb_tables, ajustement_auto: tn.ajustement_auto,
-        date_heure: val('edit-dateheure'), lieu: val('edit-lieu'),
+        date_heure: val('edit-dateheure'), lieu: val('edit-lieu'), zone_tables: val('edit-zone'),
       })) });
     } catch (e) { alert(e.message); }
   }
@@ -467,9 +486,10 @@ function renderTournoi(t) {
   function openGestion24a(m) { // 24a: toutes les actions du match regroupées en modale (plus de pile de boutons sous chaque carte)
     const estEnCours = m.etat === 'en_cours';
     const occupees = new Set(t.matchs.filter(mm => mm.etat === 'en_cours' && mm.table != null).map(mm => mm.table));
+    const zoneChoix19d = zoneTablesFront19d(t.tournoi.zone_tables); // 19d: le choix manuel ne propose QUE les tables de la zone du tournoi
     const sel = el('select', { id: `table-${m.id}`, style: 'width:auto' },
       el('option', { value: '' }, '🎱 Table auto (libre)'),
-      t.tables.map(tb => el('option', { value: tb.id, ...(occupees.has(tb.numero) ? { disabled: '' } : {}) }, `Table ${tb.numero}${occupees.has(tb.numero) ? ' (occupée)' : ''}`)));
+      t.tables.filter(tb => !zoneChoix19d || zoneChoix19d.includes(tb.numero)).map(tb => el('option', { value: tb.id, ...(occupees.has(tb.numero) ? { disabled: '' } : {}) }, `Table ${tb.numero}${occupees.has(tb.numero) ? ' (occupée)' : ''}`)));
     const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
     const fermer = () => overlay.remove(); // l état revient par la diffusion serveur (SSE), même pattern que la fiche joueur 17y
     overlay.append(el('div', { class: 'panel', style: 'max-width:440px;width:92%;max-height:92vh;overflow:auto' },

@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS tournoi (
   distance_speciale INTEGER NOT NULL DEFAULT 3 CHECK (distance_speciale IN (2, 3, 5, 7)),
   date_heure TEXT,
   lieu TEXT,
+  zone_tables TEXT,
   statut TEXT NOT NULL DEFAULT 'inscription' CHECK (statut IN ('inscription', 'en_cours', 'termine')),
   champion_id INTEGER REFERENCES joueur(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -397,6 +398,10 @@ function clubParSlug(slug) {
 }
 if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'club_id'))
   db.exec('ALTER TABLE tournoi ADD COLUMN club_id INTEGER REFERENCES club(id)');
+// 19d. Zone de tables du tournoi : numéros de billards du club réservés à CE tournoi
+// (ex: l Open sur 1-4, la consolande sur 5-8), NULL = toutes les tables comme avant
+if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'zone_tables'))
+  db.exec('ALTER TABLE tournoi ADD COLUMN zone_tables TEXT');
 if (!db.prepare("PRAGMA table_info(audit_log)").all().some(c => c.name === 'club_id'))
   db.exec('ALTER TABLE audit_log ADD COLUMN club_id INTEGER REFERENCES club(id)');
 if (!db.prepare("PRAGMA table_info(audit_snapshot)").all().some(c => c.name === 'club_id'))
