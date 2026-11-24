@@ -198,7 +198,7 @@ function render() {
   const lignes86 = state && state.actif ? lignesFil(state.actif) : [];
   if (flash86) {
     if (lignes86.length) {
-      const txt86 = lignes86.slice(0, 6).map(l => l.parties.map(x => t(x)).join(' ')).join('   •   ');
+      const txt86 = lignes86.slice(0, 6).map(l => l.parties.map(x => globalThis.t(x)).join(' ')).join('   •   ');
       const track86 = document.getElementById('tv-flash-track');
       const double86 = txt86 + '   •   ' + txt86;
       if (track86 && track86.textContent !== double86) track86.textContent = double86;
