@@ -190,10 +190,10 @@ function renderInscriptions(t) {
   }
   async function majInfos() {
     try {
-      await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify({
+      await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify(avecTournoiCible19c({
         nom: tn.nom, tetes_de_serie: tn.tetes_de_serie, nb_tables: tn.nb_tables, ajustement_auto: tn.ajustement_auto,
         date_heure: val('edit-dateheure'), lieu: val('edit-lieu'),
-      })});
+      })) });
     } catch (e) { alert(e.message); }
   }
   async function ajouter() {
@@ -203,12 +203,12 @@ function renderInscriptions(t) {
     const tds = document.getElementById('tds');
     if (tds && tds.value) body.tete_de_serie = Number(tds.value);
     try {
-      await adminApi('/api/admin/joueur', { method: 'POST', body: JSON.stringify(body) });
+      await adminApi('/api/admin/joueur', { method: 'POST', body: JSON.stringify(avecTournoiCible19c(body)) }); // 19c: inscrit au tournoi choisi
     } catch (e) {
       // pseudo d'un compte existant: demander confirmation explicite avant d'inscrire à la place du titulaire
       if (e.data && e.data.compte_pseudo) {
         if (confirm(`Un compte existe déjà avec le pseudo « ${pseudo} ».\n\nInscrire quand même ce joueur ? Il sera rattaché à ce compte (notifications « à toi de jouer » et amis incluses).\n\nSinon, le titulaire peut s'inscrire lui-même depuis son compte.`)) {
-          try { await adminApi('/api/admin/joueur', { method: 'POST', body: JSON.stringify({ ...body, confirme: true }) }); }
+          try { await adminApi('/api/admin/joueur', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({ ...body, confirme: true })) }); }
           catch (e2) { alert(e2.message); }
         }
       } else alert(e.message);
@@ -216,28 +216,29 @@ function renderInscriptions(t) {
   }
   async function simuler() {
     try {
-      const r = await adminApi('/api/admin/joueurs/simulation', { method: 'POST', body: JSON.stringify({ count: Number(val('simcount')) || 8, prefix: val('simprefix') || 'Simu' }) });
+      const r = await adminApi('/api/admin/joueurs/simulation', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({ count: Number(val('simcount')) || 8, prefix: val('simprefix') || 'Simu' })) });
       alert(`${r.crees} joueur(s) fictif(s) ajouté(s) et payés ✅`);
     } catch (e) { alert(e.message); }
   }
   async function rappelInscriptions() {
     try {
-      const r = await adminApi('/api/admin/tournoi/rappel-inscriptions', { method: 'POST' });
+      const r = await adminApi('/api/admin/tournoi/rappel-inscriptions', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({})) }); // 19c: rappel du tournoi choisi
       alert(`${r.envoyes} notification(s) envoyée(s) ✅`);
     } catch (e) { alert(e.message); }
   }
   async function sauverDistances() {
     const distances = {};
     document.querySelectorAll('select[data-round]').forEach(s => { distances[s.dataset.round] = Number(s.value); });
-    try { await adminApi('/api/admin/distances', { method: 'PUT', body: JSON.stringify({ distances }) }); } catch (e) { alert(e.message); }
+    try { await adminApi('/api/admin/distances', { method: 'PUT', body: JSON.stringify(avecTournoiCible19c({ distances })) }); } catch (e) { alert(e.message); }
   }
   async function tirage() {
     if (!confirmer('Lancer le tirage ? Inscriptions closes.')) return;
-    try { await adminApi('/api/admin/tirage', { method: 'POST', body: '{}' }); } catch (e) { alert(e.message); }
+    try { await adminApi('/api/admin/tirage', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({})) }); } catch (e) { alert(e.message); }
   }
   async function supprimer() {
     if (!confirmer('Supprimer le tournoi et TOUT son contenu ?')) return;
-    try { await adminApiDestructif('/api/admin/tournoi', { method: 'DELETE' }, 'supprimer le tournoi actif et tout son contenu'); } catch (e) { alert(e.message); }
+    // 19c: supprime le tournoi CHOISI (le sélecteur du bandeau), pas « le plus grand id » par accident
+    try { await adminApiDestructif('/api/admin/tournoi', { method: 'DELETE', body: JSON.stringify(avecTournoiCible19c({})) }, 'supprimer CE tournoi et tout son contenu'); } catch (e) { alert(e.message); }
   }
   renderPanneauAuto();
 }
@@ -379,7 +380,7 @@ function renderTournoi(t) {
   async function sauverDistances() {
     const distances = {};
     document.querySelectorAll('select[data-round]').forEach(s => { distances[s.dataset.round] = Number(s.value); });
-    try { await adminApi('/api/admin/distances', { method: 'PUT', body: JSON.stringify({ distances }) }); } catch (e) { alert(e.message); }
+    try { await adminApi('/api/admin/distances', { method: 'PUT', body: JSON.stringify(avecTournoiCible19c({ distances })) }); } catch (e) { alert(e.message); }
   }
   async function lancer(id, tableId) {
     try { await adminApi(`/api/admin/match/${id}/lancer`, { method: 'POST', body: JSON.stringify({ table_id: tableId }) }); } catch (e) { alert(e.message); }
@@ -450,7 +451,7 @@ function renderTournoi(t) {
   async function terminer() {
     if (!confirmer('Terminer le tournoi maintenant ?')) return;
     const cid = val('champion');
-    try { await adminApi('/api/admin/terminer', { method: 'POST', body: JSON.stringify({ champion_id: cid ? Number(cid) : null }) }); } catch (e) { alert(e.message); }
+    try { await adminApi('/api/admin/terminer', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({ champion_id: cid ? Number(cid) : null })) }); } catch (e) { alert(e.message); }
   }
 }
 
@@ -476,10 +477,10 @@ async function majTables() {
   const t = adminTournoiActif();
   if (!t) return;
   try {
-    await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify({
+    await adminApi('/api/admin/tournoi', { method: 'PUT', body: JSON.stringify(avecTournoiCible19c({
       nom: t.tournoi.nom, tetes_de_serie: t.tournoi.tetes_de_serie, nb_tables: Number(val('edit-nbtables')), ajustement_auto: t.tournoi.ajustement_auto,
       date_heure: t.tournoi.date_heure, lieu: t.tournoi.lieu,
-    })});
+    })) });
   } catch (e) { alert(e.message); }
 }
 async function toggleAuto() {

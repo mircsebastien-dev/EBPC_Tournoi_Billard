@@ -5,6 +5,8 @@
 2. Crée un **compte** (pseudo + email + mot de passe) ou connecte-toi → bouton **Compte**
 3. Sur l'accueil, clique **« M'inscrire »** → tu es inscrit ✅
 
+> Ton club ouvre **plusieurs tournois** en même temps ? Le **sélecteur de tournoi du bandeau** choisit celui où tu t inscris (et celui d où tu te désinscris) ; la table de marque pilote de la même façon le tournoi qu elle modifie.
+
 > Sans compte, tu peux t'inscrire avec juste un pseudo (champ sur l'accueil), mais tu n'auras pas les notifications push ni ton historique perso.
 
 ## Notifications « à toi de joue » (push)

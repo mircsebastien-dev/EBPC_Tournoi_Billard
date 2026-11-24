@@ -162,13 +162,30 @@ function declarerManche(matchId, joueurId) {
   return matchById(matchId);
 }
 
+// 19c. Tables partagées entre tournois du MÊME club : le billard physique est son NUMÉRO dans le club.
+// Un numéro occupé par un match en cours d un autre tournoi actif du club n est JAMAIS réattribué
+// (attribution auto ET choix manuel): deux tournois le même soir ne posent jamais deux matchs sur le même billard.
+function clubIdDuTournoi19c(tournoiId) {
+  const t = db.prepare('SELECT club_id FROM tournoi WHERE id = ?').get(tournoiId);
+  return t ? t.club_id : null;
+}
+function numerosOccupesClub19c(tournoiId) {
+  const clubId = clubIdDuTournoi19c(tournoiId);
+  if (clubId == null) return [];
+  return db.prepare(`
+    SELECT DISTINCT tb.numero FROM match m JOIN table_billard tb ON tb.id = m.table_id JOIN tournoi tr ON tr.id = tb.tournoi_id
+    WHERE tr.club_id = ? AND m.etat = 'en_cours'
+  `).all(clubId).map(r => r.numero);
+}
+
 function tableLibre(tournoiId, exclureMatchId) {
   const occupees = db.prepare(`
     SELECT table_id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id IS NOT NULL
   `).all(tournoiId).map(r => r.table_id);
+  const prises19c = numerosOccupesClub19c(tournoiId); // 19c: numéros occupés par les tournois voisins du club
   const t = db.prepare(`
     SELECT id, numero FROM table_billard WHERE tournoi_id = ? ORDER BY numero
-  `).all(tournoiId).find(tb => !occupees.includes(tb.id));
+  `).all(tournoiId).find(tb => !occupees.includes(tb.id) && !prises19c.includes(tb.numero));
   return t || null;
 }
 
@@ -250,10 +267,15 @@ function lancerMatch(matchId, tableId) {
     const libre = tableLibrePref(m.tournoi_id, matchId); // pref + tables réservées en phase finale
     tableId = libre ? libre.id : null;
   } else {
-    const existe = db.prepare('SELECT id FROM table_billard WHERE id = ? AND tournoi_id = ?').get(tableId, m.tournoi_id);
+    const existe = db.prepare('SELECT id, numero FROM table_billard WHERE id = ? AND tournoi_id = ?').get(tableId, m.tournoi_id);
     if (!existe) throw httpError(400, 'Table inconnue');
     const prise = db.prepare(`SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id = ? AND id != ?`).get(m.tournoi_id, tableId, matchId);
     if (prise) throw httpError(409, 'Cette table est déjà occupée par un match en cours');
+    const voisine19c = db.prepare(`
+      SELECT tr.nom FROM match mm JOIN table_billard tb2 ON tb2.id = mm.table_id JOIN tournoi tr ON tr.id = tb2.tournoi_id
+      WHERE tr.club_id = ? AND tb2.numero = ? AND tb2.tournoi_id != ? AND mm.etat = 'en_cours' LIMIT 1
+    `).get(clubIdDuTournoi19c(m.tournoi_id), existe.numero, m.tournoi_id);
+    if (voisine19c) throw httpError(409, `Table ${existe.numero} occupée par un match du tournoi voisin « ${voisine19c.nom} »`); // 19c: même billard physique, deux tournois le même soir
   }
   db.prepare(`UPDATE match SET etat = 'en_cours', table_id = ?, started_at = COALESCE(started_at, datetime('now')), updated_at = datetime('now') WHERE id = ?`).run(tableId, matchId);
   insererEvent(matchId, null, 'lancement', { table: tableId != null ? tableNumero(tableId) : null });
@@ -411,7 +433,8 @@ function tableLibrePref(tournoiId, matchId) {
     SELECT table_id FROM match WHERE tournoi_id = ? AND etat = 'en_cours' AND table_id IS NOT NULL
   `).all(tournoiId).map(r => r.table_id);
   const toutes = db.prepare(`SELECT id, numero FROM table_billard WHERE tournoi_id = ? ORDER BY numero`).all(tournoiId);
-  const libres = toutes.filter(tb => !occupees.includes(tb.id) && !reservees.includes(tb.numero));
+  const prises19c = numerosOccupesClub19c(tournoiId); // 19c: numéros occupés par les tournois voisins du club
+  const libres = toutes.filter(tb => !occupees.includes(tb.id) && !reservees.includes(tb.numero) && !prises19c.includes(tb.numero));
   const pref = (getSetting('table_pref') || '').split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isInteger(n) && n > 0);
   if (pref.length === 0) return libres[0] || null;
   libres.sort((a, b) => {

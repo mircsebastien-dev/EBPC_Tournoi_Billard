@@ -178,13 +178,13 @@ function render() {
 async function inscrire() {
   const pseudo = document.getElementById('pseudo').value.trim();
   if (!pseudo) return;
-  try { await api('/api/joueur', { method: 'POST', body: JSON.stringify({ pseudo }) }); }
+  try { await api('/api/joueur', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({ pseudo })) }); } // 19c: rejoint le tournoi choisi au sélecteur
   catch (e) { alert(e.message); }
 }
 
 async function inscrireCompte() {
   try {
-    await api('/api/tournoi/inscrire', { method: 'POST' });
+    await api('/api/tournoi/inscrire', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({})) }); // 19c: rejoint le tournoi choisi
     state = await api(urlEtat19a()); // 19a: suit le tournoi choisi (sélecteur du bandeau)
     render();
   } catch (e) { alert(e.message); }
@@ -193,7 +193,7 @@ async function inscrireCompte() {
 async function desinscrireCompte() {
   if (!confirm('Te désinscrire du tournoi ?')) return;
   try {
-    await api('/api/tournoi/desinscrire', { method: 'DELETE' });
+    await api('/api/tournoi/desinscrire', { method: 'DELETE', body: JSON.stringify(avecTournoiCible19c({})) }); // 19c: quitte le tournoi choisi
     state = await api(urlEtat19a()); // 19a: suit le tournoi choisi (sélecteur du bandeau)
     render();
   } catch (e) { alert(e.message); }

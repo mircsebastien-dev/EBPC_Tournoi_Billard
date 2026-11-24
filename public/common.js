@@ -20,6 +20,13 @@ function tournoiChoisi19a() {
   } catch { return null; }
 }
 function urlEtat19a() { const id = tournoiChoisi19a(); return '/api/etat' + (id != null ? '?tournoi_id=' + id : ''); }
+// 19c. Écriture multi-tournois : les actions (tirage, terminer, édition, inscriptions...) rejoignent
+// le tournoi CHOISI (le mémorisé du sélecteur 19a, par club); sans choix, rien n est envoyé et le
+// serveur garde le comportement d origine: l unique tournoi actif, ou 409 explicite s il y en a plusieurs.
+function avecTournoiCible19c(obj) {
+  const id = tournoiChoisi19a();
+  return id != null ? Object.assign({}, obj, { tournoi_id: id }) : obj;
+}
 // 17n. suffixe ?club= pour les <img>/<fetch> qui ne portent pas l en-tête X-Club (bannière de l accueil, photo de fond TV)
 function qsClub17n() {
   try { const c = localStorage.getItem(CLUB_KEY); return c ? '?club=' + encodeURIComponent(c) : ''; } catch { return ''; }

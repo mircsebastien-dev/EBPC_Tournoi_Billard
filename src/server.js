@@ -355,6 +355,41 @@ function tournoiActif(clubId) {
     || null;
 }
 
+// 19c. Écriture multi-tournois : plusieurs tournois ACTIFS en même temps dans LE MÊME club (la
+// lecture suit depuis 19a via ?tournoi_id=). L admin cible le tournoi choisi (?tournoi_id= ou
+// champ tournoi_id du body, forcément ACTIF dans le club ouvert sinon 404) ; sans cible on garde
+// le comportement d origine si UN SEUL actif correspond, sinon 409 explicite : JAMAIS le plus
+// grand id par accident silencieux. inscription=true filtre sur la phase inscription (inscriptions
+// admin et publiques, simulation, rappel) pour garder le réflexe d origine côté joueurs.
+function tournoisActifs19c(clubId, phaseInscription19c) {
+  return db.prepare(`SELECT * FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours')${phaseInscription19c ? " AND statut = 'inscription'" : ''} ORDER BY id DESC`).all(clubId);
+}
+function tournoiCibleOuErreur19c(req, res, phaseInscription19c) { // renvoie le tournoi ciblé, ou null AVEC la réponse déjà envoyée
+  const actifs = tournoisActifs19c(req.club.id, phaseInscription19c);
+  const recu = Number((req.body && req.body.tournoi_id) || (req.query && req.query.tournoi_id)) || 0;
+  if (recu > 0) {
+    const t = actifs.find((a) => a.id === recu);
+    if (!t) { res.status(404).json({ error: 'Tournoi inconnu ou pas actif ici (tournoi_id)' }); return null; }
+    return t;
+  }
+  if (actifs.length === 1) return actifs[0]; // comportement d origine: un seul actif -> lui, sans cible
+  if (actifs.length === 0) { res.status(404).json({ error: phaseInscription19c ? 'Aucun tournoi ouvert aux inscriptions (le précédent doit être terminé et le prochain créé)' : 'Aucun tournoi actif' }); return null; }
+  res.status(409).json({ error: phaseInscription19c ? 'Plusieurs tournois sont ouverts aux inscriptions : précise lequel (tournoi_id)' : 'Plusieurs tournois actifs : précise lequel (tournoi_id)', actifs: actifs.map((a) => ({ id: a.id, nom: a.nom })) });
+  return null;
+}
+// 19c: résolution du tournoi d inscription pour les pages de comptes (src/comptes.js) : { t, plusieurs, inconnu }
+// cible explicite sinon l unique ouvert aux inscriptions ; plusieurs sans cible -> t null + plusieurs (409 côté route)
+function tournoiInscription19c(req) {
+  const actifs = tournoisActifs19c(req.club.id, true);
+  const recu = Number((req.body && req.body.tournoi_id) || (req.query && req.query.tournoi_id)) || 0;
+  if (recu > 0) {
+    const t = actifs.find((a) => a.id === recu);
+    return { t: t || null, plusieurs: false, inconnu: !t };
+  }
+  if (actifs.length === 1) return { t: actifs[0], plusieurs: false };
+  return { t: null, plusieurs: actifs.length > 1, inconnu: false };
+}
+
 // helpers d'isolation: une entité n'existe que si son tournoi appartient au club courant
 function clubIdOf(t) { return t && t.club_id != null ? t.club_id : clubParDefaut().id; }
 function tournoiDuClub(req, id) { const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(id)); return (t && clubIdOf(t) === req.club.id) ? t : null; }
@@ -1043,8 +1078,8 @@ function codesLances(tid, avant) {
 function majEtBroadcast() {
   M.rafraichirPrets();
   for (const c of db.prepare('SELECT id FROM club ORDER BY id').all()) { // auto-lancement par club
-    const t = tournoiActif(c.id);
-    if (t && t.statut === 'en_cours') {
+    for (const t of tournoisActifs19c(c.id)) { // 19c: TOUS les tournois actifs du club, pas seulement le plus grand id
+      if (t.statut !== 'en_cours') continue;
       const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
       const lances = M.autoLancer(t.id);
       notifierAutoLances(t.id, avant);
@@ -1072,8 +1107,8 @@ app.post('/api/admin/auto', requireAdmin, (req, res) => {
   }
   logAuditReq(req, 'auto_toggle', 'tournoi', null, { on });
   if (on) {
-    const t = tournoiActif(req.club.id);
-    if (t && t.statut === 'en_cours') {
+    for (const t of tournoisActifs19c(req.club.id)) { // 19c: TOUS les tournois actifs du club, pas seulement le plus grand id
+      if (t.statut !== 'en_cours') continue;
       const avant = new Set(db.prepare("SELECT id FROM match WHERE tournoi_id = ? AND etat = 'en_cours'").all(t.id).map(r => r.id));
     const lances = M.autoLancer(t.id);
     notifierAutoLances(t.id, avant);
@@ -1086,8 +1121,8 @@ app.post('/api/admin/auto', requireAdmin, (req, res) => {
 
 app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const { nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu } = req.body;
-  const actif = tournoiActif(req.club.id);
-  if (actif) return res.status(409).json({ error: `Un tournoi est encore actif (${actif.nom}). Terminez-le ou supprimez-le d'abord.`, actif_id: actif.id });
+  // 19c: PLUS DE VERROU « un tournoi est encore actif »: la création pendant un tournoi actif du
+  // même club est permise (le blackball et l ultimate le même soir, chacun son tirage et ses tables)
   if (!['blackball', 'ultimate'].includes(regle)) return res.status(400).json({ error: 'Règle invalide' });
   if (![16, 32, 64, 128].includes(Number(taille))) return res.status(400).json({ error: 'Taille invalide (max)'});
   if (!['simple', 'double'].includes(format)) return res.status(400).json({ error: 'Format invalide' });
@@ -1151,8 +1186,9 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
 });
 
 app.delete('/api/admin/tournoi', requireAdmin, requireConfirmPin, (req, res) => {
-  const id = (tournoiActif(req.club.id) || {}).id;
-  if (!id) return res.status(404).json({ error: 'Aucun tournoi' });
+  const tSup19c = tournoiCibleOuErreur19c(req, res); // 19c: suppression ciblée du tournoi actif CHOISI (pas seulement le plus grand id)
+  if (!tSup19c) return;
+  const id = tSup19c.id;
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(id);
   if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
   db.prepare('UPDATE tournoi SET champion_id = NULL WHERE id = ?').run(id);
@@ -1186,8 +1222,8 @@ app.delete('/api/admin/tournoi/:id', requireAdmin, requireConfirmPin, (req, res)
 });
 
 app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  const t = tournoiCibleOuErreur19c(req, res); // 19c: édition ciblée (sans cible: un seul actif = origine, plusieurs = 409 explicite)
+  if (!t) return;
   const enCours = t.statut === 'en_cours';
   if (t.statut !== 'inscription' && !enCours) return res.status(409).json({ error: 'Tournoi terminé, config verrouillée' });
   const { nom, tetes_de_serie, nb_tables, ajustement_auto, date_heure, lieu } = req.body;
@@ -1233,8 +1269,8 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
 });
 
 app.put('/api/admin/distances', requireAdmin, (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  const t = tournoiCibleOuErreur19c(req, res); // 19c: distances ciblées
+  if (!t) return;
   const { distances } = req.body;
   if (!distances || typeof distances !== 'object') return res.status(400).json({ error: 'distances requis' });
   const ins = db.prepare(`INSERT INTO distance_round (tournoi_id, round, manches) VALUES (?, ?, ?)
@@ -1253,8 +1289,8 @@ app.put('/api/admin/distances', requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/joueur', requireAdmin, (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi ouvert aux inscriptions (le précédent doit être terminé et le prochain créé)' });
+  const t = tournoiCibleOuErreur19c(req, res, true); // 19c: inscription ciblée (sans cible: l unique ouvert aux inscriptions = origine, plusieurs = 409 explicite)
+  if (!t) return;
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
   const pseudo = cleanPseudo(req.body.pseudo, 40);
   if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
@@ -1285,8 +1321,8 @@ app.post('/api/admin/joueur', requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/joueurs/simulation', requireAdmin, (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  const t = tournoiCibleOuErreur19c(req, res, true); // 19c: simulation ciblée sur le tournoi ouvert aux inscriptions
+  if (!t) return;
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes' });
   const count = Math.max(1, Math.min(128, Number(req.body.count) || 8));
   const prefix = String(req.body.prefix || 'Simu').replace(/[^\w\-]/g, '').slice(0, 20) || 'Simu';
@@ -1314,8 +1350,8 @@ app.post('/api/admin/joueurs/simulation', requireAdmin, (req, res) => {
 });
 
 app.post('/api/joueur', (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi ouvert aux inscriptions — attendez que le tournoi en cours soit terminé et que le prochain soit créé' });
+  const t = tournoiCibleOuErreur19c(req, res, true); // 19c: l inscription rejoint le tournoi CHOISI (le sélecteur du bandeau l envoie), sinon l unique ouvert aux inscriptions
+  if (!t) return;
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Inscriptions closes : le tournoi en cours n\'est pas terminé' });
   const pseudo = cleanPseudo(req.body.pseudo, 40);
   if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
@@ -1344,11 +1380,11 @@ app.post('/api/joueur', (req, res) => {
 });
 
 app.delete('/api/admin/joueur/:id', requireAdmin, (req, res) => { // désinscription: pas de re-confirmation PIN (routine, phase inscription uniquement)
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
-  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé' });
   const j = joueurDuClub(req, req.params.id);
-  if (!j || j.tournoi_id !== t.id) return res.status(404).json({ error: 'Joueur introuvable' });
+  if (!j) return res.status(404).json({ error: 'Joueur introuvable' }); // 19c: le tournoi vient du JOUEUR, plus du tournoi actif unique
+  const t = tournoiDuClub(req, j.tournoi_id);
+  if (!t || t.statut === 'termine') return res.status(404).json({ error: 'Joueur introuvable' }); // joueur d un tournoi terminé: rien à désinscrire
+  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé' });
   db.prepare('DELETE FROM joueur WHERE id = ?').run(j.id);
   logAuditReq(req, 'desinscription', `joueur ${j.id}`, { pseudo: j.pseudo }, null);
   majEtBroadcast();
@@ -1379,11 +1415,11 @@ app.put('/api/admin/joueur/:id', requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/joueur/:id/paiement', requireAdmin, (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
-  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé' });
   const j = joueurDuClub(req, req.params.id);
-  if (!j || j.tournoi_id !== t.id) return res.status(404).json({ error: 'Joueur introuvable' });
+  if (!j) return res.status(404).json({ error: 'Joueur introuvable' }); // 19c: le tournoi vient du JOUEUR, plus du tournoi actif unique
+  const t = tournoiDuClub(req, j.tournoi_id);
+  if (!t || t.statut === 'termine') return res.status(404).json({ error: 'Joueur introuvable' });
+  if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tournoi lancé' });
   const nouveau = req.body.statut === 'paye' ? 'paye' : 'en_attente';
   db.prepare('UPDATE joueur SET statut = ? WHERE id = ?').run(nouveau, j.id);
   logAuditReq(req, 'paiement', `joueur ${j.id}`, { statut: j.statut }, { statut: nouveau, pseudo: j.pseudo });
@@ -1393,11 +1429,12 @@ app.post('/api/admin/joueur/:id/paiement', requireAdmin, (req, res) => {
 
 // 23a: remplacer un joueur APRÈS le tirage (le remplaçant prend la place, bracket et matchs inchangés)
 app.post('/api/admin/joueur/:id/remplace', requireAdmin, (req, res) => { // routine comme l édition du pseudo: pas de re-confirmation PIN
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  const j23a = joueurDuClub(req, req.params.id);
+  if (!j23a) return res.status(404).json({ error: 'Joueur introuvable' }); // 19c: le tournoi vient du JOUEUR, plus du tournoi actif unique
+  const t = tournoiDuClub(req, j23a.tournoi_id);
+  if (!t || t.statut === 'termine') return res.status(404).json({ error: 'Joueur introuvable' });
   if (t.statut !== 'en_cours') return res.status(409).json({ error: 'Phase inscriptions : retire le joueur et inscris le remplaçant' });
-  const j = joueurDuClub(req, req.params.id);
-  if (!j || j.tournoi_id !== t.id) return res.status(404).json({ error: 'Joueur introuvable' });
+  const j = j23a;
   const joue = db.prepare("SELECT COUNT(*) c FROM match WHERE tournoi_id = ? AND (joueur1_id = ? OR joueur2_id = ?) AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL AND etat IN ('en_cours', 'termine', 'forfait')").get(t.id, j.id, j.id).c; // matchs REELS: une qualification par bye (adversaire absent) n est pas un match joué
   if (joue > 0) return res.status(409).json({ error: `${j.pseudo} a déjà un match lancé ou terminé : impossible de remplacer` });
   const pseudo = cleanPseudo(req.body.pseudo, 40);
@@ -1420,8 +1457,8 @@ app.post('/api/admin/joueur/:id/remplace', requireAdmin, (req, res) => { // rout
 });
 
 app.post('/api/admin/tirage', requireAdmin, (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  const t = tournoiCibleOuErreur19c(req, res); // 19c: tirage ciblé sur le tournoi CHOISI
+  if (!t) return;
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Tirage déjà effectué' });
   const joueurs = db.prepare(`SELECT * FROM joueur WHERE tournoi_id = ? AND statut = 'paye' ORDER BY id`).all(t.id);
   if (joueurs.length < 2) return res.status(400).json({ error: `Au moins 2 joueurs payés requis (actuellement ${joueurs.length})` });
@@ -1530,8 +1567,8 @@ app.post('/api/admin/match/:id/forfait', requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/terminer', requireAdmin, (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  const t = tournoiCibleOuErreur19c(req, res); // 19c: terminaison ciblée: SEUL le tournoi choisi est arrêté, le voisin continue
+  if (!t) return;
   if (t.statut === 'termine') return res.status(409).json({ error: 'Tournoi déjà terminé' });
   // arrêt manuel = coupe net: champion UNIQUEMENT si explicitement choisi (pas de fallback auto)
   const championId = req.body.champion_id ? Number(req.body.champion_id) : null;
@@ -1551,8 +1588,8 @@ app.post('/api/admin/push-test-ami', requireAdmin, async (req, res) => {
 
 // Rappel push « inscriptions ouvertes » : réservé aux admins, uniquement tant que le tournoi actif est en phase inscription
 app.post('/api/admin/tournoi/rappel-inscriptions', requireAdmin, async (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  const t = tournoiCibleOuErreur19c(req, res, true); // 19c: rappel ciblé sur le tournoi ouvert aux inscriptions
+  if (!t) return;
   if (t.statut !== 'inscription') return res.status(409).json({ error: 'Les inscriptions ne sont pas ouvertes (tirage déjà effectué)' });
   const inscrits = db.prepare('SELECT COUNT(*) AS c FROM joueur WHERE tournoi_id = ?').get(t.id).c;
   const dateH = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(t.date_heure || '') ? t.date_heure.replace('T', ' ').slice(0, 16) : bracket.prochainMardi20h();
@@ -1592,8 +1629,8 @@ app.post('/api/admin/tournoi/rappel-inscriptions', requireAdmin, async (req, res
 });
 
 app.post('/api/admin/simuler', requireAdmin, (req, res) => {
-  const t = tournoiActif(req.club.id);
-  if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
+  const t = tournoiCibleOuErreur19c(req, res); // 19c: simulation ciblée sur le tournoi CHOISI
+  if (!t) return;
   if (t.statut !== 'en_cours') return res.status(409).json({ error: 'Le tournoi doit être en cours (faites le tirage d\'abord)' });
   M.rafraichirPrets();
   let joues = 0;
@@ -2754,7 +2791,7 @@ app.get('/api/joueur/:id/historique', (req, res) => {
   });
 });
 
-comptes.registerCompteRoutes(app, { baseUrl: BASE_URL, tournoiActif, majEtBroadcast, vueMatch });
+comptes.registerCompteRoutes(app, { baseUrl: BASE_URL, tournoiActif, tournoiInscription19c, majEtBroadcast, vueMatch }); // tournoiInscription19c: course d inscription ciblée (19c)
 push.registerPushRoutes(app, { vueMatch });
 
 app.get('/api/qrcode.svg', async (req, res) => {

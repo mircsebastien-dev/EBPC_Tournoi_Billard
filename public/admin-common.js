@@ -57,7 +57,7 @@ async function adminApi(path, opts = {}) {
 
 async function adminInit(onUpdate) {
   await adminCompteP;
-  adminState = await api('/api/etat');
+  adminState = await api(urlEtat19a()); // 19c: la table de marque ouvre le tournoi CHOISI (le sélecteur du bandeau), pas le plus grand id par accident
   if (!adminCompte && estSessionAdmin()) adminCompte = compteCourant; // /api/etat renvoie aussi le rôle
   if (!adminPin && !adminCompte) return false;
   connecterSSE((s) => { adminState = s; if (onUpdate) onUpdate(s); });
@@ -164,7 +164,7 @@ function adminTournoiActif() { return adminState && adminState.actif; }
 async function openMatchEditor(m, onChange, opts) { opts = opts || {};
   let joueurs = opts.joueurs || (typeof state !== 'undefined' && state && state.actif && state.actif.joueurs) || null;
   let tables = opts.tables || (typeof state !== 'undefined' && state && state.actif && state.actif.tables) || null;
-  if ((!tables || !joueurs) && !opts.joueurs) { try { const s = await api('/api/etat'); tables = tables || (s && s.actif && s.actif.tables) || []; joueurs = joueurs || (s && s.actif && s.actif.joueurs) || []; } catch { tables = tables || []; joueurs = joueurs || []; } }
+  if ((!tables || !joueurs) && !opts.joueurs) { try { const s = await api(urlEtat19a()); tables = tables || (s && s.actif && s.actif.tables) || []; joueurs = joueurs || (s && s.actif && s.actif.joueurs) || []; } catch { tables = tables || []; joueurs = joueurs || []; } } // 19c: re-fetch cohérent avec le tournoi choisi
   const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
   const box = el('div', { class: 'panel', style: 'max-width:440px;width:92%' },
     el('h3', {}, `⚙️ Match #${m.position}`),
