@@ -8,7 +8,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
 body.tv { background: #050508; overflow: hidden; }
-body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; }
+body.tv main { max-width: none; padding: 0 0 108px; box-sizing: border-box; height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; } // 86 v3: 108px reserves en bas pour le conteneur flash+QR (les cards ne passent plus dessous)
 .slide { display: none; width: 100%; text-align: center; padding: 20px; animation: fadein 0.5s; }
 .slide.on { display: block; }
 @keyframes fadein { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
@@ -53,15 +53,17 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 .tv-champion { font-size: clamp(40px, 9vw, 110px); font-weight: 800; background: linear-gradient(90deg, var(--gold), #fff); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .tv-qr-big { display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:18px; text-align:center; }
 .tv-qr-big img { width:min(520px,60vh,92vw); height:auto; background:#fff; padding:10px; border-radius:14px; }
-/* 86. Bandeau breaking news : fil du tournoi en bas des cards, aligne avec le QR (meme bottom: 44px, arret a sa gauche), blanc sur rouge */
-.tv-flash { display: none; position: fixed; left: 16px; right: 352px; bottom: 44px; z-index: 50; height: 52px; align-items: center; background: #c1121f; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 28px rgba(193,18,31,.5); }
+/* 86. Bandeau breaking news + QR dans un conteneur bas commun : jamais de chevauchement (le texte est tronque par son propre viewport, pas cache sous le QR) */
+.tv-bottom { position: fixed; left: 16px; right: 16px; bottom: 44px; z-index: 50; display: flex; align-items: flex-end; gap: 12px; pointer-events: none; }
+.tv-bottom .tv-qr { position: static; pointer-events: auto; }
+.tv-flash { display: none; position: static; flex: 1 1 auto; min-width: 0; height: 52px; align-items: center; background: #c1121f; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 28px rgba(193,18,31,.5); }
 .tv-flash.on { display: flex; }
 .tv-flash-label { flex: 0 0 auto; height: 100%; display: flex; align-items: center; padding: 0 16px; background: #fff; color: #c1121f; font-weight: 900; font-size: clamp(14px, 2vw, 22px); letter-spacing: .08em; }
 .tv-flash-viewport { flex: 1 1 auto; height: 100%; overflow: hidden; display: flex; align-items: center; }
 .tv-flash-track { white-space: nowrap; color: #fff; font-weight: 800; font-size: clamp(16px, 2.4vw, 28px); }
 .tv-flash-track.scroll { animation: tvflash 40s linear infinite; } // 86 v2: défilement lent, seulement si le texte déborde
 @keyframes tvflash { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-@media (max-width: 900px) { .tv-flash { right: 16px; bottom: 100px; height: 42px; } }
+@media (max-width: 900px) { .tv-flash { height: 42px; } }
 </style>
 </head>
 <body class="tv">
@@ -73,10 +75,12 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 <div id="tv-clock"></div>
 <main id="slides"></main>
 <div class="tv-dots" id="dots"></div>
+<div class="tv-bottom">
 <div class="tv-flash" id="tv-flash"><div class="tv-flash-label">⚡ FLASH</div><div class="tv-flash-viewport"><div class="tv-flash-track" id="tv-flash-track"></div></div></div>
 <div class="tv-qr" title="Scanner pour ouvrir le site sur ton téléphone">
   <img id="qr" alt="QR code du site" width="110" height="110">
   <div class="tv-qr-label">📱 Scannez moi<br><span id="qr-url"></span></div>
+</div>
 </div>
 <script>
   // URL recalculée selon l'hébergement (Render, Fly, local...)
