@@ -1955,7 +1955,7 @@ async function nouveauTournoi(body) {
     && spec17k.includes('28b. Statuts dans le sélecteur de tournoi du bandeau') && rm17k.includes('| 80 |') && ga17k.includes('depuis 28b')
     && at17k.includes("if (e.key === 'Escape') fermer();") && at17k.includes("for: 'champion'") && at17k.includes("document.getElementById('nom').focus(); // 28c")
     && at17k.includes("removeEventListener('keydown', surEchap)") && at17k.includes("(estEnCours ? document.getElementById('score-' + m.id) : sel).focus()") && cpt17v.includes("for: 'c-pseudo'")
-    && cjs17k.includes('document.documentElement.lang') && spec17k.includes('28c. Wiring accessibilité') && rm17k.includes('| 81 |') && ga17k.includes('la touche Échap ferme')
+    && cjs17k.includes('document.documentElement.lang') && spec17k.includes('28c. Wiring accessibilité') && rm17k.includes('| 85 |') && ga17k.includes('la touche Échap ferme')
     , JSON.stringify([r.status, rKz.status, r17k.data, tirVm17w.status, tirSb17w.status, lanVm17w.status, lanSb17w.status, remp23a.status, pris23a.status, autre23a.status, rempApres23a.status, susp23b.status, rempSusp23b.status, rela23b.status, lien24aOk, lien24bOk, nrZ1, nrZ2, numZ1, numZ2, crZInv.status, crZHors.status, lanHorsZone.status, setHorsZone.status, upZInv.status, upZok.status, etZ2b && etZ2b.tournoi ? etZ2b.tournoi.zone_tables : 'x', etZ2c && etZ2c.tournoi ? etZ2c.tournoi.zone_tables : 'x']));
 
   // ---------- 18. Rattachement des anciens joueurs anonymes à leur compte ----------
