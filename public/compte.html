@@ -23,17 +23,17 @@ const val = (id) => document.getElementById(id)?.value;
 function panelConnexion() {
   return el('div', { class: 'panel', style: 'max-width:420px;margin:20px auto' },
     el('h2', { id: 'connexion' }, '🔑 Connexion'),
-    el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'c-pseudo', maxlength: 24, autocomplete: 'username' })),
-    el('div', {}, el('label', {}, 'Mot de passe'), el('input', { id: 'c-pass', type: 'password', autocomplete: 'current-password' })),
+    el('div', {}, el('label', { for: 'c-pseudo' }, 'Pseudo'), el('input', { id: 'c-pseudo', maxlength: 24, autocomplete: 'username' })),
+    el('div', {}, el('label', { for: 'c-pass' }, 'Mot de passe'), el('input', { id: 'c-pass', type: 'password', autocomplete: 'current-password' })),
     el('div', { style: 'margin-top:10px' }, el('button', { style: 'width:100%', onclick: connexion }, 'Se connecter')),
     el('p', { class: 'muted small', style: 'text-align:center' }, 'Un seul compte pour toute la plateforme : le même login dans tous les clubs.'),
     el('p', { class: 'muted small', style: 'text-align:center' }, el('a', { href: '/oubli.html' }, 'Mot de passe oublié ?')),
     el('hr', {}),
     el('h2', { id: 'creer' }, '✨ Créer un compte'),
     el('p', { class: 'muted small' }, 'Juste un pseudo, un email et un mot de passe. Rien d\'autre.'),
-    el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'i-pseudo', maxlength: 24, placeholder: 'ex: BlackMamba31' })),
-    el('div', {}, el('label', {}, 'Email (pour réinit du mot de passe)'), el('input', { id: 'i-email', type: 'email', maxlength: 190, autocomplete: 'email' })),
-    el('div', {}, el('label', {}, 'Mot de passe (min 4)'), el('input', { id: 'i-pass', type: 'password', minlength: 4, autocomplete: 'new-password' })),
+    el('div', {}, el('label', { for: 'i-pseudo' }, 'Pseudo'), el('input', { id: 'i-pseudo', maxlength: 24, placeholder: 'ex: BlackMamba31' })),
+    el('div', {}, el('label', { for: 'i-email' }, 'Email (pour réinit du mot de passe)'), el('input', { id: 'i-email', type: 'email', maxlength: 190, autocomplete: 'email' })),
+    el('div', {}, el('label', { for: 'i-pass' }, 'Mot de passe (min 4)'), el('input', { id: 'i-pass', type: 'password', minlength: 4, autocomplete: 'new-password' })),
     el('div', { style: 'margin-top:10px' }, el('button', { class: 'secondary', style: 'width:100%', onclick: inscription }, 'Créer mon compte')));
 }
 

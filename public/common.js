@@ -276,6 +276,7 @@ logoDepuisCache(); // 17k: logo du club, même anti-flash, toujours sans réseau
 // i18n front : langue choisie dans le compte (ebpc_lang), defaut fr. t() traduit via le dictionnaire,
 // avec repli sur le francais si la chaine est absente (aucun changement en mode fr).
 const LANG = (() => { try { const v = localStorage.getItem('ebpc_lang'); return ['en','es','it','de'].includes(v) ? v : 'fr'; } catch { return 'fr'; } })();
+document.documentElement.lang = LANG; // 28c: la langue de la page suit la langue choisie (lecteurs d écran, correcteurs)
 const I18N = {
   "🎨 Apparence du club": "🎨 Club appearance",
   "Couleur d accent": "Accent colour",
@@ -3452,6 +3453,7 @@ function fmtDuree(s) {
 // attend la reponse du POST avant le reload, sinon la requete est annulee par le unload de la page
 async function choisirLangue(l) {
   try { localStorage.setItem('ebpc_lang', l); } catch {}
+  try { document.documentElement.lang = l; } catch {} // 28c: la langue de la page est mise à jour dès le choix, avant le rechargement
   try { await api('/api/compte/preferences', { method: 'POST', body: JSON.stringify({ lang: l }) }); } catch {} // silencieux si non connecte (401)
   location.reload();
 }

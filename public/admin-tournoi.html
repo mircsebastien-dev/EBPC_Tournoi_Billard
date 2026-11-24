@@ -75,24 +75,24 @@ function renderCreer() {
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, 'Nouveau tournoi'),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
-      el('div', {}, el('label', {}, '📅 Date et heure'), el('input', { id: 'dateheure', type: 'datetime-local', value: (function(){ const d = new Date(); d.setHours(20,0,0,0); let add = (2 - d.getDay() + 7) % 7; if (add === 0 && d <= new Date()) add = 7; d.setDate(d.getDate() + add); const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; })() })),
-      el('div', { style: 'flex:1 1 220px' }, el('label', {}, '📍 Lieu'), el('input', { id: 'lieu', value: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse', maxlength: 200 })),
-      el('div', {}, el('label', {}, 'Règle'), el('select', { id: 'regle' }, el('option', { value: 'blackball' }, 'Blackball'), el('option', { value: 'ultimate' }, 'Ultimate'))),
-      el('div', {}, el('label', {}, 'Taille max'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n, ...(n === 32 ? { selected: '' } : {}) }, `${n} joueurs`))))),
+      el('div', {}, el('label', { for: 'nom' }, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
+      el('div', {}, el('label', { for: 'dateheure' }, '📅 Date et heure'), el('input', { id: 'dateheure', type: 'datetime-local', value: (function(){ const d = new Date(); d.setHours(20,0,0,0); let add = (2 - d.getDay() + 7) % 7; if (add === 0 && d <= new Date()) add = 7; d.setDate(d.getDate() + add); const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; })() })),
+      el('div', { style: 'flex:1 1 220px' }, el('label', { for: 'lieu' }, '📍 Lieu'), el('input', { id: 'lieu', value: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse', maxlength: 200 })),
+      el('div', {}, el('label', { for: 'regle' }, 'Règle'), el('select', { id: 'regle' }, el('option', { value: 'blackball' }, 'Blackball'), el('option', { value: 'ultimate' }, 'Ultimate'))),
+      el('div', {}, el('label', { for: 'taille' }, 'Taille max'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n, ...(n === 32 ? { selected: '' } : {}) }, `${n} joueurs`))))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Format'), el('select', { id: 'format' }, el('option', { value: 'simple' }, 'Élimination directe'), el('option', { value: 'double', selected: '' }, 'Double KO + tableau final'))),
-      el('div', {}, el('label', {}, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n, ...(n === 2 ? { selected: '' } : {}) }, `${n} tour${n > 1 ? 's' : ''}`))))),
+      el('div', {}, el('label', { for: 'format' }, 'Format'), el('select', { id: 'format' }, el('option', { value: 'simple' }, 'Élimination directe'), el('option', { value: 'double', selected: '' }, 'Double KO + tableau final'))),
+      el('div', {}, el('label', { for: 'dko' }, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n, ...(n === 2 ? { selected: '' } : {}) }, `${n} tour${n > 1 ? 's' : ''}`))))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 8, min: 1, max: 20 })),
-      el('div', { style: 'flex:1 1 170px' }, el('label', {}, '🎯 Zone de tables'), el('input', { id: 'zone', placeholder: 'ex : 1-4 ou 5-8 (vide = toutes)', maxlength: 60 })),
+      el('div', {}, el('label', { for: 'nbtables' }, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 8, min: 1, max: 20 })),
+      el('div', { style: 'flex:1 1 170px' }, el('label', { for: 'zone' }, '🎯 Zone de tables'), el('input', { id: 'zone', placeholder: 'ex : 1-4 ou 5-8 (vide = toutes)', maxlength: 60 })),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'tds', type: 'checkbox', class: 'toggle-mini' }), 'Têtes de série')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', class: 'toggle-mini', checked: '' }), 'Ajuster auto la taille au nombre de payés')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'notifpush', type: 'checkbox', class: 'toggle-mini', checked: '' }), '🔔 Notif push « inscriptions ouvertes »'))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Distance spéciale à partir de'), el('select', { id: 'seuil' },
+      el('div', {}, el('label', { for: 'seuil' }, 'Distance spéciale à partir de'), el('select', { id: 'seuil' },
         el('option', { value: 'jamais' }, 'Jamais (3 partout)'), el('option', { value: 'quarts' }, 'Quarts'), el('option', { value: 'demis' }, 'Demis'), el('option', { value: 'finale' }, 'Finale seule'))),
-      el('div', { style: 'flex:0 0 130px' }, el('label', {}, 'Distance spéciale'), el('select', { id: 'distspe' }, [2, 3, 5, 7].map(n => el('option', { value: n }, `${n} manches`))))),
+      el('div', { style: 'flex:0 0 130px' }, el('label', { for: 'distspe' }, 'Distance spéciale'), el('select', { id: 'distspe' }, [2, 3, 5, 7].map(n => el('option', { value: n }, `${n} manches`))))),
     el('div', { style: 'margin-top:16px' }, el('button', { onclick: creer, style: 'width:100%' }, 'Créer le tournoi'))))
   ;(function() {
     const d = new Date(); d.setHours(20, 0, 0, 0);
@@ -146,35 +146,38 @@ function zoneTablesFront19d(zone) { // « 1-4 » ou « 1,3,5-8 » (vide = toutes
 /* ---------- 19c. Création pendant un tournoi actif (tournois en parallèle) ---------- */
 function ouvrirCreation19c(t) { // modale (même pattern que 17y/24a) : la saisie survit aux re-rendus SSE du tournoi en cours
   const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
-  const fermer = () => overlay.remove();
+  const surEchap = (e) => { if (e.key === 'Escape') fermer(); }; // 28c: Échap ferme la modale
+  const fermer = () => { overlay.remove(); document.removeEventListener('keydown', surEchap); };
   overlay.append(el('div', { class: 'panel', style: 'max-width:560px;width:94%;max-height:92vh;overflow:auto' },
     el('div', { class: 'hero-title' }, 'Nouveau tournoi'),
     el('p', { class: 'muted small' }, `« ${t.tournoi.nom} » est déjà actif : le nouveau tournoi sera ouvert EN PARALLÈLE, les billards restent partagés, et le sélecteur du bandeau choisit le tournoi piloté.`),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
-      el('div', {}, el('label', {}, '📅 Date et heure'), el('input', { id: 'dateheure', type: 'datetime-local' })),
-      el('div', { style: 'flex:1 1 220px' }, el('label', {}, '📍 Lieu'), el('input', { id: 'lieu', value: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse', maxlength: 200 }))),
+      el('div', {}, el('label', { for: 'nom' }, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
+      el('div', {}, el('label', { for: 'dateheure' }, '📅 Date et heure'), el('input', { id: 'dateheure', type: 'datetime-local' })),
+      el('div', { style: 'flex:1 1 220px' }, el('label', { for: 'lieu' }, '📍 Lieu'), el('input', { id: 'lieu', value: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse', maxlength: 200 }))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Règle'), el('select', { id: 'regle' }, el('option', { value: 'blackball' }, 'Blackball'), el('option', { value: 'ultimate' }, 'Ultimate'))),
-      el('div', {}, el('label', {}, 'Taille max'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n, ...(n === 32 ? { selected: '' } : {}) }, `${n} joueurs`))))),
+      el('div', {}, el('label', { for: 'regle' }, 'Règle'), el('select', { id: 'regle' }, el('option', { value: 'blackball' }, 'Blackball'), el('option', { value: 'ultimate' }, 'Ultimate'))),
+      el('div', {}, el('label', { for: 'taille' }, 'Taille max'), el('select', { id: 'taille' }, [16, 32, 64, 128].map(n => el('option', { value: n, ...(n === 32 ? { selected: '' } : {}) }, `${n} joueurs`))))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Format'), el('select', { id: 'format' }, el('option', { value: 'simple' }, 'Élimination directe'), el('option', { value: 'double', selected: '' }, 'Double KO + tableau final'))),
-      el('div', {}, el('label', {}, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n, ...(n === 2 ? { selected: '' } : {}) }, `${n} tour${n > 1 ? 's' : ''}`))))),
+      el('div', {}, el('label', { for: 'format' }, 'Format'), el('select', { id: 'format' }, el('option', { value: 'simple' }, 'Élimination directe'), el('option', { value: 'double', selected: '' }, 'Double KO + tableau final'))),
+      el('div', {}, el('label', { for: 'dko' }, 'Double KO sur'), el('select', { id: 'dko' }, [1, 2, 3].map(n => el('option', { value: n, ...(n === 2 ? { selected: '' } : {}) }, `${n} tour${n > 1 ? 's' : ''}`))))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 8, min: 1, max: 20 })),
-      el('div', { style: 'flex:1 1 170px' }, el('label', {}, '🎯 Zone de tables'), el('input', { id: 'zone', placeholder: 'ex : 1-4 ou 5-8 (vide = toutes)', maxlength: 60 })),
+      el('div', {}, el('label', { for: 'nbtables' }, 'Tables'), el('input', { id: 'nbtables', type: 'number', value: 8, min: 1, max: 20 })),
+      el('div', { style: 'flex:1 1 170px' }, el('label', { for: 'zone' }, '🎯 Zone de tables'), el('input', { id: 'zone', placeholder: 'ex : 1-4 ou 5-8 (vide = toutes)', maxlength: 60 })),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'tds', type: 'checkbox', class: 'toggle-mini' }), 'Têtes de série')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', class: 'toggle-mini', checked: '' }), 'Ajuster auto la taille au nombre de payés')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'notifpush', type: 'checkbox', class: 'toggle-mini', checked: '' }), '🔔 Notif push « inscriptions ouvertes »'))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Distance spéciale à partir de'), el('select', { id: 'seuil' },
+      el('div', {}, el('label', { for: 'seuil' }, 'Distance spéciale à partir de'), el('select', { id: 'seuil' },
         el('option', { value: 'jamais' }, 'Jamais (3 partout)'), el('option', { value: 'quarts' }, 'Quarts'), el('option', { value: 'demis' }, 'Demis'), el('option', { value: 'finale' }, 'Finale seule'))),
-      el('div', { style: 'flex:0 0 130px' }, el('label', {}, 'Distance spéciale'), el('select', { id: 'distspe' }, [2, 3, 5, 7].map(n => el('option', { value: n }, `${n} manches`))))),
+      el('div', { style: 'flex:0 0 130px' }, el('label', { for: 'distspe' }, 'Distance spéciale'), el('select', { id: 'distspe' }, [2, 3, 5, 7].map(n => el('option', { value: n }, `${n} manches`))))),
     el('div', { style: 'margin-top:16px;display:flex;gap:8px' },
       el('button', { style: 'flex:1', onclick: creerParallele19c }, 'Créer le tournoi'),
       el('button', { class: 'secondary', onclick: fermer }, 'Annuler'))));
   overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(); });
+  document.addEventListener('keydown', surEchap); // 28c: Échap ferme aussi la modale
   document.body.append(overlay);
+  document.getElementById('nom').focus(); // 28c: autofocus sur le premier champ
   (function() { // date par défaut : mardi 20h, comme la page de création
     const d = new Date(); d.setHours(20, 0, 0, 0);
     let add = (2 - d.getDay() + 7) % 7; if (add === 0 && d <= new Date()) add = 7;
@@ -219,15 +222,15 @@ function renderPanneauAuto() {
     el('button', { id: 'btn-auto', onclick: toggleAuto }, ['Mode auto : ', autoOn ? 'ACTIF ' : 'inactif']),
     el('div', { class: 'row', style: 'margin-top:10px' },
       el('div', { style: 'flex:1 1 auto' },
-        el('label', {}, 'Ordre des tables (mode auto)'),
+        el('label', { for: 'tablepref' }, 'Ordre des tables (mode auto)'),
         el('input', { id: 'tablepref', value: (adminState && adminState.table_pref) || '', placeholder: 'ex: 3,4,5,6,7,8,1,2', maxlength: 100 })),
       el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: sauverTablePref }, 'Enregistrer l\'ordre'))),
     el('div', { class: 'row', style: 'margin-top:8px' },
       el('div', { style: 'flex:1 1 auto' },
-        el('label', {}, 'Tables réservées en phase finale (jamais utilisées en auto à partir des quarts)'),
+        el('label', { for: 'tablesres' }, 'Tables réservées en phase finale (jamais utilisées en auto à partir des quarts)'),
         el('input', { id: 'tablesres', value: (adminState && adminState.tables_reservees) || '', placeholder: 'ex: 1,2 (vide = aucune)', maxlength: 50 })),
       el('div', {},
-        el('label', {}, 'Réservées à partir du tour n° (vide = quarts)'),
+        el('label', { for: 'restour' }, 'Réservées à partir du tour n° (vide = quarts)'),
         el('input', { id: 'restour', value: (adminState && adminState.reservees_tour) || '', placeholder: 'ex: 2', style: 'width:70px', type: 'number', min: 1 })),
       el('div', { style: 'flex:0 0 auto;align-self:flex-end' }, el('button', { class: 'secondary', onclick: sauverReservees }, 'Enregistrer')))));
 }
@@ -238,13 +241,13 @@ function renderInscriptions(t) {
     el('div', { class: 'hero-title' }, `${tn.nom} — inscriptions`),
     el('p', { class: 'hero-sub' }, `${tn.taille} max · ${t.joueurs.length} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés · ${t.tables.length} tables`),
     el('div', { class: 'row', style: 'margin-top:10px' },
-      el('div', {}, el('label', {}, '📅 Date et heure'), el('input', { id: 'edit-dateheure', type: 'datetime-local', value: toLocalInput(tn.date_heure) })),
-      el('div', { style: 'flex:1 1 220px' }, el('label', {}, '📍 Lieu'), el('input', { id: 'edit-lieu', value: tn.lieu || '', maxlength: 200, placeholder: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse' })),
-      el('div', { style: 'flex:0 0 190px' }, el('label', {}, '🎯 Zone de tables'), el('input', { id: 'edit-zone', value: tn.zone_tables || '', maxlength: 60, placeholder: 'ex : 1-4 ou 5-8 (vide = toutes)' })),
+      el('div', {}, el('label', { for: 'edit-dateheure' }, '📅 Date et heure'), el('input', { id: 'edit-dateheure', type: 'datetime-local', value: toLocalInput(tn.date_heure) })),
+      el('div', { style: 'flex:1 1 220px' }, el('label', { for: 'edit-lieu' }, '📍 Lieu'), el('input', { id: 'edit-lieu', value: tn.lieu || '', maxlength: 200, placeholder: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse' })),
+      el('div', { style: 'flex:0 0 190px' }, el('label', { for: 'edit-zone' }, '🎯 Zone de tables'), el('input', { id: 'edit-zone', value: tn.zone_tables || '', maxlength: 60, placeholder: 'ex : 1-4 ou 5-8 (vide = toutes)' })),
       el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: majInfos }, 'Enregistrer date/lieu'))),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Pseudo'), el('input', { id: 'pseudo', maxlength: 40, placeholder: 'Nouveau joueur', autocomplete: 'off' })),
-      tn.tetes_de_serie ? el('div', { style: 'flex:0 0 90px' }, el('label', {}, 'N° série'), el('input', { id: 'tds', type: 'number', min: 1 })) : null,
+      el('div', {}, el('label', { for: 'pseudo' }, 'Pseudo'), el('input', { id: 'pseudo', maxlength: 40, placeholder: 'Nouveau joueur', autocomplete: 'off' })),
+      tn.tetes_de_serie ? el('div', { style: 'flex:0 0 90px' }, el('label', { for: 'tds' }, 'N° série'), el('input', { id: 'tds', type: 'number', min: 1 })) : null,
       el('div', { style: 'flex:0 0 auto' }, el('button', { onclick: ajouter }, 'Inscrire'))),
     el('div', { class: 'liste-joueurs', style: 'margin-top:10px' },
       // 17y: la gestion d un joueur (pseudo, paiement, retrait) vit dans la modale ouvert au clic sur sa puce
@@ -255,14 +258,14 @@ function renderInscriptions(t) {
     el('h2', {}, '🎲 Mode simulation'),
     el('p', { class: 'muted small' }, 'Inscrit des joueurs fictifs en masse, directement payés.'),
     el('div', { class: 'row' },
-      el('div', { style: 'flex:0 0 110px' }, el('label', {}, 'Nombre'), el('input', { id: 'simcount', type: 'number', value: 16, min: 1, max: 128 })),
-      el('div', { style: 'flex:0 0 110px' }, el('label', {}, 'Préfixe'), el('input', { id: 'simprefix', value: 'Simu', maxlength: 12 })),
+      el('div', { style: 'flex:0 0 110px' }, el('label', { for: 'simcount' }, 'Nombre'), el('input', { id: 'simcount', type: 'number', value: 16, min: 1, max: 128 })),
+      el('div', { style: 'flex:0 0 110px' }, el('label', { for: 'simprefix' }, 'Préfixe'), el('input', { id: 'simprefix', value: 'Simu', maxlength: 12 })),
       el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: simuler }, 'Ajouter')))));
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '📏 Distances (modifiables à tout moment)'),
     el('div', { class: 'row' }, t.rounds.map(r =>
-      el('div', { style: 'flex:1 1 120px' }, el('label', {}, r.label), el('select', { id: `dist-${r.key}`, 'data-round': r.key },
+      el('div', { style: 'flex:1 1 120px' }, el('label', { for: `dist-${r.key}` }, r.label), el('select', { id: `dist-${r.key}`, 'data-round': r.key },
         [2, 3, 5, 7].map(n => el('option', { value: n, ...(n === r.manches ? { selected: '' } : {}) }, `${n} manches`)))))),
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'secondary', onclick: sauverDistances }, 'Enregistrer'))));
 
@@ -338,7 +341,8 @@ function openFicheJoueur(j, t) {
   const enCours23a = !!(t && t.tournoi && t.tournoi.statut === 'en_cours');
   const tdsTxt = j.tete_de_serie ? `Tête de série ${j.tete_de_serie} · ` : ''; // info du tournoi, pas éditable ici
   const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
-  const fermer = () => overlay.remove();
+  const surEchap = (e) => { if (e.key === 'Escape') fermer(); }; // 28c: Échap ferme la modale
+  const fermer = () => { overlay.remove(); document.removeEventListener('keydown', surEchap); };
   const apres = () => fermer(); // l état revient par la diffusion serveur (SSE) comme avant 17y
   const pseudoI = el('input', { value: j.pseudo, maxlength: 40, style: 'width:100%' });
   overlay.append(el('div', { class: 'panel', style: 'max-width:440px;width:92%;max-height:92vh;overflow:auto' },
@@ -386,6 +390,7 @@ function openFicheJoueur(j, t) {
     } }, ['🗑 ', 'Retirer du tournoi'])),
     el('div', { class: 'row', style: 'justify-content:flex-end;margin-top:12px' }, el('button', { class: 'secondary', onclick: fermer }, 'Fermer'))));
   overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(); });
+  document.addEventListener('keydown', surEchap); // 28c: Échap ferme aussi la modale
   document.body.append(overlay);
   pseudoI.focus();
 }
@@ -410,14 +415,14 @@ function renderTournoi(t) {
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '🎱 Tables disponibles'),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Nombre de tables'), el('input', { id: 'edit-nbtables', type: 'number', value: tn.nb_tables, min: 1, max: 20 })),
+      el('div', {}, el('label', { for: 'edit-nbtables' }, 'Nombre de tables'), el('input', { id: 'edit-nbtables', type: 'number', value: tn.nb_tables, min: 1, max: 20 })),
       el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'secondary', onclick: majTables }, 'Enregistrer')),
       el('span', { class: 'muted small', style: 'align-self:center' }, `${t.tables.length} tables créées · ${t.tables.length - t.matchs.filter(m => m.etat === 'en_cours' && m.table != null).length} libres`))));
 
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '📏 Distances (modifiables à tout moment)'),
     el('div', { class: 'row' }, t.rounds.map(r =>
-      el('div', { style: 'flex:1 1 120px' }, el('label', {}, r.label), el('select', { id: `dist-${r.key}`, 'data-round': r.key },
+      el('div', { style: 'flex:1 1 120px' }, el('label', { for: `dist-${r.key}` }, r.label), el('select', { id: `dist-${r.key}`, 'data-round': r.key },
         [2, 3, 5, 7].map(n => el('option', { value: n, ...(n === r.manches ? { selected: '' } : {}) }, `${n} manches`)))))),
     el('div', { style: 'margin-top:12px' }, el('button', { class: 'secondary', onclick: sauverDistances }, 'Enregistrer'))));
 
@@ -463,7 +468,7 @@ function renderTournoi(t) {
     el('h2', {}, '⚠️ Clôturer le tournoi'),
     el('p', { class: 'muted small' }, 'Termine le tournoi immédiatement (même si la finale n\'a pas été jouée). Les tableaux restent en ligne.'),
     el('div', { class: 'row' },
-      el('div', {}, el('label', {}, 'Champion (optionnel)'), el('select', { id: 'champion' }, el('option', { value: '' }, '— aucun (coupe net) —'), t.joueurs.map(j => el('option', { value: j.id, ...(t.champion && t.champion.id === j.id ? { selected: '' } : {}) }, j.pseudo)))),
+      el('div', {}, el('label', { for: 'champion' }, 'Champion (optionnel)'), el('select', { id: 'champion' }, el('option', { value: '' }, '— aucun (coupe net) —'), t.joueurs.map(j => el('option', { value: j.id, ...(t.champion && t.champion.id === j.id ? { selected: '' } : {}) }, j.pseudo)))),
       el('div', { style: 'flex:0 0 auto' }, el('button', { class: 'danger', onclick: terminer }, 'Terminer le tournoi maintenant')))));
 
   async function sauverDistances() {
@@ -491,7 +496,8 @@ function renderTournoi(t) {
       el('option', { value: '' }, '🎱 Table auto (libre)'),
       t.tables.filter(tb => !zoneChoix19d || zoneChoix19d.includes(tb.numero)).map(tb => el('option', { value: tb.id, ...(occupees.has(tb.numero) ? { disabled: '' } : {}) }, `Table ${tb.numero}${occupees.has(tb.numero) ? ' (occupée)' : ''}`)));
     const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
-    const fermer = () => overlay.remove(); // l état revient par la diffusion serveur (SSE), même pattern que la fiche joueur 17y
+    const surEchap = (e) => { if (e.key === 'Escape') fermer(); }; // 28c: Échap ferme la modale
+    const fermer = () => { overlay.remove(); document.removeEventListener('keydown', surEchap); }; // l état revient par la diffusion serveur (SSE), même pattern que la fiche joueur 17y
     overlay.append(el('div', { class: 'panel', style: 'max-width:440px;width:92%;max-height:92vh;overflow:auto' },
       el('h3', {}, `⚙️ ${m.bracket}${m.tour} · ${m.joueur1 ? m.joueur1.pseudo : ''} vs ${m.joueur2 ? m.joueur2.pseudo : ''}`),
       el('p', { class: 'muted small' }, `${estEnCours ? 'En cours' : 'Prêt à lancer'} · ${m.score1}-${m.score2} · race to ${m.manches}${m.table != null ? ' · table ' + m.table : ''}`),
@@ -519,7 +525,9 @@ function renderTournoi(t) {
       } }, '🔗 Partager le match')),
       el('div', { class: 'row', style: 'justify-content:flex-end;margin-top:12px' }, el('button', { class: 'secondary', onclick: fermer }, 'Fermer'))));
     overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(); });
+    document.addEventListener('keydown', surEchap); // 28c: Échap ferme aussi la modale
     document.body.append(overlay);
+    (estEnCours ? document.getElementById('score-' + m.id) : sel).focus(); // 28c: autofocus sur le premier champ de la modale
   }
   function corriger(m) { // 28a: le champ UNIQUE 3-2 prérempli de la modale remplace les prompts de score ET de distance
     const brut = (val('score-' + m.id) || '').trim();

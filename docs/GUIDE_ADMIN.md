@@ -50,6 +50,8 @@ Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / 
 
 Dans la table de marque, les cartes des panneaux « ⏳ Prêts à lancer » et « 🔴 En cours » ne portent plus qu un bouton « ⚙️ Gérer » ouvrant la même logique en modale (24a) : choix de la table et ▶ Lancer pour un match prêt, saisie rapide du score pour un match en cours (champ UNIQUE prérempli 3-2 + distance à côté, la touche ENTRÉE ou « ✔ Valider » envoie la correction, motif demandé ensuite ; 28a) / ⏸ Suspendre / forfaits, plus « 🔗 Partager le match ».
 
+Accessibilité (28c) : les labels des formulaires sont cliquables, la touche Échap ferme la modale de gestion de match, la fiche joueur et la modale de création en parallèle, le premier champ reçoit le focus à l ouverture, et la langue de la page suit le sélecteur FR/EN du bandeau.
+
 | Action | Comment | Impacts | Risques |
 |---|---|---|---|
 | **Changer les joueurs** (👥, WB ou LB, blanc possible) | `POST /admin/match/:id/joueurs` | Maj immédiate, broadcast SSE, audit. Blanc sur match `prevu` → bye auto (uniquement si le feeder du côté blanc est terminé) | **409 automatique** si la paire est déjà appariée (jouée ou prévue) dans un autre match, hors finale — le rematch est impossible |
