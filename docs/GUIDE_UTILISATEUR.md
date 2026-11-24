@@ -16,7 +16,7 @@
 ## Suivre le tournoi
 - **🗺️ Tableau** : vue **bracket** (onglets Tout / WB / LB / Phase finale, liens entre matchs sur l'onglet final) ou **liste** (boutons en haut), liste déroulante « Aller au tour », filtre par joueur (Entrée pour valider). Dans les matchs pas encore joués, les places inconnues s'affichent « gagnant wb1-001 », « perdant lb2-003 » ou « blanc » : tu sais d'où vient le joueur que tu attends. Les matchs en cours sont entourés en rouge, les terminés en vert, les gagnants en gras vert.
 - **📺 TV** : scores en direct pour l'écran de la salle
-- Sur la **TV**, un bandeau rouge « ⚡ FLASH » en bas de l'écran fait défiler le fil du tournoi (à côté du QR code) : dernières victoires, forfaits, champion (86)
+- Sur la **TV**, un bandeau rouge « ⚡ FLASH » en bas de l'écran affiche la dernière info du tournoi (à côté du QR code) : victoire, forfait, champion — elle reste affichée jusqu'à la suivante, et ne défile lentement que si elle est trop longue (86)
 - **🎱 Joueur** : tes matchs en cours / à venir (si connecté)
 - **📊 Stats** : classement,点击 sur un joueur pour sa fiche (historique complet)
 - **🗂 Historique** : les tournois passés, avec recherche/surbrillance par joueur
