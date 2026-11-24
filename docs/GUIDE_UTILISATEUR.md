@@ -49,3 +49,4 @@ Compte → ton **email est masqué** (affiché partiellement) ; tu peux changer 
 
 - Le **fil du tournoi** (accueil) affiche aussi les **séries en cours** (83) : « 🔥 X en série : N victoires de suite » quand un joueur enchaîne au moins 2 victoires dans le tournoi (une défaite casse la série)
 - Si le club est en **mode démo** (84), un badge 🧪 « Mode démo » s'affiche dans le bandeau et sur la carte du club au hub plateforme : les données du club sont jetables et un super-admin peut tout réinitialiser à tout moment
+- Sur la **TV**, un bandeau rouge « ⚡ FLASH » en bas de l'écran fait défiler le fil du tournoi (à côté du QR code) : dernières victoires, forfaits, séries en cours, champion (86)
