@@ -454,12 +454,23 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, tournoiInscription19
 
   // self-désinscription du tournoi actif (uniquement en phase d'inscription, pas encore payé)
   // même garde-fou que la désinscription admin : impossible une fois le tournoi lancé
+  // 19c: cible explicite par tournoi_id, sinon résolution DEPUIS LE JOUEUR (le tournoi du compte
+  // reste trouvé même lancé, pour refuser avec la vraie cause au lieu d un 404 d absence d ouverte)
   app.delete('/api/tournoi/desinscrire', (req, res) => {
     if (!req.compte) return res.status(401).json({ error: 'Connecte-toi à ton compte pour te désinscrire' });
-    const c19c = tournoiInscription19c(req); // 19c: désinscription ciblée comme l inscription
-    if (c19c.inconnu) return res.status(404).json({ error: 'Tournoi inconnu ou pas actif ici (tournoi_id)' });
-    if (!c19c.t && c19c.plusieurs) return res.status(409).json({ error: 'Plusieurs tournois sont ouverts aux inscriptions : précise lequel (tournoi_id)' });
-    const t = c19c.t;
+    const actifs19c = db.prepare(`SELECT * FROM tournoi WHERE club_id = ? AND statut IN ('inscription','en_cours') ORDER BY id`).all(req.club.id);
+    let t = null;
+    if (req.body && req.body.tournoi_id != null) {
+      t = actifs19c.find((x) => x.id === Number(req.body.tournoi_id)) || null;
+      if (!t) return res.status(404).json({ error: 'Tournoi inconnu ou pas actif ici (tournoi_id)' }); // cible explicite inconnue ou hors club
+    } else if (actifs19c.length === 1) {
+      t = actifs19c[0]; // un seul actif : comportement d origine
+    } else if (actifs19c.length > 1) {
+      const jj19c = db.prepare(`SELECT j.tournoi_id FROM joueur j WHERE j.compte_id = ? AND j.tournoi_id IN (${actifs19c.map(() => '?').join(',')})`).all(req.compte.id, ...actifs19c.map((x) => x.id));
+      if (jj19c.length === 1) t = actifs19c.find((x) => x.id === jj19c[0].tournoi_id); // résolu depuis le joueur
+      else if (jj19c.length > 1) return res.status(409).json({ error: 'Tu es inscrit à plusieurs tournois actifs : précise lequel (tournoi_id)' });
+      else return res.status(404).json({ error: 'Pas d inscription active pour ton compte' });
+    }
     if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
     if (t.statut !== 'inscription') return res.status(409).json({ error: 'Les inscriptions sont fermées (tournoi lancé)' });
     const j = db.prepare('SELECT * FROM joueur WHERE tournoi_id = ? AND compte_id = ?').get(t.id, req.compte.id);

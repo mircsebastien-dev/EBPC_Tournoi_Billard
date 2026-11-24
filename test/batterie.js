@@ -380,7 +380,7 @@ async function nouveauTournoi(body) {
   r = await post('/api/admin/tirage', {});
   check('tirage RB', r.status === 200, r.status);
   r = await post('/api/admin/tournoi/rappel-inscriptions', {});
-  check('rappel inscriptions après tirage -> 409', r.status === 409, r.status + ' ' + (r.data.error || ''));
+  check('rappel inscriptions après tirage -> 404, plus d inscriptions ouvertes (19c)', r.status === 404, r.status + ' ' + (r.data.error || ''));
   let t11 = (await api('/api/etat')).data.actif;
   const prevu = t11.matchs.find(m => m.etat === 'prevu');
   const feeder = prevu && t11.matchs.find(x => x.suivant_id === prevu.id || x.perdant_id === prevu.id);
