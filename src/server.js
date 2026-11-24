@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
-const { db, setSetting, getSetting, logAudit, clubParDefaut, clubParSlug, reparerComptes17u } = require('./db');
+const { db, setSetting, getSetting, delSetting, logAudit, clubParDefaut, clubParSlug, reparerComptes17u } = require('./db');
 const bracket = require('./bracket');
 const M = require('./matchs');
 const comptes = require('./comptes');
@@ -348,10 +348,11 @@ const usageApi31 = (req, res, next) => {
 app.use('/api', usageApi31);
 
 function tournoiActif(clubId) {
+  // 81. une consolante (est_consolante=1) n'est jamais le tournoi actif par défaut : c'est son principal qui pilote
   if (clubId != null) {
-    return db.prepare(`SELECT * FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1`).get(clubId) || null;
+    return db.prepare(`SELECT * FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') AND COALESCE(est_consolante, 0) = 0 ORDER BY id DESC LIMIT 1`).get(clubId) || null;
   }
-  return db.prepare(`SELECT * FROM tournoi WHERE statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1`).get()
+  return db.prepare(`SELECT * FROM tournoi WHERE statut IN ('inscription', 'en_cours') AND COALESCE(est_consolante, 0) = 0 ORDER BY id DESC LIMIT 1`).get()
     || null;
 }
 
@@ -532,11 +533,9 @@ function vueTournoiComplet(t) {
   const joueurs = db.prepare('SELECT id, pseudo, tete_de_serie, statut, compte_id FROM joueur WHERE tournoi_id = ? ORDER BY pseudo').all(t.id);
   let matchs = db.prepare(`SELECT * FROM match WHERE tournoi_id = ? ORDER BY CASE bracket WHEN 'WB' THEN 1 WHEN 'LB' THEN 2 ELSE 3 END, tour, position`).all(t.id);
   const distances = distancesMap(t.id);
-  const rounds = bracket.listeRounds(t.taille, t.format, t.dko_tours).map(r => ({
-    ...r,
-    label: bracket.labelRound(r.key, t.taille, t.format, t.dko_tours),
-    manches: distances[r.key] || 3,
-  }));
+  const rounds = (t.est_consolante // 81. consolante : LB + F redimensionné, pas de WB
+    ? bracket.listeRoundsConsolante(t.taille, t.dko_tours).map(r => ({ ...r, label: bracket.labelRoundConsolante(r.key, t.taille, t.dko_tours), manches: distances[r.key] || 3 }))
+    : bracket.listeRounds(t.taille, t.format, t.dko_tours).map(r => ({ ...r, label: bracket.labelRound(r.key, t.taille, t.format, t.dko_tours), manches: distances[r.key] || 3 })));
   const tables = db.prepare('SELECT * FROM table_billard WHERE tournoi_id = ? ORDER BY numero').all(t.id);
   const champion = t.champion_id ? { id: t.champion_id, pseudo: M.pseudo(t.champion_id) } : null;
   // Tableau « à vide » avant le tirage : la structure complète (câblage identique au futur
@@ -1131,6 +1130,16 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const distSpe = [3, 5, 7].includes(Number(distance_speciale)) ? Number(distance_speciale) : 3;
   const dateH = (typeof date_heure === 'string' && /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(date_heure)) ? date_heure.replace('T', ' ').slice(0, 16) : bracket.prochainMardi20h();
   // 19d: zone de tables du tournoi (« 1-4 » ou « 1,3,5-8 », vide = toutes), stockée normalisée en numéros à virgule
+  // 81. Tournoi consolante automatique (case à la création) : uniquement en épreuve simple
+  // (le double KO a déjà son loser bracket), 1 à 3 tours du principal alimentent la consolante
+  const consOn81 = req.body.consolante === true || req.body.consolante === 'true' || req.body.consolante === 1;
+  let consTours81 = 0;
+  if (consOn81) {
+    if (format !== 'simple') return res.status(400).json({ error: 'Consolante disponible uniquement en épreuve simple (le double KO a déjà son loser bracket)' });
+    consTours81 = Number(req.body.consolante_tours);
+    if (![1, 2, 3].includes(consTours81)) return res.status(400).json({ error: 'consolante_tours invalide (1, 2 ou 3 tours)' });
+    if (consTours81 > bracket.log2int(Number(taille)) - 1) return res.status(400).json({ error: `Trop de tours de consolante pour une taille de ${taille} (max ${bracket.log2int(Number(taille)) - 1})` });
+  }
   const nbTables19d = Math.max(1, Number(nb_tables) || 8);
   let zoneSave19d = null;
   if (req.body.zone_tables != null && typeof req.body.zone_tables !== 'string') {
@@ -1147,9 +1156,9 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const th17j = themeDuClub(req.club); // 17j v2: repli sur l adresse par défaut du club si définie, sinon Le 147 (comportement d origine)
   const lieuT = (typeof lieu === 'string' && lieu.trim()) ? lieu.trim().slice(0, 200) : (th17j.adresse || 'Le 147, 12 Rue des Amidonniers 31000 Toulouse');
   const info = db.prepare(`
-    INSERT INTO tournoi (club_id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, zone_tables, statut)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
-  `).run(req.club.id, nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 8), ajustement_auto === false ? 0 : 1, seuil, distSpe, dateH, lieuT, zoneSave19d);
+    INSERT INTO tournoi (club_id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, zone_tables, consolante_tours, statut)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
+  `).run(req.club.id, nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 8), ajustement_auto === false ? 0 : 1, seuil, distSpe, dateH, lieuT, zoneSave19d, consTours81);
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(info.lastInsertRowid));
   for (let i = 1; i <= t.nb_tables; i++) {
     db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);
@@ -1199,12 +1208,15 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   res.json({ ok: true, ...etatGlobal(req) });
 });
 
-app.delete('/api/admin/tournoi', requireAdmin, requireConfirmPin, (req, res) => {
-  const tSup19c = tournoiCibleOuErreur19c(req, res); // 19c: suppression ciblée du tournoi actif CHOISI (pas seulement le plus grand id)
-  if (!tSup19c) return;
-  const id = tSup19c.id;
+// Suppression complète d'un tournoi + de sa consolante liée (81) : la consolante est supprimée
+// AVANT (ses matchs référencent les joueurs du principal, FK), et si le tournoi supprimé EST une
+// consolante, on coupe d'abord les liens perdant_id des matchs du principal qui pointaient dessus.
+function supprimerTournoiComplet(id) {
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(id);
-  if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
+  if (!t) return null;
+  if (t.consolante_id) supprimerTournoiComplet(t.consolante_id); // 81. cascade vers la consolante
+  db.prepare('UPDATE match SET perdant_id = NULL, perdant_slot = NULL WHERE perdant_id IN (SELECT id FROM match WHERE tournoi_id = ?)').run(id);
+  db.prepare('UPDATE tournoi SET consolante_id = NULL WHERE consolante_id = ?').run(id);
   db.prepare('UPDATE tournoi SET champion_id = NULL WHERE id = ?').run(id);
   db.prepare('DELETE FROM match_event WHERE match_id IN (SELECT id FROM match WHERE tournoi_id = ?)').run(id);
   db.prepare('DELETE FROM match WHERE tournoi_id = ?').run(id);
@@ -1212,8 +1224,18 @@ app.delete('/api/admin/tournoi', requireAdmin, requireConfirmPin, (req, res) => 
   db.prepare('DELETE FROM table_billard WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM distance_round WHERE tournoi_id = ?').run(id);
   db.prepare('DELETE FROM audit_snapshot WHERE tournoi_id = ?').run(id);
+  delSetting(`alerte82_t${id}`); // 82. état des alertes du tournoi
   db.prepare('DELETE FROM tournoi WHERE id = ?').run(id);
-  logAuditReq(req, 'suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut }, null);
+  return t;
+}
+
+app.delete('/api/admin/tournoi', requireAdmin, requireConfirmPin, (req, res) => {
+  const tSup19c = tournoiCibleOuErreur19c(req, res); // 19c: suppression ciblée du tournoi actif CHOISI (pas seulement le plus grand id)
+  if (!tSup19c) return;
+  const id = tSup19c.id;
+  const t = supprimerTournoiComplet(id);
+  if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
+  logAuditReq(req, 'suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut, consolante_id: t.consolante_id || null }, null);
   majEtBroadcast();
   res.json({ ok: true });
 });
@@ -1222,15 +1244,8 @@ app.delete('/api/admin/tournoi/:id', requireAdmin, requireConfirmPin, (req, res)
   const id = Number(req.params.id);
   const t = tournoiDuClub(req, id); // isolation multi-club: un autre club -> 404
   if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
-  db.prepare('UPDATE tournoi SET champion_id = NULL WHERE id = ?').run(id);
-  db.prepare('DELETE FROM match_event WHERE match_id IN (SELECT id FROM match WHERE tournoi_id = ?)').run(id);
-  db.prepare('DELETE FROM match WHERE tournoi_id = ?').run(id);
-  db.prepare('DELETE FROM joueur WHERE tournoi_id = ?').run(id);
-  db.prepare('DELETE FROM table_billard WHERE tournoi_id = ?').run(id);
-  db.prepare('DELETE FROM distance_round WHERE tournoi_id = ?').run(id);
-  db.prepare('DELETE FROM audit_snapshot WHERE tournoi_id = ?').run(id);
-  db.prepare('DELETE FROM tournoi WHERE id = ?').run(id);
-  logAuditReq(req, 'suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut }, null);
+  supprimerTournoiComplet(id);
+  logAuditReq(req, 'suppression_tournoi', `tournoi ${id}`, { nom: t.nom, statut: t.statut, consolante_id: t.consolante_id || null }, null);
   majEtBroadcast();
   res.json({ ok: true });
 });
@@ -1268,6 +1283,15 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
     }
   }
   // 19d: édition de la zone de tables (champ absent = inchangée, chaîne vide = zone retirée)
+  // 81. consolante_tours modifiable en phase inscription uniquement (comme le reste de la config)
+  let consEdit81 = t.consolante_tours;
+  if (!enCours && req.body.consolante_tours !== undefined) {
+    const n81 = Number(req.body.consolante_tours);
+    if (![0, 1, 2, 3].includes(n81)) return res.status(400).json({ error: 'consolante_tours invalide (0, 1, 2 ou 3)' });
+    if (n81 > 0 && t.format !== 'simple') return res.status(400).json({ error: 'Consolante uniquement en épreuve simple' });
+    if (n81 > 0 && n81 > bracket.log2int(t.taille) - 1) return res.status(400).json({ error: 'Trop de tours de consolante pour cette taille' });
+    consEdit81 = n81;
+  }
   let zoneEdit19d;
   if (req.body.zone_tables == null) zoneEdit19d = t.zone_tables;
   else if (typeof req.body.zone_tables !== 'string') return res.status(400).json({ error: 'Zone de tables invalide (attendu : ex 1-4 ou 1,3)' });
@@ -1280,8 +1304,8 @@ app.put('/api/admin/tournoi', requireAdmin, (req, res) => {
     }
     zoneEdit19d = numsZone19d.join(',');
   }
-  db.prepare('UPDATE tournoi SET nom = ?, tetes_de_serie = ?, nb_tables = ?, ajustement_auto = ?, date_heure = ?, lieu = ?, zone_tables = ? WHERE id = ?')
-    .run(enCours ? t.nom : (nom || t.nom), enCours ? t.tetes_de_serie : (tetes_de_serie ? 1 : 0), nbCible, enCours ? t.ajustement_auto : (ajustement_auto === false ? 0 : 1), setDate, setLieu, zoneEdit19d, t.id);
+  db.prepare('UPDATE tournoi SET nom = ?, tetes_de_serie = ?, nb_tables = ?, ajustement_auto = ?, date_heure = ?, lieu = ?, zone_tables = ?, consolante_tours = ? WHERE id = ?')
+    .run(enCours ? t.nom : (nom || t.nom), enCours ? t.tetes_de_serie : (tetes_de_serie ? 1 : 0), nbCible, enCours ? t.ajustement_auto : (ajustement_auto === false ? 0 : 1), setDate, setLieu, zoneEdit19d, consEdit81, t.id);
   const t2 = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
   const existantes2 = db.prepare('SELECT numero FROM table_billard WHERE tournoi_id = ?').all(t.id).map(r => r.numero);
   // ne recréer des tables que si on a AUGMENTÉ (en phase inscriptions ou ajout en cours) — jamais après une réduction
@@ -1507,6 +1531,27 @@ app.post('/api/admin/tirage', requireAdmin, (req, res) => {
   const rngCrypto = () => crypto.randomInt(0, 2 ** 31) / 2 ** 31;
   bracket.genererBracket(t, joueurs, manchesMap, rngCrypto);
   db.prepare(`UPDATE tournoi SET statut = 'en_cours' WHERE id = ?`).run(t.id);
+  // 81. Consolante automatique : au tirage du principal, création du tournoi consolante
+  // (même club, même règle/taille effective, format double k tours SANS WB : seuls les matchs LB+F
+  // sont créés) + câblage des perdants des WB tours 1..k du principal vers les slots LB
+  if (t.consolante_tours > 0) {
+    const k81 = Math.min(t.consolante_tours, bracket.log2int(t.taille) - 1); // la taille auto peut avoir réduit
+    if (k81 >= 1) {
+      const infoC = db.prepare(`
+        INSERT INTO tournoi (club_id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, statut, est_consolante)
+        VALUES (?, ?, ?, ?, 'double', ?, 0, ?, 0, 'jamais', 3, ?, ?, 'en_cours', 1)
+      `).run(req.club.id, `${t.nom} — Consolante`, t.regle, t.taille, k81, t.nb_tables, t.date_heure, t.lieu);
+      const tC = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(infoC.lastInsertRowid));
+      for (let i = 1; i <= tC.nb_tables; i++) db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(tC.id, i);
+      const roundsC = bracket.listeRoundsConsolante(tC.taille, k81); // LB + F redimensionné (pas de WB)
+      const defC = bracket.manchesDefaut(roundsC, 'jamais', 3);
+      const insC = db.prepare('INSERT INTO distance_round (tournoi_id, round, manches) VALUES (?, ?, ?)');
+      for (const r of roundsC) insC.run(tC.id, r.key, defC[r.key]);
+      bracket.genererBracketConsolante(t, tC, distancesMap(tC.id));
+      db.prepare('UPDATE tournoi SET consolante_id = ? WHERE id = ?').run(tC.id, t.id);
+      logAuditReq(req, 'consolante_creee', `tournoi ${t.id} -> consolante ${tC.id} (${k81} tour(s))`, null, { nom: tC.nom, taille: tC.taille, dko_tours: k81, club_id: tC.club_id });
+    }
+  }
   logAuditReq(req, 'tirage', `tournoi ${t.id}`, { nb_joueurs: joueurs.length }, null);
   majEtBroadcast();
   res.json({ ok: true, ...etatGlobal(req) });
@@ -1602,6 +1647,19 @@ app.post('/api/admin/terminer', requireAdmin, (req, res) => {
   db.prepare(`UPDATE tournoi SET statut = 'termine', champion_id = ? WHERE id = ?`).run(championId, t.id);
   db.prepare(`UPDATE match SET etat = 'termine', ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE tournoi_id = ? AND etat IN ('prevu', 'pret', 'en_cours')`).run(t.id);
   logAuditReq(req, 'tournoi_termine_manuellement', `tournoi ${t.id}`, { statut: t.statut }, { champion_id: championId });
+  // 81. la consolante liée est coupée aussi (coupe nette comme le principal) : champion = gagnant
+  // de sa dernière finale F si elle a été jouée, sinon aucun
+  if (t.consolante_id) {
+    const tc = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.consolante_id);
+    if (tc && tc.statut !== 'termine') {
+      db.prepare(`UPDATE tournoi SET statut = 'termine' WHERE id = ?`).run(tc.id);
+      db.prepare(`UPDATE match SET etat = 'termine', ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE tournoi_id = ? AND etat IN ('prevu', 'pret', 'en_cours')`).run(tc.id);
+      const derC = db.prepare(`SELECT gagnant_id FROM match WHERE tournoi_id = ? AND bracket = 'F' ORDER BY tour DESC, position ASC LIMIT 1`).get(tc.id);
+      if (derC && derC.gagnant_id != null) db.prepare('UPDATE tournoi SET champion_id = ? WHERE id = ?').run(derC.gagnant_id, tc.id);
+      delSetting(`alerte82_t${tc.id}`); // 82. état des alertes
+      logAuditReq(req, 'consolante_terminee', `consolante ${tc.id} (liée au tournoi ${t.id})`, { statut: tc.statut }, { champion_id: derC ? derC.gagnant_id : null });
+    }
+  }
   majEtBroadcast();
   res.json({ ok: true, ...etatGlobal(req) });
 });
@@ -2575,7 +2633,13 @@ app.post('/api/admin/tournoi/import', requireAdmin, requireConfirmPin, (req, res
   for (const e of events) { if (e.match_id != null) refs.push(['match', e.match_id]); if (e.joueur_id != null) refs.push(['joueur', e.joueur_id]); }
   if (t.champion_id != null) refs.push(['joueur', t.champion_id]);
   const setJ = new Set(joueurs.map(j => j.id)), setM = new Set(matchs.map(m => m.id)), setT = new Set(tables.map(tb => tb.id));
-  const casses = refs.filter(([k, v]) => (k === 'joueur' ? !setJ.has(v) : k === 'match' ? !setM.has(v) : !setT.has(v)));
+  // 81. un lien perdant_id peut pointer HORS du tournoi exporté (consolante liée, inter-tournois) :
+  // accepté seulement si la cible existe encore en base, mapId garde alors l'id brut
+  const casses = refs.filter(([k, v]) => {
+    if (k === 'joueur') return !setJ.has(v);
+    if (k === 'match') return !setM.has(v) && !db.prepare('SELECT 1 FROM match WHERE id = ?').get(v);
+    return !setT.has(v);
+  });
   if (casses.length) return err400(`Export invalide: ${casses.length} référence(s) cassée(s) (ex: ${casses[0][0]} #${casses[0][1]})`);
   t.club_id = req.club.id; // un import atterrit toujours dans le club courant
   const tx = db.transaction(() => {
@@ -2636,6 +2700,10 @@ app.post('/api/admin/tournoi/import', requireAdmin, requireConfirmPin, (req, res
     // champion_id après coup (les joueurs sont insérés)
     if (t.champion_id != null && mapJ.has(t.champion_id)) {
       db.prepare('UPDATE tournoi SET champion_id = ? WHERE id = ?').run(mapJ.get(t.champion_id), newTid);
+    }
+    // 81. consolante_id sans FK : vidé si la cible n'existe pas (plus) dans cette base
+    if (t.consolante_id != null && !db.prepare('SELECT 1 FROM tournoi WHERE id = ?').get(t.consolante_id)) {
+      db.prepare('UPDATE tournoi SET consolante_id = NULL WHERE id = ?').run(newTid);
     }
     // sécurité: aucune FK cassée avant le COMMIT (sinon rollback + 400 explicite au lieu d'un 500)
     const vios = db.prepare('PRAGMA foreign_key_check').all();

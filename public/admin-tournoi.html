@@ -89,6 +89,8 @@ function renderCreer() {
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'tds', type: 'checkbox', class: 'toggle-mini' }), 'Têtes de série')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', class: 'toggle-mini', checked: '' }), 'Ajuster auto la taille au nombre de payés')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'notifpush', type: 'checkbox', class: 'toggle-mini', checked: '' }), '🔔 Notif push « inscriptions ouvertes »'))),
+      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'consolante', type: 'checkbox', class: 'toggle-mini' }), '🎮 Consolante auto'))),
+      el('div', { style: 'flex:0 0 110px' }, el('label', {}, 'Tours → consolante'), el('input', { id: 'consolante-tours', type: 'number', value: 1, min: 1, max: 3, title: '1, 2 ou 3' })))),
     el('div', { class: 'row' },
       el('div', {}, el('label', { for: 'seuil' }, 'Distance spéciale à partir de'), el('select', { id: 'seuil' },
         el('option', { value: 'jamais' }, 'Jamais (3 partout)'), el('option', { value: 'quarts' }, 'Quarts'), el('option', { value: 'demis' }, 'Demis'), el('option', { value: 'finale' }, 'Finale seule'))),
@@ -122,6 +124,7 @@ function renderCreer() {
         tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
         ajustement_auto: document.getElementById('auto').checked, seuil_distance: val('seuil'), distance_speciale: Number(val('distspe')),
         date_heure: val('dateheure'), lieu: val('lieu'), zone_tables: val('zone'), notif_push: document.getElementById('notifpush').checked,
+        consolante: document.getElementById('consolante').checked, consolante_tours: Number(val('consolante-tours')),
       })});
     } catch (e) { alert(e.message); }
   }
@@ -167,6 +170,8 @@ function ouvrirCreation19c(t) { // modale (même pattern que 17y/24a) : la saisi
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'tds', type: 'checkbox', class: 'toggle-mini' }), 'Têtes de série')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'auto', type: 'checkbox', class: 'toggle-mini', checked: '' }), 'Ajuster auto la taille au nombre de payés')),
       el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'notifpush', type: 'checkbox', class: 'toggle-mini', checked: '' }), '🔔 Notif push « inscriptions ouvertes »'))),
+      el('div', {}, el('label', { style: 'display:flex;gap:8px;align-items:center' }, el('input', { id: 'consolante', type: 'checkbox', class: 'toggle-mini' }), '🎮 Consolante auto'))),
+      el('div', { style: 'flex:0 0 110px' }, el('label', {}, 'Tours → consolante'), el('input', { id: 'consolante-tours', type: 'number', value: 1, min: 1, max: 3, title: '1, 2 ou 3' })))),
     el('div', { class: 'row' },
       el('div', {}, el('label', { for: 'seuil' }, 'Distance spéciale à partir de'), el('select', { id: 'seuil' },
         el('option', { value: 'jamais' }, 'Jamais (3 partout)'), el('option', { value: 'quarts' }, 'Quarts'), el('option', { value: 'demis' }, 'Demis'), el('option', { value: 'finale' }, 'Finale seule'))),
@@ -206,6 +211,7 @@ async function creerParallele19c() {
       tetes_de_serie: document.getElementById('tds').checked, nb_tables: Number(val('nbtables')),
       ajustement_auto: document.getElementById('auto').checked, seuil_distance: val('seuil'), distance_speciale: Number(val('distspe')),
       date_heure: val('dateheure'), lieu: val('lieu'), zone_tables: val('zone'), notif_push: document.getElementById('notifpush').checked,
+      consolante: document.getElementById('consolante').checked, consolante_tours: Number(val('consolante-tours')),
     })});
     const nouveau = rep && rep.actif && rep.actif.tournoi ? Number(rep.actif.tournoi.id) : null;
     if (nouveau) { try { localStorage.setItem(TOURNOI_SEL_KEY_19a(), String(nouveau)); } catch {} } // 19c: le sélecteur du bandeau pilote le NOUVEAU tournoi
@@ -240,6 +246,7 @@ function renderInscriptions(t) {
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, `${tn.nom} — inscriptions`),
     el('p', { class: 'hero-sub' }, `${tn.taille} max · ${t.joueurs.length} inscrits · ${t.joueurs.filter(j => j.statut === 'paye').length} payés · ${t.tables.length} tables`),
+    tn.consolante_tours > 0 ? el('div', { class: 'row' }, el('span', { class: 'chip', style: 'border-color:var(--gold)' }, tn.consolante_id ? `🎮 Consolante liée #${tn.consolante_id} (${tn.consolante_tours} tour${tn.consolante_tours > 1 ? 's' : ''})` : `🎮 Consolante prévue au tirage (${tn.consolante_tours} tour${tn.consolante_tours > 1 ? 's' : ''})`)) : null,
     el('div', { class: 'row', style: 'margin-top:10px' },
       el('div', {}, el('label', { for: 'edit-dateheure' }, '📅 Date et heure'), el('input', { id: 'edit-dateheure', type: 'datetime-local', value: toLocalInput(tn.date_heure) })),
       el('div', { style: 'flex:1 1 220px' }, el('label', { for: 'edit-lieu' }, '📍 Lieu'), el('input', { id: 'edit-lieu', value: tn.lieu || '', maxlength: 200, placeholder: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse' })),
@@ -402,7 +409,8 @@ function renderTournoi(t) {
     el('div', { class: 'hero-title' }, `${tn.nom}`),
     el('p', { class: 'hero-sub' }, `${tn.regle} · ${tn.taille} joueurs · ${tn.format === 'double' ? 'DKO ' + tn.dko_tours + ' tours' : 'élim. directe'} · ${t.tables.length} tables · ${t.joueurs.length} inscrits`),
     el('div', { class: 'row' },
-      el('span', { class: 'chip' }, `${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués`)),
+      el('span', { class: 'chip' }, `${t.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${t.matchs.length} matchs joués`),
+      tn.consolante_id ? el('span', { class: 'chip', style: 'border-color:var(--gold)' }, `🎮 Consolante liée #${tn.consolante_id} (${tn.consolante_tours} tour${tn.consolante_tours > 1 ? 's' : ''})`) : null),
     t.champion ? el('p', { style: 'font-size:24px;font-weight:800;color:var(--gold)' }, ['🏆 Champion : ', t.champion.pseudo]) : null));
 
   // 23a: pendant le tournoi, chaque joueur reste gérable (remplacement post-tirage) depuis sa puce

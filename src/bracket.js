@@ -314,6 +314,137 @@ function genererBracket(tournoi, joueurs, manchesMap, rng = Math.random) {
   return M;
 }
 
+// 81. Tournoi consolante : nb de matchs du tour LB t (même compte que le DKO)
+function nbMatchsLB(taille, t) {
+  if (t === 1) return taille >> 2;
+  return t % 2 === 1 ? taille >> ((t + 1) / 2 + 1) : taille >> (t / 2 + 1);
+}
+function nbToursLB81(k) { return k === 1 ? 1 : 2 * k - 2; }
+
+// 81. Rounds d'un tournoi consolante (taille du principal, k tours alimentés) :
+// LB tours 1..2k-2 puis tableau final F en épreuve simple dimensionné aux gagnants du dernier LB.
+function listeRoundsConsolante(taille, k) {
+  const rounds = [];
+  const nbToursLB = nbToursLB81(k);
+  for (let t = 1; t <= nbToursLB; t++) rounds.push({ key: `lb${t}`, bracket: 'LB', tour: t });
+  const tailleF = pow2superieur(Math.max(2, nbMatchsLB(taille, nbToursLB)));
+  const toursF = log2int(tailleF);
+  for (let t = 1; t <= toursF; t++) rounds.push({ key: `f${t}`, bracket: 'F', tour: t });
+  return rounds;
+}
+
+function labelRoundConsolante(key, taille, k) {
+  const m = key.match(/^(lb|f)(\d+)$/);
+  const tour = parseInt(m[2], 10);
+  if (m[1] === 'lb') return `Loser bracket - tour ${tour}`;
+  const nbToursLB = nbToursLB81(k);
+  const tailleF = pow2superieur(Math.max(2, nbMatchsLB(taille, nbToursLB)));
+  const toursF = log2int(tailleF);
+  if (tour === toursF) return 'Finale';
+  if (tour === toursF - 1) return 'Demi-finales';
+  if (tour === toursF - 2) return 'Quarts de finale';
+  return `1/${tailleF >> tour} de finale`;
+}
+
+// 81. Structure PURE de la consolante : les tours LB (câblage interne identique au DKO,
+// croisements anti-rematch compris, recopié depuis structureBracket) + un tableau final F
+// en épreuve simple dont la taille = puiss. de 2 sup. au nb de gagnants du dernier tour LB.
+// PAS de WB : les perdants du principal y sont câblés séparément (perdant_id inter-tournois).
+function structureConsolante(taille, k, manchesMap) {
+  const manches = (key) => manchesMap[key] || 3;
+  const matchs = [];
+  const ref = {};
+  const add = (b, t, p) => {
+    ref[`${b}:${t}:${p}`] = matchs.length;
+    matchs.push({ bracket: b, tour: t, position: p, manches: manches(`${b.toLowerCase()}${t}`), suivant: null, perdant: null });
+    return matchs.length - 1;
+  };
+  const at = (b, t, p) => ref[`${b}:${t}:${p}`];
+  const nbToursLB = nbToursLB81(k);
+  for (let t = 1; t <= nbToursLB; t++) {
+    const nb = nbMatchsLB(taille, t);
+    for (let p = 1; p <= nb; p++) add('LB', t, p);
+  }
+  for (let t = 1; t < nbToursLB; t++) {
+    const nb = nbMatchsLB(taille, t);
+    if ((t + 1) % 2 === 1) {
+      // tour impair -> suivant impair : croisement par bloc de 4 (idem DKO)
+      for (let p = 1; p <= nb; p++) {
+        const q = Math.floor((p - 1) / 4);
+        const r = (p - 1) % 4;
+        const cible = (r === 0 || r === 3) ? 2 * q + 1 : 2 * q + 2;
+        const slot = (r === 0 || r === 1) ? 1 : 2;
+        matchs[at('LB', t, p)].suivant = { vers: at('LB', t + 1, cible), slot };
+      }
+    } else {
+      // tour pair -> suivant pair : croisement par paires p <-> p^1 en slot 1 (idem DKO)
+      for (let p = 1; p <= nb; p++) {
+        const cible = p % 2 === 1 ? p + 1 : p - 1;
+        matchs[at('LB', t, p)].suivant = { vers: at('LB', t + 1, cible), slot: 1 };
+      }
+    }
+  }
+  // Tableau final F (épreuve simple) dimensionné aux gagnants du dernier tour LB
+  const nbLast = nbMatchsLB(taille, nbToursLB);
+  const tailleF = pow2superieur(Math.max(2, nbLast));
+  const toursF = log2int(tailleF);
+  for (let t = 1; t <= toursF; t++) {
+    const nb = tailleF >> t;
+    for (let p = 1; p <= nb; p++) add('F', t, p);
+  }
+  for (let t = 1; t < toursF; t++) {
+    const nb = tailleF >> t;
+    for (let p = 1; p <= nb; p++) matchs[at('F', t, p)].suivant = { vers: at('F', t + 1, Math.ceil(p / 2)), slot: p % 2 === 1 ? 1 : 2 };
+  }
+  // dernier tour LB -> F1, appariement direct par position
+  for (let p = 1; p <= nbLast; p++) {
+    matchs[at('LB', nbToursLB, p)].suivant = { vers: at('F', 1, Math.ceil(p / 2)), slot: p % 2 === 1 ? 1 : 2 };
+  }
+  return matchs;
+}
+
+// 81. Construit dans le tournoi consolante tC (taille = celle du principal, dko_tours = k) les
+// matchs LB + F, puis câble les perdants du principal tP (WB tours 1..k) vers les slots LB
+// exactement comme le câblage DKO :
+//   perdant WB(1, 2p-1) -> LB(1, p) slot 1 ; perdant WB(1, 2p) -> LB(1, p) slot 2 ;
+//   perdant WB(t>=2, p) -> LB(2t-2, p) slot 2.
+// Renvoie la map "LB:t:p"/"F:t:p" -> id. Les liens perdant_id du principal pointent hors de son
+// tournoi : la propagation (setJoueurDansSuivant/appliquerBye) marche inchangée.
+function genererBracketConsolante(tP, tC, manchesMap) {
+  const k = tC.dko_tours;
+  const structure = structureConsolante(tC.taille, k, manchesMap);
+  const M = {};
+  const tx = db.transaction(() => {
+    structure.forEach((sm) => {
+      const id = creerMatch(tC.id, sm.bracket, sm.tour, sm.position, sm.manches, null, null);
+      M[`${sm.bracket}:${sm.tour}:${sm.position}`] = id;
+    });
+    const idsReels = structure.map(sm => M[`${sm.bracket}:${sm.tour}:${sm.position}`]);
+    structure.forEach((sm, i) => {
+      if (sm.suivant) setLien(idsReels[i], 'suivant', idsReels[sm.suivant.vers], sm.suivant.slot);
+    });
+    const nbToursLB = nbToursLB81(k);
+    const wb = db.prepare(`SELECT id, tour, position FROM match WHERE tournoi_id = ? AND bracket = 'WB' ORDER BY tour, position`).all(tP.id);
+    for (const m of wb) {
+      if (m.tour > k) continue;
+      let cible, slot;
+      if (m.tour === 1) {
+        cible = `LB:1:${Math.ceil(m.position / 2)}`;
+        slot = m.position % 2 === 1 ? 1 : 2;
+      } else {
+        const lbTour = 2 * m.tour - 2;
+        if (lbTour < 1 || lbTour > nbToursLB) continue;
+        cible = `LB:${lbTour}:${m.position}`;
+        slot = 2;
+      }
+      const toId = M[cible];
+      if (toId != null) setLien(m.id, 'perdant', toId, slot);
+    }
+  });
+  tx();
+  return M;
+}
+
 module.exports = {
   log2int,
   pow2superieur,
@@ -324,6 +455,10 @@ module.exports = {
   prochainMardi20h,
   tailleAuto,
   genererBracket,
+  genererBracketConsolante,
   structureBracket,
+  structureConsolante,
+  listeRoundsConsolante,
+  labelRoundConsolante,
   appariementPremierTour,
 };

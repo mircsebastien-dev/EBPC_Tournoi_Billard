@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS club (
   pin_hash TEXT,
   theme_json TEXT,
   actif INTEGER NOT NULL DEFAULT 1,
+  demo INTEGER NOT NULL DEFAULT 0, -- 84. mode démo : club bac à sable, données jetables (badge + reset réservé)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -56,6 +57,9 @@ CREATE TABLE IF NOT EXISTS tournoi (
   zone_tables TEXT,
   statut TEXT NOT NULL DEFAULT 'inscription' CHECK (statut IN ('inscription', 'en_cours', 'termine')),
   champion_id INTEGER REFERENCES joueur(id),
+  consolante_tours INTEGER NOT NULL DEFAULT 0 CHECK (consolante_tours BETWEEN 0 AND 3), -- 81. nb de tours du tournoi principal dont les perdants alimentent la consolante (0 = off)
+  consolante_id INTEGER, -- 81. tournoi consolante auto-créée au tirage (PAS de FK: lien inter-tournois, vidé si cible absente à l'import)
+  est_consolante INTEGER NOT NULL DEFAULT 0, -- 81. 1 = CE tournoi est la consolante d'un principal (exclu du tournoi actif par défaut)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -402,6 +406,18 @@ if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'club_i
 // (ex: l Open sur 1-4, la consolande sur 5-8), NULL = toutes les tables comme avant
 if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'zone_tables'))
   db.exec('ALTER TABLE tournoi ADD COLUMN zone_tables TEXT');
+// 81. Tournoi consolante automatique : consolante_tours = nb de tours du tournoi principal dont
+// les perdants alimentent la consolante (0 = off) ; consolante_id = tournoi consolante auto-crée au
+// tirage (PAS de FK: lien inter-tournois, vidé si la cible n'existe plus, ex. après un import)
+if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'consolante_tours'))
+  db.exec('ALTER TABLE tournoi ADD COLUMN consolante_tours INTEGER NOT NULL DEFAULT 0');
+if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'consolante_id'))
+  db.exec('ALTER TABLE tournoi ADD COLUMN consolante_id INTEGER');
+if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'est_consolante'))
+  db.exec('ALTER TABLE tournoi ADD COLUMN est_consolante INTEGER NOT NULL DEFAULT 0');
+// 84. Mode démo du club : bac à sable dont les données sont jetables (reset réservé admin/super-admin)
+if (!db.prepare("PRAGMA table_info(club)").all().some(c => c.name === 'demo'))
+  db.exec('ALTER TABLE club ADD COLUMN demo INTEGER NOT NULL DEFAULT 0');
 if (!db.prepare("PRAGMA table_info(audit_log)").all().some(c => c.name === 'club_id'))
   db.exec('ALTER TABLE audit_log ADD COLUMN club_id INTEGER REFERENCES club(id)');
 if (!db.prepare("PRAGMA table_info(audit_snapshot)").all().some(c => c.name === 'club_id'))
@@ -497,13 +513,16 @@ function getSetting(key) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
   return row ? row.value : null;
 }
+function delSetting(key) {
+  db.prepare('DELETE FROM settings WHERE key = ?').run(key);
+}
 
 // snapshot de l'état complet du tournoi actif, indexé sur l'événement d'audit
 function snapshotTournoiActif(auditId, clubId) {
   try {
     const t = clubId != null
-      ? db.prepare("SELECT * FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1").get(clubId)
-      : db.prepare("SELECT * FROM tournoi WHERE statut IN ('inscription', 'en_cours') ORDER BY id DESC LIMIT 1").get();
+      ? db.prepare("SELECT * FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') AND COALESCE(est_consolante, 0) = 0 ORDER BY id DESC LIMIT 1").get(clubId)
+      : db.prepare("SELECT * FROM tournoi WHERE statut IN ('inscription', 'en_cours') AND COALESCE(est_consolante, 0) = 0 ORDER BY id DESC LIMIT 1").get();
     if (!t) return;
     const payload = JSON.stringify({
       tournoi: t,
@@ -530,4 +549,4 @@ function logAudit(action, cible, avant, apres, clubId, auteur) {
   snapshotTournoiActif(Number(info.lastInsertRowid), clubId);
 }
 
-module.exports = { db, setSetting, getSetting, logAudit, clubParDefaut, clubParSlug, reparerComptes17u };
+module.exports = { db, setSetting, getSetting, delSetting, logAudit, clubParDefaut, clubParSlug, reparerComptes17u };
