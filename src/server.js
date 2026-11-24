@@ -733,7 +733,7 @@ function etatGlobal(req) {
   return {
     actif,
     historique: vueTournoiListe(clubId).filter(t => t.statut === 'termine'),
-    club: req && req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom, accent: themeDuClub(req.club).accent } : null,
+    club: req && req.club ? { id: req.club.id, slug: req.club.slug, nom: req.club.nom, accent: themeDuClub(req.club).accent, demo: !!req.club.demo } : null, // 84: mode démo exposé au front
     actifs: clubId == null ? [] : db.prepare("SELECT id, nom, statut FROM tournoi WHERE club_id = ? AND statut IN ('inscription', 'en_cours') ORDER BY id DESC").all(clubId), // 19a: tournois ouverts du club (sélecteur du bandeau)
     auto: getSetting('auto_on') === '1',
     alertes: alertes82Seui(), // 82. alertes table de marque (push admins club)
@@ -770,7 +770,7 @@ app.post('/api/usage', (req, res) => {
 
 // liste publique des clubs actifs (slug pour ?club= / X-Club)
 app.get('/api/clubs', (req, res) => {
-  res.json({ clubs: db.prepare('SELECT id, slug, nom FROM club WHERE actif = 1 ORDER BY id').all() });
+  res.json({ clubs: db.prepare('SELECT id, slug, nom, demo FROM club WHERE actif = 1 ORDER BY id').all().map(c => ({ ...c, demo: !!c.demo })) }); // 84: flag démo exposé au hub
 });
 
 // 20a. Hub plateforme : la page d accueil globale n appartient à AUCUN club ; elle présente les clubs actifs
@@ -814,7 +814,7 @@ app.get('/api/club-theme', (req, res) => {
   const th17k = themeDuClub(req.club);
   // 17n: textes courts de la page Le club servis ici (adresse/description/contact) ; les images lourdes (bannière, fond TV)
   // ne passent JAMAIS dans ce payload appelé à chaque page : routes dédiées ci-dessous avec cache navigateur
-  res.json({ slug: req.club.slug, nom: req.club.nom, accent: th17k.accent, logo: th17k.logo, logo_mode: th17k.logo_mode, adresse: th17k.adresse, description: th17k.description, contact: th17k.contact }); // 17k: logo public comme l accent, avec son mode d affichage
+  res.json({ slug: req.club.slug, nom: req.club.nom, accent: th17k.accent, logo: th17k.logo, logo_mode: th17k.logo_mode, adresse: th17k.adresse, description: th17k.description, contact: th17k.contact, demo: !!req.club.demo }); // 17k + 84: demo public (badge 🧪)
 });
 
 // 27a. Portail du club : les news rédigées par le club (page dédiée de la table de marque) et le calendrier
@@ -1995,11 +1995,11 @@ app.post('/api/admin/club', requireAdmin, requireSuperAdmin, handlerCreateClub);
 // GET /api/admin/clubs : liste complète (super-admin), pin_propre = a son propre PIN, jamais de hash ni PIN en réponse
 function handlerListeClubs(req, res) {
   const clubs = db.prepare(`
-    SELECT c.id, c.slug, c.nom, c.actif, c.pin_hash, c.created_at,
+    SELECT c.id, c.slug, c.nom, c.actif, c.pin_hash, c.demo, c.created_at,
       (SELECT COUNT(*) FROM compte_club cc WHERE cc.club_id = c.id) nb_comptes
     FROM club c ORDER BY c.id
   `).all()
-    .map(c => ({ id: c.id, slug: c.slug, nom: c.nom, actif: !!c.actif, pin_propre: !!c.pin_hash, nb_comptes: c.nb_comptes || 0, created_at: c.created_at }));
+    .map(c => ({ id: c.id, slug: c.slug, nom: c.nom, actif: !!c.actif, pin_propre: !!c.pin_hash, demo: !!c.demo, nb_comptes: c.nb_comptes || 0, created_at: c.created_at })); // 84: demo
   res.json({ clubs });
 }
 app.get('/api/admin/clubs', requireAdmin, requireSuperAdmin, handlerListeClubs);
@@ -2041,6 +2041,12 @@ app.put('/api/admin/club', requireAdmin, (req, res) => {
       maj.actif = actif ? 1 : 0;
     }
   }
+  if ('demo' in req.body) { // 84. mode démo (bac à sable) : réservé au super-admin, jamais un simple admin de club
+    if (![true, false, 1, 0, '1', '0'].includes(req.body.demo)) return res.status(400).json({ error: 'demo invalide (0/1)' });
+    if (!superAdminSoumis(req)) return res.status(403).json({ error: 'Le mode démo est réservé au super-admin (code global ou compte admin global)' });
+    const dv = req.body.demo === true || req.body.demo === 1 || req.body.demo === '1';
+    if (dv !== !!cible.demo) maj.demo = dv ? 1 : 0;
+  }
   // nom : libre pour l'admin du club ; PIN ou actif : geste sensible, code re-saisi exigé (sauf session admin)
   if ((pinChange || maj.actif !== undefined) && !estAdminSession(req) && roleClubSession(req) !== 'admin') {
     const rc = verifierPinAdmin(req, req.body.confirm_pin);
@@ -2048,12 +2054,29 @@ app.put('/api/admin/club', requireAdmin, (req, res) => {
     if (!rc.ok) return res.status(401).json({ error: 'Code administrateur requis pour confirmer ce changement' });
   }
   if (!Object.keys(maj).length) {
-    return res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: cible.nom, actif: !!cible.actif, pin_propre: !!cible.pin_hash } });
+    return res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: cible.nom, actif: !!cible.actif, pin_propre: !!cible.pin_hash, demo: !!cible.demo } });
   }
   const sets = Object.keys(maj).map(k => `${k} = ?`).join(', ');
   db.prepare(`UPDATE club SET ${sets} WHERE id = ?`).run(...Object.values(maj), cible.id);
   logAuditReq(req, 'club_modifie', `club ${cible.slug}`, null, { changements: Object.keys(maj) }); // jamais le PIN lui-même
-  res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: maj.nom != null ? maj.nom : cible.nom, actif: maj.actif != null ? !!maj.actif : !!cible.actif, pin_propre: maj.pin_hash ? true : !!cible.pin_hash } });
+  res.json({ ok: true, club: { id: cible.id, slug: cible.slug, nom: maj.nom != null ? maj.nom : cible.nom, actif: maj.actif != null ? !!maj.actif : !!cible.actif, pin_propre: maj.pin_hash ? true : !!cible.pin_hash, demo: maj.demo != null ? !!maj.demo : !!cible.demo } });
+});
+
+// 84. Reset du bac à sable : réservé aux clubs demo=1, confirm_pin exigé (destructif).
+// Purge les tournois du club (avec cascade consolante 81 + état alertes 82), actus, relevés
+// d'usage et journal d'audit du club ; les COMPTES plateforme et abonnements push sont conservés.
+app.post('/api/admin/club/demo/reset', requireAdmin, requireConfirmPin, (req, res) => {
+  const c = req.club;
+  if (!c.demo) return res.status(409).json({ error: 'Réservé aux clubs en mode démo (demo=1)' });
+  const ids = db.prepare('SELECT id FROM tournoi WHERE club_id = ?').all(c.id).map(r => r.id);
+  for (const id of ids) supprimerTournoiComplet(id);
+  db.prepare('DELETE FROM actu WHERE club_id = ?').run(c.id);
+  db.prepare('DELETE FROM usage_page WHERE club_id = ?').run(c.id);
+  db.prepare('DELETE FROM usage_api WHERE club_id = ?').run(c.id);
+  db.prepare('DELETE FROM audit_log WHERE club_id = ?').run(c.id); // purge AVANT de logger le reset
+  logAuditReq(req, 'demo_reset', `club ${c.slug}`, { tournois: ids.length }, { demo: 1 });
+  majEtBroadcast();
+  res.json({ ok: true, supprimes: ids.length, ...etatGlobal(req) });
 });
 
 // 17j. Personnalisation du club : accent de l interface + défauts de tournoi (nom, jour récurrent, heure)

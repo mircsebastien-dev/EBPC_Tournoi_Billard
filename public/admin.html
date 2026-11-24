@@ -32,6 +32,17 @@ function render() {
     el('p', { class: 'muted' }, tn
       ? `Tournoi en cours : « ${tn.tournoi.nom} » (${tn.tournoi.statut === 'inscription' ? 'inscriptions ouvertes' : 'en cours'}, ${tn.joueurs.length} inscrits, ${tn.matchs.filter(m => m.etat === 'termine' || m.etat === 'forfait').length}/${tn.matchs.length} matchs joués)`
       : 'Aucun tournoi actif pour le moment.')));
+  if (adminState && adminState.club && adminState.club.demo) { // 84. bannière bac à sable + reset
+    main.append(el('div', { class: 'panel', style: 'border-color:var(--gold)' },
+      el('h2', {}, '🧪 Mode démo — données jetables'),
+      el('p', { class: 'muted small' }, 'Ce club est un bac à sable : tout ce qui y est créé peut être effacé d\'un coup (tournois, matchs, actus, journal). Les comptes restent.'),
+      el('button', { class: 'danger', onclick: async () => {
+        try {
+          await adminApiDestructif('/api/admin/club/demo/reset', { method: 'POST', body: JSON.stringify({}) }, 'réinitialiser TOUTES les données de ce club démo');
+          location.reload();
+        } catch (e) { alert(e.message); }
+      } }, '🗑️ Réinitialiser la démo')));
+  }
   main.append(el('div', { class: 'panel' },
     el('h2', {}, '📌 Accès rapide'),
     el('div', { class: 'row' },

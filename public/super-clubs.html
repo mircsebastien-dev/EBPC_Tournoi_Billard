@@ -118,6 +118,7 @@ function rowClub(c, estDefaut) {
     el('td', { style: 'padding:6px 8px' }, el('strong', {}, c.nom), el('div', { class: 'muted', style: 'font-size:12px' }, c.slug)),
     el('td', { style: 'padding:6px 8px' }, c.actif ? '✅ Actif' : '⛔ Inactif'),
     el('td', { style: 'padding:6px 8px' }, c.pin_propre ? '🔒 oui' : 'non (code global)'),
+    el('td', { style: 'padding:6px 8px' }, c.demo ? '🧪 démo' : '—'),
     el('td', { style: 'padding:6px 8px' }, String(c.nb_comptes || 0)),
     el('td', { style: 'padding:6px 8px;white-space:nowrap' }, String(c.created_at || '').slice(0, 10)),
     el('td', { style: 'padding:6px 8px;white-space:nowrap' },
@@ -137,6 +138,16 @@ function rowClub(c, estDefaut) {
         try { await adminApi('/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug, actif: !c.actif, confirm_pin: adminPin }) }); charger(); }
         catch (e) { alert(e.message); }
       } }, c.actif ? '⛔ Désactiver' : '✅ Activer'),
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', onclick: async () => {
+        try { await adminApi('/api/admin/club', { method: 'PUT', headers: adminHeaders({ 'X-Club': c.slug }), body: JSON.stringify({ slug: c.slug, demo: !c.demo }) }); charger(); }
+        catch (e) { alert(e.message); }
+      } }, '🧪 Démo'),
+      ...(c.demo ? [el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px;margin-right:6px', onclick: async () => {
+        try {
+          await adminApiDestructif('/api/admin/club/demo/reset', { method: 'POST', headers: adminHeaders({ 'X-Club': c.slug }), body: JSON.stringify({}) }, 'réinitialiser TOUTES les données du club démo « ' + c.nom + ' »');
+          charger();
+        } catch (e) { alert(e.message); }
+      } }, '🗑️ Reset démo')] : []),
       el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px', onclick: () => sectionRoles(c.slug) }, '👥 Rôles'),
       ...(estDefaut ? [el('span', { class: 'muted small', style: 'margin-left:6px' }, '⏳ club par défaut protégé')] : [el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px;margin-left:6px', onclick: async () => {
         try {

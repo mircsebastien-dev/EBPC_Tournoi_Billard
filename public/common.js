@@ -196,6 +196,18 @@ function rafraichirThemeClub() {
               }
               if (bd17r.textContent !== th.nom) bd17r.textContent = th.nom;
             }
+            // 84. badge 🧪 Mode démo quand le club est un bac à sable (demo=1)
+            let bd84 = document.getElementById('demo-badge-84');
+            if (th.demo) {
+              if (!bd84) {
+                bd84 = document.createElement('span');
+                bd84.id = 'demo-badge-84';
+                bd84.style.cssText = 'margin-left:8px;padding:2px 10px;border-radius:99px;font-size:.72em;font-weight:700;border:1px solid var(--gold);color:var(--gold);white-space:nowrap;vertical-align:middle';
+                h1b17r.append(bd84);
+              }
+              const lbl84 = t('🧪 Mode démo');
+              if (bd84.textContent !== lbl84) bd84.textContent = lbl84;
+            } else if (bd84) bd84.remove();
           }
         }
       } catch {}
@@ -900,6 +912,9 @@ const I18N = {
   "Image refusée": "Image rejected",
   "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Cause: the reduced image still exceeds the maximum size, pick a simpler image.",
   "Icône du téléphone": "Phone icon",
+  "🧪 Mode démo": "🧪 Demo mode",
+  "Mode démo — données jetables": "Demo mode — disposable data",
+  "Réinitialiser la démo": "Reset the demo",
   "Le logo devient l app des téléphones (icône 192 px, effective aux prochaines installations).": "The logo becomes the phone app (192 px icon, applied to future installs).",
 };
 const I18N_DYN = [
@@ -1660,6 +1675,9 @@ const I18N_ES = {
   "Image refusée": "Imagen rechazada",
   "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Causa: la imagen reducida todavía supera el tamaño máximo, elige una imagen más simple.",
   "Icône du téléphone": "Icono del teléfono",
+  "🧪 Modo demo": "🧪 Modo demo",
+  "Modo demo — datos desechables": "Modo demo — datos desechables",
+  "Restablecer la demo": "Restablecer la demo",
   "Le logo devient l app des téléphones (icône 192 px, effective aux prochaines installations).": "El logo se convierte en la app del teléfono (icono de 192 px, aplicada en futuras instalaciones).",
 };
 // remplacements dynamiques ES : meme ordre que les regex de I18N_DYN
@@ -2421,6 +2439,9 @@ const I18N_IT = {
   "Image refusée": "Immagine rifiutata",
   "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Causa: l immagine ridotta supera ancora le dimensioni massime, scegli un immagine più semplice.",
   "Icône du téléphone": "Icona del telefono",
+  "🧪 Modalità demo": "🧪 Modalità demo",
+  "Modalità demo — dati usa e getta": "Modalità demo — dati usa e getta",
+  "Reimposta la demo": "Reimposta la demo",
   "Le logo devient l app des téléphones (icône 192 px, effective aux prochaines installations).": "Il logo diventa l app del telefono (icona 192 px, applicata alle prossime installazioni).",
 };
 // remplacements dynamiques IT : meme ordre que les regex de I18N_DYN
@@ -3182,6 +3203,9 @@ const I18N_DE = {
   "Image refusée": "Bild abgelehnt",
   "Cause : l image réduite dépasse encore la taille maximum, choisis une image plus simple.": "Ursache: das verkleinerte Bild überschreitet immer noch die Maximalgröße, wähle ein einfacheres Bild.",
   "Icône du téléphone": "Telefonsymbol",
+  "🧪 Demo-Modus": "🧪 Demo-Modus",
+  "Demo-Modus — Wegwerfdaten": "Demo-Modus — Wegwerfdaten",
+  "Demo zurücksetzen": "Demo zurücksetzen",
   "Le logo devient l app des téléphones (icône 192 px, effective aux prochaines installations).": "Das Logo wird zur Handy-App (192-Px-Symbol, wirksam bei künftigen Installationen).",
 };
 // remplacements dynamiques DE : meme ordre que les regex de I18N_DYN

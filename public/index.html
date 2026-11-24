@@ -468,7 +468,7 @@ async function initHub20a() {
     const icone17v = el('img', { alt: 'Icône de ' + c.nom, src: '/icone-' + encodeURIComponent(c.slug) + '.png' });
     icone17v.style.cssText = 'width:42px;height:42px;border-radius:8px;object-fit:cover;flex:0 0 auto';
     icone17v.onerror = function () { icone17v.remove(); };
-    const nom17v = el('div', { style: 'font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, c.nom);
+    const nom17v = el('div', { style: 'font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, c.nom + (c.demo ? ' 🧪' : ''));
     carte17v.append(icone17v, nom17v);
     carte17v.addEventListener('click', function (e) { e.preventDefault(); ouvrirClub17v(c.slug); });
     rangee17v.append(carte17v);
