@@ -123,7 +123,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | 79 | **Saisie rapide des scores (28a)** : dans la modale 24a d un match en cours, un champ UNIQUE prérempli 3-2 plus la distance à côté remplacent les prompts de score et de distance (ENTRÉE ou ✔ Valider, distance vide = distance du match, motif conservé), score illisible = alerte explicite, i18n 4 langues ; gardes pliées dans le check 17k, aucun check ajouté | S | ✅ fait |
 | 80 | **Statuts du sélecteur de tournoi (28b)** : le menu du sélecteur du bandeau (19a) affiche le statut de chaque tournoi à côté de son nom (« · Inscriptions » ou « · En cours », traduit dans les 4 langues par les clés existantes) ; gardes pliées dans le check 17k, aucun check ajouté | S | ✅ fait |
 | 85 | **Wiring accessibilité (28c)** : labels cliquables (for= sur les champs à id de admin-tournoi et compte), touche Échap ferme les 3 modales de la table de marque, autofocus sur le premier champ (24a et 19c), la balise html lang suit la langue choisie ; gardes pliées dans le check 17k, aucun check ajouté | S | ✅ fait |
-| 86 | **TV breaking news** : bandeau rouge (blanc sur rouge) en bas de l'écran TV avec le fil du tournoi défilant, aligné avec le QR code ; helpers du fil (`lignesFil` & co) partagés dans `common.js` (accueil + TV) — voir SPEC 86 | S | ✅ fait |
+| 86 | **TV breaking news** : bandeau rouge (blanc sur rouge) en bas de l'écran TV avec le fil du tournoi (dernière info maintenue, défilement lent si débordement), aligné avec le QR code ; helpers du fil (`lignesFil` & co) partagés dans `common.js` (accueil + TV) — voir SPEC 86 | S | ✅ fait |
 
 ## 🏛️ Plateforme / centralisation (cap confirmé)
 

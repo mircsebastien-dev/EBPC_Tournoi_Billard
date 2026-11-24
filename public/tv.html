@@ -58,7 +58,8 @@ body.tv main { max-width: none; padding: 0; height: calc(100vh - 64px); display:
 .tv-flash.on { display: flex; }
 .tv-flash-label { flex: 0 0 auto; height: 100%; display: flex; align-items: center; padding: 0 16px; background: #fff; color: #c1121f; font-weight: 900; font-size: clamp(14px, 2vw, 22px); letter-spacing: .08em; }
 .tv-flash-viewport { flex: 1 1 auto; height: 100%; overflow: hidden; display: flex; align-items: center; }
-.tv-flash-track { white-space: nowrap; color: #fff; font-weight: 800; font-size: clamp(16px, 2.4vw, 28px); animation: tvflash 24s linear infinite; }
+.tv-flash-track { white-space: nowrap; color: #fff; font-weight: 800; font-size: clamp(16px, 2.4vw, 28px); }
+.tv-flash-track.scroll { animation: tvflash 40s linear infinite; } // 86 v2: défilement lent, seulement si le texte déborde
 @keyframes tvflash { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (max-width: 900px) { .tv-flash { right: 16px; bottom: 100px; height: 42px; } }
 </style>
@@ -121,6 +122,7 @@ function slidesList() {
   return slides;
 }
 
+let flashTxt86 = ''; // 86 v2: derniere ligne affichee (evite de relancer l'animation a chaque rendu SSE)
 function render() {
   const slides = slidesList();
   if (slideIdx >= slides.length) slideIdx = 0;
@@ -193,17 +195,27 @@ function render() {
     dotsEl.append(el('span', { class: i === slideIdx ? 'on' : '' }));
   });
 
-  // 86. bandeau breaking news : les dernieres lignes du fil, defilantes, en bas a cote du QR
+  // 86. bandeau breaking news : la DERNIERE ligne du fil, maintenue jusqu'a la suivante, en bas a cote du QR
   const flash86 = document.getElementById('tv-flash');
   const lignes86 = state && state.actif ? lignesFil(state.actif) : [];
   if (flash86) {
-    if (lignes86.length) {
-      const txt86 = lignes86.slice(0, 6).map(l => l.parties.map(x => globalThis.t(x)).join(' ')).join('   •   ');
+    const txt86 = lignes86.length ? lignes86[0].parties.map(x => globalThis.t(x)).join(' ') : '';
+    if (txt86 !== flashTxt86) { // on ne touche au DOM que quand l'info change (sinon l'animation repartirait a chaque SSE)
+      flashTxt86 = txt86;
       const track86 = document.getElementById('tv-flash-track');
-      const double86 = txt86 + '   •   ' + txt86;
-      if (track86 && track86.textContent !== double86) track86.textContent = double86;
-      flash86.classList.add('on');
-    } else flash86.classList.remove('on');
+      if (track86) {
+        track86.classList.remove('scroll');
+        track86.style.animationDuration = '';
+        track86.textContent = txt86;
+        const vp86 = flash86.querySelector('.tv-flash-viewport');
+        if (txt86 && vp86 && track86.scrollWidth > vp86.clientWidth) { // trop long pour le bandeau : boucle lente, duree proportionnelle a la longueur (min 30 s)
+          track86.textContent = txt86 + '   •   ' + txt86;
+          track86.style.animationDuration = Math.max(30, Math.round(txt86.length / 2)) + 's';
+          track86.classList.add('scroll');
+        }
+      }
+    }
+    if (txt86) flash86.classList.add('on'); else flash86.classList.remove('on');
   }
   clearInterval(timer);
   if (slides.length > 1) timer = setInterval(() => { slideIdx = (slideIdx + 1) % slides.length; render(); }, SLIDE_MS);
