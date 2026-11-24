@@ -288,6 +288,31 @@ function lignesFil(tv) {
     if (m.table != null) parties.push(`· table ${m.table}`);
     L.push({ live: true, quand: null, parties });
   }
+  // 83. séries en cours : victoires consécutives dans CE tournoi (matchs finis, ordre chrono)
+  const serie83 = new Map();  // joueurId -> { pseudo, n }
+  const dernier83 = new Map(); // joueurId -> 'W' | 'L' (dernier résultat)
+  const finis83 = (tv.matchs || [])
+    .filter(m => (m.etat === 'termine' || m.etat === 'forfait') && m.gagnant_id != null && m.joueur1 && m.joueur2)
+    .sort((a, b) => String(a.ended_at || '').localeCompare(String(b.ended_at || '')) || (a.id - b.id));
+  for (const m of finis83) {
+    const g = m.gagnant_id === m.joueur1.id ? m.joueur1 : m.joueur2;
+    const p = m.gagnant_id === m.joueur1.id ? m.joueur2 : m.joueur1;
+    const cur = serie83.get(g.id) || { pseudo: g.pseudo, n: 0 };
+    cur.n = (dernier83.get(g.id) === 'W' ? cur.n : 0) + 1; // une défaite casse la série
+    serie83.set(g.id, cur);
+    dernier83.set(g.id, 'W');
+    serie83.set(p.id, { pseudo: p.pseudo, n: 0 });
+    dernier83.set(p.id, 'L');
+  }
+  const enSerie83 = [...serie83.values()].filter(x => x.n >= 2).sort((a, b) => b.n - a.n || a.pseudo.localeCompare(b.pseudo));
+  for (const x of enSerie83) {
+    L.push({ live: true, quand: null, parties: [filPick('s83-' + x.pseudo, [
+      `🔥 ${x.pseudo} en série : ${x.n} victoires de suite`,
+      `🔥 ${x.pseudo} lance une série de ${x.n} victoires`,
+      `🔥 ${x.pseudo} enchaîne ${x.n} victoires d'affilée`,
+      `🔥 ${x.pseudo} est imbattable : ${x.n} victoires de suite`,
+    ])] });
+  }
   // faits : fins de match (les byes contre blanc ne font pas de ligne), plus récents d'abord
   const res = [];
   // défaite éliminatoire définitive : uniquement en double KO (WB perdant -> repêché en LB) ;

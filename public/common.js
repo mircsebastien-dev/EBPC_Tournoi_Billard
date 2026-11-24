@@ -1032,6 +1032,10 @@ const I18N_DYN = [
   [/^· durée (\d+) min$/, "· duration $1 min"],
   [/^· durée (\d+) h (\d+)$/, "· duration $1 h $2"],
   [/^Reçu : « (.+) », ([0-9.,]+) Ko, type MIME « (.*) »\.$/, "Sent: “$1”, $2 KB, MIME type “$3”."],
+  [/^🔥 (.+) en série : (\d+) victoires de suite$/, "🔥 $1 on a roll: $2 straight wins"],
+  [/^🔥 (.+) lance une série de (\d+) victoires$/, "🔥 $1 starts a streak of $2 wins"],
+  [/^🔥 (.+) enchaîne (\d+) victoires d'affilée$/, "🔥 $1 strings together $2 wins in a row"],
+  [/^🔥 (.+) est imbattable : (\d+) victoires de suite$/, "🔥 $1 is unstoppable: $2 straight wins"],
 ];
 // --- i18n ES : dictionnaire espagnol (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
 const I18N_ES = {
@@ -1788,6 +1792,10 @@ const REPS_DYN_ES = [
   "· duración $1 min",
   "· duración $1 h $2",
   "Enviado: « $1 », $2 KB, tipo MIME « $3 ».",
+  "🔥 $1 en racha: $2 victorias seguidas",
+  "🔥 $1 empieza una racha de $2 victorias",
+  "🔥 $1 encadena $2 victorias seguidas",
+  "🔥 $1 es imparable: $2 victorias seguidas",
 ];
 
 // --- i18n IT : dictionnaire italien (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
@@ -2545,6 +2553,10 @@ const REPS_DYN_IT = [
   "· durata $1 min",
   "· durata $1 h $2",
   "Inviato: « $1 », $2 KB, tipo MIME « $3 ».",
+  "🔥 $1 in serie: $2 vittorie di fila",
+  "🔥 $1 inizia una serie di $2 vittorie",
+  "🔥 $1 colleziona $2 vittorie di fila",
+  "🔥 $1 è imbattibile: $2 vittorie di fila",
 ];
 
 // --- i18n DE : dictionnaire allemand (cles = textes fr, meme jeu que I18N) + remplacements dynamiques ---
@@ -3302,6 +3314,10 @@ const REPS_DYN_DE = [
   "· Dauer $1 Min.",
   "· Dauer $1 h $2",
   "Gesendet: « $1 », $2 KB, MIME-Typ « $3 ».",
+  "🔥 $1 auf Serie: $2 Siege in Folge",
+  "🔥 $1 startet eine Serie von $2 Siegen",
+  "🔥 $1 reiht $2 Siege aneinander",
+  "🔥 $1 ist unaufhaltsam: $2 Siege in Folge",
 ];
 
 ;
