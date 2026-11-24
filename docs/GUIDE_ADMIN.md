@@ -48,7 +48,7 @@ Accès : `/admin.html` → **code PIN** (variable `ADMIN_PIN` sur Fly) **ou** co
 
 Clic sur une card avec le PIN saisi → modale avec **joueurs / table / score / rouvrir / forfait**.
 
-Dans la table de marque, les cartes des panneaux « ⏳ Prêts à lancer » et « 🔴 En cours » ne portent plus qu un bouton « ⚙️ Gérer » ouvrant la même logique en modale (24a) : choix de la table et ▶ Lancer pour un match prêt, Corriger / ⏸ Suspendre / forfaits pour un match en cours, plus « 🔗 Partager le match ».
+Dans la table de marque, les cartes des panneaux « ⏳ Prêts à lancer » et « 🔴 En cours » ne portent plus qu un bouton « ⚙️ Gérer » ouvrant la même logique en modale (24a) : choix de la table et ▶ Lancer pour un match prêt, saisie rapide du score pour un match en cours (champ UNIQUE prérempli 3-2 + distance à côté, la touche ENTRÉE ou « ✔ Valider » envoie la correction, motif demandé ensuite ; 28a) / ⏸ Suspendre / forfaits, plus « 🔗 Partager le match ».
 
 | Action | Comment | Impacts | Risques |
 |---|---|---|---|

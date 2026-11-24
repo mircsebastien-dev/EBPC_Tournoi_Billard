@@ -500,8 +500,12 @@ function renderTournoi(t) {
         el('div', { class: 'row', style: 'margin-top:4px' }, sel,
           el('button', { style: 'margin-left:8px', onclick: () => { lancer(m.id, sel.value ? Number(sel.value) : null); fermer(); } }, '▶ Lancer'))),
       estEnCours ? el('div', { style: 'margin:12px 0' },
-        el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' },
-          el('button', { class: 'secondary', onclick: () => { corriger(m); } }, 'Corriger'),
+        el('label', { class: 'small muted', for: `score-${m.id}` }, '⚖️ Correction du score'), // 28a: saisie rapide, un champ prérempli au lieu des prompts
+        el('div', { class: 'row', style: 'margin-top:4px;flex-wrap:wrap;gap:8px' },
+          el('input', { id: `score-${m.id}`, value: `${m.score1}-${m.score2}`, placeholder: 'Score (ex : 3-2)', style: 'width:110px', onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); corriger(m); } } }),
+          el('input', { id: `distance-${m.id}`, type: 'number', min: 1, max: 9, value: m.manches, title: 'Distance', style: 'width:70px', onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); corriger(m); } } }),
+          el('button', { onclick: () => { corriger(m); } }, '✔ Valider')),
+        el('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap;gap:8px' },
           m.score1 === 0 && m.score2 === 0 ? el('button', { class: 'secondary', onclick: () => { suspendre(m); } }, '⏸ Suspendre') : null, // 23b: possible seulement à 0 manche jouée
           el('button', { class: 'danger', onclick: () => { forfait(m, m.joueur1.id); } }, `${m.joueur1 ? m.joueur1.pseudo : ''} forfait`),
           el('button', { class: 'danger', onclick: () => { forfait(m, m.joueur2.id); } }, `${m.joueur2 ? m.joueur2.pseudo : ''} forfait`))) : null,
@@ -517,15 +521,14 @@ function renderTournoi(t) {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) fermer(); });
     document.body.append(overlay);
   }
-  function corriger(m) {
-    const s1 = prompt(`Score de ${m.joueur1 ? m.joueur1.pseudo : 'J1'} (0-${m.manches}) :`, String(m.score1));
-    if (s1 == null) return;
-    const s2 = prompt(`Score de ${m.joueur2 ? m.joueur2.pseudo : 'J2'} (0-${m.manches}) :`, String(m.score2));
-    if (s2 == null) return;
-    const man = prompt('Distance (3/5/7) :', String(m.manches));
-    if (man == null) return;
+  function corriger(m) { // 28a: le champ UNIQUE 3-2 prérempli de la modale remplace les prompts de score ET de distance
+    const brut = (val('score-' + m.id) || '').trim();
+    const res = brut.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (!res) { alert('Score illisible : écris par exemple 3-2'); return; }
+    const man = (val('distance-' + m.id) || '').trim();
     const motif = prompt('Motif :', 'correction table de marque');
-    adminApi(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: JSON.stringify({ score1: Number(s1), score2: Number(s2), manches: Number(man), motif: motif || '' }) }).catch(e => alert(e.message));
+    if (motif == null) return;
+    adminApi(`/api/admin/match/${m.id}/correction`, { method: 'POST', body: JSON.stringify({ score1: Number(res[1]), score2: Number(res[2]), manches: Number(man) || m.manches, motif: motif || '' }) }).catch(e => alert(e.message));
   }
   async function rouvrir(m) {
     if (!confirmer(`Rouvrir le match #${m.position} ? Le résultat est annulé et les matchs suivants seront vidés.`)) return;
