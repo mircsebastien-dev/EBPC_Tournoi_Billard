@@ -125,6 +125,38 @@ document.addEventListener('click', (e) => {
   } catch {}
 }, true);
 
+// 87. Geste RETOUR par swipe (bord gauche -> droite) sur TOUTES les pages (common.js est chargé partout) :
+// comme le geste natif du navigateur, mais aussi dans la PWA installée (standalone) où il n'existe pas.
+// On ne prend la main que pour un swipe horizontal franc parti du bord gauche (x <= 32 px, dx > 70 px,
+// |dx| > 1,5 x |dy|) : le scroll vertical reste intact, les champs et les contenus horizontaux
+// (.table-wrap) ne sont jamais hijackés, et preventDefault sur touchmove bloque le double geste natif.
+(function swipeRetour87() {
+  let sx87 = null, sy87 = null;
+  document.addEventListener('touchstart', (e) => {
+    sx87 = null;
+    if (e.touches.length !== 1) return;
+    const c = e.target;
+    if (c && c.closest && c.closest('input, textarea, select, [contenteditable="true"], .table-wrap')) return;
+    sx87 = e.touches[0].clientX; sy87 = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (sx87 == null || sx87 > 32) return;
+    const t = e.touches[0];
+    const dx = t.clientX - sx87, dy = t.clientY - sy87;
+    if (dx > 24 && Math.abs(dx) > Math.abs(dy) * 1.5) e.preventDefault(); // swipe horizontal franc : on bloque le scroll le temps du geste
+  }, { passive: false });
+  document.addEventListener('touchend', (e) => {
+    if (sx87 == null) return;
+    const ox = sx87, oy = sy87;
+    sx87 = null; sy87 = null;
+    if (ox > 32) return;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - ox, dy = t.clientY - oy;
+    if (dx > 70 && Math.abs(dx) > Math.abs(dy) * 1.5 && history.length > 1) history.back();
+  });
+})();
+
 // 17j. Personnalisation du club : l admin du club choisit une couleur d accent (remplace le rose partout),
 // visible par TOUS les visiteurs des pages du club. Anti-flash : cache localStorage par slug (ebpc_accent_club)
 // appliqué avant le premier rendu, puis rafraîchi par GET /api/club-theme (léger, public).
