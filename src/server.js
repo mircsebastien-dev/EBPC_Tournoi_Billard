@@ -1275,7 +1275,7 @@ app.post('/api/admin/tournoi', requireAdmin, (req, res) => {
   const info = db.prepare(`
     INSERT INTO tournoi (club_id, nom, regle, taille, format, dko_tours, tetes_de_serie, nb_tables, ajustement_auto, seuil_distance, distance_speciale, date_heure, lieu, zone_tables, consolante_tours, statut)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inscription')
-  `).run(req.club.id, nom || 'Tournoi', regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 8), ajustement_auto === false ? 0 : 1, seuil, distSpe, dateH, lieuT, zoneSave19d, consTours81);
+  `).run(req.club.id, nom || ('Tournoi ' + req.club.nom), regle, Number(taille), format, k, tetes_de_serie ? 1 : 0, Math.max(1, Number(nb_tables) || 8), ajustement_auto === false ? 0 : 1, seuil, distSpe, dateH, lieuT, zoneSave19d, consTours81);
   const t = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(Number(info.lastInsertRowid));
   for (let i = 1; i <= t.nb_tables; i++) {
     db.prepare('INSERT INTO table_billard (tournoi_id, numero) VALUES (?, ?)').run(t.id, i);

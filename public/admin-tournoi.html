@@ -66,6 +66,12 @@ function renderIo(t) {
 }
 
 /* ---------- Création ---------- */
+// 89. Nom par défaut d un nouveau tournoi : « Tournoi <nom du club> » (ex : « Tournoi EBPC — Pink City Billard »).
+// Le réglage defaut_nom du club (17j) reste prioritaire quand il est renseigné.
+function nomDefautTournoi89() {
+  const c = adminState && adminState.club;
+  return (c && c.nom) ? ('Tournoi ' + c.nom) : 'Pink City Open';
+}
 function renderCreer() {
   if (adminState.historique && adminState.historique.length > 0) {
     main.append(el('div', { class: 'panel' },
@@ -75,7 +81,7 @@ function renderCreer() {
   main.append(el('div', { class: 'panel' },
     el('div', { class: 'hero-title' }, 'Nouveau tournoi'),
     el('div', { class: 'row' },
-      el('div', {}, el('label', { for: 'nom' }, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
+      el('div', {}, el('label', { for: 'nom' }, 'Nom'), el('input', { id: 'nom', value: nomDefautTournoi89() })),
       el('div', { class: 'champ-date' }, el('label', { for: 'dateheure' }, '📅 Date et heure'), el('input', { id: 'dateheure', type: 'datetime-local', value: (function(){ const d = new Date(); d.setHours(20,0,0,0); let add = (2 - d.getDay() + 7) % 7; if (add === 0 && d <= new Date()) add = 7; d.setDate(d.getDate() + add); const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; })() })),
       el('div', { style: 'flex:1 1 220px' }, el('label', { for: 'lieu' }, '📍 Lieu'), el('input', { id: 'lieu', value: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse', maxlength: 200 })),
       el('div', {}, el('label', { for: 'regle' }, 'Règle'), el('select', { id: 'regle' }, el('option', { value: 'blackball' }, 'Blackball'), el('option', { value: 'ultimate' }, 'Ultimate'))),
@@ -107,7 +113,7 @@ function renderCreer() {
   adminApi('/api/admin/club/prefs').then((rep) => {
     const prefs = rep && rep.prefs ? rep.prefs : null;
     if (!prefs) return;
-    if (prefs.defaut_nom) document.getElementById('nom').value = prefs.defaut_nom; // sinon repli « Pink City Open »
+    if (prefs.defaut_nom) document.getElementById('nom').value = prefs.defaut_nom; else document.getElementById('nom').value = nomDefautTournoi89(); // 89: sinon « Tournoi <club> » // 89: sinon repli « Tournoi <club> »
     if (prefs.adresse) document.getElementById('lieu').value = prefs.adresse; // 17j v2: adresse par défaut du club, sinon repli « Le 147... »
     const jour = prefs.defaut_jour != null ? prefs.defaut_jour : 2; // repli mardi (comportement d origine)
     const [h, m] = (prefs.defaut_heure || '20:00').split(':');
@@ -155,7 +161,7 @@ function ouvrirCreation19c(t) { // modale (même pattern que 17y/24a) : la saisi
     el('div', { class: 'hero-title' }, 'Nouveau tournoi'),
     el('p', { class: 'muted small' }, `« ${t.tournoi.nom} » est déjà actif : le nouveau tournoi sera ouvert EN PARALLÈLE, les billards restent partagés, et le sélecteur du bandeau choisit le tournoi piloté.`),
     el('div', { class: 'row' },
-      el('div', {}, el('label', { for: 'nom' }, 'Nom'), el('input', { id: 'nom', value: 'Pink City Open' })),
+      el('div', {}, el('label', { for: 'nom' }, 'Nom'), el('input', { id: 'nom', value: nomDefautTournoi89() })),
       el('div', { class: 'champ-date' }, el('label', { for: 'dateheure' }, '📅 Date et heure'), el('input', { id: 'dateheure', type: 'datetime-local' })),
       el('div', { style: 'flex:1 1 220px' }, el('label', { for: 'lieu' }, '📍 Lieu'), el('input', { id: 'lieu', value: 'Le 147, 12 Rue des Amidonniers 31000 Toulouse', maxlength: 200 }))),
     el('div', { class: 'row' },
@@ -193,7 +199,7 @@ function ouvrirCreation19c(t) { // modale (même pattern que 17y/24a) : la saisi
   adminApi('/api/admin/club/prefs').then((rep) => { // 17j: pré-remplissages club, identiques à la page de création
     const prefs = rep && rep.prefs ? rep.prefs : null;
     if (!prefs) return;
-    if (prefs.defaut_nom) document.getElementById('nom').value = prefs.defaut_nom;
+    if (prefs.defaut_nom) document.getElementById('nom').value = prefs.defaut_nom; else document.getElementById('nom').value = nomDefautTournoi89(); // 89: sinon « Tournoi <club> »
     if (prefs.adresse) document.getElementById('lieu').value = prefs.adresse;
     const jour = prefs.defaut_jour != null ? prefs.defaut_jour : 2;
     const [h, m] = (prefs.defaut_heure || '20:00').split(':');
