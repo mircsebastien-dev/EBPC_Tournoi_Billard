@@ -6,12 +6,49 @@ try {
   const c = new URLSearchParams(location.search).get('club');
   if (c) localStorage.setItem(CLUB_KEY, c);
 } catch {}
+// 20. sous-domaine: dmo.ebpc-tournoi-billard.fly.dev -> le 1er label de l'hôte (>= 3 labels, jamais www)
+// peut être un slug de club. Le serveur résout déjà par l'hôte ; ici on valide le slug une fois
+// (via /api/etat, résolu côté serveur par l'hôte) puis on le mémorise pour que headers, liens internes
+// (17s) et clés de cache portent le club explicitement. Un ?club= explicite dans l'URL reste prioritaire.
+const CLUB_HOTE_OK = 'ebpc_club_hote_ok';
+function hoteSousDomaine20() {
+  try {
+    const labels = location.hostname.toLowerCase().split('.').filter(Boolean);
+    if (labels.length < 3) return null;
+    const premier = labels[0];
+    return (premier === 'www' || !/^[a-z0-9][a-z0-9-]{1,29}$/.test(premier)) ? null : premier;
+  } catch { return null; }
+}
+try {
+  const cand20 = hoteSousDomaine20();
+  const clubUrl20 = new URLSearchParams(location.search).get('club');
+  if (cand20 && !clubUrl20 && localStorage.getItem(CLUB_KEY) !== cand20) {
+    fetch('/api/etat', { headers: { 'X-Lang': (typeof LANG !== 'undefined' ? LANG : 'fr') } })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (j && j.club && String(j.club.slug || '').toLowerCase() === cand20) {
+          try { localStorage.setItem(CLUB_KEY, cand20); localStorage.setItem(CLUB_HOTE_OK, '1'); } catch {}
+        } else { try { localStorage.removeItem(CLUB_HOTE_OK); } catch {} }
+      })
+      .catch(() => {});
+  }
+} catch {}
+// club courant effectif: mémoorisé, sinon sous-domaine validé (sinon null = club par défaut côté serveur)
+function clubCourant20() {
+  try {
+    const c = localStorage.getItem(CLUB_KEY);
+    if (c) return c;
+    const cand = hoteSousDomaine20();
+    if (cand && localStorage.getItem(CLUB_HOTE_OK) === '1') return cand;
+  } catch {}
+  return null;
+}
 function clubHeaders() {
-  try { const c = localStorage.getItem(CLUB_KEY); return c ? { 'X-Club': c } : {}; } catch { return {}; }
+  try { const c = clubCourant20(); return c ? { 'X-Club': c } : {}; } catch { return {}; }
 }
 // 19a. Tournoi affiché : mémorisé par club (sélecteur du bandeau) ; /api/etat?tournoi_id= cible ce tournoi,
 // sans choix -> le tournoi actif du club (comportement d origine)
-const TOURNOI_SEL_KEY_19a = () => { try { return 'ebpc_tournoi_' + (localStorage.getItem(CLUB_KEY) || ''); } catch { return 'ebpc_tournoi_'; } };
+const TOURNOI_SEL_KEY_19a = () => { try { return 'ebpc_tournoi_' + (clubCourant20() || ''); } catch { return 'ebpc_tournoi_'; } };
 let actifsIds19a = null; // 19a v2 (fix 84): ids des tournois actifs du club ouvert, connus du front (null = pas encore charge)
 function tournoiChoisi19a() {
   try {
@@ -49,7 +86,7 @@ async function apiTournoi19c(path, opts) {
 }
 // 17n. suffixe ?club= pour les <img>/<fetch> qui ne portent pas l en-tête X-Club (bannière de l accueil, photo de fond TV)
 function qsClub17n() {
-  try { const c = localStorage.getItem(CLUB_KEY); return c ? '?club=' + encodeURIComponent(c) : ''; } catch { return ''; }
+  try { const c = clubCourant20(); return c ? '?club=' + encodeURIComponent(c) : ''; } catch { return ''; }
 }
 
 // 17s. Étanchéité multi-club : les liens internes portent le club dans l URL.
@@ -58,7 +95,7 @@ function qsClub17n() {
 // le contexte ne quitte plus jamais la page (interception au clic : sans toucher aux <a> un par un).
 // 17s: paramètre club=<slug> prêt à concaténer à une URL interne ('' si aucun club mémorisé)
 function clubParam17s() {
-  try { const c = localStorage.getItem(CLUB_KEY); return c ? 'club=' + encodeURIComponent(c) : ''; } catch { return ''; }
+  try { const c = clubCourant20(); return c ? 'club=' + encodeURIComponent(c) : ''; } catch { return ''; }
 }
 
 // 20a. Hub plateforme : les pages SANS club explicite (accueil / sans ?club=, page joueur de la plateforme)
@@ -70,6 +107,7 @@ function pageSansClub20a() {
     const p20b = new URLSearchParams(location.search);
     if (p20b.get('hub')) return true; // 20b: ?hub=1 force le hub (retour depuis une page de club), même avec un club mémorisé
     if (location.pathname === '/joueurs.html') return true; // 20b: page joueur = toujours plateforme
+    if (hoteSousDomaine20() && localStorage.getItem(CLUB_HOTE_OK) === '1') return false; // 20. sous-domaine d'un club valide: page DE club, même sans ?club=
     return !p20b.get('club');
   } catch (e) { return false; }
 }
@@ -139,7 +177,7 @@ function accentDepuisCache() {
     if (location.pathname.startsWith('/tv.html')) return; // page TV : thème sombre d origine, jamais d accent de club
     if (pageSansClub20a()) return; // 20a: accueil hub et joueur de la plateforme : pages neutres, aucun accent de club
     const stocke = JSON.parse(localStorage.getItem(ACCENT_KEY) || '{}');
-    const k = localStorage.getItem(CLUB_KEY) || '_defaut';
+    const k = clubCourant20() || '_defaut';
     if (typeof stocke[k] === 'string' && stocke[k] !== '#d6336c') appliquerAccentClub(stocke[k]);
   } catch {}
 }
@@ -154,12 +192,12 @@ function rafraichirThemeClub() {
       if (!th || !th.accent) return;
       const stocke = JSON.parse(localStorage.getItem(ACCENT_KEY) || '{}');
       stocke[th.slug] = th.accent;
-      if (!localStorage.getItem(CLUB_KEY)) stocke._defaut = th.accent;
+      if (!clubCourant20()) stocke._defaut = th.accent;
       localStorage.setItem(ACCENT_KEY, JSON.stringify(stocke));
       appliquerAccentClub(th.accent);
       const stockeL = JSON.parse(localStorage.getItem(LOGO_KEY) || '{}'); // 17k: logo + mode d affichage, même pattern
       stockeL[th.slug] = { l: logoValide17k(th.logo) ? (th.logo || '') : '', m: logoModeValide(th.logo_mode) ? th.logo_mode : 'les-deux' };
-      if (!localStorage.getItem(CLUB_KEY)) stockeL._defaut = stockeL[th.slug];
+      if (!clubCourant20()) stockeL._defaut = stockeL[th.slug];
       localStorage.setItem(LOGO_KEY, JSON.stringify(stockeL));
       appliquerLogoClub(th.logo, th.logo_mode);
       // 17o. Icône du club sur l écran du téléphone : manifeste et apple-touch-icon du club courant
@@ -296,7 +334,7 @@ function logoDepuisCache() {
     if (location.pathname.startsWith('/tv.html')) return; // page TV : filigrane exclu comme l accent
     if (pageSansClub20a()) return; // 20a: accueil hub et joueur de la plateforme : neutres, aucun logo de club
     const stocke = JSON.parse(localStorage.getItem(LOGO_KEY) || '{}');
-    const k = localStorage.getItem(CLUB_KEY) || '_defaut';
+    const k = clubCourant20() || '_defaut';
     const entree = stocke[k];
     if (entree && typeof entree.l === 'string' && entree.l) appliquerLogoClub(entree.l, entree.m); // {l: logo, m: mode}
     else if (typeof entree === 'string' && entree) appliquerLogoClub(entree, 'les-deux'); // ancien format

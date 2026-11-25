@@ -26,6 +26,16 @@ Plan B : l'action manuelle **« Déployer prod »** (onglet Actions, confirmatio
 
 Si l'app de test doit être recréée un jour : `fly apps create ebpc-tournoi-billard-test`, `fly volumes create tournoi_data --app ebpc-tournoi-billard-test --region cdg --size 1`, `fly secrets set ADMIN_PIN=<code> --app ebpc-tournoi-billard-test`, recopier à la main les secrets utiles (mails Resend, VAPID push ; Fly ne lit jamais les secrets d'une autre app ; jamais de secret `BASE_URL`), puis `fly tokens create deploy -a ebpc-tournoi-billard-test` → secret GitHub `FLY_TEST_TOKEN`.
 
+## Sous-domaines par club (20c)
+
+Chaque club peut avoir **son propre sous-domaine** : `dmo.tournoi.example.fr` ouvre directement le club `dmo` (1er label de l'hôte = slug du club, résolution serveur + front après validation ; `X-Club`/`?club=` restent prioritaires, sous-domaine inconnu = club par défaut). Mise en place sur l'app Fly concernée :
+
+- DNS : enregistrement **wildcard** `*.tournoi.example.fr` (CNAME/ALIAS vers l'app Fly, ex. `ebpc-tournoi-billard.fly.dev`),
+- domaine wildcard + certificat : `fly domains add '*.tournoi.example.fr' -a <app>` puis `fly certs add '*.tournoi.example.fr' -a <app>` (certificat wildcard automatique),
+- créer le club de slug `dmo` dans la console super-admin : https://<app>.fly.dev/console.html → `dmo.tournoi.example.fr` est opérationnel.
+
+Note : les sous-domaines de `*.fly.dev` ne sont PAS routables (Fly ne sert que `<app>.fly.dev`), d'où le domaine personnalisé wildcard. Sans domaine wildcard, `?club=<slug>` dans l'URL (ou le sélecteur de club du hub) reste le mécanisme nominal.
+
 ## Routines
 
 - **Faire vivre l'app de test** : pousse n'importe quel commit sur `staging` → job `deploy-test` dans l'onglet Actions → l'app se met à jour en ~5 minutes après la CI.

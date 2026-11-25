@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📜 Journal de la plateforme - Console</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>📜 Journal de la plateforme</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+
+// 37. Journal des opérations plateforme : GET /api/super/audit (zone super-admin) = l'audit de
+// TOUS les clubs (club_slug résolu), filtres ?q= / ?action= / ?club=<slug>, 500 dernières entrées.
+// Le journal de SON club reste dans la table de marque (/admin-journal.html).
+let filtreQ37 = '', filtreAction37 = '', filtreClub37 = '';
+let CLUBS37 = [];
+
+async function charger() {
+  if (!adminPin && !adminCompte) { main.innerHTML = ''; renderAdminLogin(main); return; }
+  try {
+    const scan = await adminApi('/api/super/scan');
+    if (!scan || scan.super_admin !== true) throw Object.assign(new Error('zone refusée'), { status: 403 });
+  } catch (e) {
+    main.innerHTML = '';
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + (e.status === 403
+      ? 'Page réservée au super-admin de la plateforme : code global ou compte super-admin. Un code de club ou une session de club n y a jamais accès.'
+      : e.message))));
+    return;
+  }
+  try {
+    const qs = new URLSearchParams();
+    if (filtreQ37) qs.set('q', filtreQ37);
+    if (filtreAction37) qs.set('action', filtreAction37);
+    if (filtreClub37) qs.set('club', filtreClub37);
+    const rep = await adminApi('/api/super/audit' + (qs.toString() ? '?' + qs.toString() : ''));
+    try { CLUBS37 = ((await adminApi('/api/super/clubs')).clubs) || []; } catch (e) { CLUBS37 = []; }
+    render(rep);
+  } catch (e) {
+    main.innerHTML = '';
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + e.message)));
+  }
+}
+
+function render(rep) {
+  main.innerHTML = '';
+  const qI = el('input', { placeholder: '🔍 Rechercher (action, cible, détails)', maxlength: 80, style: 'width:100%;max-width:300px', value: filtreQ37 });
+  qI.addEventListener('input', () => { filtreQ37 = qI.value.trim(); charger(); });
+  const aI = el('input', { placeholder: 'Action exacte (ex: club_cree, compte_suspendu)', maxlength: 60, style: 'width:100%;max-width:260px', value: filtreAction37 });
+  aI.addEventListener('input', () => { filtreAction37 = aI.value.trim(); charger(); });
+  const cS = el('select', { style: 'max-width:240px' },
+    el('option', { value: '' }, 'Tous les clubs'),
+    ...CLUBS37.map(c => el('option', { value: c.slug, selected: filtreClub37 === c.slug ? true : null }, `${c.nom} (${c.slug})`)));
+  cS.addEventListener('change', () => { filtreClub37 = cS.value; charger(); });
+  main.append(el('div', { class: 'panel', style: 'padding:10px 14px;margin-bottom:12px' },
+    el('div', { class: 'row', style: 'align-items:center;flex-wrap:wrap;gap:8px' },
+      el('p', { class: 'muted small', style: 'margin:0' }, `${(rep.audit || []).length} entrée(s) affichée(s) sur ${rep.total} au total — toutes clubs confondus`),
+      el('span', { style: 'flex:1' }),
+      el('a', { href: '/console.html' }, el('button', { class: 'secondary', style: 'font-size:13px' }, '← Console')),
+      el('button', { class: 'secondary', style: 'font-size:13px', onclick: charger }, '🔄 Rafraîchir')),
+    el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;margin-top:8px' }, qI, aI, cS)));
+  const rows = rep.audit || [];
+  if (!rows.length) { main.append(el('p', { class: 'muted' }, 'Aucune entrée pour ces filtres.')); return; }
+  main.append(el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' },
+    el('thead', {}, el('tr', {}, ['Date', 'Club', 'Action', 'Cible', 'Par', 'Détails'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
+    el('tbody', {}, ...rows.map(a => el('tr', { style: 'border-top:1px solid var(--line)' },
+      el('td', { style: 'padding:6px 8px;white-space:nowrap', class: 'small muted' }, String(a.created_at || '').slice(0, 16).replace('T', ' ')),
+      el('td', { style: 'padding:6px 8px' }, a.club_slug || '(plateforme)'),
+      el('td', { style: 'padding:6px 8px;font-weight:700' }, a.action),
+      el('td', { style: 'padding:6px 8px', class: 'small' }, a.cible || ''),
+      el('td', { style: 'padding:6px 8px', class: 'small muted' }, a.auteur || '—'),
+      el('td', { class: 'small muted', style: 'padding:6px 8px;max-width:420px' }, `${a.avant || ''} → ${a.apres || ''}`)))))));
+  if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(main);
+}
+
+async function init() {
+  main.append(el('p', { class: 'muted' }, 'Chargement…'));
+  const ok = await adminInit(() => {});
+  if (!ok) { main.innerHTML = ''; renderAdminLogin(main); return; }
+  await charger();
+}
+init();
+</script>
+</body>
+</html>

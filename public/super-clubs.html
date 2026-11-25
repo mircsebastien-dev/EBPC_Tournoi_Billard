@@ -119,6 +119,9 @@ function rowClub(c, estDefaut) {
     el('td', { style: 'padding:6px 8px' }, c.actif ? '✅ Actif' : '⛔ Inactif'),
     el('td', { style: 'padding:6px 8px' }, c.pin_propre ? '🔒 oui' : 'non (code global)'),
     el('td', { style: 'padding:6px 8px' }, c.demo ? '🧪 démo' : '—'),
+    el('td', { style: 'padding:6px 8px', class: 'small' }, (c.quotas && (c.quotas.tournois_actifs > 0 || c.quotas.joueurs > 0))
+      ? '🎫 ' + c.quotas.tournois_actifs + ' tournois · ' + c.quotas.joueurs + ' joueurs'
+      : 'illimité'),
     el('td', { style: 'padding:6px 8px' }, String(c.nb_comptes || 0)),
     el('td', { style: 'padding:6px 8px;white-space:nowrap' }, String(c.created_at || '').slice(0, 10)),
     el('td', { style: 'padding:6px 8px;white-space:nowrap' },
@@ -148,6 +151,16 @@ function rowClub(c, estDefaut) {
           charger();
         } catch (e) { alert(e.message); }
       } }, '🗑️ Reset démo')] : []),
+      el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px;margin-right:6px', onclick: async () => {
+        const q = c.quotas || { tournois_actifs: 0, joueurs: 0 };
+        const brut = prompt(`Quotas du club « ${c.nom} » (0 = illimité)\nligne 1 : tournois actifs max\nligne 2 : joueurs max au total (tous tournois)`, q.tournois_actifs + '\n' + q.joueurs);
+        if (brut == null) return;
+        const l = String(brut).split('\n');
+        const ta = Number(String(l[0] || '').trim()), jo = Number(String(l[1] || '').trim());
+        if (!Number.isInteger(ta) || ta < 0 || ta > 50 || !Number.isInteger(jo) || jo < 0 || jo > 100000) { alert('Quotas invalides : entiers >= 0 (max 50 tournois / 100000 joueurs), 0 = illimité.'); return; }
+        try { await adminApi('/api/super/club', { method: 'PUT', body: JSON.stringify({ slug: c.slug, quotas: { tournois_actifs: ta, joueurs: jo }, confirm_pin: adminPin }) }); charger(); }
+        catch (e) { alert(e.message); }
+      } }, '🎫 Quotas'),
       el('button', { class: 'secondary', style: 'padding:5px 10px;font-size:13px', onclick: () => sectionRoles(c.slug) }, '👥 Rôles'),
       ...(estDefaut ? [el('span', { class: 'muted small', style: 'margin-left:6px' }, '⏳ club par défaut protégé')] : [el('button', { class: 'danger', style: 'padding:5px 10px;font-size:13px;margin-left:6px', onclick: async () => {
         try {
@@ -286,7 +299,7 @@ function render(clubs) {
     } catch (e) { alert(e.message); }
   } }, '➕ Créer un club');
   main.append(el('div', { class: 'panel' }, el('h2', {}, '🏛️ Clubs de la plateforme'), el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' }, slugI, nomI, pinI, creer)));
-  const thead = el('thead', {}, el('tr', {}, ['Club', 'Actif', 'Code PIN propre', 'Comptes rattachés', 'Créé le', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h))));
+  const thead = el('thead', {}, el('tr', {}, ['Club', 'Actif', 'Code PIN propre', 'Démo', 'Quotas', 'Comptes rattachés', 'Créé le', 'Actions'].map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h))));
   const tbody = el('tbody', {}, ...clubs.map((c, i) => rowClub(c, i === 0)));
   const table = el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' }, thead, tbody));
   main.append(el('div', { class: 'panel' },

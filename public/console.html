@@ -97,7 +97,9 @@ function render(clubs) {
     el('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' },
       el('a', { href: '/super-clubs.html' }, el('button', { class: 'secondary' }, '🏛️ Clubs de la plateforme')),
       el('a', { href: '/super-base.html' }, el('button', { class: 'secondary' }, '💾 Base complète de la plateforme')),
-      el('a', { href: '/super-comptes.html' }, el('button', { class: 'secondary' }, '👥 Comptes de la plateforme')))));
+      el('a', { href: '/super-comptes.html' }, el('button', { class: 'secondary' }, '👥 Comptes de la plateforme')),
+      el('a', { href: '/super-kpi.html' }, el('button', { class: 'secondary' }, '📊 KPI de la plateforme')),
+      el('a', { href: '/super-journal.html' }, el('button', { class: 'secondary' }, '📜 Journal de la plateforme')))));
   main.append(el('div', { id: 'comptes-tous', class: 'panel', style: 'margin-top:12px' }, el('p', { class: 'muted' }, 'Chargement…')));
   main.append(panelContexteClub(clubs));
 }

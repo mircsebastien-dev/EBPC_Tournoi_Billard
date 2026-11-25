@@ -73,6 +73,7 @@ function fichePanel(c) {
         info('Créé le', String(c.created_at || '').slice(0, 10)),
         info('Dernière connexion', c.last_login_at ? String(c.last_login_at).slice(0, 16).replace('T', ' ') : 'jamais'),
         info('Email (masqué)', maskEmail(c.email)),
+        info('État', c.actif === 0 ? '⛔ suspendu par la plateforme' : '✅ actif'),
         info('Sessions', String(c.sessions || 0)),
         info('Inscri. tournois (joueurs)', String(c.joueurs || 0)),
         info('Matchs', String(c.matchs || 0)),
@@ -86,6 +87,16 @@ function fichePanel(c) {
           try { await adminApi(`/api/super/compte/${c.id}/role`, { method: 'POST', body: JSON.stringify({ role: selRole.value }) }); await charger(); majFiche(); }
           catch (e) { alert(e.message); }
         } }, '⚙️ Appliquer le rôle plateforme'))),
+    el('div', { class: 'panel', style: 'margin-top:8px;padding:10px 14px' },
+      el('p', { class: 'muted small', style: 'margin:0 0 8px' }, 'Modération plateforme (37) : suspendre un compte invalide immédiatement ses sessions et refuse sa connexion (403). Impossible sur un super_admin ou sur soi-même ; code global re-saisi exigé.'),
+      el('div', { class: 'row', style: 'align-items:center;gap:8px;flex-wrap:wrap' },
+        el('button', { class: c.actif === 0 ? '' : 'danger', onclick: async () => {
+          try {
+            await adminApiDestructif(`/api/super/compte/${c.id}/actif`, { method: 'POST', body: JSON.stringify({ actif: c.actif !== 0 }) },
+              c.actif === 0 ? `réactiver le compte « ${c.pseudo} »` : `suspendre le compte « ${c.pseudo} » (sessions invalidées, connexion refusée)`);
+            await charger(); majFiche();
+          } catch (e) { alert(e.message); }
+        } }, c.actif === 0 ? '✅ Réactiver' : '⛔ Suspendre'))),
     el('div', { class: 'panel', style: 'margin-top:8px;padding:10px 14px' },
       el('p', { class: 'muted small', style: 'margin:0 0 8px' }, 'Rôles CLUB (compte_club, propres à un club, invisibles des autres clubs) :'),
       roles.length === 0 ? el('p', { class: 'muted small', style: 'margin:0 0 8px' }, 'Aucun rôle club actuellement.') :
@@ -149,7 +160,8 @@ function liste() {
       el('tbody', {}, ...rows.map(c => el('tr', { style: 'border-top:1px solid var(--line);cursor:pointer', onclick: () => openFicheModal(c) },
         el('td', { style: 'padding:6px 8px;font-weight:700' }, c.pseudo, el('span', { class: 'muted small', style: 'margin-left:5px' }, '#' + c.id),
           c.role === 'super_admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '🛡️') : null,
-          c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑') : null),
+          c.role === 'admin' ? el('span', { class: 'chip', style: 'margin-left:6px' }, '👑') : null,
+          c.actif === 0 ? el('span', { class: 'chip', style: 'margin-left:6px' }, '⛔ suspendu') : null),
         el('td', { style: 'padding:6px 8px' }, c.club_slug || '-'),
         el('td', { style: 'padding:6px 8px' }, rolePlateformeLabel(c.role)),
         el('td', { style: 'padding:6px 8px', class: 'muted small' }, c.roles_clubs || '-'),

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS club (
   theme_json TEXT,
   actif INTEGER NOT NULL DEFAULT 1,
   demo INTEGER NOT NULL DEFAULT 0, -- 84. mode démo : club bac à sable, données jetables (badge + reset réservé)
+  quotas_json TEXT, -- 37. quotas du club (JSON {"tournois_actifs":N,"joueurs":M}, 0 = illimité)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -418,6 +419,10 @@ if (!db.prepare("PRAGMA table_info(tournoi)").all().some(c => c.name === 'est_co
 // 84. Mode démo du club : bac à sable dont les données sont jetables (reset réservé admin/super-admin)
 if (!db.prepare("PRAGMA table_info(club)").all().some(c => c.name === 'demo'))
   db.exec('ALTER TABLE club ADD COLUMN demo INTEGER NOT NULL DEFAULT 0');
+if (!db.prepare("PRAGMA table_info(club)").all().some(c => c.name === 'quotas_json'))
+  db.exec('ALTER TABLE club ADD COLUMN quotas_json TEXT'); // 37. quotas du club (JSON, null = quotas par défaut = illimité)
+if (!db.prepare("PRAGMA table_info(compte)").all().some(c => c.name === 'actif'))
+  db.exec('ALTER TABLE compte ADD COLUMN actif INTEGER NOT NULL DEFAULT 1'); // 37. modération plateforme : 0 = suspendu (sessions invalidées, connexion refusée)
 if (!db.prepare("PRAGMA table_info(audit_log)").all().some(c => c.name === 'club_id'))
   db.exec('ALTER TABLE audit_log ADD COLUMN club_id INTEGER REFERENCES club(id)');
 if (!db.prepare("PRAGMA table_info(audit_snapshot)").all().some(c => c.name === 'club_id'))
@@ -549,4 +554,22 @@ function logAudit(action, cible, avant, apres, clubId, auteur) {
   snapshotTournoiActif(Number(info.lastInsertRowid), clubId);
 }
 
-module.exports = { db, setSetting, getSetting, delSetting, logAudit, clubParDefaut, clubParSlug, reparerComptes17u };
+// ---------- 37. quotas d un club (colonne club.quotas_json) ----------
+// JSON {"tournois_actifs": N, "joueurs": M} ; 0 (ou absent) = illimité, défaut sûr pour ne rien casser.
+const QUOTAS_DEFAUT_37 = { tournois_actifs: 0, joueurs: 0 };
+function quotasClub(club) {
+  let q = {};
+  try { q = club && club.quotas_json ? JSON.parse(club.quotas_json) : {}; } catch { q = {}; }
+  if (!q || typeof q !== 'object' || Array.isArray(q)) q = {};
+  const borne = (v, max) => (Number.isInteger(v) && v >= 0 && v <= max) ? v : 0;
+  return { tournois_actifs: borne(q.tournois_actifs, 50), joueurs: borne(q.joueurs, 100000) };
+}
+// null si valide, sinon le message d erreur (400)
+function validerQuotas37(q) {
+  if (!q || typeof q !== 'object' || Array.isArray(q)) return 'quotas invalide (objet {tournois_actifs, joueurs} attendu)';
+  if (!Number.isInteger(q.tournois_actifs) || q.tournois_actifs < 0 || q.tournois_actifs > 50) return 'quotas.tournois_actifs invalide (entier 0-50, 0 = illimité)';
+  if (!Number.isInteger(q.joueurs) || q.joueurs < 0 || q.joueurs > 100000) return 'quotas.joueurs invalide (entier 0-100000, 0 = illimité)';
+  return null;
+}
+
+module.exports = { db, setSetting, getSetting, delSetting, logAudit, clubParDefaut, clubParSlug, reparerComptes17u, quotasClub, validerQuotas37, QUOTAS_DEFAUT_37 };

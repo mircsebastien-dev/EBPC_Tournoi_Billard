@@ -1,6 +1,6 @@
 // Comptes joueurs : pseudo + email + mot de passe (scrypt), sessions cookie, réinit par mail (Resend)
 const crypto = require('crypto');
-const { db, logAudit, clubParDefaut } = require('./db');
+const { db, logAudit, clubParDefaut, quotasClub } = require('./db');
 const logAuditC = (req, ...a) => logAudit(...a, req && req.club ? req.club.id : undefined);
 
 const SESSION_COOKIE = 'ebpc_session';
@@ -86,9 +86,10 @@ function compteDepuisReq(req) {
   const token = cookies[SESSION_COOKIE];
   if (!token) return null;
   const row = db.prepare(`
-    SELECT c.id, c.pseudo, c.email, c.role, c.club_id, s.expires FROM session s JOIN compte c ON c.id = s.compte_id
+    SELECT c.id, c.pseudo, c.email, c.role, c.club_id, c.actif, s.expires FROM session s JOIN compte c ON c.id = s.compte_id
     WHERE s.token_hash = ? AND s.expires > datetime('now')
   `).get(hashToken(token));
+  if (row && !row.actif) return null; // 37. modération: compte suspendu -> la session ne vaut plus rien
   return row || null;
 }
 
@@ -152,6 +153,7 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, tournoiInscription19
     if (!c || !verifierPassword(password, c.salt, c.pass_hash)) {
       return res.status(401).json({ error: 'Pseudo ou mot de passe incorrect' });
     }
+    if (!c.actif) return res.status(403).json({ error: 'Compte suspendu par la plateforme', suspendu: true }); // 37. modération
     rattacherJoueursAnonymes(c.id, c.pseudo, (req.club && req.club.id) || c.club_id); // 17u: rattache les joueurs anonymes du club OUVERT à la connexion
     db.prepare("UPDATE compte SET last_login_at = datetime('now') WHERE id = ?").run(c.id);
     const token = creerSession(c.id);
@@ -427,6 +429,11 @@ function registerCompteRoutes(app, { baseUrl, tournoiActif, tournoiInscription19
     if (!t) return res.status(404).json({ error: 'Aucun tournoi actif' });
     if (t.statut !== 'inscription') return res.status(409).json({ error: 'Les inscriptions sont fermées (tournoi lancé)' });
     if (t.taille && t.nb_inscrits >= t.taille) return res.status(409).json({ error: 'Tournoi complet' });
+    const q37 = quotasClub(req.club); // 37. quota de joueurs du club, tous tournois confondus (0 = illimité)
+    if (q37.joueurs > 0 && req.club) {
+      const nJ37 = db.prepare('SELECT COUNT(*) c FROM joueur j JOIN tournoi t2 ON t2.id = j.tournoi_id WHERE t2.club_id = ?').get(req.club.id).c;
+      if (nJ37 >= q37.joueurs) return res.status(409).json({ error: `Quota de joueurs atteint pour ce club (${q37.joueurs} max)`, quota: 'joueurs', joueurs: nJ37, max: q37.joueurs });
+    }
     // déjà inscrit via ce compte ?
     const deja = db.prepare('SELECT j.* FROM joueur j WHERE j.tournoi_id = ? AND j.compte_id = ?').get(t.id, req.compte.id);
     if (deja) return res.status(409).json({ error: `Déjà inscrit en tant que ${deja.pseudo}`, joueur: { id: deja.id, pseudo: deja.pseudo, statut: deja.statut } });

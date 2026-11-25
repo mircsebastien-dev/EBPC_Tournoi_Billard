@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📊 KPI de la plateforme - Console</title>
+<link rel="stylesheet" href="/style.css">
+<script>try{if(localStorage.getItem('ebpc_theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+<header class="top">
+  <h1>📊 KPI de la plateforme</h1>
+  <div id="nav"></div>
+</header>
+<main id="main"></main>
+<script src="/common.js"></script>
+<script src="/admin-common.js"></script>
+<script>
+document.getElementById('nav').append(nav('admin'));
+const main = document.getElementById('main');
+
+// 37. KPI globaux de la plateforme : GET /api/super/kpi (zone super-admin, aucun club).
+// Agrégats serveur sur toute la base : clubs, comptes, tournois, matchs, joueurs, push,
+// relevés d'usage 31 (pages + santé API) et journal, globaux ET par club. Rafraîchi toutes les 30 s.
+let timerKpi37 = null;
+
+function carteKpi(titre, lignes) {
+  return el('div', { class: 'panel', style: 'min-width:220px;flex:1 1 220px' },
+    el('h2', { style: 'margin-top:0' }, titre),
+    ...lignes.map(([k, v]) => el('div', { class: 'row', style: 'justify-content:space-between;gap:10px' },
+      el('span', { class: 'muted small' }, k), el('strong', {}, String(v)))));
+}
+
+function render(k) {
+  main.innerHTML = '';
+  main.append(el('div', { class: 'panel' },
+    el('div', { class: 'row', style: 'align-items:center;flex-wrap:wrap;gap:8px' },
+      el('p', { class: 'muted small', style: 'margin:0' }, `Généré à ${String(k.genere_a || '').slice(11, 19)} — rafraîchi toutes les 30 s`),
+      el('span', { style: 'flex:1' }),
+      el('a', { href: '/console.html' }, el('button', { class: 'secondary', style: 'font-size:13px' }, '← Console')),
+      el('button', { class: 'secondary', style: 'font-size:13px', onclick: charger }, '🔄 Rafraîchir'))));
+  main.append(el('div', { class: 'row', style: 'flex-wrap:wrap;gap:12px;align-items:stretch' },
+    carteKpi('🏛️ Clubs', [
+      ['Total', k.clubs.total], ['Actifs', k.clubs.actifs], ['Mode démo', k.clubs.demo],
+    ]),
+    carteKpi('👤 Comptes', [
+      ['Total', k.comptes.total], ['🛡️ super_admin', k.comptes.super_admin], ['🖐 admin', k.comptes.admin],
+      ['⛔ suspendus', k.comptes.suspendus], ['Sessions actives', k.comptes.sessions],
+    ]),
+    carteKpi('🎱 Tournois / matchs', [
+      ['Tournois', k.tournois.total], ['inscription', k.tournois.inscription], ['en cours', k.tournois.en_cours], ['terminés', k.tournois.termine],
+      ['Matchs', k.matchs.total], ['en cours', k.matchs.en_cours], ['finis', k.matchs.finis],
+      ['Joueurs', k.joueurs], ['Abonnés push', k.push],
+    ]),
+    carteKpi('📈 Usage (90 j)', [
+      ['Pages vues', k.usage_page.total], ['dont 24 h', k.usage_page.h24], ['dont 7 j', k.usage_page.j7],
+      ['Appels API', k.usage_api.total], ['erreurs (4xx/5xx)', `${k.usage_api.erreurs} (${k.usage_api.taux_erreur} %)`],
+      ['latence moy / p50 / max', `${k.usage_api.ms_moyen ?? '-'} / ${k.usage_api.ms_p50 ?? '-'} / ${k.usage_api.ms_max ?? '-'} ms`],
+      ['Journal (entrées)', `${k.audit.total} (dont 24 h : ${k.audit.h24})`],
+    ])));
+  const cols = ['Club', 'Actif', 'Démo', 'Quotas', 'Comptes', 'Tournois (actifs)', 'Joueurs', 'Matchs', 'Pages', 'API (err)', 'ms moy', 'Journal'];
+  main.append(el('div', { class: 'panel', style: 'margin-top:12px' },
+    el('h2', {}, 'Par club'),
+    el('div', { class: 'table-wrap' }, el('table', { style: 'width:100%;border-collapse:collapse' },
+      el('thead', {}, el('tr', {}, cols.map(h => el('th', { style: 'text-align:left;padding:6px 8px' }, h)))),
+      el('tbody', {}, ...k.par_club.map(c => el('tr', { style: 'border-top:1px solid var(--line)' },
+        el('td', { style: 'padding:6px 8px' }, el('strong', {}, c.nom), el('div', { class: 'muted', style: 'font-size:12px' }, c.slug)),
+        el('td', { style: 'padding:6px 8px' }, c.actif ? '✅' : '⛔'),
+        el('td', { style: 'padding:6px 8px' }, c.demo ? '🧪' : '—'),
+        el('td', { style: 'padding:6px 8px', class: 'small' }, (c.quotas.tournois_actifs > 0 || c.quotas.joueurs > 0) ? `🎫 ${c.quotas.tournois_actifs} / ${c.quotas.joueurs}` : 'illimité'),
+        el('td', { style: 'padding:6px 8px' }, c.comptes),
+        el('td', { style: 'padding:6px 8px' }, `${c.tournois} (${c.tournois_actifs})`),
+        el('td', { style: 'padding:6px 8px' }, c.joueurs),
+        el('td', { style: 'padding:6px 8px' }, c.matchs),
+        el('td', { style: 'padding:6px 8px' }, c.pages),
+        el('td', { style: 'padding:6px 8px' }, `${c.api} (${c.erreurs_api})`),
+        el('td', { style: 'padding:6px 8px' }, c.ms_moyen ?? '-'),
+        el('td', { style: 'padding:6px 8px' }, c.audit))))))));
+  if (typeof LANG !== 'undefined' && LANG !== 'fr') traduireDomStatique(main);
+}
+
+async function charger() {
+  if (!adminPin && !adminCompte) { main.innerHTML = ''; renderAdminLogin(main); return; }
+  try {
+    const scan = await adminApi('/api/super/scan');
+    if (!scan || scan.super_admin !== true) throw Object.assign(new Error('zone refusée'), { status: 403 });
+  } catch (e) {
+    main.innerHTML = '';
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + (e.status === 403
+      ? 'Page réservée au super-admin de la plateforme : code global ou compte super-admin. Un code de club ou une session de club n y a jamais accès.'
+      : e.message))));
+    return;
+  }
+  try {
+    const k = await adminApi('/api/super/kpi');
+    render(k);
+  } catch (e) {
+    main.innerHTML = '';
+    main.append(el('div', { class: 'panel' }, el('p', { class: 'muted' }, '⛔ ' + e.message)));
+  }
+}
+
+async function init() {
+  main.append(el('p', { class: 'muted' }, 'Chargement…'));
+  const ok = await adminInit(() => {});
+  if (!ok) { main.innerHTML = ''; renderAdminLogin(main); return; }
+  await charger();
+  if (timerKpi37) clearInterval(timerKpi37);
+  timerKpi37 = setInterval(() => { if (adminPin || adminCompte) charger(); }, 30000);
+}
+init();
+</script>
+</body>
+</html>
