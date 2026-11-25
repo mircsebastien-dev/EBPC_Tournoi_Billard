@@ -1,8 +1,8 @@
 # Rapport de batterie de tests — EBPC Tournoi Billard
 
-- Date : 2026-11-25T20:20:35.280Z
+- Date : 2026-11-25T20:26:14.687Z
 - Base : http://127.0.0.1:4100
-- Résultat : **609 OK / 0 ÉCHEC** (12.4s)
+- Résultat : **609 OK / 0 ÉCHEC** (12.5s)
 
 | Statut | Test | Détail |
 |---|---|---|
@@ -742,7 +742,7 @@
 
 ## 88. datetime-local ne déborde plus des panneaux (Nouveau tournoi) : min-width: 0 sur les champs date/heure
 
-| ✅ | 88: style.css autorise le rétrécissement des champs date/heure (min-width: 0, max-width: 100% sur datetime-local/date/time/month/week) pour ne plus déborder des .panel étroits |  |
+| ✅ | 88 v3: style.css reserve au conteneur .champ-date d un champ date/heure une largeur min de 260px (>= largeur intrinseque du selecteur natif) et pleine ligne sur ecran <= 760px, plus min-width: 0 sur les inputs date/heure |  |
 | ✅ | 88: le formulaire Nouveau tournoi (création id=dateheure + édition id=edit-dateheure) utilise bien datetime-local, cible du fix |  |
 | ✅ | infra: app de test ebpc-tournoi-billard-test déployée automatiquement sur la branche staging après CI verte (job deploy-test, fly.test.toml, volume tournoi_data séparé, notice et saut si FLY_TEST_TOKEN absent) + prod déployée automatiquement sur push main (intégration GitHub Fly conservée) + workflow « Déployer prod » conservé en plan B (confirmation PROD, FLY_PROD_TOKEN) + GUIDE_DEPLOY.md + SPEC/ROADMAP à jour |  |
 | ✅ | roadmap: cap produit plateforme confirme dans l en-tete + nouveaux chantiers documentes : vidéo live (embed externe puis WebRTC/HLS) + chat live modéré (modération admin, anti-flood, distinct du chat par match) + disciplines paramétrables par club (vocabulaire, format de score, règles activables) + super admin plateforme (gestion clubs, KPI globaux) + KPI enrichis santé d usage + ordre conseillé axe plateforme (20 -> 37 -> 19 -> 31 -> 36) |  |

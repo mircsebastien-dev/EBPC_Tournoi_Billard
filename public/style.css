@@ -130,11 +130,13 @@ input:focus, select:focus { border-color: var(--pink-fort); box-shadow: 0 0 0 3p
    (champs internes + icône calendrier) : sans min-width: 0 ils débordent des panneaux étroits
    (ex : champ « Date et heure » du formulaire « Nouveau tournoi » sur mobile) */
 input[type="datetime-local"], input[type="date"], input[type="time"], input[type="month"], input[type="week"] { min-width: 0; max-width: 100%; }
-/* 88 v2: min-width: 0 ne suffit pas toujours (le selecteur natif garde ses champs internes) ->
-   sur ecran etroit, le conteneur d'un champ date/heure occupe TOUTE la ligne (flex 1 1 100%),
-   assez large pour la largeur intrinseque, donc plus de debordement du .panel */
+/* 88 v3: le conteneur d'un champ date/heure (.champ-date) a une largeur min (260px) >= la largeur
+   intrinseque du selecteur natif datetime-local (champs internes + icone calendrier), sinon l'input
+   deborde de son .row > div et du .panel (ex : formulaire Nouveau tournoi) ; sur ecran etroit
+   (<= 760px) il passe pleine largeur de sa propre ligne */
+.row > div.champ-date { flex: 1 1 260px; min-width: 260px; }
 @media (max-width: 760px) {
-  .row > div:has(> input[type="datetime-local"], > input[type="date"], > input[type="time"], > input[type="month"], > input[type="week"]) { flex: 1 1 100%; min-width: 0; }
+  .row > div.champ-date { flex: 1 1 100%; min-width: 0; }
 }
 label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 5px; font-weight: 600; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
