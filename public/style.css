@@ -126,6 +126,10 @@ input, select {
   outline: none; transition: border-color 0.15s, box-shadow 0.15s;
 }
 input:focus, select:focus { border-color: var(--pink-fort); box-shadow: 0 0 0 3px var(--pink-glow); }
+/* 88. Les champs date/heure (datetime-local/date/time/...) ont une largeur intrinsèque fixe
+   (champs internes + icône calendrier) : sans min-width: 0 ils débordent des panneaux étroits
+   (ex : champ « Date et heure » du formulaire « Nouveau tournoi » sur mobile) */
+input[type="datetime-local"], input[type="date"], input[type="time"], input[type="month"], input[type="week"] { min-width: 0; max-width: 100%; }
 label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 5px; font-weight: 600; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
 .row > div { flex: 1; min-width: 130px; }
