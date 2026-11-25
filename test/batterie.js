@@ -2618,7 +2618,7 @@ async function nouveauTournoi(body) {
   sec('88. datetime-local ne d\u00e9borde plus des panneaux (Nouveau tournoi) : min-width: 0 sur les champs date/heure');
   const css88 = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
   const at88 = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-tournoi.html'), 'utf8');
-  check('88: style.css autorise le r\u00e9tr\u00e9cissement des champs date/heure (min-width: 0, max-width: 100% sur datetime-local/date/time/month/week) pour ne plus d\u00e9border des .panel \u00e9troits', css88.includes('input[type="datetime-local"], input[type="date"], input[type="time"], input[type="month"], input[type="week"] { min-width: 0; max-width: 100%; }'), '');
+  check('88: style.css autorise le r\u00e9tr\u00e9cissement des champs date/heure (min-width: 0, max-width: 100% sur datetime-local/date/time/month/week) pour ne plus d\u00e9border des .panel \u00e9troits', css88.includes('input[type="datetime-local"], input[type="date"], input[type="time"], input[type="month"], input[type="week"] { min-width: 0; max-width: 100%; }') && css88.includes('@media (max-width: 760px)') && css88.includes('.row > div:has(> input[type="datetime-local"]') && css88.includes('flex: 1 1 100%'), '');
   check('88: le formulaire Nouveau tournoi (cr\u00e9ation id=dateheure + \u00e9dition id=edit-dateheure) utilise bien datetime-local, cible du fix', (at88.match(/type: 'datetime-local'/g) || []).length >= 2 && at88.includes("id: 'dateheure'") && at88.includes("id: 'edit-dateheure'"), String((at88.match(/type: 'datetime-local'/g) || []).length), '');
 
   // ---------- 26. Infra CI/CD : app de test auto sur main, prod uniquement à la demande ----------
