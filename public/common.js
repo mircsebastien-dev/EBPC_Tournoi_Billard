@@ -12,11 +12,14 @@ function clubHeaders() {
 // 19a. Tournoi affiché : mémorisé par club (sélecteur du bandeau) ; /api/etat?tournoi_id= cible ce tournoi,
 // sans choix -> le tournoi actif du club (comportement d origine)
 const TOURNOI_SEL_KEY_19a = () => { try { return 'ebpc_tournoi_' + (localStorage.getItem(CLUB_KEY) || ''); } catch { return 'ebpc_tournoi_'; } };
+let actifsIds19a = null; // 19a v2 (fix 84): ids des tournois actifs du club ouvert, connus du front (null = pas encore charge)
 function tournoiChoisi19a() {
   try {
     const v = localStorage.getItem(TOURNOI_SEL_KEY_19a());
     const n = v == null ? NaN : Number(v);
-    return Number.isInteger(n) && n > 0 ? n : null;
+    if (!(Number.isInteger(n) && n > 0)) return null;
+    if (actifsIds19a && !actifsIds19a.has(n)) { try { localStorage.removeItem(TOURNOI_SEL_KEY_19a()); } catch {} return null; } // 19a v2: choix perime (reset demo, tournoi supprime/termine) -> on l'oublie
+    return n;
   } catch { return null; }
 }
 function urlEtat19a() { const id = tournoiChoisi19a(); return '/api/etat' + (id != null ? '?tournoi_id=' + id : ''); }
@@ -26,6 +29,23 @@ function urlEtat19a() { const id = tournoiChoisi19a(); return '/api/etat' + (id 
 function avecTournoiCible19c(obj) {
   const id = tournoiChoisi19a();
   return id != null ? Object.assign({}, obj, { tournoi_id: id }) : obj;
+}
+// 19c v2 (fix 84): si le tournoi memorise est devenu perime (reset demo...) et que le serveur repond
+// 404 « tournoi_id inconnu ou pas actif », on oublie le choix et on reessaie UNE FOIS sans cible :
+// l'inscription refonctionne (unique tournoi ouvert), le contrat 404 serveur reste intact.
+async function apiTournoi19c(path, opts) {
+  try { return await api(path, opts); }
+  catch (e) {
+    let avaitCible = false;
+    if (opts && opts.body) { try { avaitCible = JSON.parse(opts.body).tournoi_id != null; } catch {} }
+    if (e && e.status === 404 && avaitCible && String(e.message || '').includes('tournoi_id')) {
+      try { localStorage.removeItem(TOURNOI_SEL_KEY_19a()); } catch {}
+      actifsIds19a = null;
+      const o2 = { ...opts, body: (() => { try { const b = JSON.parse(opts.body); delete b.tournoi_id; return JSON.stringify(b); } catch { return opts.body; } })() };
+      return await api(path, o2);
+    }
+    throw e;
+  }
 }
 // 17n. suffixe ?club= pour les <img>/<fetch> qui ne portent pas l en-tête X-Club (bannière de l accueil, photo de fond TV)
 function qsClub17n() {
@@ -3596,9 +3616,10 @@ function nav(active) {
   });
   api('/api/tournois').then((r19a) => {
     tournoisNav19a = ((r19a && r19a.tournois) || []).filter((t) => t.statut === 'inscription' || t.statut === 'en_cours');
-    if (tournoisNav19a.length < 2 || location.pathname.startsWith('/console.html')) return;
-    // 19a: tournoi mémorisé terminé entre deux pages -> on l oublie (retour au plus récent, repli silencieux côté serveur)
+    actifsIds19a = new Set(tournoisNav19a.map((t) => t.id)); // 19a v2 (fix 84): connu du front pour valider le choix mémorisé
+    // 19a v2 (fix 84): tournoi mémorisé plus actif (reset démo, supprimé, terminé) -> on l'oublie, MÊME en mono-tournoi
     if (tournoiChoisi19a() != null && !tournoisNav19a.some((t) => t.id === tournoiChoisi19a())) { try { localStorage.removeItem(TOURNOI_SEL_KEY_19a()); } catch {} }
+    if (tournoisNav19a.length < 2 || location.pathname.startsWith('/console.html')) return;
     const courant19a = tournoisNav19a.find((t) => t.id === tournoiChoisi19a()) || tournoisNav19a[0];
     btnTournoi19a.textContent = (courant19a.nom || '') + ' ▾';
     btnTournoi19a.style.display = '';
