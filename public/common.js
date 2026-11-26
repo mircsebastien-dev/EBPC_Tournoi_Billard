@@ -3658,13 +3658,18 @@ function nav(active) {
       ['/classement.html', 'classement', 'Classement saison'], // 26a: points cumulés des tournois terminés du club
       ['/historique.html', 'hist', 'Historique'],
       ['/leclub.html', 'club', 'Le club'], // 17n: page publique du club (bannière, présentation, contact)
-      ['/admin.html', 'admin', 'Table de marque'],
-    ]),
+    ]), // 100: « Table de marque » retiré de la liste statique (publique) -> ajouté conditionnellement ci-dessous, compte admin requis
     ['/aide.html', 'aide', 'Aide'],
     ['/confidentialite.html', '', 'Confidentialité'],
   ];
   const btn = el('button', { class: 'nav-burger', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false' }, '☰ Menu');
-  menuDeroulant(btn, (drop) => { for (const [href, key, label, tournoiSeul] of links) { if (tournoiSeul && tournoiOuvert === false) continue; drop.append(el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)); } });
+  menuDeroulant(btn, (drop) => {
+    for (const [href, key, label, tournoiSeul] of links) { if (tournoiSeul && tournoiOuvert === false) continue; drop.append(el('a', { href, class: active === key ? 'active' : null, role: 'menuitem' }, label)); }
+    // 100. « Table de marque » réservé aux comptes admin/super_admin : ajouté à chaque ouverture du burger
+    // selon le compte connecté (compteNav chargé en async par /api/compte/moi, déclaration plus bas dans nav() :
+    // le callback ne tourne qu au clic, donc compteNav est initialisé) ; jamais sur le hub (sansClub92)
+    if (!sansClub92 && compteNav && (compteNav.role === 'admin' || compteNav.role === 'super_admin')) drop.append(el('a', { href: '/admin.html', class: active === 'admin' ? 'active' : null, role: 'menuitem' }, 'Table de marque'));
+  });
   const wrap = el('div', { class: 'nav-menu' }, btn);
   // selecteur de langue a l extremite droite du bandeau (pousse par margin-left auto en CSS),
   // liste deroulante FR/EN/ES/IT/DE avec drapeaux (meme mecanique que les burgers),
