@@ -3648,7 +3648,7 @@ function nav(active) {
   // Tableau/TV/Mon tournoi/Stats/Classement/Historique/Le club/Table de marque sont des pages DU club -> masquées ici.
   const sansClub92 = pageSansClub20a();
   const links = [
-    ['/', 'home', 'Accueil'],
+    [sansClub92 ? '/?hub=1' : '/', 'home', 'Accueil'], // 93: sur une page plateforme (hub), Accueil renvoie au HUB (/?hub=1, jamais retouche par l intercepteur 17s), pas a l accueil du club memorise
     ...(sansClub92 ? [['/joueurs.html', 'joueurs', 'Joueurs']] : []), // 20b: la page joueur est TOUJOURS plateforme
     ...(sansClub92 ? [] : [
       ['/tableau.html', 'tableau', 'Tableau', true],
