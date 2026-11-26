@@ -288,7 +288,7 @@ function renderInscriptions(t) {
       t.joueurs.map(j => el('span', { class: 'chip', style: 'cursor:pointer', title: 'Gérer ' + j.pseudo + ' (pseudo, paiement, retrait)', onclick: () => openFicheJoueur(j, t) }, `${j.tete_de_serie ? '#' + j.tete_de_serie + ' ' : ''}${j.pseudo}`,
         el('span', { style: 'margin-left:5px;font-weight:400', class: j.statut === 'paye' ? '' : 'muted' }, j.statut === 'paye' ? '· payé' : '· attente'))))));
 
-  main.append(el('div', { class: 'panel' },
+  if (demoClub90()) main.append(el('div', { class: 'panel' }, // 90: outils de simulation affichés UNIQUEMENT en mode démo (84)
     el('h2', {}, '🎲 Mode simulation'),
     el('p', { class: 'muted small' }, 'Inscrit des joueurs fictifs en masse, directement payés.'),
     el('div', { class: 'row' },
@@ -340,6 +340,9 @@ function renderInscriptions(t) {
       } else alert(e.message);
     }
   }
+  // 90. Les outils de simulation (joueurs fictifs en masse + simuler tout le tournoi) ne
+  // s'affichent que si le club courant est en mode démo (club.demo, 84) : rien de fictif en prod
+  function demoClub90() { return !!(adminState && adminState.club && adminState.club.demo); }
   async function simuler() {
     try {
       const r = await adminApi('/api/admin/joueurs/simulation', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({ count: Number(val('simcount')) || 8, prefix: val('simprefix') || 'Simu' })) });
@@ -494,7 +497,7 @@ function renderTournoi(t) {
     el('p', { class: 'muted small' }, 'Clique sur un match du tableau pour lancer, corriger le score, déclarer un forfait ou rouvrir — sans quitter le tableau.'),
     el('a', { href: '/tableau.html' }, el('button', { class: 'secondary' }, 'Ouvrir le tableau '))));
 
-  main.append(el('div', { class: 'panel' },
+  if (demoClub90()) main.append(el('div', { class: 'panel' }, // 90: idem, mode démo uniquement
     el('h2', {}, '🎬 Simulation'),
     el('button', { class: 'secondary', style: 'width:100%', onclick: simulerTout }, '▶ Simuler tout le tournoi')));
   renderPanneauAuto();
@@ -582,7 +585,7 @@ function renderTournoi(t) {
   async function simulerTout() {
     if (!confirmer('Simuler tout le tournoi (scores aléatoires) jusqu\'au champion ?')) return;
     try {
-      const r = await adminApi('/api/admin/simuler', { method: 'POST', body: '{}' });
+      const r = await adminApi('/api/admin/simuler', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({})) }); // 90: cible = tournoi choisi dans le bandeau (19c), plus de 409 « plusieurs actifs »
       alert(`Simulation terminée : ${r.matchs_joues} matchs joués. ${r.statut === 'termine' ? '🏆 Champion : ' + r.champion : r.statut}`);
     } catch (e) { alert(e.message); }
   }
