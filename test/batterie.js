@@ -2645,7 +2645,7 @@ async function nouveauTournoi(body) {
   const rCible90 = await post('/api/admin/simuler', { tournoi_id: idA90 });
   check('90: POST /api/admin/simuler AVEC tournoi_id=A -> 200, simulation complete de A (termine + champion), B intact', rCible90.status === 200 && rCible90.data.statut === 'termine' && !!rCible90.data.champion, rCible90.status + ' ' + JSON.stringify(rCible90.data || {}).slice(0, 120));
   const at90 = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin-tournoi.html'), 'utf8');
-  check('90: front — simulerTout envoie avecTournoiCible19c({}) (tournoi du selecteur 19a) + demoClub90() masque les 2 panneaux simulation hors mode demo (club.demo 84)', at90.includes("body: JSON.stringify(avecTournoiCible19c({}))") && at90.includes('function demoClub90()') && (at90.match(/if \(demoClub90\(\)\) main\.append/g) || []).length === 2, String((at90.match(/if \(demoClub90\(\)\) main\.append/g) || []).length));
+  check('90: front — simulerTout envoie avecTournoiCible19c({}) (tournoi du selecteur 19a) + demoClub90() masque les 2 panneaux simulation hors mode demo (club.demo 84)', at90.includes("body: JSON.stringify(avecTournoiCible19c({}))") && at90.includes('function demoClub90()') && /^function demoClub90\(\)/m.test(at90) && (at90.match(/if \(demoClub90\(\)\) main\.append/g) || []).length === 2, String((at90.match(/if \(demoClub90\(\)\) main\.append/g) || []).length));
   await del('/api/admin/tournoi/' + idA90).catch(() => {});
   await del('/api/admin/tournoi/' + idB90).catch(() => {});
   const apres90 = await api('/api/etat', { pin: null });

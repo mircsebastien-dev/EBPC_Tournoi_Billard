@@ -72,6 +72,10 @@ function nomDefautTournoi89() {
   const c = adminState && adminState.club;
   return (c && c.nom) ? ('Tournoi ' + c.nom) : 'Pink City Open';
 }
+// 90 v2. Top-level (portee globale du script) : appele depuis renderInscriptions ET renderTournoi.
+// Les outils de simulation (joueurs fictifs + simuler tout le tournoi) ne s'affichent que si le
+// club courant est en mode démo (club.demo, 84) : rien de fictif en prod.
+function demoClub90() { return !!(adminState && adminState.club && adminState.club.demo); }
 function renderCreer() {
   if (adminState.historique && adminState.historique.length > 0) {
     main.append(el('div', { class: 'panel' },
@@ -340,9 +344,6 @@ function renderInscriptions(t) {
       } else alert(e.message);
     }
   }
-  // 90. Les outils de simulation (joueurs fictifs en masse + simuler tout le tournoi) ne
-  // s'affichent que si le club courant est en mode démo (club.demo, 84) : rien de fictif en prod
-  function demoClub90() { return !!(adminState && adminState.club && adminState.club.demo); }
   async function simuler() {
     try {
       const r = await adminApi('/api/admin/joueurs/simulation', { method: 'POST', body: JSON.stringify(avecTournoiCible19c({ count: Number(val('simcount')) || 8, prefix: val('simprefix') || 'Simu' })) });
