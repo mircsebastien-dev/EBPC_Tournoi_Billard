@@ -206,7 +206,7 @@ function appliquerAccentClub(hex) {
 }
 function accentDepuisCache() {
   try {
-    if (location.pathname.startsWith('/tv.html')) return; // page TV : thème sombre d origine, jamais d accent de club
+    // 101: la page TV applique AUSSI l accent du club (plus d exclusion) ; seul le bandeau breaking news reste rouge/blanc (voir tv.html)
     if (pageSansClub20a()) return; // 20a: accueil hub et joueur de la plateforme : pages neutres, aucun accent de club
     const stocke = JSON.parse(localStorage.getItem(ACCENT_KEY) || '{}');
     const k = clubCourant20() || '_defaut';
@@ -218,7 +218,7 @@ function accentDepuisCache() {
 // catch -> /api/club-theme jamais appelé -> accent jamais appliqué). L APPEL se fait en FIN de fichier.
 function rafraichirThemeClub() {
   try {
-    if (location.pathname.startsWith('/tv.html')) return; // page TV : jamais d accent de club
+    // 101: la TV recoit le theme du club comme les autres pages club
     if (pageSansClub20a()) return; // 20a: accueil hub et joueur de la plateforme : neutres, ni logo ni badge de club
     api('/api/club-theme').then((th) => {
       if (!th || !th.accent) return;
@@ -363,7 +363,7 @@ function appliquerLogoClub(logo, mode) {
 }
 function logoDepuisCache() {
   try {
-    if (location.pathname.startsWith('/tv.html')) return; // page TV : filigrane exclu comme l accent
+    // 101: la TV recoit aussi le logo (chip + filigrane) du club
     if (pageSansClub20a()) return; // 20a: accueil hub et joueur de la plateforme : neutres, aucun logo de club
     const stocke = JSON.parse(localStorage.getItem(LOGO_KEY) || '{}');
     const k = clubCourant20() || '_defaut';
