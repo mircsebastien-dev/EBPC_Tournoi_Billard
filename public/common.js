@@ -266,7 +266,7 @@ function rafraichirThemeClub() {
         // EST la marque (retour Sébastien) : le titre devient le nom du club, l icône reste en haut à gauche
         // sur la même ligne et le badge est retiré (il ne ferait que doubler le titre) ; sur les pages au
         // titre descriptif le titre reste et le badge se place DANS le titre en fin de ligne (24b, jamais empilé)
-        if (th.slug && th.nom && !location.pathname.startsWith('/console.html')) {
+        if (th.slug && th.nom && !location.pathname.startsWith('/console.html') && !location.pathname.startsWith('/tv.html')) { // 102: hors TV aussi — le h1 de tv.html contient <span id=titre>, un textContent= le detruirait et render() planterait (plus de QR)
           const h1b17r = document.querySelector('header.top h1');
           if (h1b17r) {
             if (h1b17r.textContent.trim() === '🎱 Pink City Billard') { // 24c: marque générique -> nom du club

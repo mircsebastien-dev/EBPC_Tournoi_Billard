@@ -133,7 +133,8 @@ function render() {
   slidesEl.innerHTML = '';
   dotsEl.innerHTML = '';
   const t = state && state.actif;
-  document.getElementById('titre').textContent = t ? t.tournoi.nom : 'Pink City Billard';
+  const tEl102 = document.getElementById('titre'); // 102: garde null — si le h1 est retouche (badge club), render() ne doit JAMAIS planter (sinon plus rien, plus de QR)
+  if (tEl102) tEl102.textContent = t ? t.tournoi.nom : 'Pink City Billard';
   const st = document.getElementById('statut');
   st.textContent = !t ? 'En attente' : t.tournoi.statut === 'en_cours' ? '🔴 EN DIRECT' : t.tournoi.statut === 'termine' ? '🏁 TERMINÉ' : 'Inscriptions';
   st.className = `badge ${t ? t.tournoi.statut : ''}`;
