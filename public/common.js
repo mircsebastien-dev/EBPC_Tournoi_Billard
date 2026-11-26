@@ -3643,16 +3643,23 @@ function nav(active) {
   // le burger (re)remplit son menu à chaque ouverture -> le masquage est ré-évalué à chaque clic.
   let tournoiOuvert = null;
   api('/api/etat').then((s) => { tournoiOuvert = !!(s && s.actif); }).catch(() => { tournoiOuvert = true; });
+  // 92. Ménage des menus de la plateforme : sur une page SANS club (hub 20a/20b : accueil /?hub=1, /joueurs.html),
+  // le menu ne montre QUE des entrées neutres (Accueil, Joueurs de la plateforme, Aide, Confidentialité) ;
+  // Tableau/TV/Mon tournoi/Stats/Classement/Historique/Le club/Table de marque sont des pages DU club -> masquées ici.
+  const sansClub92 = pageSansClub20a();
   const links = [
     ['/', 'home', 'Accueil'],
-    ['/tableau.html', 'tableau', 'Tableau', true],
-    ['/tv.html', 'tv', 'TV', true],
-    ['/suivi.html', 'joueur', 'Mon tournoi', true],
-    ['/stats.html', 'stats', 'Stats'],
-    ['/classement.html', 'classement', 'Classement saison'], // 26a: points cumulés des tournois terminés du club
-    ['/historique.html', 'hist', 'Historique'],
-    ['/leclub.html', 'club', 'Le club'], // 17n: page publique du club (bannière, présentation, contact)
-    ['/admin.html', 'admin', 'Table de marque'],
+    ...(sansClub92 ? [['/joueurs.html', 'joueurs', 'Joueurs']] : []), // 20b: la page joueur est TOUJOURS plateforme
+    ...(sansClub92 ? [] : [
+      ['/tableau.html', 'tableau', 'Tableau', true],
+      ['/tv.html', 'tv', 'TV', true],
+      ['/suivi.html', 'joueur', 'Mon tournoi', true],
+      ['/stats.html', 'stats', 'Stats'],
+      ['/classement.html', 'classement', 'Classement saison'], // 26a: points cumulés des tournois terminés du club
+      ['/historique.html', 'hist', 'Historique'],
+      ['/leclub.html', 'club', 'Le club'], // 17n: page publique du club (bannière, présentation, contact)
+      ['/admin.html', 'admin', 'Table de marque'],
+    ]),
     ['/aide.html', 'aide', 'Aide'],
     ['/confidentialite.html', '', 'Confidentialité'],
   ];
@@ -3689,7 +3696,7 @@ function nav(active) {
     actifsIds19a = new Set(tournoisNav19a.map((t) => t.id)); // 19a v2 (fix 84): connu du front pour valider le choix mémorisé
     // 19a v2 (fix 84): tournoi mémorisé plus actif (reset démo, supprimé, terminé) -> on l'oublie, MÊME en mono-tournoi
     if (tournoiChoisi19a() != null && !tournoisNav19a.some((t) => t.id === tournoiChoisi19a())) { try { localStorage.removeItem(TOURNOI_SEL_KEY_19a()); } catch {} }
-    if (tournoisNav19a.length < 2 || location.pathname.startsWith('/console.html')) return;
+    if (tournoisNav19a.length < 2 || location.pathname.startsWith('/console.html') || sansClub92) return; // 92: pas de selecteur de tournoi du club sur le hub
     const courant19a = tournoisNav19a.find((t) => t.id === tournoiChoisi19a()) || tournoisNav19a[0];
     btnTournoi19a.textContent = (courant19a.nom || '') + ' ▾';
     btnTournoi19a.style.display = '';
@@ -3708,9 +3715,11 @@ function nav(active) {
     }
     drop.append(el('a', { href: '/parametres.html', role: 'menuitem' }, 'Paramètres'));
     drop.append(el('a', { href: '/amis.html', role: 'menuitem' }, 'Amis'));
-    drop.append(el('a', { href: '/mes-matchs.html', role: 'menuitem' }, 'Mes matchs'));
-    drop.append(el('a', { href: joueurIdNav ? '/joueur.html?id=' + joueurIdNav : '/compte.html', role: 'menuitem' }, 'Ma fiche joueur'));
-    if (compteNav.role === 'admin' || compteNav.role === 'super_admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, 'Table de marque')); // 17i
+    if (!sansClub92) { // 92: sur le hub, pas d entrees liees au club (Mes matchs / fiche joueur / table de marque sont scopées club)
+      drop.append(el('a', { href: '/mes-matchs.html', role: 'menuitem' }, 'Mes matchs'));
+      drop.append(el('a', { href: joueurIdNav ? '/joueur.html?id=' + joueurIdNav : '/compte.html', role: 'menuitem' }, 'Ma fiche joueur'));
+      if (compteNav.role === 'admin' || compteNav.role === 'super_admin') drop.append(el('a', { href: '/admin.html', role: 'menuitem' }, 'Table de marque')); // 17i
+    }
     drop.append(el('a', { href: '#', role: 'menuitem', onclick: async (e) => { e.preventDefault(); if (!confirm('Se déconnecter ?')) return; try { await api('/api/compte/deconnexion', { method: 'POST' }); } catch {} location.href = '/'; } }, 'Se déconnecter'));
   });
   // 20b/22a. Retour au hub de la plateforme : petit logo bille 8 en haut à GAUCHE du bandeau (avant
