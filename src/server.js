@@ -1765,15 +1765,12 @@ app.post('/api/admin/match/:id/forfait', requireAdmin, (req, res) => {
   res.json({ ok: true, match: vueMatch(m) });
 });
 
-app.post('/api/admin/terminer', requireAdmin, (req, res) => {
-  const t = tournoiCibleOuErreur19c(req, res); // 19c: terminaison ciblée: SEUL le tournoi choisi est arrêté, le voisin continue
-  if (!t) return;
-  if (t.statut === 'termine') return res.status(409).json({ error: 'Tournoi déjà terminé' });
-  // arrêt manuel = coupe net: champion UNIQUEMENT si explicitement choisi (pas de fallback auto)
-  const championId = req.body.champion_id ? Number(req.body.champion_id) : null;
+// 91. Coupe nette d'un tournoi, partagée par /api/admin/terminer (manuel) et la fin forcée
+// de /api/admin/simuler : statut termine + matchs restants terminés + consolante liée coupée aussi (81)
+function couperTournoiNet(req, t, championId, actionAudit) {
   db.prepare(`UPDATE tournoi SET statut = 'termine', champion_id = ? WHERE id = ?`).run(championId, t.id);
   db.prepare(`UPDATE match SET etat = 'termine', ended_at = COALESCE(ended_at, datetime('now')), updated_at = datetime('now') WHERE tournoi_id = ? AND etat IN ('prevu', 'pret', 'en_cours')`).run(t.id);
-  logAuditReq(req, 'tournoi_termine_manuellement', `tournoi ${t.id}`, { statut: t.statut }, { champion_id: championId });
+  logAuditReq(req, actionAudit, `tournoi ${t.id}`, { statut: t.statut }, { champion_id: championId });
   // 81. la consolante liée est coupée aussi (coupe nette comme le principal) : champion = gagnant
   // de sa dernière finale F si elle a été jouée, sinon aucun
   if (t.consolante_id) {
@@ -1787,6 +1784,15 @@ app.post('/api/admin/terminer', requireAdmin, (req, res) => {
       logAuditReq(req, 'consolante_terminee', `consolante ${tc.id} (liée au tournoi ${t.id})`, { statut: tc.statut }, { champion_id: derC ? derC.gagnant_id : null });
     }
   }
+}
+
+app.post('/api/admin/terminer', requireAdmin, (req, res) => {
+  const t = tournoiCibleOuErreur19c(req, res); // 19c: terminaison ciblée: SEUL le tournoi choisi est arrêté, le voisin continue
+  if (!t) return;
+  if (t.statut === 'termine') return res.status(409).json({ error: 'Tournoi déjà terminé' });
+  // arrêt manuel = coupe net: champion UNIQUEMENT si explicitement choisi (pas de fallback auto)
+  const championId = req.body.champion_id ? Number(req.body.champion_id) : null;
+  couperTournoiNet(req, t, championId, 'tournoi_termine_manuellement'); // 91: logique partagée avec la fin forcée de simuler
   majEtBroadcast();
   res.json({ ok: true, ...etatGlobal(req) });
 });
@@ -1850,19 +1856,29 @@ app.post('/api/admin/simuler', requireAdmin, (req, res) => {
   while (guard++ < 2000) {
     const cur = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
     if (cur.statut === 'termine') break;
+    // 91: un match lancé à la main (en_cours) est repris aussi
     const m = db.prepare(`
-      SELECT * FROM match WHERE tournoi_id = ? AND etat IN ('prevu', 'pret')
+      SELECT * FROM match WHERE tournoi_id = ? AND etat IN ('prevu', 'pret', 'en_cours')
         AND joueur1_id IS NOT NULL AND joueur2_id IS NOT NULL
       ORDER BY CASE bracket WHEN 'WB' THEN 1 WHEN 'LB' THEN 2 ELSE 3 END, tour, position LIMIT 1
     `).get(t.id);
     if (!m) break;
-    M.lancerMatch(m.id, null);
+    if (m.etat !== 'en_cours') M.lancerMatch(m.id, null); // 91: déjà lancé -> pas de relance
     if (m.casseur_id == null) M.setBande(m.id, m.joueur1_id); // tirage à la bande requis avant toute saisie
     const gagnant = Math.random() < 0.5 ? m.joueur1_id : m.joueur2_id;
-    for (let i = 0; i < m.manches; i++) M.declarerManche(m.id, gagnant);
+    const reste91 = Math.max(0, m.manches - Math.max(m.score1 || 0, m.score2 || 0)); // 91: manches restantes (match éventuellement déjà partiellement joué)
+    for (let i = 0; i < reste91; i++) { try { M.declarerManche(m.id, gagnant); } catch (e) { break; } } // 91: le match peut se terminer avant la boucle
     joues++;
   }
-  const final = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
+  let final = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
+  if (final.statut === 'en_cours') {
+    // 91: plus aucun match jouable (ex: match lancé à la main resté bloqué, byes seuls...) -> fin forcée
+    // coupe nette comme /api/admin/terminer ; champion = dernier gagnant connu (finale F d'abord)
+    const dernier91 = db.prepare(`SELECT gagnant_id FROM match WHERE tournoi_id = ? AND gagnant_id IS NOT NULL
+      ORDER BY CASE bracket WHEN 'F' THEN 2 WHEN 'WB' THEN 1 ELSE 0 END DESC, tour DESC, position ASC LIMIT 1`).get(t.id);
+    couperTournoiNet(req, final, dernier91 ? dernier91.gagnant_id : null, 'tournoi_termine_simulation');
+    final = db.prepare('SELECT * FROM tournoi WHERE id = ?').get(t.id);
+  }
   logAuditReq(req, 'simulation_tournoi', `tournoi ${t.id}`, null, { matchs_joues: joues, statut: final.statut, champion_id: final.champion_id });
   majEtBroadcast();
   res.json({ ok: true, matchs_joues: joues, statut: final.statut, champion: final.champion_id ? M.pseudo(final.champion_id) : null });
