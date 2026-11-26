@@ -542,6 +542,13 @@ function renderTournoi(t) {
     const overlay = el('div', { style: 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999' });
     const surEchap = (e) => { if (e.key === 'Escape') fermer(); }; // 28c: Échap ferme la modale
     const fermer = () => { overlay.remove(); document.removeEventListener('keydown', surEchap); }; // l état revient par la diffusion serveur (SSE), même pattern que la fiche joueur 17y
+    const ajuster = async (mm, d1, d2) => { // 104: chaque clic sur +/- valide la correction (score absolu clampé à 0) et FERME la modale
+      const s1 = Math.max(0, mm.score1 + d1), s2 = Math.max(0, mm.score2 + d2);
+      try {
+        await adminApi(`/api/admin/match/${mm.id}/correction`, { method: 'POST', body: JSON.stringify({ score1: s1, score2: s2, manches: mm.manches, motif: 'ajustement +/- table de marque' }) });
+        fermer();
+      } catch (e) { alert(e.message); }
+    };
     overlay.append(el('div', { class: 'panel', style: 'max-width:440px;width:92%;max-height:92vh;overflow:auto' },
       el('h3', {}, `⚙️ ${m.bracket}${m.tour} · ${m.joueur1 ? m.joueur1.pseudo : ''} vs ${m.joueur2 ? m.joueur2.pseudo : ''}`),
       el('p', { class: 'muted small' }, `${estEnCours ? 'En cours' : 'Prêt à lancer'} · ${m.score1}-${m.score2} · race to ${m.manches}${m.table != null ? ' · table ' + m.table : ''}`),
@@ -555,6 +562,17 @@ function renderTournoi(t) {
           el('input', { id: `score-${m.id}`, value: `${m.score1}-${m.score2}`, placeholder: 'Score (ex : 3-2)', style: 'width:110px', onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); corriger(m); } } }),
           el('input', { id: `distance-${m.id}`, type: 'number', min: 1, max: 9, value: m.manches, title: 'Distance', style: 'width:70px', onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); corriger(m); } } }),
           el('button', { onclick: () => { corriger(m); } }, '✔ Valider')),
+        el('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap;gap:8px;align-items:center' }, // 104: score rapide +/-, chaque clic valide et ferme la modale
+          el('span', { class: 'small muted' }, '⚖️ Score rapide :'),
+          el('b', { class: 'small' }, (m.joueur1 ? m.joueur1.pseudo : '?')),
+          el('button', { class: 'secondary', style: 'min-width:44px;font-size:18px', disabled: m.score1 <= 0 ? '' : null, title: '-1 ' + (m.joueur1 ? m.joueur1.pseudo : ''), onclick: () => ajuster(m, -1, 0) }, '−'),
+          el('b', { style: 'min-width:2ch;text-align:center' }, String(m.score1)),
+          el('button', { style: 'min-width:44px;font-size:18px', title: '+1 ' + (m.joueur1 ? m.joueur1.pseudo : ''), onclick: () => ajuster(m, 1, 0) }, '+'),
+          el('span', { class: 'muted', style: 'margin:0 6px' }, '—'),
+          el('b', { class: 'small' }, (m.joueur2 ? m.joueur2.pseudo : '?')),
+          el('button', { class: 'secondary', style: 'min-width:44px;font-size:18px', disabled: m.score2 <= 0 ? '' : null, title: '-1 ' + (m.joueur2 ? m.joueur2.pseudo : ''), onclick: () => ajuster(m, 0, -1) }, '−'),
+          el('b', { style: 'min-width:2ch;text-align:center' }, String(m.score2)),
+          el('button', { style: 'min-width:44px;font-size:18px', title: '+1 ' + (m.joueur2 ? m.joueur2.pseudo : ''), onclick: () => ajuster(m, 0, 1) }, '+')),
         el('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap;gap:8px' },
           m.score1 === 0 && m.score2 === 0 ? el('button', { class: 'secondary', onclick: () => { suspendre(m); } }, '⏸ Suspendre') : null, // 23b: possible seulement à 0 manche jouée
           el('button', { class: 'danger', onclick: () => { forfait(m, m.joueur1.id); } }, `${m.joueur1 ? m.joueur1.pseudo : ''} forfait`),
