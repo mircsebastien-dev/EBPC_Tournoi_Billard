@@ -290,7 +290,10 @@ function renderInscriptions(t) {
     el('div', { class: 'liste-joueurs', style: 'margin-top:10px' },
       // 17y: la gestion d un joueur (pseudo, paiement, retrait) vit dans la modale ouvert au clic sur sa puce
       t.joueurs.map(j => el('span', { class: 'chip', style: 'cursor:pointer', title: 'Gérer ' + j.pseudo + ' (pseudo, paiement, retrait)', onclick: () => openFicheJoueur(j, t) }, `${j.tete_de_serie ? '#' + j.tete_de_serie + ' ' : ''}${j.pseudo}`,
-        el('span', { style: 'margin-left:5px;font-weight:400', class: j.statut === 'paye' ? '' : 'muted' }, j.statut === 'paye' ? '· payé' : '· attente'))))));
+        el('span', { style: 'margin-left:5px;font-weight:400', class: j.statut === 'paye' ? '' : 'muted' }, j.statut === 'paye' ? '· payé' : '· attente'),
+        // 103: clic rapide sur 💶 = marquer payé / annuler le paiement EN UN CLIC, sans ouvrir la modale
+        // (stopPropagation: le clic sur la puce ouvre toujours la fiche complète ; cette liste n existe qu en phase d inscription)
+        el('span', { role: 'button', title: j.statut === 'paye' ? 'Annuler le paiement (1 clic, sans modale)' : 'Marquer payé (1 clic, sans modale)', style: 'margin-left:6px;cursor:pointer;font-weight:900', onclick: async (e103) => { e103.stopPropagation(); const nv103 = j.statut === 'paye' ? 'en_attente' : 'paye'; try { await adminApi(`/api/admin/joueur/${j.id}/paiement`, { method: 'POST', body: JSON.stringify({ statut: nv103 }) }); } catch (err103) { alert(err103.message); } } }, '💶'))))));
 
   if (demoClub90()) main.append(el('div', { class: 'panel' }, // 90: outils de simulation affichés UNIQUEMENT en mode démo (84)
     el('h2', {}, '🎲 Mode simulation'),
