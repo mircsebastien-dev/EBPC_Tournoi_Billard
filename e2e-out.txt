@@ -1,0 +1,177 @@
+== 1. Création tournoi (double KO 2 tours, 16 joueurs) ==
+  OK  création 200
+  OK  statut inscription
+== 1b. Date/heure + lieu du tournoi (défaut mardi prochain 20h, lieu Le 147) ==
+  OK  date_heure renseignée par défaut
+  OK  c'est un mardi à 20h00
+  OK  lieu par défaut = Le 147 Toulouse
+  OK  date/lieu personnalisés retenus
+  OK  PUT modifie date/lieu
+== 2. PIN requis ==
+  OK  mauvais PIN -> 401
+== 3. Inscriptions (10 joueurs, 9 seront payés -> 1 bye) ==
+  OK  inscription J1
+  OK  inscription J2
+  OK  inscription J3
+  OK  inscription J4
+  OK  inscription J5
+  OK  inscription J6
+  OK  inscription J7
+  OK  inscription J8
+  OK  inscription J9
+  OK  inscription J10
+  OK  10 joueurs inscrits
+  OK  tous en_attente par défaut
+  OK  bracket virtuel avant tirage : 27 matchs (16j DKO k=2)
+  OK  virtuel : lb2-001 -> f1-003 slot 2 (rotation demi-moitié)
+== 3b. Paiement : tirage refusé sans joueurs payés ==
+  OK  tirage refusé (0 payé)
+  OK  paiement joueur 1
+  OK  paiement joueur 10
+  OK  paiement joueur 2
+  OK  paiement joueur 3
+  OK  paiement joueur 4
+  OK  paiement joueur 5
+  OK  paiement joueur 6
+  OK  paiement joueur 7
+  OK  paiement joueur 8
+  OK  paiement joueur inexistant -> 404
+  OK  9 payés / 1 en attente
+== 4. Tirage (9 payés -> 9 joueurs dans le tableau, J10 exclu) ==
+  OK  tirage 200
+  OK  un seul joueur non payé
+  OK  joueur non payé (J9) exclu du tirage
+  OK  statut en_cours
+   matchs: WB1=8 LB1=4 LB2=4 F1=4 total=27
+  OK  WB tour1 = 8 matchs
+  OK  LB tour1 = 4 matchs
+  OK  LB tour2 = 4 matchs
+  OK  F tour1 = 4 matchs (8 finalistes: 4 WB + 4 LB)
+  OK  tour1 = 8 matchs tous classés (complet/bye/vide)
+  OK  byes auto-terminés avec gagnant
+  OK  matchs vides auto-terminés sans gagnant
+  OK  gagnants des byes propagés au tour 2
+== 5. Lancer un match complet et jouer ==
+  OK  lancement 200
+  OK  état en_cours
+  OK  m a bien 2 joueurs
+  OK  manche J1
+  OK  joueur externe -> 403
+== 5c. Gestion du score par le joueur (+/- soi et adversaire) ==
+  OK  manche pour soi
+  OK  manche pour l'adversaire acceptée
+  OK  retirer une manche à l'adversaire
+  OK  retirer une manche à soi
+  OK  retirer à 0 reste bloqué à 0
+  OK  retirer pour un joueur externe -> 403
+  OK  match terminé 3-0, gagnant J1
+  OK  retirer sur match terminé -> 409
+  OK  started_at renseigné au lancement
+  OK  ended_at + durée renseignés à la fin
+  OK  stats présentes avec classement
+  OK  stats J1 : tous ses matchs gagnés (bye inclus)
+  OK  gagnant propagé au match suivant
+  OK  perdant envoyé en LB
+== 5b. Assignation auto des tables ==
+  OK  lancer sans table -> auto assignée
+  OK  2e match auto -> table différente
+  OK  table déjà occupée -> 409
+== 6. Correction admin (match terminé : score + rouvrir + cascade) ==
+  OK  correction 200
+  OK  score corrigé 1-3
+  OK  match reste terminé avec nouveau gagnant
+  OK  match suivant vidé du gagnant annulé
+  OK  rouvrir avec aval propagé -> 409
+  OK  rouvrir protégé PIN (401)
+  OK  match corrigé 3-0, gagnant J1
+== 7. Forfait ==
+  OK  forfait 200
+  OK  forfait -> gagnant = J2
+== 8. Tournoi simple 16 (vérif structure) ==
+  OK  suppression
+  OK  simple KO 16: 8/4/2/1 matchs
+  OK  aucun LB en simple
+== 8b. Ajustement auto : 5 payés sur max 128 -> tableau de 8 ==
+  OK  tirage 200
+  OK  taille ajustée à 8
+  OK  WB tour1 = 4 matchs (8 joueurs)
+  OK  tous les matchs en race to 3 par défaut
+  OK  sans ajustement auto, taille reste 32 (byes)
+== 9a. Seuil de distance (demis -> 5) + maj à chaud + terminer manuellement ==
+  OK  tours 1-2 en race to 3
+  OK  demis+finale en race to 5
+  OK  maj distance à chaud 200
+  OK  wb1 passé à 7 (matchs non joués)
+  OK  autres tours inchangés
+  OK  1 match joué avant clôture manuelle
+  OK  terminer manuellement 200
+  OK  tournoi archivé avec champion choisi
+  OK  matchs non joués clôturés
+  OK  tableau archivé dans l'historique
+== 9b. Historique multi-tournois + stats all-time + suppression ==
+  OK  1 tournoi dans l'historique après clôture
+  OK  consultation d'un tournoi archivé
+  OK  stats all-time présentes
+  OK  joueur avec matchs a gagnes+perdus cohérents
+  OK  nouveau tournoi créé après clôture (200)
+  OK  2 tournois dans l'historique
+  OK  stats all-time agrègent les 2 tournois
+  OK  suppression d'un tournoi de l'historique
+  OK  historique passé à 1
+  OK  tournoi supprimé -> 404
+== 9c. Inscriptions liées à un seul tournoi (cycle terminé -> nouveau) ==
+  OK  inscription ouverte en phase inscription
+  OK  inscription refusée (404) tant que le tournoi est en cours, plus d inscriptions ouvertes (19c)
+  OK  création permise pendant un tournoi en cours (19c)
+  OK  inscription refusée (404) après fin tant qu'aucun nouveau tournoi
+  OK  nouveau tournoi créé une fois A terminé
+  OK  nouveau tournoi = id différent
+  OK  inscription ouverte sur le nouveau tournoi
+  OK  inscrit rattaché au tournoi B
+  OK  les inscrits du tournoi A ne sont pas dans B
+== 9d. Mode simulation : joueurs fictifs en masse, payés ==
+  OK  simulation 200
+  OK  16 fictifs créés
+  OK  tous payés directement
+  OK  pseudos préfixés Bot01..Bot16
+  OK  2e appel : tableau plein -> 409 ou partiel
+  OK  endpoint protégé (401 mauvais PIN)
+  OK  endpoint protégé (401 sans PIN)
+  OK  tirage OK avec 16 simulés
+== 9e. Simuler tout le tournoi (jusqu'au champion) ==
+  OK  simulation 200
+  OK  tous les matchs du tournoi joués (27/27)
+  OK  tournoi terminé avec champion
+  OK  archivé dans l'historique
+  OK  stats all-time remplies (16 joueurs du tournoi simulé présents)
+  OK  simuler protégé par PIN (401)
+== 9f. Câblage DKO : le dernier tour du loser bracket réintègre le tableau final ==
+  OK  DKO 16 k=1 : dernier LB (tour 1) -> F tour 1
+  OK  DKO 16 k=1 : simulé jusqu'au bout (termine, champion P02)
+  OK  DKO 16 k=1 : LB entre dans le tableau final en rotation de demi-moitié croisée (miroir binaire intra-moitié)
+  OK  DKO 16 k=1 : chaque dernier-LB cible un F1 distinct (slot 2), chaque WBk un F1 distinct (slot 1)
+  OK  DKO 16 k=2 : dernier LB (tour 2) -> F tour 1
+  OK  DKO 16 k=2 : simulé jusqu'au bout (termine, champion P15)
+  OK  DKO 16 k=2 : LB entre dans le tableau final en rotation de demi-moitié croisée (miroir binaire intra-moitié)
+  OK  DKO 16 k=2 : chaque dernier-LB cible un F1 distinct (slot 2), chaque WBk un F1 distinct (slot 1)
+  OK  DKO 16 k=3 : dernier LB (tour 4) -> F tour 1
+  OK  DKO 16 k=3 : simulé jusqu'au bout (termine, champion P12)
+  OK  DKO 16 k=3 : LB entre dans le tableau final en rotation de demi-moitié croisée (miroir binaire intra-moitié)
+  OK  DKO 16 k=3 : chaque dernier-LB cible un F1 distinct (slot 2), chaque WBk un F1 distinct (slot 1)
+  OK  DKO 32 k=2 : dernier LB (tour 2) -> F tour 1
+  OK  DKO 32 k=2 : simulé jusqu'au bout (termine, champion P31)
+  OK  DKO 32 k=2 : LB entre dans le tableau final en rotation de demi-moitié croisée (miroir binaire intra-moitié)
+  OK  DKO 32 k=2 : chaque dernier-LB cible un F1 distinct (slot 2), chaque WBk un F1 distinct (slot 1)
+  OK  DKO 32 k=3 : dernier LB (tour 4) -> F tour 1
+  OK  DKO 32 k=3 : simulé jusqu'au bout (termine, champion P02)
+  OK  DKO 32 k=3 : LB entre dans le tableau final en rotation de demi-moitié croisée (miroir binaire intra-moitié)
+  OK  DKO 32 k=3 : chaque dernier-LB cible un F1 distinct (slot 2), chaque WBk un F1 distinct (slot 1)
+== 9g. LB en race to 2 par défaut ==
+  OK  tous les matchs LB en race to 2
+  OK  WB et F restent en race to 3
+  OK  distance LB modifiable (2 acceptée)
+  OK  distance invalide 9 -> 400
+== 9. SSE accessible ==
+  OK  SSE 200 + content-type
+
+TOUS LES TESTS PASSENT

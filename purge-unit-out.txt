@@ -1,0 +1,12 @@
+=== TEST UNIT PURGE >90j (phase 1: remplissage, puis boot frais en phase 2) ===
+
+  OK  phase 1: 2 audits + 3 snapshots insérés
+=== TEST UNIT PURGE >90j (phase 2: vérifications après boot) ===
+
+  OK  audit_log > 90j supprimé au boot
+  OK  audit_log récent conservé
+  OK  snapshot taken_at > 90j supprimé (même sur audit récent)
+  OK  snapshot d'un audit > 90j supprimé (cascade)
+  OK  snapshot récent conservé
+
+=== 5 OK / 0 ÉCHEC ===

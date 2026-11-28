@@ -1,0 +1,18 @@
+EBPC Tournoi Billard démarré sur 0.0.0.0:4100
+PIN admin: défini via ADMIN_PIN (secret)
+[PUSH] VAPID générée et persistée en base: BKPFDTa-RGwE5r1izGFhPHR1wY_Y58P1WZm-gN3QMNyXdMDH8Tiv4nyTgy6ys1rsufnaQOrBiCXsnAoFHXfZ8eU (les abonnements existants doivent être réactivés une fois)
+[MAIL dev - RESEND_API_KEY absent] to=seb@test.fr subject=Réinitialisation de ton mot de passe — Pink City Billard
+Bonjour Seb,
+
+Tu as demandé à réinitialiser ton mot de passe. Clique sur ce lien (valable 1h) :
+http://127.0.0.1:4100/reinit.html?token=4cc9ea95e4ad3f9f79dbb0bb5180682f002697e4a49b6859b400b4b526dd02de
+
+Si tu n'es pas à l'origine de la demande, ignore ce mail.
+[MAIL dev - RESEND_API_KEY absent] to=membre.sb@clubsb.test subject=Réinitialisation de ton mot de passe — Pink City Billard
+Bonjour MembreSb,
+
+Tu as demandé à réinitialiser ton mot de passe. Clique sur ce lien (valable 1h) :
+http://127.0.0.1:4100/reinit.html?token=2890be3280fbd297abf0d43f8fad09baace2ca600d87153ef31a300b550345b6
+
+Si tu n'es pas à l'origine de la demande, ignore ce mail.
+[SIGTERM] arrêt propre…

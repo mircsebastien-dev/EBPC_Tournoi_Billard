@@ -1,0 +1,950 @@
+=== SIMULATIONS AVEC INVARIANT ANTI-REMATCH ===
+
+== simu#1 32j double k=2 ==
+  OK  simu#1 32j double k=2 création tournoi
+  OK  simu#1 32j double k=2 32 joueurs simulés
+  OK  simu#1 32j double k=2 tirage 200
+  OK  simu#1 32j double k=2 invariant anti-rematch après tirage
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 correction -> scores appliqués
+  OK  simu#1 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 correction -> scores appliqués
+  OK  simu#1 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 table occupée -> 409 (pas 500)
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 forfait -> perdant en LB (tour LB2)
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 retirer -> score -1
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 correction -> scores appliqués
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 correction -> scores appliqués
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 forfait -> perdant en LB (tour LB2)
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 retirer -> score -1
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 table occupée -> 409 (pas 500)
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 retirer -> score -1
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 retirer -> score -1
+  OK  simu#1 32j double k=2 retirer -> score -1
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 delete event -> score recalculé
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 lancer -> en_cours + table
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 correction -> scores appliqués
+  OK  simu#1 32j double k=2 correction -> scores appliqués
+  OK  simu#1 32j double k=2 retirer -> score -1
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 table -> appliquée
+  OK  simu#1 32j double k=2 lancer -> en_cours
+  OK  simu#1 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#1 32j double k=2 tournoi terminé en 324 steps
+  OK  simu#1 32j double k=2 champion désigné
+  OK  simu#1 32j double k=2 tous les matchs décidés (55 matchs)
+  OK  simu#1 32j double k=2 invariant anti-rematch final (hard)
+  OK  simu#1 32j double k=2 stats cohérentes (joues=55)
+   -> 55 matchs, 111 interventions admin, 0 swap(s) anti-rematch logués, 0 lancement(s) bloqué(s) 409 rematch, 0 violation(s) soft (manuelles), steps=324
+
+== simu#2 32j double k=2 ==
+  OK  simu#2 32j double k=2 création tournoi
+  OK  simu#2 32j double k=2 32 joueurs simulés
+  OK  simu#2 32j double k=2 tirage 200
+  OK  simu#2 32j double k=2 invariant anti-rematch après tirage
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 retirer -> score -1
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 correction -> scores appliqués
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 table occupée -> 409 (pas 500)
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 correction -> scores appliqués
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 retirer -> score -1
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#2 32j double k=2 table occupée -> 409 (pas 500)
+  OK  simu#2 32j double k=2 retirer -> score -1
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 forfait -> perdant en LB (tour LB2)
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 correction -> scores appliqués
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 retirer -> score -1
+  OK  simu#2 32j double k=2 correction -> scores appliqués
+  OK  simu#2 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 retirer -> score -1
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 correction -> scores appliqués
+  OK  simu#2 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 retirer -> score -1
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 forfait -> perdant en LB (tour LB2)
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 correction -> scores appliqués
+  OK  simu#2 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 retirer -> score -1
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 correction -> scores appliqués
+  OK  simu#2 32j double k=2 retirer -> score -1
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 correction -> scores appliqués
+  OK  simu#2 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#2 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 retirer -> score -1
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 correction -> scores appliqués
+  OK  simu#2 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 lancer -> en_cours + table
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 lancer -> en_cours
+  OK  simu#2 32j double k=2 table -> appliquée
+  OK  simu#2 32j double k=2 delete event -> score recalculé
+  OK  simu#2 32j double k=2 tournoi terminé en 371 steps
+  OK  simu#2 32j double k=2 champion désigné
+  OK  simu#2 32j double k=2 tous les matchs décidés (55 matchs)
+  OK  simu#2 32j double k=2 invariant anti-rematch final (hard)
+  OK  simu#2 32j double k=2 stats cohérentes (joues=55)
+   -> 55 matchs, 135 interventions admin, 0 swap(s) anti-rematch logués, 0 lancement(s) bloqué(s) 409 rematch, 0 violation(s) soft (manuelles), steps=371
+
+== simu#3 32j double k=2 ==
+  OK  simu#3 32j double k=2 création tournoi
+  OK  simu#3 32j double k=2 32 joueurs simulés
+  OK  simu#3 32j double k=2 tirage 200
+  OK  simu#3 32j double k=2 invariant anti-rematch après tirage
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB2)
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB2)
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB2)
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#3 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#3 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 forfait -> perdant en LB (tour LB2)
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 table occupée -> 409 (pas 500)
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#3 32j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 retirer -> score -1
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 lancer -> en_cours
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 lancer -> en_cours + table
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 delete event -> score recalculé
+  OK  simu#3 32j double k=2 table -> appliquée
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 correction -> scores appliqués
+  OK  simu#3 32j double k=2 tournoi terminé en 363 steps
+  OK  simu#3 32j double k=2 champion désigné
+  OK  simu#3 32j double k=2 tous les matchs décidés (55 matchs)
+  OK  simu#3 32j double k=2 invariant anti-rematch final (hard)
+  OK  simu#3 32j double k=2 stats cohérentes (joues=55)
+   -> 55 matchs, 146 interventions admin, 0 swap(s) anti-rematch logués, 0 lancement(s) bloqué(s) 409 rematch, 0 violation(s) soft (manuelles), steps=363
+
+== simu#4 32j double k=1 ==
+  OK  simu#4 32j double k=1 création tournoi
+  OK  simu#4 32j double k=1 32 joueurs simulés
+  OK  simu#4 32j double k=1 tirage 200
+  OK  simu#4 32j double k=1 invariant anti-rematch après tirage
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 table -> appliquée
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 retirer -> score -1
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 correction termine -> gagnant propagé au tour suivant
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 forfait -> perdant en LB (tour LB1)
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 correction termine -> gagnant propagé au tour suivant
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 forfait -> perdant en LB (tour LB1)
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 forfait -> perdant en LB (tour LB1)
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 forfait -> perdant en LB (tour LB1)
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 table -> appliquée
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 table occupée -> 409 (pas 500)
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 forfait -> perdant en LB (tour LB1)
+  OK  simu#4 32j double k=1 retirer -> score -1
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 correction termine -> gagnant propagé au tour suivant
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 correction termine -> gagnant propagé au tour suivant
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 retirer -> score -1
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 correction termine -> gagnant propagé au tour suivant
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 delete event -> score recalculé
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#4 32j double k=1 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#4 32j double k=1 lancer -> en_cours + table
+  OK  simu#4 32j double k=1 correction -> scores appliqués
+  OK  simu#4 32j double k=1 correction termine -> gagnant propagé au tour suivant
+  OK  simu#4 32j double k=1 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#4 32j double k=1 lancer -> en_cours
+  OK  simu#4 32j double k=1 forfait -> etat forfait, gagnant=autre
+  OK  simu#4 32j double k=1 tournoi terminé en 283 steps
+  OK  simu#4 32j double k=1 champion désigné
+  OK  simu#4 32j double k=1 tous les matchs décidés (55 matchs)
+  OK  simu#4 32j double k=1 invariant anti-rematch final (hard)
+  OK  simu#4 32j double k=1 stats cohérentes (joues=47)
+   -> 55 matchs, 95 interventions admin, 0 swap(s) anti-rematch logués, 0 lancement(s) bloqué(s) 409 rematch, 0 violation(s) soft (manuelles), steps=283
+
+== simu#5 32j double k=3 ==
+  OK  simu#5 32j double k=3 création tournoi
+  OK  simu#5 32j double k=3 32 joueurs simulés
+  OK  simu#5 32j double k=3 tirage 200
+  OK  simu#5 32j double k=3 invariant anti-rematch après tirage
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 retirer -> score -1
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 correction termine -> gagnant propagé au tour suivant
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 forfait -> perdant en LB (tour LB1)
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 forfait -> perdant en LB (tour LB1)
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 forfait -> perdant en LB (tour LB1)
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 forfait -> perdant en LB (tour LB2)
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 forfait -> perdant en LB (tour LB1)
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 retirer -> score -1
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 table occupée -> 409 (pas 500)
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 correction termine -> gagnant propagé au tour suivant
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 retirer -> score -1
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 retirer -> score -1
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 retirer -> score -1
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 table occupée -> 409 (pas 500)
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 correction termine -> gagnant propagé au tour suivant
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 forfait -> perdant en LB (tour LB4)
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 correction termine -> gagnant propagé au tour suivant
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 correction termine -> gagnant propagé au tour suivant
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 correction termine -> gagnant propagé au tour suivant
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 correction termine -> gagnant propagé au tour suivant
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 forfait -> perdant en LB (tour LB4)
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 correction termine -> gagnant propagé au tour suivant
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 correction termine -> gagnant propagé au tour suivant
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 correction -> scores appliqués
+  OK  simu#5 32j double k=3 lancer -> en_cours
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 forfait -> etat forfait, gagnant=autre
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 table -> appliquée
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 delete event -> score recalculé
+  OK  simu#5 32j double k=3 retirer -> score -1
+  OK  simu#5 32j double k=3 lancer -> en_cours + table
+  OK  simu#5 32j double k=3 tournoi terminé en 343 steps
+  OK  simu#5 32j double k=3 champion désigné
+  OK  simu#5 32j double k=3 tous les matchs décidés (59 matchs)
+  OK  simu#5 32j double k=3 invariant anti-rematch final (hard)
+  OK  simu#5 32j double k=3 stats cohérentes (joues=59)
+   -> 59 matchs, 135 interventions admin, 0 swap(s) anti-rematch logués, 0 lancement(s) bloqué(s) 409 rematch, 0 violation(s) soft (manuelles), steps=343
+
+== simu#6 32j simple ==
+  OK  simu#6 32j simple création tournoi
+  OK  simu#6 32j simple 32 joueurs simulés
+  OK  simu#6 32j simple tirage 200
+  OK  simu#6 32j simple invariant anti-rematch après tirage
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple table -> appliquée
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#6 32j simple rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple table -> appliquée
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple forfait -> etat forfait, gagnant=autre
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple table -> appliquée
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple forfait -> etat forfait, gagnant=autre
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple forfait -> etat forfait, gagnant=autre
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple forfait -> etat forfait, gagnant=autre
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple correction termine -> gagnant propagé au tour suivant
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple forfait -> etat forfait, gagnant=autre
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple table occupée -> 409 (pas 500)
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple table occupée -> 409 (pas 500)
+  OK  simu#6 32j simple delete event -> score recalculé
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple table -> appliquée
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple table -> appliquée
+  OK  simu#6 32j simple table -> appliquée
+  OK  simu#6 32j simple table -> appliquée
+  OK  simu#6 32j simple retirer -> score -1
+  OK  simu#6 32j simple lancer -> en_cours + table
+  OK  simu#6 32j simple rouvrir aval commencé -> 409 (pas 500)
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple forfait -> etat forfait, gagnant=autre
+  OK  simu#6 32j simple lancer -> en_cours
+  OK  simu#6 32j simple correction -> scores appliqués
+  OK  simu#6 32j simple tournoi terminé en 232 steps
+  OK  simu#6 32j simple champion désigné
+  OK  simu#6 32j simple tous les matchs décidés (31 matchs)
+  OK  simu#6 32j simple invariant anti-rematch final (hard)
+  OK  simu#6 32j simple stats cohérentes (joues=31)
+   -> 31 matchs, 84 interventions admin, 0 swap(s) anti-rematch logués, 0 lancement(s) bloqué(s) 409 rematch, 0 violation(s) soft (manuelles), steps=232
+
+== simu#7 16j double k=2 ==
+  OK  simu#7 16j double k=2 création tournoi
+  OK  simu#7 16j double k=2 16 joueurs simulés
+  OK  simu#7 16j double k=2 tirage 200
+  OK  simu#7 16j double k=2 invariant anti-rematch après tirage
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 retirer -> score -1
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 correction -> scores appliqués
+  OK  simu#7 16j double k=2 delete event -> score recalculé
+  OK  simu#7 16j double k=2 delete event -> score recalculé
+  OK  simu#7 16j double k=2 lancer -> en_cours + table
+  OK  simu#7 16j double k=2 correction -> scores appliqués
+  OK  simu#7 16j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#7 16j double k=2 table -> appliquée
+  OK  simu#7 16j double k=2 delete event -> score recalculé
+  OK  simu#7 16j double k=2 lancer -> en_cours + table
+  OK  simu#7 16j double k=2 lancer -> en_cours + table
+  OK  simu#7 16j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#7 16j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#7 16j double k=2 correction -> scores appliqués
+  OK  simu#7 16j double k=2 retirer -> score -1
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#7 16j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#7 16j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#7 16j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#7 16j double k=2 forfait -> perdant en LB (tour LB1)
+  OK  simu#7 16j double k=2 lancer -> en_cours + table
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 table occupée -> 409 (pas 500)
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 retirer -> score -1
+  OK  simu#7 16j double k=2 correction -> scores appliqués
+  OK  simu#7 16j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#7 16j double k=2 retirer -> score -1
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 lancer -> en_cours + table
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 lancer -> en_cours + table
+  OK  simu#7 16j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#7 16j double k=2 table -> appliquée
+  OK  simu#7 16j double k=2 lancer -> en_cours + table
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 table -> appliquée
+  OK  simu#7 16j double k=2 delete event -> score recalculé
+  OK  simu#7 16j double k=2 delete event -> score recalculé
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 delete event -> score recalculé
+  OK  simu#7 16j double k=2 table -> appliquée
+  OK  simu#7 16j double k=2 lancer -> en_cours + table
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 correction -> scores appliqués
+  OK  simu#7 16j double k=2 delete event -> score recalculé
+  OK  simu#7 16j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#7 16j double k=2 retirer -> score -1
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 retirer -> score -1
+  OK  simu#7 16j double k=2 correction -> scores appliqués
+  OK  simu#7 16j double k=2 correction termine -> gagnant propagé au tour suivant
+  OK  simu#7 16j double k=2 lancer -> en_cours
+  OK  simu#7 16j double k=2 forfait -> etat forfait, gagnant=autre
+  OK  simu#7 16j double k=2 tournoi terminé en 155 steps
+  OK  simu#7 16j double k=2 champion désigné
+  OK  simu#7 16j double k=2 tous les matchs décidés (27 matchs)
+  OK  simu#7 16j double k=2 invariant anti-rematch final (hard)
+  OK  simu#7 16j double k=2 stats cohérentes (joues=27)
+   -> 27 matchs, 57 interventions admin, 0 swap(s) anti-rematch logués, 0 lancement(s) bloqué(s) 409 rematch, 0 violation(s) soft (manuelles), steps=155
+  OK  aucune erreur 500 sur toute la simu
+
+=== 926 OK / 0 ÉCHEC — 0 rematch_swap_f au total ===

@@ -1,0 +1,53 @@
+=== TEST UNIT PUSH (envoyerTous + notifierInscriptionAmi + notifierMatchLance, mock web-push) ===
+
+[PUSH] VAPID générée et persistée en base: dev-pub (les abonnements existants doivent être réactivés une fois)
+  OK  envoyerTous renvoie le nb d'envois (2 abonnés)
+  OK  2 notifications envoyées avec le bon payload
+  OK  payload contient le tag
+  OK  envoyé aux 2 bons endpoints
+  OK  410 -> 0 envoi et subscriptions mortes supprimées
+  OK  500 -> subscription conservée (pas 404/410)
+  OK  404 -> subscription supprimée
+  OK  sans aucune subscription -> 0 sans crash
+
+--- notifierInscriptionAmi ---
+  OK  inscription ami: envoyé seulement à l'ami avec la pref active
+  OK  payload inscription ami correct
+  OK  pref réactivée -> les 2 amis notifiés, le non-ami exclu
+  OK  aucun ami -> 0 envoi sans crash
+
+--- notifierMatchLance ---
+  OK  match lancé: 3 envois (2 joueurs + ami pref active)
+  OK  joueurs: payload « À toi de jouer »
+  OK  ami pref active: payload « Match d'un ami en cours » + lien match
+  OK  ami pref match désactivée: exclu
+  OK  pref match réactivée -> 4 envois (ami inclus)
+
+--- suivi par pseudo (ami sans compte) ---
+  OK  adversaire anonyme: joueur + 2 amis par compte + suiveur du pseudo notifiés (4)
+  OK  suiveur du pseudo: payload « Match d'un ami en cours » + lien match
+  OK  compte ami ET suiveur du même pseudo -> 1 seul envoi (dédup)
+  OK  inscription anonyme sous pseudo suivi -> 1 envoi (compteId null)
+  OK  payload inscription pseudo correct (tag p-)
+  OK  pref inscription désactivée -> 0 envoi
+
+--- i18n par destinataire (compte.lang) ---
+  OK  envoyerTous bilingue: compte "en" reçoit EN, les autres FR (9 envois)
+  OK  envoyerTest: langue stockee "en" prioritaire sur le hint fr, payload anglais + /parametres.html
+  OK  envoyerTest: compte sans lang -> repli sur le hint (X-Lang en)
+  OK  notifierMatchLance: ami "en" reçoit "A friend's match is live", ami fr reste en français
+
+--- i18n étendu (es/de) ---
+  OK  envoyerTous 5 langues: compte "es" reçoit ES, "en" reçoit EN, les autres FR (10 envois)
+  OK  envoyerTest: compte "es" -> payload espagnol + /parametres.html
+  OK  notifierMatchLance: ami "de" reçoit « Spiel eines Freundes läuft »
+
+--- 17s: URLs des notifications portant le club ---
+  OK  17s: notifierMatchLance porte le club du tournoi dans l URL
+  OK  17s: envoyerTous porte le club dans l URL (fr + fr traduit)
+  OK  17s: envoyerTest porte le club de la souscription
+  OK  82: envoyerAdminsClub envoie UNIQUEMENT aux admins du club (admin global + compte_club admin), pas au user ni a l operateur
+  OK  82: payload alerte porte tag + url scoreboard
+  OK  82: traduction selon compte.lang du destinataire
+
+=== 36 OK / 0 ÉCHEC ===

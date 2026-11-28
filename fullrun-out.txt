@@ -1,0 +1,26 @@
+== Tournoi 16 joueurs, format=double k=2 ==
+  OK  création
+  OK  tirage
+  OK  tournoi terminé avec champion (P13)
+  OK  tous les matchs joués (27/27)
+   -> 27 matchs, champion = P13
+== Tournoi 16 joueurs, format=simple ==
+  OK  création
+  OK  tirage
+  OK  tournoi terminé avec champion (P16)
+  OK  tous les matchs joués (15/15)
+   -> 15 matchs, champion = P16
+== Tournoi 32 joueurs, format=double k=1 ==
+  OK  création
+  OK  tirage
+  OK  tournoi terminé avec champion (P12)
+  OK  tous les matchs joués (55/55)
+   -> 55 matchs, champion = P12
+== Tournoi 32 joueurs, format=double k=3 ==
+  OK  création
+  OK  tirage
+  OK  tournoi terminé avec champion (P28)
+  OK  tous les matchs joués (59/59)
+   -> 59 matchs, champion = P28
+
+SIMULATION COMPLÈTE OK
