@@ -152,6 +152,7 @@ L'estimation est en effort relatif (S < 1 j, M ~ 1-2 j, L > 2 j ou chantier stru
 | 104 | **Scoreboard tablette plein écran gros boutons** pour la table de marque (digital scoreboard CueScore) + **widget bracket live embarquable** sur le site du club / overlay OBS aux couleurs du club (CueScore Nexus) | M | ⬜ à étudier |
 | 105 | **Formats Suisse et poules (group stage)** en plus de SE/DKO (repris de Challonge) : gros fields, seeding aléatoire/manuel/par rating | M | ⬜ à étudier |
 | 106 | **Paiement en ligne des inscriptions** (repris de CueScore/CompuSport/SportEasy) : Stripe à l'inscription, le badge paiement (105) devient le fallback manuel ; monétisation + traçabilité | M | ⬜ à étudier |
+| 107 | **Pont CueScore (idée notée)** : import lecture via api.cuescore.com (beta publique, JSON tournois/matchs/résultats) -> mapping table cuescore_id <-> id local -> tournoi géré dans l'app (l'app = maître pendant l'événement) -> push des résultats vers CueScore. LECTURE OK dès maintenant ; ÉCRITURE pas self-service : officiel = intégration type Kozoom, sur accord avec CueScore (plans Network/Nexus, niveau fédération) — à négocier via la FFB/la ligue. MVP : pull auto + push manuel (export CSV) ; design derrière un adapter CueScoreAdapter (pull/push) pour changer de backend sans toucher au cœur. But : garder la progression ELO des joueurs sur CueScore (calculée par eux depuis les résultats poussés) | M | ⬜ à étudier |
 
 ## 🏛️ Plateforme / centralisation (cap confirmé)
 
